@@ -1,0 +1,137 @@
+# Kompendium — Wizja projektu
+
+> Cyfrowe laboratorium myśli: system do budowania osobistego kompendium wiedzy od zera,
+> z bezkompromisowym oparciem każdego twierdzenia na materiale źródłowym.
+
+---
+
+## 1. Główna motywacja i filozofia
+
+Tradycyjne książki i notatniki są **liniowe i statyczne** — narzucają jedną kolejność
+i zamykają wiedzę w sztywnych rozdziałach. Mózg tak nie działa; myśli tworzą sieć połączeń.
+
+Cel projektu:
+
+- **Nieliniowe powiązania** — wiedza jako graf, nie jako lista rozdziałów.
+- **Bezkompromisowe źródłowanie** — każde zdanie ma odpowiedź na pytanie *„skąd ja to wiem?"*.
+- Nauka rzeczy **trudnych, logicznych i strukturalnych** — nacisk na nauki ścisłe:
+  matematykę, fizykę, inżynierię.
+
+### Czym to jest lepsze od zwykłej książki? (uczciwa odpowiedź)
+
+To pytanie padło i zasługuje na poważną odpowiedź. Książka jest lepsza w jednym:
+autor przemyślał kolejność za Ciebie. Kompendium wygrywa tam, gdzie książka nie sięga:
+
+1. **Synteza wielu źródeł** — jedna definicja może mieć wersję z książki A i B;
+   książka daje Ci tylko swoją.
+2. **Twoja kolejność** — możesz zbudować własną ścieżkę przez materiał
+   (np. „szybka powtórka do egzaminu" vs „pełny wykład od podstaw").
+3. **Historia zrozumienia** — system rejestruje, jak ewoluowało Twoje rozumienie pojęcia.
+   Książka nie wie, że czegoś kiedyś nie rozumiałeś.
+4. **Sam akt budowania** — przepisanie, rozbicie na atomy i połączenie wiedzy
+   to jest nauka. Produkt (kompendium) jest w połowie pretekstem do procesu.
+5. **Wyszukiwalność i powiązania** — „gdzie jeszcze używam metryki?" — jedna sekunda,
+   nie kartkowanie trzech książek.
+
+**Ryzyko do zapamiętania:** łatwo wpaść w pułapkę *budowania systemu do nauki zamiast nauki*.
+Dlatego MVP ma być mały i używalny szybko (patrz [ROADMAP.md](ROADMAP.md)).
+
+---
+
+## 2. Architektura systemu — rozdzielenie treści od formy
+
+System ma **dwa poziomy**: Magazyn Atomowy (czysta wiedza) i Poziom Przestrzenny
+(komponowanie jej w całość).
+
+### Poziom 1: Baza Atomowa („Magazyn Klocków")
+
+Wiedza rozbita na najmniejsze niezależne jednostki — **Klocki Wiedzy**.
+Każdy klocek to osobny obiekt w bazie:
+
+| Element | Opis |
+|---|---|
+| **Typ klocka** | Ścisła kategoryzacja: `Definicja`, `Twierdzenie`, `Dowód`, `Przykład` (+ ew. `Lemat`, `Uwaga`, `Intuicja`) |
+| **Metadane** | Unikalna nazwa, tagi (np. `#matematyka`, `#topologia`), data utworzenia |
+| **Wersjonowanie** | Wiele wersji tego samego pojęcia — np. v1 na bazie Książki A, v2 uzupełniona po Książce B. System rejestruje **ewolucję zrozumienia**, stare wersje nie znikają |
+| **Context-Lock (osadzenie w źródle)** | Każde zdanie/dowód można podpiąć bezpośrednio pod materiał źródłowy — precyzyjny wycinek strony PDF (screenshot regionu + odnośnik: plik, strona, współrzędne). Kontekst nigdy nie ginie |
+
+### Poziom 2: Poziom Przestrzenny (Ścieżki i Kompozycja)
+
+Klocki są surowcem; z nich buduje się **Ścieżki** (skrypty nauki).
+
+- **Nieskończona tablica (Canvas)** — ścieżki projektuje się przestrzennie:
+  klocki jako kafelki, połączone strzałkami ustalającymi logiczną kolejność.
+  Z gotowej ścieżki system generuje **jeden ciągły tekst** (eksport do PDF / skrypt wykładu).
+- **Tkanka łączna (Intuicja)** — między sztywnymi klockami użytkownik dopisuje na mapie
+  luźny tekst budujący intuicję i spajający całość. Ten tekst należy do ścieżki,
+  **nie modyfikuje** oryginalnych klocków w bazie.
+- **Fuzja bloków** — kilka klocków na mapie (np. *Definicja Przestrzeni* + *Definicja Metryki*)
+  można scalić w danej ścieżce w jeden bloczek (*Przestrzeń Metryczna*),
+  **bez niszczenia ich atomowości** w bazie głównej.
+- **Wybór wersji** — ścieżka wskazuje konkretną wersję każdego klocka
+  (np. „w tym skrypcie używam definicji zwartości wg Rudina, nie wg wykładu").
+
+### Kluczowa zasada
+
+> **Klocek w bazie jest niezmienny przez ścieżki.** Ścieżka to widok/kompozycja,
+> nie edytor treści. Edycja klocka = nowa wersja klocka.
+
+---
+
+## 3. Interfejs i wymagania techniczne
+
+1. **Hybrydowy edytor tekstu** — bazowo prosty i czysty jak Google Docs (WYSIWYG),
+   ale w każdej chwili można przełączyć na **widok kodu** (Markdown/LaTeX)
+   i pisać bezpośrednio ze źródła. Oba widoki są równoprawne.
+2. **Potężny LaTeX** — dwa poziomy:
+   - *Wzory* (inline `$...$`, display, `align`, `cases`) — renderowane natychmiastowo
+     podczas pisania.
+   - *Pełny LaTeX jak w Overleafie* — zaawansowana grafika (**TikZ**, `pgfplots`,
+     diagramy przemienne itd.) z możliwością dociągania pakietów jak w Overleafie.
+     W notatkach ma się dać wygenerować „niezwykle wiele rzeczy matematycznych".
+     Wynik kompilacji jest cache'owany (SVG), żeby telefon nie musiał nic kompilować.
+3. **Pełna synchronizacja multiplatformowa** — komputer + telefon, edycja w czasie
+   rzeczywistym, zmiana na jednym urządzeniu natychmiast widoczna na drugim.
+4. **Estetyka jako wymaganie pierwszej klasy** — środowisko ma być *przyjemne*:
+   przejrzyste, spokojne typograficznie, bez wizualnego szumu. To nie dodatek — to powód,
+   dla którego będzie się chciało do niego wracać.
+5. **Praca z PDF (Context-Lock, doprecyzowane)** — wrzucamy PDF do aplikacji
+   (albo linkujemy własny). Podczas tworzenia klocka zaznaczamy w PDF-ie fragment
+   **prostokątem** — celowo nie zaznaczeniem tekstu, bo PDF może być zbiorem skanów/zdjęć
+   bez warstwy tekstowej. Z klocka można z takiego linku **bezpośrednio skoczyć**
+   do zaznaczonego miejsca w PDF-ie (właściwa strona + podświetlony prostokąt).
+
+---
+
+## 4. Decyzje (rozstrzygnięte)
+
+- [x] **Build vs. adapt** → **BUILD**. Budujemy od zera, nie adaptujemy istniejących narzędzi.
+- [x] **Stack technologiczny** → web app (PWA), szczegóły w [ROADMAP.md](ROADMAP.md) Etap 0.
+  Twarde ograniczenie: **zero kosztów** — wyłącznie darmowe biblioteki i darmowe tiery usług.
+- [x] **Format przechowywania** → wszechstronny i oszczędny: treść jako Markdown+LaTeX
+  (tekst = grosze pamięciowo), metadane jako JSON. Odnośniki do PDF przechowywane jako
+  **współrzędne** (plik, strona, prostokąt), nie jako zapisane obrazy — wycinek renderuje się
+  z PDF na żądanie. Oszczędza to pamięć (istotne na telefonie) i zachowuje żywy link do źródła.
+- [x] **Model wersjonowania** → jawne wersje: „zapisz jako v2". Użytkownik świadomie
+  tworzy nową wersję pojęcia; stare zostają w historii.
+- [x] **Zakres MVP** → ROADMAP.md Etap 1. Uwaga: „szybko używalne" rozumiemy jako
+  *najpierw najważniejszy fundament*, nie jako cięcie jakości.
+- [x] **Nazwa** → **Kompendium** (robocza; zmiana później nie ma znaczenia).
+
+### Wciąż otwarte
+
+- [ ] **Wygląd tablicy (canvas)** — czym i jak mają wyglądać ścieżki na mapie; do ustalenia
+  przy Etapie 3 (będą prototypy do porównania).
+- [ ] **Mechanizm sync** — do rozstrzygnięcia przy Etapie 5; kierunek: notatki (tekst) są
+  malutkie i sync-uje się je łatwo, ciężkie PDF-y trzymane w chmurze / pobierane na żądanie,
+  żeby nie zapychać pamięci telefonu.
+
+---
+
+## 5. Czym to NIE jest
+
+- To nie jest kolejny generyczny notatnik „do wszystkiego" — jest wyspecjalizowany
+  w wiedzy strukturalnej (definicja → twierdzenie → dowód → przykład).
+- To nie jest menedżer zadań, kalendarz ani dziennik.
+- To nie jest (przynajmniej na początku) narzędzie do współpracy wieloosobowej —
+  jeden użytkownik, wiele urządzeń.
