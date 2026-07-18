@@ -227,6 +227,15 @@ select.type-select {
   gap: 10px;
 }
 
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sidebar-actions .btn-primary {
+  flex: 1;
+}
+
 .app-title {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 22px;
@@ -292,6 +301,101 @@ select.type-select {
 .concept-tags {
   font-size: 12px;
   color: var(--muted);
+}
+
+/* ---- drzewo folderów ---- */
+
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--ink-soft);
+  user-select: none;
+}
+
+.folder-row:hover {
+  background: var(--panel);
+}
+
+.folder-chevron {
+  display: inline-block;
+  width: 14px;
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform 0.12s;
+}
+
+.folder-chevron.open {
+  transform: rotate(90deg);
+}
+
+.folder-name {
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-count {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.folder-actions {
+  display: none;
+  gap: 2px;
+}
+
+.folder-row:hover .folder-actions {
+  display: inline-flex;
+}
+
+.folder-action {
+  font: inherit;
+  font-size: 12px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.folder-action:hover {
+  color: var(--ink);
+}
+
+.folder-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- podpowiedzi przeciągania ---- */
+
+.folder-row.drop-into {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.concept-item.drop-before {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.concept-item.drop-after {
+  box-shadow: 0 2px 0 0 var(--accent);
+}
+
+.concept-list.drop-root {
+  outline: 2px dashed var(--line-strong);
+  outline-offset: -4px;
+  border-radius: 8px;
 }
 
 /* --------------------------------------------------------------------------
@@ -606,9 +710,67 @@ select.type-select {
   border-bottom: 1px solid var(--line);
 }
 
-.pdf-select {
+.pdf-lib-toggle {
   flex: 1;
   min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- biblioteka PDF (foldery jednopoziomowe) ---- */
+
+.pdf-library {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  padding: 8px 10px;
+  max-height: 45%;
+  overflow-y: auto;
+}
+
+.pdf-library.drop-root {
+  outline: 2px dashed var(--line-strong);
+  outline-offset: -4px;
+}
+
+.pdflib-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.pdflib-empty {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 6px 2px;
+}
+
+.pdflib-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdflib-item:hover {
+  background: var(--panel-alt);
+}
+
+.pdflib-item.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .pdf-nav {

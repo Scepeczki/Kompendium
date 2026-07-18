@@ -5,6 +5,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, importPdf } from '../db'
 import type { Rect, SourceRef } from '../types'
+import { PdfLibrary } from './PdfLibrary'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -33,6 +34,7 @@ interface DragState {
 export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props) {
   const pdfs = useLiveQuery(() => db.pdfs.orderBy('addedAt').toArray(), []) ?? []
   const [pdfId, setPdfId] = useState<string | null>(null)
+  const [libOpen, setLibOpen] = useState(false)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [page, setPage] = useState(1)
   const [pageCount, setPageCount] = useState(0)
@@ -176,18 +178,13 @@ export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props)
   return (
     <section className="pdf-panel">
       <header className="pdf-toolbar">
-        <select
-          className="input pdf-select"
-          value={pdfId ?? ''}
-          onChange={(e) => setPdfId(e.target.value || null)}
+        <button
+          className={`btn pdf-lib-toggle ${libOpen ? 'btn-active' : ''}`}
+          title="Biblioteka PDF-ów"
+          onClick={() => setLibOpen((o) => !o)}
         >
-          <option value="">— wybierz PDF —</option>
-          {pdfs.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
+          🕮 {pdfs.find((p) => p.id === pdfId)?.title ?? 'Biblioteka'}
+        </button>
         <button className="btn" onClick={() => fileInputRef.current?.click()}>
           + Wrzuć PDF
         </button>
@@ -223,6 +220,16 @@ export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props)
           ✕
         </button>
       </header>
+
+      {libOpen && (
+        <PdfLibrary
+          currentId={pdfId}
+          onOpen={(id) => {
+            setPdfId(id)
+            setLibOpen(false)
+          }}
+        />
+      )}
 
       {selecting && (
         <div className="pdf-banner">

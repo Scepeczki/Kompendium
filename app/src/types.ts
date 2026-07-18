@@ -41,12 +41,29 @@ export interface SourceRef {
   note?: string
 }
 
+/** Rodzaj folderu: na klocki (drzewo) albo na PDF-y (jeden poziom). */
+export type FolderKind = 'concepts' | 'pdfs'
+
+/** Folder organizujący klocki lub PDF-y. */
+export interface Folder {
+  id: string
+  kind: FolderKind
+  name: string
+  /** null = poziom główny. Dla kind='pdfs' zawsze null (bez zagnieżdżania). */
+  parentId: string | null
+  createdAt: string
+}
+
 /** Pojęcie — klocek wiedzy. Treść żyje wyłącznie w wersjach (BlockVersion). */
 export interface Concept {
   id: string
   name: string
   type: BlockType
   tags: string[]
+  /** null = poziom główny drzewa. */
+  folderId: string | null
+  /** Ręczna kolejność w obrębie folderu (ułamkowa — wstawianie pomiędzy). */
+  order: number
   /** ISO — punkt na osi zdobywania wiedzy. */
   createdAt: string
   updatedAt: string
@@ -72,6 +89,8 @@ export interface PdfDoc {
   id: string
   title: string
   fileName: string
+  /** null = poza folderami (poziom główny biblioteki). */
+  folderId: string | null
   addedAt: string
   data: Blob
 }
