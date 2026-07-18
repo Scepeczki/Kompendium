@@ -26,6 +26,7 @@ interface Props {
   version: BlockVersion
   versions: BlockVersion[]
   onShowVersion: (versionId: string | null) => void
+  onClose: () => void
   onDeleted: () => void
   selecting: boolean
   onToggleSelecting: () => void
@@ -37,6 +38,7 @@ export function BlockEditor({
   version,
   versions,
   onShowVersion,
+  onClose,
   onDeleted,
   selecting,
   onToggleSelecting,
@@ -129,6 +131,13 @@ export function BlockEditor({
           />
           <button className="btn btn-danger" title="Usuń pojęcie" onClick={handleDelete}>
             Usuń
+          </button>
+          <button
+            className="btn btn-close"
+            title="Zamknij klocek (wróć do widoku startowego)"
+            onClick={onClose}
+          >
+            ✕
           </button>
         </div>
 

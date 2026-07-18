@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, updateVersion } from './db'
 import type { SourceRef } from './types'
@@ -6,12 +6,56 @@ import { Sidebar } from './components/Sidebar'
 import { BlockEditor } from './components/BlockEditor'
 import { PdfPanel, type PdfTarget } from './components/PdfPanel'
 
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
+
+/** Pionowa krawędź do zmiany szerokości sąsiedniego panelu. */
+function Splitter({ onDrag }: { onDrag: (dx: number) => void }) {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    let last = e.clientX
+    const move = (ev: MouseEvent) => {
+      onDrag(ev.clientX - last)
+      last = ev.clientX
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      document.body.classList.remove('resizing')
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    document.body.classList.add('resizing')
+  }
+  return <div className="splitter" onMouseDown={handleMouseDown} />
+}
+
 export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** null = pokazuj bieżącą wersję pojęcia. */
   const [shownVersionId, setShownVersionId] = useState<string | null>(null)
   const [selecting, setSelecting] = useState(false)
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null)
+
+  // Układ paneli — zapamiętywany między sesjami.
+  const [showPdf, setShowPdf] = useState(
+    () => localStorage.getItem('ui.showPdf') !== '0',
+  )
+  const [sidebarW, setSidebarW] = useState(
+    () => Number(localStorage.getItem('ui.sidebarW')) || 280,
+  )
+  const [pdfW, setPdfW] = useState(
+    () => Number(localStorage.getItem('ui.pdfW')) || 520,
+  )
+
+  useEffect(() => {
+    localStorage.setItem('ui.showPdf', showPdf ? '1' : '0')
+  }, [showPdf])
+  useEffect(() => {
+    localStorage.setItem('ui.sidebarW', String(sidebarW))
+  }, [sidebarW])
+  useEffect(() => {
+    localStorage.setItem('ui.pdfW', String(pdfW))
+  }, [pdfW])
 
   const concept = useLiveQuery(
     () => (selectedId ? db.concepts.get(selectedId) : undefined),
@@ -35,6 +79,20 @@ export default function App() {
     setSelecting(false)
   }
 
+  const closeConcept = () => {
+    setSelectedId(null)
+    setShownVersionId(null)
+    setSelecting(false)
+  }
+
+  /** Tryb podpinania źródła — jeśli panel PDF jest schowany, pokaż go. */
+  const toggleSelecting = () => {
+    setSelecting((s) => {
+      if (!s) setShowPdf(true)
+      return !s
+    })
+  }
+
   /** Użytkownik narysował prostokąt w PDF → podpinamy źródło do pokazywanej wersji. */
   const handleRegionSelected = async (base: Omit<SourceRef, 'id'>) => {
     if (!effectiveVersionId) return
@@ -46,9 +104,14 @@ export default function App() {
     setSelecting(false)
   }
 
+  const cols = [`${sidebarW}px`, '5px', 'minmax(300px, 1fr)']
+  if (showPdf) cols.push('5px', `${pdfW}px`)
+  else cols.push('30px')
+
   return (
-    <div className="app">
+    <div className="app" style={{ gridTemplateColumns: cols.join(' ') }}>
       <Sidebar selectedId={selectedId} onSelect={selectConcept} />
+      <Splitter onDrag={(dx) => setSidebarW((w) => clamp(w + dx, 200, 480))} />
 
       {concept && version ? (
         <BlockEditor
@@ -56,15 +119,14 @@ export default function App() {
           version={version}
           versions={versions}
           onShowVersion={setShownVersionId}
-          onDeleted={() => {
-            setSelectedId(null)
-            setShownVersionId(null)
-          }}
+          onClose={closeConcept}
+          onDeleted={closeConcept}
           selecting={selecting}
-          onToggleSelecting={() => setSelecting((s) => !s)}
-          onJumpToSource={(ref) =>
+          onToggleSelecting={toggleSelecting}
+          onJumpToSource={(ref) => {
+            setShowPdf(true)
             setPdfTarget({ pdfId: ref.pdfId, page: ref.page, rect: ref.rect })
-          }
+          }}
         />
       ) : (
         <section className="editor editor-welcome">
@@ -82,11 +144,34 @@ export default function App() {
         </section>
       )}
 
-      <PdfPanel
-        selecting={selecting && !!version}
-        onRegionSelected={handleRegionSelected}
-        target={pdfTarget}
-      />
+      {showPdf ? (
+        <>
+          <Splitter
+            onDrag={(dx) =>
+              setPdfW((w) =>
+                clamp(w - dx, 280, Math.floor(window.innerWidth * 0.7)),
+              )
+            }
+          />
+          <PdfPanel
+            selecting={selecting && !!version}
+            onRegionSelected={handleRegionSelected}
+            target={pdfTarget}
+            onHide={() => {
+              setShowPdf(false)
+              setSelecting(false)
+            }}
+          />
+        </>
+      ) : (
+        <button
+          className="pdf-reopen"
+          title="Pokaż panel PDF"
+          onClick={() => setShowPdf(true)}
+        >
+          <span>📖 PDF</span>
+        </button>
+      )}
     </div>
   )
 }

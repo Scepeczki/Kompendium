@@ -54,9 +54,65 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: 280px minmax(360px, 1fr) minmax(320px, 40%);
+  /* kolumny ustawiane dynamicznie w App.tsx (przeciągane krawędzie) */
+  grid-template-columns: 280px 5px minmax(300px, 1fr) 5px 520px;
   height: 100vh;
   overflow: hidden;
+}
+
+/* przeciągana krawędź między panelami */
+.splitter {
+  cursor: col-resize;
+  background: var(--line);
+  transition: background 0.15s;
+}
+
+.splitter:hover {
+  background: var(--accent);
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.resizing iframe,
+body.resizing canvas {
+  pointer-events: none;
+}
+
+/* przycisk zamykania (edytor / panel PDF) */
+.btn-close {
+  padding: 5px 9px;
+  color: var(--muted);
+}
+
+.btn-close:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+/* wąski pasek do przywrócenia schowanego panelu PDF */
+.pdf-reopen {
+  font: inherit;
+  border: none;
+  border-left: 1px solid var(--line);
+  background: var(--panel-alt);
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0;
+}
+
+.pdf-reopen span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  padding: 14px 0;
+}
+
+.pdf-reopen:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 /* --------------------------------------------------------------------------

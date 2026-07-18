@@ -20,6 +20,7 @@ interface Props {
   selecting: boolean
   onRegionSelected: (ref: Omit<SourceRef, 'id'>) => void
   target: PdfTarget | null
+  onHide: () => void
 }
 
 interface DragState {
@@ -29,7 +30,7 @@ interface DragState {
   y1: number
 }
 
-export function PdfPanel({ selecting, onRegionSelected, target }: Props) {
+export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props) {
   const pdfs = useLiveQuery(() => db.pdfs.orderBy('addedAt').toArray(), []) ?? []
   const [pdfId, setPdfId] = useState<string | null>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
@@ -43,6 +44,17 @@ export function PdfPanel({ selecting, onRegionSelected, target }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Szerokość panelu (obserwowana), żeby strona przerysowała się po
+  // przeciągnięciu krawędzi panelu.
+  const [containerW, setContainerW] = useState(0)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setContainerW(el.clientWidth))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // Otwórz dokument po wyborze PDF-a.
   useEffect(() => {
@@ -83,7 +95,7 @@ export function PdfPanel({ selecting, onRegionSelected, target }: Props) {
     ;(async () => {
       const p = await doc.getPage(page)
       if (cancelled) return
-      const containerWidth = containerRef.current?.clientWidth ?? 600
+      const containerWidth = containerW || (containerRef.current?.clientWidth ?? 600)
       const base = p.getViewport({ scale: 1 })
       const s = Math.max(0.1, (containerWidth - 24) / base.width)
       const viewport = p.getViewport({ scale: s })
@@ -104,7 +116,7 @@ export function PdfPanel({ selecting, onRegionSelected, target }: Props) {
     return () => {
       cancelled = true
     }
-  }, [doc, page])
+  }, [doc, page, containerW])
 
   const goToPage = (n: number) => {
     setPage(Math.min(Math.max(1, n), pageCount))
@@ -203,6 +215,13 @@ export function PdfPanel({ selecting, onRegionSelected, target }: Props) {
             </button>
           </div>
         )}
+        <button
+          className="btn btn-close"
+          title="Schowaj panel PDF"
+          onClick={onHide}
+        >
+          ✕
+        </button>
       </header>
 
       {selecting && (
