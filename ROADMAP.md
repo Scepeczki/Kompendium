@@ -83,11 +83,18 @@ wyłącznie w systemie.
 
 ---
 
-## Etap 4 — Hybrydowy edytor i dopieszczenie
+## Etap 4 — Hybrydowy edytor i dopieszczenie ✅ (rdzeń)
 
-- [ ] Tryb WYSIWYG (à la Google Docs) ↔ tryb kodu (à la Overleaf), przełączany w locie.
-- [ ] Dopracowana typografia i estetyka (motyw jasny/ciemny, spokojna paleta).
-- [ ] Skróty klawiszowe, szybkie wstawianie środowisk (twierdzenie, dowód □).
+- [x] Tryb WYSIWYG „Wizualny" (TipTap) ↔ „Kod" (CodeMirror) ↔ „Podział",
+  przełączane w locie; źródłem prawdy zawsze Markdown+LaTeX. Wzory `$…$`
+  renderują się w miejscu w trybie wizualnym; klik we wzór pokazuje kod.
+- [x] Motyw jasny/ciemny: przełącznik ☾ w pasku bocznym, start wg preferencji
+  systemowej, wybór zapamiętywany.
+- [x] Skróty: Ctrl+B/I (pogrubienie/kursywa), Ctrl+M wzór `$…$`,
+  Ctrl+Shift+M wzór `$$…$$` (w trybie kodu i oknie notatki); pasek
+  formatowania w trybie wizualnym (B, I, nagłówek, listy, cytat, wzory).
+- [ ] Szybkie wstawianie środowisk (twierdzenie, dowód □) — wróci razem
+  z decyzją o reprezentacji dowodów (sekcja „Do przemyślenia").
 
 ---
 

@@ -1,4 +1,4 @@
-// Test Etapu 3: ścieżka na canvasie — kafelki, strzałki, tekst, fuzja, skrypt.
+﻿// Test Etapu 3: ścieżka na canvasie — kafelki, strzałki, tekst, fuzja, skrypt.
 import { chromium } from 'playwright'
 
 const errors = []
@@ -24,6 +24,7 @@ for (const [name, content] of [
   await page.click('text=+ Nowy klocek')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
+  await page.click('.view-switch button:has-text("Podział")')
   await page.click('.cm-content')
   await page.keyboard.type(content)
   await page.waitForTimeout(600)

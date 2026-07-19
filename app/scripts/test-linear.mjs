@@ -1,4 +1,4 @@
-// Test trybu liniowego: doklejanie klocków, notatka między segmentami,
+﻿// Test trybu liniowego: doklejanie klocków, notatka między segmentami,
 // zmiana kolejności uchwytem, spójność ze skryptem i mapą.
 import { chromium } from 'playwright'
 
@@ -24,6 +24,7 @@ for (const [name, content] of [
   await page.click('text=+ Nowy klocek')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
+  await page.click('.view-switch button:has-text("Podział")')
   await page.click('.cm-content')
   await page.keyboard.type(content)
   await page.waitForTimeout(600)

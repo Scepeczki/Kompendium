@@ -33,6 +33,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
+import { mdShortcuts } from '../cmShortcuts'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
@@ -1288,7 +1289,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
                     <CodeMirror
                       value={text}
                       onChange={(v) => api.updateData(n.id, { text: v })}
-                      extensions={[markdown()]}
+                      extensions={[markdown(), mdShortcuts]}
                       placeholder={'Markdown + LaTeX: $x^2$…'}
                       basicSetup={{ lineNumbers: false, foldGutter: false }}
                       style={{ height: '100%' }}

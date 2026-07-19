@@ -448,6 +448,18 @@ export function Sidebar({
           >
             🕸
           </button>
+          <button
+            className="btn"
+            title="Przełącz motyw jasny/ciemny"
+            onClick={() => {
+              const next =
+                document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
+              document.documentElement.dataset.theme = next
+              localStorage.setItem('ui.theme', next)
+            }}
+          >
+            ☾
+          </button>
         </div>
       </header>
 

@@ -33,6 +33,87 @@
   line-height: 1.55;
 }
 
+/* motyw ciemny: papier gaśnie, atrament jaśnieje — te same relacje kontrastu */
+:root[data-theme='dark'] {
+  --paper: #16140f;
+  --panel: #201d17;
+  --panel-alt: #1b1913;
+  --ink: #e9e3d4;
+  --ink-soft: #c7bfab;
+  --muted: #8f8877;
+  --line: #363126;
+  --line-strong: #4c4534;
+  --accent: #5f9c7d;
+  --accent-ink: #85b89b;
+  --accent-soft: #27382e;
+  --danger: #d58467;
+
+  --c-definicja: #5c8cc9;
+  --c-twierdzenie: #9a79c9;
+  --c-lemat: #ab85cf;
+  --c-dowod: #8f8f88;
+  --c-przyklad: #64a37c;
+  --c-uwaga: #c99a52;
+  --c-intuicja: #c97e9c;
+}
+
+/* elementy z kolorami zapisanymi na sztywno — wersje ciemne */
+:root[data-theme='dark'] .editor-banner {
+  background: #3a2f1a;
+  color: #d9b96a;
+  border-bottom-color: #4a3d22;
+}
+
+:root[data-theme='dark'] .path-node-text {
+  background: #2b2718;
+  border-color: #4a4228;
+}
+
+:root[data-theme='dark'] .path-node-grip {
+  border-bottom-color: #4a4228;
+}
+
+:root[data-theme='dark'] .path-node-comment,
+:root[data-theme='dark'] .linear-sidenote {
+  background: #1e2733;
+  border-color: #33455c;
+}
+
+:root[data-theme='dark'] .path-node-comment .path-node-grip {
+  border-bottom-color: #33455c;
+}
+
+:root[data-theme='dark'] .linear-comment-badge {
+  color: #7d9fc7;
+}
+
+:root[data-theme='dark'] .btn-danger:hover:not(:disabled) {
+  background: #3a251d;
+}
+
+:root[data-theme='dark'] .wikilink-missing:hover {
+  background: #3a251d;
+}
+
+:root[data-theme='dark'] .cm-editor {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+:root[data-theme='dark'] .cm-editor .cm-cursor {
+  border-left-color: var(--ink);
+}
+
+:root[data-theme='dark'] .cm-editor .cm-activeLine,
+:root[data-theme='dark'] .cm-editor .cm-activeLineGutter {
+  background: var(--panel-alt);
+}
+
+:root[data-theme='dark'] .cm-editor .cm-selectionBackground,
+:root[data-theme='dark'] .cm-editor.cm-focused .cm-selectionBackground {
+  background: #35452e !important;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -46,6 +127,7 @@ body,
 
 body {
   background: var(--paper);
+  overflow: hidden;
 }
 
 /* --------------------------------------------------------------------------
@@ -735,8 +817,83 @@ button.version-pill.new {
 }
 
 .editor-body.view-kod,
-.editor-body.view-podglad {
+.editor-body.view-wizualny {
   grid-template-columns: 1fr;
+}
+
+/* ---- tryb wizualny (TipTap) ---- */
+
+.rich-editor {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rich-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-alt);
+}
+
+.rich-btn {
+  min-width: 30px;
+  padding: 3px 8px;
+  font-size: 13px;
+}
+
+.rich-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.rich-content .tiptap {
+  min-height: 100%;
+  padding: 16px 22px;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.rich-content .tiptap p.is-editor-empty:first-child::before {
+  content: 'Treść klocka… (wzory: $x^2$ — klik we wzór pokazuje kod)';
+  color: var(--muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* źródło wyrenderowanego wzoru — schowane (widget pokazuje wynik) */
+.rich-content .math-hide {
+  display: none;
+}
+
+/* wzór, w którym stoi kursor — widoczny kod LaTeX */
+.rich-content .math-src {
+  background: var(--panel-alt);
+  border-bottom: 1px dashed var(--line-strong);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 0.92em;
+  color: var(--accent-ink);
+}
+
+/* wyrenderowany wzór (klik = edycja kodu) */
+.rich-content .math-render {
+  padding: 0 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.rich-content .math-render:hover {
+  background: var(--accent-soft);
+}
+
+.rich-content .math-render-display {
+  display: block;
+  text-align: center;
+  padding: 6px 0;
 }
 
 .editor-code {

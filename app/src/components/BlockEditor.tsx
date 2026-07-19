@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { RichEditor } from './RichEditor'
+import { mdShortcuts } from '../cmShortcuts'
 import {
   createConcept,
   db,
@@ -24,7 +26,7 @@ import {
   type SourceRef,
 } from '../types'
 
-type ViewMode = 'kod' | 'podzial' | 'podglad'
+type ViewMode = 'wizualny' | 'kod' | 'podzial'
 
 /** Typ przeciągania chipów źródeł między grupami. */
 const SRC_MIME = 'text/x-kompendium-src'
@@ -55,7 +57,13 @@ export function BlockEditor({
   onJumpToSource,
   onOpenConcept,
 }: Props) {
-  const [view, setView] = useState<ViewMode>('podzial')
+  const [view, setView] = useState<ViewMode>(() => {
+    const v = localStorage.getItem('ui.editorView')
+    return v === 'kod' || v === 'podzial' ? v : 'wizualny'
+  })
+  useEffect(() => {
+    localStorage.setItem('ui.editorView', view)
+  }, [view])
   const [draft, setDraft] = useState(version.content)
   const saveTimer = useRef<number | undefined>(undefined)
   /** Zwinięte grupy źródeł (stan lokalny widoku). */
@@ -426,13 +434,20 @@ export function BlockEditor({
           </button>
         </div>
         <div className="view-switch">
-          {(['kod', 'podzial', 'podglad'] as ViewMode[]).map((m) => (
+          {(['wizualny', 'kod', 'podzial'] as ViewMode[]).map((m) => (
             <button
               key={m}
               className={`btn ${view === m ? 'btn-active' : ''}`}
+              title={
+                m === 'wizualny'
+                  ? 'Edycja wizualna (jak Google Docs)'
+                  : m === 'kod'
+                    ? 'Czysty kod Markdown+LaTeX (jak Overleaf)'
+                    : 'Kod i podgląd obok siebie'
+              }
               onClick={() => setView(m)}
             >
-              {m === 'kod' ? 'Kod' : m === 'podzial' ? 'Podział' : 'Podgląd'}
+              {m === 'wizualny' ? 'Wizualny' : m === 'kod' ? 'Kod' : 'Podział'}
             </button>
           ))}
         </div>
@@ -509,25 +524,34 @@ export function BlockEditor({
       )}
 
       <div className={`editor-body view-${view}`}>
-        {view !== 'podglad' && (
-          <div className="editor-code">
-            <CodeMirror
-              value={draft}
-              onChange={onChange}
-              extensions={[markdown()]}
-              editable={isCurrent}
-              placeholder={'Treść klocka…\n\nMarkdown + LaTeX: $x^2$, $$\\int_a^b f\\,dx$$'}
-              basicSetup={{ lineNumbers: false, foldGutter: false }}
-              style={{ height: '100%' }}
-            />
-          </div>
-        )}
-        {view !== 'kod' && (
-          <div
-            className="editor-preview markdown-body"
-            onClick={handlePreviewClick}
-            dangerouslySetInnerHTML={{ __html: preview }}
+        {view === 'wizualny' ? (
+          <RichEditor
+            value={draft}
+            docKey={version.id}
+            editable={isCurrent}
+            onChange={onChange}
           />
+        ) : (
+          <>
+            <div className="editor-code">
+              <CodeMirror
+                value={draft}
+                onChange={onChange}
+                extensions={[markdown(), mdShortcuts]}
+                editable={isCurrent}
+                placeholder={'Treść klocka…\n\nMarkdown + LaTeX: $x^2$, $$\\int_a^b f\\,dx$$'}
+                basicSetup={{ lineNumbers: false, foldGutter: false }}
+                style={{ height: '100%' }}
+              />
+            </div>
+            {view === 'podzial' && (
+              <div
+                className="editor-preview markdown-body"
+                onClick={handlePreviewClick}
+                dangerouslySetInnerHTML={{ __html: preview }}
+              />
+            )}
+          </>
         )}
       </div>
 

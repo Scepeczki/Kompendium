@@ -1,4 +1,4 @@
-// Test Etapu 2: wiki-linki, tworzenie brakującego pojęcia, odwołania zwrotne, graf.
+﻿// Test Etapu 2: wiki-linki, tworzenie brakującego pojęcia, odwołania zwrotne, graf.
 import { chromium } from 'playwright'
 
 const errors = []
@@ -18,6 +18,7 @@ await page.waitForSelector('text=Kompendium')
 await page.click('text=+ Nowy klocek')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Metryka')
+await page.click('.view-switch button:has-text("Podział")')
 await page.click('.cm-content')
 await page.keyboard.type('Funkcja odległości $d$.')
 await page.waitForTimeout(600)
@@ -27,6 +28,7 @@ await page.click('.btn-close[title*="Zamknij klocek"]')
 await page.click('text=+ Nowy klocek')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Przestrzeń metryczna')
+await page.click('.view-switch button:has-text("Podział")')
 await page.click('.cm-content')
 await page.keyboard.type('Para (X, d), gdzie d to [[Metryka]].')
 await page.waitForTimeout(600)
@@ -49,6 +51,7 @@ await page.waitForFunction(
 console.log('✓ nawigacja odwołaniem zwrotnym działa')
 
 // 3. brakujący link — utworzenie pojęcia klikiem (dialog auto-akceptowany)
+await page.click('.view-switch button:has-text("Podział")')
 await page.click('.cm-content')
 await page.keyboard.press('End')
 await page.keyboard.type(' Zobacz też [[Kula otwarta]].')

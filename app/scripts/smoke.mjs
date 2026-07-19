@@ -1,4 +1,4 @@
-// Test dymny: uruchamia aplikację w headless Edge, klika przez podstawowy
+﻿// Test dymny: uruchamia aplikację w headless Edge, klika przez podstawowy
 // przepływ (nowy klocek → wpisanie treści z LaTeX-em) i robi zrzuty ekranu.
 import { chromium } from 'playwright'
 
@@ -25,6 +25,7 @@ await page.waitForSelector('.editor-name', { timeout: 10000 })
 await page.fill('.editor-name', 'Przestrzeń metryczna')
 
 // Treść z LaTeX-em w CodeMirror
+await page.click('.view-switch button:has-text("Podział")')
 await page.click('.cm-content')
 await page.keyboard.type(
   'Niech $X$ będzie zbiorem. Funkcję $d: X \\times X \\to [0, \\infty)$ nazywamy metryką, gdy:\n\n1. $d(x,y) = 0 \\iff x = y$\n2. $d(x,y) = d(y,x)$\n3. $$d(x,z) \\le d(x,y) + d(y,z)$$',
