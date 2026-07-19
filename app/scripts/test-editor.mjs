@@ -61,10 +61,18 @@ await page.click('.view-switch button:has-text("Wizualny")')
 await page.waitForSelector('.rich-content .tiptap strong')
 console.log('✓ powrót do wizualnego: formatowanie zachowane')
 
-// 6. motyw ciemny: przełącz i sprawdź tło
+// 6. ustawienia: motyw ciemny + szerokość strony
 const bgLight = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
-await page.click('button[title*="motyw"]')
+await page.click('button[title="Ustawienia"]')
+await page.waitForSelector('.settings-modal')
+await page.click('.settings-modal button:has-text("Ciemny")')
+await page.fill('.settings-slider', '1200')
+await page.click('.settings-modal .btn-close')
 await page.waitForTimeout(300)
+const pageWidth = await page.evaluate(() =>
+  document.documentElement.style.getPropertyValue('--page-width'),
+)
+console.log(`✓ szerokość strony ustawiona: ${pageWidth}`)
 const theme = await page.evaluate(() => document.documentElement.dataset.theme)
 const bgDark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
 console.log(
@@ -76,7 +84,10 @@ await page.screenshot({ path: 'scripts/shot-16-dark.png' })
 await page.reload()
 await page.waitForSelector('text=Kompendium')
 const themeAfter = await page.evaluate(() => document.documentElement.dataset.theme)
-console.log(`✓ motyw po przeładowaniu: ${themeAfter}`)
+const widthAfter = await page.evaluate(() =>
+  document.documentElement.style.getPropertyValue('--page-width'),
+)
+console.log(`✓ po przeładowaniu: motyw=${themeAfter}, szerokość=${widthAfter}`)
 
 // 8. LaTeX z ukośnikami przeżywa tryb wizualny: wpisz w Kodzie \left\{ ... \right\}
 await page.click('.concept-item:has-text("Hybryda")')

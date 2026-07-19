@@ -30,6 +30,7 @@ interface Props {
   onToggleGraph: () => void
   openPathId: string | null
   onOpenPath: (id: string) => void
+  onOpenSettings: () => void
 }
 
 /** Ładunek przeciągania (klocek, folder albo ścieżka). */
@@ -76,6 +77,7 @@ export function Sidebar({
   onToggleGraph,
   openPathId,
   onOpenPath,
+  onOpenSettings,
 }: Props) {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<BlockType | 'wszystkie'>('wszystkie')
@@ -448,17 +450,8 @@ export function Sidebar({
           >
             🕸
           </button>
-          <button
-            className="btn"
-            title="Przełącz motyw jasny/ciemny"
-            onClick={() => {
-              const next =
-                document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
-              document.documentElement.dataset.theme = next
-              localStorage.setItem('ui.theme', next)
-            }}
-          >
-            ☾
+          <button className="btn" title="Ustawienia" onClick={onOpenSettings}>
+            ⚙
           </button>
         </div>
       </header>

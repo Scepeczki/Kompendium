@@ -7,6 +7,7 @@ import { BlockEditor } from './components/BlockEditor'
 import { GraphView } from './components/GraphView'
 import { PathCanvas } from './components/PathCanvas'
 import { PdfPanel, type PdfTarget } from './components/PdfPanel'
+import { SettingsModal } from './components/SettingsModal'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
 
@@ -43,6 +44,7 @@ export default function App() {
   const [openPathId, setOpenPathId] = useState<string | null>(null)
   /** Ścieżka, do której wracamy po zamknięciu klocka otwartego z jej poziomu. */
   const [returnPathId, setReturnPathId] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
 
   // Układ paneli — zapamiętywany między sesjami.
   const [showPdf, setShowPdf] = useState(
@@ -141,7 +143,9 @@ export default function App() {
         onToggleGraph={() => setShowGraph((g) => !g)}
         openPathId={openPathId}
         onOpenPath={openPath}
+        onOpenSettings={() => setShowSettings(true)}
       />
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       <Splitter onDrag={(dx) => setSidebarW((w) => clamp(w + dx, 200, 480))} />
 
       {showGraph ? (

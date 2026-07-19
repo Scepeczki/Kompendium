@@ -14,6 +14,13 @@ document.documentElement.dataset.theme =
       ? 'dark'
       : 'light'
 
+// szerokość strony tekstu (edytor wizualny, linia, skrypt)
+const savedWidth = Number(localStorage.getItem('ui.pageWidth'))
+document.documentElement.style.setProperty(
+  '--page-width',
+  `${savedWidth >= 560 && savedWidth <= 1400 ? savedWidth : 800}px`,
+)
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
