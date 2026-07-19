@@ -5,6 +5,8 @@ import type { SourceRef } from './types'
 import { Sidebar } from './components/Sidebar'
 import { BlockEditor } from './components/BlockEditor'
 import { GraphView } from './components/GraphView'
+import { PathCanvas } from './components/PathCanvas'
+import { ScriptView } from './components/ScriptView'
 import { PdfPanel, type PdfTarget } from './components/PdfPanel'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
@@ -38,6 +40,9 @@ export default function App() {
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null)
   /** Widok środkowego panelu: edytor klocka albo graf powiązań. */
   const [showGraph, setShowGraph] = useState(false)
+  /** Otwarta ścieżka (canvas) i podgląd skryptu. */
+  const [openPathId, setOpenPathId] = useState<string | null>(null)
+  const [scriptPathId, setScriptPathId] = useState<string | null>(null)
 
   // Układ paneli — zapamiętywany między sesjami.
   const [showPdf, setShowPdf] = useState(
@@ -81,6 +86,13 @@ export default function App() {
     setShownVersionId(null)
     setSelecting(false)
     setShowGraph(false)
+    setOpenPathId(null)
+  }
+
+  const openPath = (id: string) => {
+    setOpenPathId(id)
+    setShowGraph(false)
+    setSelecting(false)
   }
 
   const closeConcept = () => {
@@ -119,11 +131,20 @@ export default function App() {
         onSelect={selectConcept}
         graphActive={showGraph}
         onToggleGraph={() => setShowGraph((g) => !g)}
+        openPathId={openPathId}
+        onOpenPath={openPath}
       />
       <Splitter onDrag={(dx) => setSidebarW((w) => clamp(w + dx, 200, 480))} />
 
       {showGraph ? (
         <GraphView onOpen={selectConcept} />
+      ) : openPathId ? (
+        <PathCanvas
+          pathId={openPathId}
+          onClose={() => setOpenPathId(null)}
+          onOpenScript={() => setScriptPathId(openPathId)}
+          onOpenConcept={selectConcept}
+        />
       ) : concept && version ? (
         <BlockEditor
           concept={concept}
@@ -154,6 +175,10 @@ export default function App() {
             </p>
           </div>
         </section>
+      )}
+
+      {scriptPathId && (
+        <ScriptView pathId={scriptPathId} onClose={() => setScriptPathId(null)} />
       )}
 
       {showPdf ? (

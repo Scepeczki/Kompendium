@@ -5,6 +5,7 @@ import type {
   Concept,
   Folder,
   FolderKind,
+  LearningPath,
   PdfDoc,
 } from './types'
 
@@ -13,6 +14,7 @@ class KompendiumDB extends Dexie {
   versions!: Table<BlockVersion, string>
   pdfs!: Table<PdfDoc, string>
   folders!: Table<Folder, string>
+  paths!: Table<LearningPath, string>
 
   constructor() {
     super('kompendium')
@@ -69,6 +71,14 @@ class KompendiumDB extends Dexie {
           }
         }
       })
+    // v4: ścieżki (Poziom Przestrzenny).
+    this.version(4).stores({
+      concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
+      versions: 'id, conceptId, [conceptId+version], createdAt',
+      pdfs: 'id, title, addedAt, folderId',
+      folders: 'id, kind, parentId, name',
+      paths: 'id, name, folderId, createdAt, updatedAt',
+    })
   }
 }
 
@@ -77,10 +87,11 @@ export const db = new KompendiumDB()
 const now = () => new Date().toISOString()
 const uid = () => crypto.randomUUID()
 
-/** Kolejność „na końcu" danego folderu — wspólna dla klocków i podfolderów. */
+/** Kolejność „na końcu" danego folderu — wspólna dla klocków, ścieżek i podfolderów. */
 export async function nextConceptOrder(folderId: string | null): Promise<number> {
   const concepts = await db.concepts.toArray()
   const folders = await db.folders.where('kind').equals('concepts').toArray()
+  const paths = await db.paths.toArray()
   const orders = [
     ...concepts
       .filter((c) => (c.folderId ?? null) === folderId)
@@ -88,6 +99,9 @@ export async function nextConceptOrder(folderId: string | null): Promise<number>
     ...folders
       .filter((f) => (f.parentId ?? null) === folderId)
       .map((f) => f.order ?? 0),
+    ...paths
+      .filter((p) => (p.folderId ?? null) === folderId)
+      .map((p) => p.order ?? 0),
   ]
   return orders.length ? Math.max(...orders) + 1 : 1
 }
@@ -209,9 +223,9 @@ export async function renameFolder(id: string, name: string) {
   await db.folders.update(id, { name })
 }
 
-/** Usuwa folder; jego zawartość (podfoldery, klocki, PDF-y) przechodzi do rodzica. */
+/** Usuwa folder; jego zawartość (podfoldery, klocki, ścieżki, PDF-y) przechodzi do rodzica. */
 export async function deleteFolder(id: string) {
-  await db.transaction('rw', db.folders, db.concepts, db.pdfs, async () => {
+  await db.transaction('rw', db.folders, db.concepts, db.pdfs, db.paths, async () => {
     const f = await db.folders.get(id)
     if (!f) return
     const parent = f.parentId ?? null
@@ -229,8 +243,49 @@ export async function deleteFolder(id: string) {
     for (const p of ps) {
       if (p.folderId === id) await db.pdfs.update(p.id, { folderId: parent })
     }
+    const paths = await db.paths.toArray()
+    for (const p of paths) {
+      if (p.folderId === id) await db.paths.update(p.id, { folderId: parent })
+    }
     await db.folders.delete(id)
   })
+}
+
+// ---------------------------------------------------------------------------
+// Ścieżki
+// ---------------------------------------------------------------------------
+
+export async function createPath(name: string): Promise<string> {
+  const id = uid()
+  const t = now()
+  const order = await nextConceptOrder(null)
+  await db.paths.add({
+    id,
+    name,
+    folderId: null,
+    order,
+    nodes: [],
+    edges: [],
+    createdAt: t,
+    updatedAt: t,
+  })
+  return id
+}
+
+export async function updatePath(
+  id: string,
+  patch: Partial<Pick<LearningPath, 'name' | 'nodes' | 'edges'>>,
+) {
+  await db.paths.update(id, { ...patch, updatedAt: now() })
+}
+
+export async function movePath(id: string, folderId: string | null, order?: number) {
+  const o = order ?? (await nextConceptOrder(folderId))
+  await db.paths.update(id, { folderId, order: o })
+}
+
+export async function deletePath(id: string) {
+  await db.paths.delete(id)
 }
 
 // ---------------------------------------------------------------------------

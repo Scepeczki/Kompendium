@@ -69,13 +69,17 @@ wyłącznie w systemie.
 
 ---
 
-## Etap 3 — Poziom Przestrzenny: Ścieżki
+## Etap 3 — Poziom Przestrzenny: Ścieżki ✅
 
-- [ ] Canvas: przeciąganie klocków jako kafelków, łączenie strzałkami.
-- [ ] Tkanka łączna: luźny tekst-intuicja na mapie, należący do ścieżki.
-- [ ] Wybór wersji klocka per ścieżka.
-- [ ] Fuzja bloków w obrębie ścieżki.
-- [ ] **Generowanie skryptu**: ścieżka → jeden ciągły dokument → eksport PDF.
+- [x] Canvas (React Flow): klocki przeciągane z paska bocznego jako kafelki
+  (z podglądem treści i KaTeX), łączone strzałkami logicznej kolejności.
+- [x] Tkanka łączna: żółte węzły tekstowe na mapie, należące do ścieżki.
+- [x] Wybór wersji klocka per kafelek („zawsze bieżąca" albo konkretna vN).
+- [x] Fuzja bloków: Ctrl+klik zaznacza kilka kafelków → „Scal" tworzy wspólny
+  bloczek (podwójna ramka); można rozdzielić z powrotem.
+- [x] **Generowanie skryptu**: porządek topologiczny wg strzałek (remisy wg
+  pozycji na mapie) → jeden ciągły dokument → druk / zapis PDF z przeglądarki.
+- [x] Ścieżki żyją w tym samym drzewie folderów co klocki (wspólna kolejność).
 
 ---
 

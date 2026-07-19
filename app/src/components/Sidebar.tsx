@@ -3,11 +3,15 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   createConcept,
   createFolder,
+  createPath,
   db,
   deleteFolder,
+  deletePath,
   moveConcept,
   moveFolder,
+  movePath,
   renameFolder,
+  updatePath,
 } from '../db'
 import {
   BLOCK_TYPE_LABELS,
@@ -16,6 +20,7 @@ import {
   type BlockType,
   type Concept,
   type Folder,
+  type LearningPath,
 } from '../types'
 
 interface Props {
@@ -23,15 +28,18 @@ interface Props {
   onSelect: (id: string) => void
   graphActive: boolean
   onToggleGraph: () => void
+  openPathId: string | null
+  onOpenPath: (id: string) => void
 }
 
-/** Ładunek przeciągania (klocek albo folder). */
-type DragPayload = { kind: 'concept' | 'folder'; id: string }
+/** Ładunek przeciągania (klocek, folder albo ścieżka). */
+type DragPayload = { kind: 'concept' | 'folder' | 'path'; id: string }
 
-/** Element wspólnej listy dzieci folderu (foldery i klocki przeplatają się). */
+/** Element wspólnej listy dzieci folderu (foldery, klocki i ścieżki przeplatają się). */
 type TreeNode =
   | { kind: 'folder'; id: string; order: number; folder: Folder }
   | { kind: 'concept'; id: string; order: number; concept: Concept }
+  | { kind: 'path'; id: string; order: number; path: LearningPath }
 
 /** Podpowiedź wizualna miejsca upuszczenia. */
 type DropHint = { id: string; pos: 'into' | 'before' | 'after' } | null
@@ -61,7 +69,14 @@ const getDragData = (e: React.DragEvent): DragPayload | null => {
   }
 }
 
-export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Props) {
+export function Sidebar({
+  selectedId,
+  onSelect,
+  graphActive,
+  onToggleGraph,
+  openPathId,
+  onOpenPath,
+}: Props) {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<BlockType | 'wszystkie'>('wszystkie')
   const [expanded, setExpanded] = useState<Set<string>>(loadExpanded)
@@ -71,10 +86,11 @@ export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Pr
   const folders =
     useLiveQuery(() => db.folders.where('kind').equals('concepts').toArray(), []) ?? []
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  const paths = useLiveQuery(() => db.paths.toArray(), []) ?? []
 
   const filtering = search.trim() !== '' || typeFilter !== 'wszystkie'
 
-  /** Dzieci rodzica: foldery i klocki we wspólnej, ręcznej kolejności. */
+  /** Dzieci rodzica: foldery, klocki i ścieżki we wspólnej, ręcznej kolejności. */
   const children = (parentId: string | null): TreeNode[] => {
     const fs: TreeNode[] = folders
       .filter((f) => (f.parentId ?? null) === parentId)
@@ -82,7 +98,10 @@ export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Pr
     const cs: TreeNode[] = concepts
       .filter((c) => (c.folderId ?? null) === parentId)
       .map((c) => ({ kind: 'concept', id: c.id, order: c.order ?? 0, concept: c }))
-    return [...fs, ...cs].sort((a, b) => a.order - b.order)
+    const ps: TreeNode[] = paths
+      .filter((p) => (p.folderId ?? null) === parentId)
+      .map((p) => ({ kind: 'path', id: p.id, order: p.order ?? 0, path: p }))
+    return [...fs, ...cs, ...ps].sort((a, b) => a.order - b.order)
   }
 
   const persistExpanded = (next: Set<string>) => {
@@ -118,6 +137,8 @@ export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Pr
   const dropInto = async (payload: DragPayload, folderId: string) => {
     if (payload.kind === 'concept') {
       await moveConcept(payload.id, folderId)
+    } else if (payload.kind === 'path') {
+      await movePath(payload.id, folderId)
     } else {
       if (payload.id === folderId || isInside(folderId, payload.id)) return
       await moveFolder(payload.id, folderId)
@@ -148,11 +169,13 @@ export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Pr
       order = next ? (next.order + target.order) / 2 : target.order + 1
     }
     if (payload.kind === 'concept') await moveConcept(payload.id, parentId, order)
+    else if (payload.kind === 'path') await movePath(payload.id, parentId, order)
     else await moveFolder(payload.id, parentId, order)
   }
 
   const dropOnRoot = async (payload: DragPayload) => {
     if (payload.kind === 'concept') await moveConcept(payload.id, null)
+    else if (payload.kind === 'path') await movePath(payload.id, null)
     else await moveFolder(payload.id, null)
   }
 
@@ -165,6 +188,29 @@ export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Pr
     const name = window.prompt('Nazwa folderu:')
     if (!name?.trim()) return
     await createFolder('concepts', name.trim())
+  }
+
+  const handleNewPath = async () => {
+    const name = window.prompt('Nazwa ścieżki (skryptu nauki):')
+    if (!name?.trim()) return
+    const id = await createPath(name.trim())
+    onOpenPath(id)
+  }
+
+  const handleRenamePath = async (p: LearningPath) => {
+    const name = window.prompt('Nowa nazwa ścieżki:', p.name)
+    if (!name?.trim()) return
+    await updatePath(p.id, { name: name.trim() })
+  }
+
+  const handleDeletePath = async (p: LearningPath) => {
+    if (
+      window.confirm(
+        `Usunąć ścieżkę „${p.name}"? Klocki zostają w bazie — znika tylko mapa.`,
+      )
+    ) {
+      await deletePath(p.id)
+    }
   }
 
   const handleRenameFolder = async (f: Folder) => {
@@ -300,10 +346,73 @@ export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Pr
     )
   }
 
+  const pathRow = (p: LearningPath, parentId: string | null, node: TreeNode) => {
+    const hint = dropHint?.id === p.id ? dropHint.pos : null
+    return (
+      <li key={p.id}>
+        <div
+          draggable
+          className={`concept-item path-item ${p.id === openPathId ? 'selected' : ''} ${
+            hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
+          }`}
+          onClick={() => onOpenPath(p.id)}
+          onDragStart={(e) => setDragData(e, { kind: 'path', id: p.id })}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            const rect = e.currentTarget.getBoundingClientRect()
+            const pos = e.clientY - rect.top < rect.height / 2 ? 'before' : 'after'
+            setDropHint({ id: p.id, pos })
+            setRootHint(false)
+          }}
+          onDragLeave={() => setDropHint(null)}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            const pl = getDragData(e)
+            const pos =
+              dropHint?.id === p.id && dropHint.pos !== 'into' ? dropHint.pos : 'after'
+            clearHints()
+            if (pl) dropRelative(pl, node, parentId, pos)
+          }}
+        >
+          <span className="type-mini type-path" title="Ścieżka nauki">
+            🗺
+          </span>
+          <span className="concept-name">{p.name}</span>
+          <span className="folder-actions">
+            <button
+              className="folder-action"
+              title="Zmień nazwę ścieżki"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRenamePath(p)
+              }}
+            >
+              ✎
+            </button>
+            <button
+              className="folder-action"
+              title="Usuń ścieżkę"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDeletePath(p)
+              }}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      </li>
+    )
+  }
+
   const renderNode = (n: TreeNode, parentId: string | null) =>
     n.kind === 'folder'
       ? folderRow(n.folder, parentId, n)
-      : conceptRow(n.concept, parentId, n)
+      : n.kind === 'path'
+        ? pathRow(n.path, parentId, n)
+        : conceptRow(n.concept, parentId, n)
 
   // Widok płaski przy szukaniu / filtrze typu.
   const flatList = concepts
@@ -328,6 +437,9 @@ export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Pr
           </button>
           <button className="btn" title="Nowy folder" onClick={handleNewFolder}>
             + 🗀
+          </button>
+          <button className="btn" title="Nowa ścieżka (skrypt nauki)" onClick={handleNewPath}>
+            + 🗺
           </button>
           <button
             className={`btn ${graphActive ? 'btn-active' : ''}`}

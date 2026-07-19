@@ -101,6 +101,62 @@ export interface BlockVersion {
   updatedAt: string
 }
 
+// ---------------------------------------------------------------------------
+// Ścieżki (Poziom Przestrzenny) — komponowanie klocków w skrypty nauki
+// ---------------------------------------------------------------------------
+
+/** Kafelek klocka na mapie ścieżki. */
+export interface PathNodeBlock {
+  id: string
+  kind: 'block'
+  conceptId: string
+  /** Konkretna wersja użyta w tej ścieżce; null = zawsze bieżąca. */
+  versionId: string | null
+  x: number
+  y: number
+}
+
+/** Tkanka łączna: luźny tekst-intuicja należący do ścieżki (nie do bazy klocków). */
+export interface PathNodeText {
+  id: string
+  kind: 'text'
+  text: string
+  x: number
+  y: number
+}
+
+/** Fuzja: kilka klocków scalonych w jeden kafelek w obrębie tej ścieżki. */
+export interface PathNodeFusion {
+  id: string
+  kind: 'fusion'
+  name: string
+  parts: { conceptId: string; versionId: string | null }[]
+  x: number
+  y: number
+}
+
+export type PathNode = PathNodeBlock | PathNodeText | PathNodeFusion
+
+/** Strzałka logicznej kolejności między kafelkami. */
+export interface PathEdge {
+  id: string
+  from: string
+  to: string
+}
+
+/** Ścieżka nauki — przestrzenna kompozycja klocków. Żyje w tym samym
+ *  drzewie folderów co klocki (wspólna kolejność). */
+export interface LearningPath {
+  id: string
+  name: string
+  folderId: string | null
+  order: number
+  nodes: PathNode[]
+  edges: PathEdge[]
+  createdAt: string
+  updatedAt: string
+}
+
 /** Zaimportowany dokument PDF, przechowywany lokalnie w IndexedDB. */
 export interface PdfDoc {
   id: string
