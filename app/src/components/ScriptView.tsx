@@ -14,40 +14,60 @@ interface Props {
   onClose: () => void
 }
 
-/** Porządek topologiczny wg strzałek; remisy rozstrzyga pozycja (y, potem x).
- *  Węzły w cyklu lub bez połączeń trafiają na koniec wg pozycji. */
+/** Porządek topologiczny wg strzałek. Gałęzie z tego samego kafelka idą wg
+ *  jawnego priorytetu strzałki (numerek na mapie), a bez niego wg pozycji celu.
+ *  Pozostałe remisy rozstrzyga pozycja (y, potem x); cykle trafiają na koniec. */
 function topoOrder(nodes: PathNode[], edges: PathEdge[]): PathNode[] {
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const indeg = new Map(nodes.map((n) => [n.id, 0]))
-  const adj = new Map<string, string[]>()
+  const pos = (id: string) => byId.get(id) ?? { x: 0, y: 0 }
+
+  // strzałki pogrupowane wg źródła, w efektywnej kolejności gałęzi
+  const bySource = new Map<string, PathEdge[]>()
   for (const e of edges) {
     if (!byId.has(e.from) || !byId.has(e.to)) continue
-    adj.set(e.from, [...(adj.get(e.from) ?? []), e.to])
+    bySource.set(e.from, [...(bySource.get(e.from) ?? []), e])
     indeg.set(e.to, (indeg.get(e.to) ?? 0) + 1)
   }
-  const posKey = (id: string) => {
-    const n = byId.get(id)!
-    return [n.y, n.x] as const
+  for (const list of bySource.values()) {
+    list.sort((a, b) => {
+      const pa = a.priority ?? Infinity
+      const pb = b.priority ?? Infinity
+      if (pa !== pb) return pa - pb
+      const ta = pos(a.to)
+      const tb = pos(b.to)
+      return ta.y - tb.y || ta.x - tb.x
+    })
   }
-  const ready = nodes
+
+  // Kahn: gotowe węzły wybieramy wg [moment uwolnienia, priorytet gałęzi, y, x]
+  type Ready = { id: string; rank: [number, number] }
+  const ready: Ready[] = nodes
     .filter((n) => (indeg.get(n.id) ?? 0) === 0)
-    .map((n) => n.id)
+    .map((n) => ({ id: n.id, rank: [0, 0] }))
   const result: PathNode[] = []
   const done = new Set<string>()
+  let emitIdx = 0
   while (ready.length) {
     ready.sort((a, b) => {
-      const [ay, ax] = posKey(a)
-      const [by, bx] = posKey(b)
-      return ay - by || ax - bx
+      if (a.rank[0] !== b.rank[0]) return a.rank[0] - b.rank[0]
+      if (a.rank[1] !== b.rank[1]) return a.rank[1] - b.rank[1]
+      const na = pos(a.id)
+      const nb = pos(b.id)
+      return na.y - nb.y || na.x - nb.x
     })
-    const id = ready.shift()!
+    const { id } = ready.shift()!
     if (done.has(id)) continue
     done.add(id)
+    emitIdx++
     result.push(byId.get(id)!)
-    for (const next of adj.get(id) ?? []) {
-      indeg.set(next, (indeg.get(next) ?? 0) - 1)
-      if ((indeg.get(next) ?? 0) <= 0 && !done.has(next)) ready.push(next)
-    }
+    const out = bySource.get(id) ?? []
+    out.forEach((e, branchIdx) => {
+      indeg.set(e.to, (indeg.get(e.to) ?? 0) - 1)
+      if ((indeg.get(e.to) ?? 0) <= 0 && !done.has(e.to)) {
+        ready.push({ id: e.to, rank: [emitIdx, branchIdx] })
+      }
+    })
   }
   // cykle / reszta
   const rest = nodes.filter((n) => !done.has(n.id))

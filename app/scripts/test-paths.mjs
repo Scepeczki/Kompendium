@@ -47,21 +47,27 @@ await page.waitForSelector('.path-node:has-text("Przestrzeń")')
 console.log('✓ kafelki przeciągnięte z paska bocznego (KaTeX w kafelkach)')
 
 // połącz strzałką: dolny handle Metryki → górny handle Przestrzeni
-const srcHandle = await page
-  .locator('.path-node:has-text("Metryka") .react-flow__handle-bottom')
-  .boundingBox()
-const dstHandle = await page
-  .locator('.path-node:has-text("Przestrzeń") .react-flow__handle-top')
-  .boundingBox()
-const sx = srcHandle.x + srcHandle.width / 2
-const sy = srcHandle.y + srcHandle.height / 2
-await page.mouse.move(sx, sy)
-await page.mouse.down()
-await page.mouse.move(sx + 4, sy + 4) // mały ruch nad uchwytem inicjuje łączenie
-await page.mouse.move(dstHandle.x + dstHandle.width / 2, dstHandle.y + dstHandle.height / 2, {
-  steps: 12,
-})
-await page.mouse.up()
+// (z ponawianiem — pomiary układu bywają chwilowo nieaktualne)
+for (let attempt = 1; attempt <= 4; attempt++) {
+  const srcHandle = await page
+    .locator('.path-node:has-text("Metryka") .react-flow__handle-bottom')
+    .boundingBox()
+  const dstHandle = await page
+    .locator('.path-node:has-text("Przestrzeń") .react-flow__handle-top')
+    .boundingBox()
+  const sx = srcHandle.x + srcHandle.width / 2
+  const sy = srcHandle.y + srcHandle.height / 2
+  await page.mouse.move(sx, sy)
+  await page.mouse.down()
+  await page.mouse.move(sx + 4, sy + 4) // mały ruch nad uchwytem inicjuje łączenie
+  await page.mouse.move(dstHandle.x + dstHandle.width / 2, dstHandle.y + dstHandle.height / 2, {
+    steps: 12,
+  })
+  await page.mouse.up()
+  await page.waitForTimeout(500)
+  if ((await page.locator('.react-flow__edge').count()) > 0) break
+  if (attempt === 4) throw new Error('nie udało się połączyć kafelków strzałką')
+}
 await page.waitForSelector('.react-flow__edge')
 console.log('✓ strzałka logicznej kolejności połączona')
 

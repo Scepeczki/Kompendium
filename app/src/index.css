@@ -1219,6 +1219,70 @@ select.type-select {
   border-color: #e3d9b8;
 }
 
+.path-node-grip {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 10px 2px;
+  cursor: grab;
+  user-select: none;
+  border-bottom: 1px dashed #e3d9b8;
+}
+
+.path-node-grip:active {
+  cursor: grabbing;
+}
+
+/* numerek kolejności gałęzi na strzałce */
+.edge-order {
+  position: absolute;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: var(--panel);
+  color: var(--accent-ink);
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.edge-order:hover {
+  background: var(--accent-soft);
+}
+
+/* menu kontekstowe canvasu */
+.path-ctxmenu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  box-shadow: 0 4px 16px rgba(60, 50, 30, 0.18);
+  padding: 4px;
+}
+
+.path-ctxmenu-item {
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 7px 11px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.path-ctxmenu-item:hover {
+  background: var(--accent-soft);
+}
+
 .path-node-text textarea {
   display: block;
   width: 100%;

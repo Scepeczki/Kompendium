@@ -10,24 +10,29 @@ import {
   ReactFlow,
   ReactFlowProvider,
   Background,
+  BackgroundVariant,
+  BaseEdge,
   Controls,
+  EdgeLabelRenderer,
   Handle,
   Position,
   MarkerType,
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
+  getBezierPath,
   useReactFlow,
   type Connection,
   type Edge,
   type EdgeChange,
+  type EdgeProps,
   type Node,
   type NodeChange,
   type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, updatePath } from '../db'
+import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
 import {
   BLOCK_TYPE_LABELS,
@@ -42,6 +47,10 @@ interface CanvasApi {
   updateData: (id: string, patch: Record<string, unknown>) => void
   unfuse: (id: string) => void
   openConcept: (id: string) => void
+  /** Numer i liczba strzałek wychodzących z tego samego źródła. */
+  edgeOrderInfo: (edgeId: string, source: string) => { index: number; count: number }
+  /** Przestawia strzałkę o jedną pozycję wcześniej (z zawinięciem na koniec). */
+  cycleEdgePriority: (edgeId: string) => void
 }
 
 const CanvasCtx = createContext<CanvasApi>(null!)
@@ -87,10 +96,17 @@ const toRfEdge = (e: PathEdge): Edge => ({
   id: e.id,
   source: e.from,
   target: e.to,
+  type: 'ordered',
+  data: { priority: e.priority },
   markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
 })
 
-const fromRfEdge = (e: Edge): PathEdge => ({ id: e.id, from: e.source, to: e.target })
+const fromRfEdge = (e: Edge): PathEdge => ({
+  id: e.id,
+  from: e.source,
+  to: e.target,
+  priority: (e.data?.priority as number | undefined) ?? undefined,
+})
 
 // ---------------------------------------------------------------------------
 // Węzły niestandardowe
@@ -166,6 +182,9 @@ function TextNode({ id, data, selected }: NodeProps) {
   return (
     <div className={`path-node path-node-text ${selected ? 'selected' : ''}`}>
       <Handle type="target" position={Position.Top} />
+      <div className="path-node-grip" title="Przeciągnij, aby przesunąć">
+        ✥ notatka
+      </div>
       <textarea
         className="nodrag"
         value={(data.text as string) ?? ''}
@@ -176,6 +195,52 @@ function TextNode({ id, data, selected }: NodeProps) {
     </div>
   )
 }
+
+/** Krawędź z numerkiem kolejności (widocznym, gdy z kafelka wychodzi >1 strzałka).
+ *  Klik w numerek przestawia gałąź o jedną pozycję wcześniej. */
+function OrderedEdge({
+  id,
+  source,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  markerEnd,
+}: EdgeProps) {
+  const ctx = useContext(CanvasCtx)
+  const [path, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  })
+  const { index, count } = ctx.edgeOrderInfo(id, source)
+  return (
+    <>
+      <BaseEdge id={id} path={path} markerEnd={markerEnd as string} />
+      {count > 1 && (
+        <EdgeLabelRenderer>
+          <button
+            className="edge-order nodrag nopan"
+            style={{
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+            }}
+            title="Kolejność gałęzi w skrypcie — kliknij, aby przestawić wcześniej"
+            onClick={() => ctx.cycleEdgePriority(id)}
+          >
+            {index}
+          </button>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  )
+}
+
+const edgeTypes = { ordered: OrderedEdge }
 
 function FusionNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
@@ -229,6 +294,33 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
   const { screenToFlowPosition } = useReactFlow()
   const wrapRef = useRef<HTMLDivElement>(null)
 
+  // siatka: widoczność (zapamiętywana) + przyciąganie przy wciśniętym Shift
+  const [showGrid, setShowGrid] = useState(
+    () => localStorage.getItem('ui.pathGrid') === '1',
+  )
+  useEffect(() => {
+    localStorage.setItem('ui.pathGrid', showGrid ? '1' : '0')
+  }, [showGrid])
+  const [shiftDown, setShiftDown] = useState(false)
+  useEffect(() => {
+    const dn = (e: KeyboardEvent) => e.key === 'Shift' && setShiftDown(true)
+    const up = (e: KeyboardEvent) => e.key === 'Shift' && setShiftDown(false)
+    window.addEventListener('keydown', dn)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', dn)
+      window.removeEventListener('keyup', up)
+    }
+  }, [])
+
+  // menu kontekstowe (prawy przycisk na pustym obszarze)
+  const [ctxMenu, setCtxMenu] = useState<{
+    sx: number
+    sy: number
+    fx: number
+    fy: number
+  } | null>(null)
+
   // wczytaj ścieżkę
   useEffect(() => {
     loadedRef.current = false
@@ -254,11 +346,51 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
     }, 500)
   }, [rfNodes, rfEdges, pathId])
 
+  /** Strzałki z tego samego źródła w efektywnej kolejności:
+   *  jawny priorytet, a bez niego pozycja celu na mapie (y, potem x). */
+  const siblingsSorted = (source: string, edges: Edge[], nodes: Node[]) => {
+    const pos = (id: string) => nodes.find((n) => n.id === id)?.position ?? { x: 0, y: 0 }
+    return edges
+      .filter((e) => e.source === source)
+      .sort((a, b) => {
+        const pa = (a.data?.priority as number | undefined) ?? Infinity
+        const pb = (b.data?.priority as number | undefined) ?? Infinity
+        if (pa !== pb) return pa - pb
+        const ta = pos(a.target)
+        const tb = pos(b.target)
+        return ta.y - tb.y || ta.x - tb.x
+      })
+  }
+
   const api: CanvasApi = {
     updateData: (id, patch) =>
       setRfNodes((ns) =>
         ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
       ),
+    edgeOrderInfo: (edgeId, source) => {
+      const sibs = siblingsSorted(source, rfEdges, rfNodes)
+      return { index: sibs.findIndex((e) => e.id === edgeId) + 1, count: sibs.length }
+    },
+    cycleEdgePriority: (edgeId) =>
+      setRfEdges((es) => {
+        const edge = es.find((e) => e.id === edgeId)
+        if (!edge) return es
+        const sibs = siblingsSorted(edge.source, es, rfNodes)
+        const idx = sibs.findIndex((e) => e.id === edgeId)
+        const reordered = [...sibs]
+        reordered.splice(idx, 1)
+        if (idx > 0) {
+          reordered.splice(idx - 1, 0, edge) // o jedną pozycję wcześniej
+        } else {
+          reordered.push(edge) // z pierwszej pozycji zawija na koniec
+        }
+        const prio = new Map(reordered.map((e, i) => [e.id, i + 1]))
+        return es.map((e) =>
+          prio.has(e.id)
+            ? { ...e, data: { ...e.data, priority: prio.get(e.id) } }
+            : e,
+        )
+      }),
     unfuse: (id) =>
       setRfNodes((ns) => {
         const f = ns.find((n) => n.id === id)
@@ -318,21 +450,42 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
     })
   }
 
+  const addTextAt = (fx: number, fy: number) => {
+    setRfNodes((ns) => [
+      ...ns,
+      { id: crypto.randomUUID(), type: 'text', position: { x: fx, y: fy }, data: { text: '' } },
+    ])
+  }
+
+  /** Tworzy nowe pojęcie w bazie i od razu kładzie jego kafelek na mapie. */
+  const addBlockAt = async (fx: number, fy: number) => {
+    const conceptId = await createConcept()
+    setRfNodes((ns) => [
+      ...ns,
+      {
+        id: crypto.randomUUID(),
+        type: 'block',
+        position: { x: fx, y: fy },
+        data: { conceptId, versionId: null },
+      },
+    ])
+  }
+
   const handleAddText = () => {
     const rect = wrapRef.current?.getBoundingClientRect()
     const pos = screenToFlowPosition({
       x: (rect?.left ?? 0) + (rect?.width ?? 600) / 2,
       y: (rect?.top ?? 0) + (rect?.height ?? 400) / 2,
     })
-    setRfNodes((ns) => [
-      ...ns,
-      {
-        id: crypto.randomUUID(),
-        type: 'text',
-        position: pos,
-        data: { text: '' },
-      },
-    ])
+    addTextAt(pos.x, pos.y)
+  }
+
+  const handlePaneContextMenu = (e: React.MouseEvent | MouseEvent) => {
+    e.preventDefault()
+    const sx = 'clientX' in e ? e.clientX : 0
+    const sy = 'clientY' in e ? e.clientY : 0
+    const pos = screenToFlowPosition({ x: sx, y: sy })
+    setCtxMenu({ sx, sy, fx: pos.x, fy: pos.y })
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -374,7 +527,11 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
     (c: Connection) =>
       setRfEdges((es) =>
         addEdge(
-          { ...c, markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 } },
+          {
+            ...c,
+            type: 'ordered',
+            markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+          },
           es,
         ),
       ),
@@ -407,6 +564,13 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
           + Tekst
         </button>
         <button
+          className={`btn ${showGrid ? 'btn-active' : ''}`}
+          onClick={() => setShowGrid((g) => !g)}
+          title="Pokaż/ukryj siatkę (Shift podczas przesuwania przyciąga do linii)"
+        >
+          ⊞ Siatka
+        </button>
+        <button
           className="btn"
           onClick={handleFuse}
           disabled={selectedBlocks < 2}
@@ -423,7 +587,8 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
       </header>
       <div className="path-hint">
         Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do
-        górnej) · Ctrl+klik zaznacza wiele · Delete usuwa zaznaczone
+        górnej) · prawy przycisk na tle = nowy klocek/tekst · Ctrl+klik zaznacza wiele
+        · Shift przy przesuwaniu = przyciąganie do siatki · Delete usuwa
       </div>
       <div className="path-flow" ref={wrapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
         <CanvasCtx.Provider value={api}>
@@ -431,20 +596,57 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
             nodes={rfNodes}
             edges={rfEdges}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onSelectionChange={onSelectionChange}
+            onPaneContextMenu={handlePaneContextMenu}
+            onPaneClick={() => setCtxMenu(null)}
+            onMoveStart={() => setCtxMenu(null)}
+            snapToGrid={shiftDown}
+            snapGrid={[20, 20]}
+            selectionKeyCode={null}
             deleteKeyCode={['Delete', 'Backspace']}
             connectionRadius={60}
             fitView
             fitViewOptions={{ maxZoom: 1, padding: 0.15 }}
             proOptions={{ hideAttribution: true }}
           >
-            <Background gap={22} />
+            {showGrid ? (
+              <Background variant={BackgroundVariant.Lines} gap={20} color="#e9e4d7" />
+            ) : (
+              <Background gap={22} />
+            )}
             <Controls showInteractive={false} />
           </ReactFlow>
         </CanvasCtx.Provider>
+        {ctxMenu && (
+          <div
+            className="path-ctxmenu"
+            style={{ left: ctxMenu.sx, top: ctxMenu.sy }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <button
+              className="path-ctxmenu-item"
+              onClick={() => {
+                addBlockAt(ctxMenu.fx, ctxMenu.fy)
+                setCtxMenu(null)
+              }}
+            >
+              🧱 Nowy klocek tutaj
+            </button>
+            <button
+              className="path-ctxmenu-item"
+              onClick={() => {
+                addTextAt(ctxMenu.fx, ctxMenu.fy)
+                setCtxMenu(null)
+              }}
+            >
+              📝 Nowy tekst tutaj
+            </button>
+          </div>
+        )}
       </div>
     </section>
   )

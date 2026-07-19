@@ -142,6 +142,9 @@ export interface PathEdge {
   id: string
   from: string
   to: string
+  /** Kolejność wśród strzałek wychodzących z tego samego kafelka (1 = pierwsza).
+   *  Brak = kolejność wg pozycji celu na mapie (y, potem x). */
+  priority?: number
 }
 
 /** Ścieżka nauki — przestrzenna kompozycja klocków. Żyje w tym samym
