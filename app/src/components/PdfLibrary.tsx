@@ -57,12 +57,11 @@ export function PdfLibrary({ currentId, onOpen }: Props) {
     }
   }
 
-  const pdfRow = (p: PdfDoc, indent: boolean) => (
+  const pdfRow = (p: PdfDoc) => (
     <button
       key={p.id}
       draggable
       className={`pdflib-item ${p.id === currentId ? 'selected' : ''}`}
-      style={indent ? { paddingLeft: 30 } : undefined}
       onClick={() => onOpen(p.id)}
       onDragStart={(e) => {
         e.dataTransfer.setData(MIME, p.id)
@@ -151,11 +150,18 @@ export function PdfLibrary({ currentId, onOpen }: Props) {
               </button>
             </span>
           </div>
-          {expanded.has(f.id) && inFolder(f.id).map((p) => pdfRow(p, true))}
+          {expanded.has(f.id) && (
+            <div className="folder-children">
+              {inFolder(f.id).length === 0 && (
+                <div className="folder-empty">pusty</div>
+              )}
+              {inFolder(f.id).map((p) => pdfRow(p))}
+            </div>
+          )}
         </div>
       ))}
 
-      {inFolder(null).map((p) => pdfRow(p, false))}
+      {inFolder(null).map((p) => pdfRow(p))}
     </div>
   )
 }

@@ -270,15 +270,14 @@ select.type-select {
 
 .concept-item {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
+  align-items: center;
+  gap: 7px;
   width: 100%;
   text-align: left;
   font: inherit;
-  padding: 8px 10px;
+  padding: 4px 10px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   background: none;
   cursor: pointer;
   color: var(--ink);
@@ -293,14 +292,25 @@ select.type-select {
   border-color: var(--line-strong);
 }
 
-.concept-name {
-  font-size: 14px;
-  font-weight: 500;
+/* skrótowe oznaczenie typu (DEF / TW / DOW …) */
+.type-mini {
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #fff;
+  min-width: 27px;
+  text-align: center;
 }
 
-.concept-tags {
-  font-size: 12px;
-  color: var(--muted);
+.concept-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---- drzewo folderów ---- */
@@ -581,19 +591,53 @@ select.type-select {
   letter-spacing: 0.04em;
 }
 
+.toolbar-left {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.source-row.drop-root {
+  outline: 2px dashed var(--line-strong);
+  outline-offset: -3px;
+}
+
 .source-group {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   flex-wrap: wrap;
+  padding-left: 8px;
+  border-left: 2px solid var(--line-strong);
 }
 
-.source-group-name {
+.source-group-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-soft);
-  padding: 2px 4px 2px 8px;
-  border-left: 2px solid var(--line-strong);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.source-group-head:hover {
+  background: var(--panel);
+}
+
+.source-group-head.drop-into {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.source-group-actions {
+  display: inline-flex;
+  gap: 1px;
 }
 
 .source-chip {
@@ -605,18 +649,8 @@ select.type-select {
   overflow: hidden;
 }
 
-.source-groupbtn {
-  font: inherit;
-  font-size: 11px;
-  padding: 3px 3px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.source-groupbtn:hover {
-  color: var(--accent-ink);
+.source-chip[draggable='true'] {
+  cursor: grab;
 }
 
 .source-jump {

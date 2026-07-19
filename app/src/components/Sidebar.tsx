@@ -11,6 +11,7 @@ import {
 } from '../db'
 import {
   BLOCK_TYPE_LABELS,
+  BLOCK_TYPE_SHORT,
   BLOCK_TYPES,
   type BlockType,
   type Concept,
@@ -213,13 +214,13 @@ export function Sidebar({ selectedId, onSelect }: Props) {
             if (p) dropRelative(p, node, parentId, pos)
           }}
         >
-          <span className={`type-badge type-${c.type}`}>
-            {BLOCK_TYPE_LABELS[c.type]}
+          <span
+            className={`type-mini type-${c.type}`}
+            title={BLOCK_TYPE_LABELS[c.type]}
+          >
+            {BLOCK_TYPE_SHORT[c.type]}
           </span>
           <span className="concept-name">{c.name}</span>
-          {c.tags.length > 0 && (
-            <span className="concept-tags">{c.tags.map((t) => `#${t}`).join(' ')}</span>
-          )}
         </button>
       </li>
     )

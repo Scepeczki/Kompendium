@@ -89,13 +89,26 @@ await page.mouse.down()
 await page.mouse.move(canvas.x + 250, canvas.y + 110, { steps: 5 })
 await page.mouse.up()
 await page.waitForSelector('.source-chip')
-// przypisz do grupy (drugi prompt z kolejki → „Wewnętrzny"? nie — kolejka: Folder X już zużyty, teraz „Wewnętrzny")
-// poprawka: kolejka odpowiedzi — następny prompt dostanie 'Wewnętrzny', chcemy 'Rysunki'
+// utwórz grupę przyciskiem obok „Podepnij źródło"
 answers.length = 0
 answers.push('Rysunki')
-await page.click('.source-groupbtn')
-await page.waitForSelector('.source-group-name:has-text("Rysunki")')
-console.log('✓ grupa źródeł „Rysunki" przypisana i widoczna')
+await page.click('button[title="Nowa grupa źródeł"]')
+await page.waitForSelector('.source-group-head:has-text("Rysunki")')
+// przeciągnij chip do grupy
+await page.dragAndDrop('.source-chip', '.source-group-head:has-text("Rysunki")')
+await page.waitForFunction(() => {
+  const el = document.querySelector('.source-group-head .folder-count')
+  return el && el.textContent === '1'
+})
+console.log('✓ grupa „Rysunki" utworzona, chip przeciągnięty do grupy')
+// zwiń grupę → chip znika, rozwiń → wraca
+await page.click('.source-group-head:has-text("Rysunki")')
+await page.waitForFunction(
+  () => document.querySelectorAll('.source-chip').length === 0,
+)
+await page.click('.source-group-head:has-text("Rysunki")')
+await page.waitForSelector('.source-chip')
+console.log('✓ zwijanie i rozwijanie grupy działa')
 
 await page.screenshot({ path: 'scripts/shot-9-mix.png' })
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))

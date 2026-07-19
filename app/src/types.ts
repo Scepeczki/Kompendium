@@ -22,6 +22,17 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
 
 export const BLOCK_TYPES = Object.keys(BLOCK_TYPE_LABELS) as BlockType[]
 
+/** Krótkie oznaczenia typów do zwartych list. */
+export const BLOCK_TYPE_SHORT: Record<BlockType, string> = {
+  definicja: 'DEF',
+  twierdzenie: 'TW',
+  lemat: 'LEM',
+  dowod: 'DOW',
+  przyklad: 'PRZ',
+  uwaga: 'UW',
+  intuicja: 'INT',
+}
+
 /** Prostokąt na stronie PDF we współrzędnych strony przy skali 1
  *  (punkty PDF, początek w lewym górnym rogu strony). */
 export interface Rect {
@@ -84,6 +95,8 @@ export interface BlockVersion {
   /** Markdown + LaTeX. */
   content: string
   sourceRefs: SourceRef[]
+  /** Nazwy grup źródeł (istnieją nawet gdy grupa jest chwilowo pusta). */
+  sourceGroups?: string[]
   createdAt: string
   updatedAt: string
 }

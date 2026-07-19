@@ -21,6 +21,9 @@ import {
 
 type ViewMode = 'kod' | 'podzial' | 'podglad'
 
+/** Typ przeciągania chipów źródeł między grupami. */
+const SRC_MIME = 'text/x-kompendium-src'
+
 interface Props {
   concept: Concept
   version: BlockVersion
@@ -47,6 +50,10 @@ export function BlockEditor({
   const [view, setView] = useState<ViewMode>('podzial')
   const [draft, setDraft] = useState(version.content)
   const saveTimer = useRef<number | undefined>(undefined)
+  /** Zwinięte grupy źródeł (stan lokalny widoku). */
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  /** Cel przeciągania chipa: nazwa grupy albo '' (obszar „bez grupy"). */
+  const [srcHint, setSrcHint] = useState<string | null>(null)
 
   const isCurrent = version.id === concept.currentVersionId
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
@@ -96,32 +103,99 @@ export function BlockEditor({
     })
   }
 
-  /** Przypisuje źródło do nazwanej grupy (puste = bez grupy). */
-  const assignGroup = async (ref: SourceRef) => {
+  /** Nazwy grup: jawnie utworzone + te wynikające z przypisań (stare dane). */
+  const groupNames = [
+    ...new Set([
+      ...(version.sourceGroups ?? []),
+      ...version.sourceRefs.map((r) => r.group).filter((g): g is string => !!g),
+    ]),
+  ].sort((a, b) => a.localeCompare(b, 'pl'))
+
+  const refsIn = (group: string | null) =>
+    version.sourceRefs.filter((r) => (r.group ?? null) === group)
+
+  /** Przenosi chip źródła do grupy (undefined = bez grupy). */
+  const setRefGroup = async (refId: string, group: string | undefined) => {
     if (!isCurrent) return
-    const name = window.prompt(
-      'Nazwa grupy źródeł (puste = bez grupy):',
-      ref.group ?? '',
-    )
-    if (name === null) return
     await updateVersion(version.id, {
       sourceRefs: version.sourceRefs.map((r) =>
-        r.id === ref.id ? { ...r, group: name.trim() || undefined } : r,
+        r.id === refId ? { ...r, group } : r,
       ),
     })
   }
 
-  /** Chipy pogrupowane: najpierw bez grupy, potem grupy alfabetycznie. */
-  const sourceGroups = (() => {
-    const map = new Map<string, SourceRef[]>()
-    for (const r of version.sourceRefs) {
-      const key = r.group ?? ''
-      map.set(key, [...(map.get(key) ?? []), r])
-    }
-    return [...map.entries()].sort((a, b) =>
-      a[0] === '' ? -1 : b[0] === '' ? 1 : a[0].localeCompare(b[0], 'pl'),
+  const handleNewGroup = async () => {
+    const name = window.prompt('Nazwa nowej grupy źródeł:')
+    if (!name?.trim()) return
+    const n = name.trim()
+    if (groupNames.includes(n)) return
+    await updateVersion(version.id, { sourceGroups: [...groupNames, n] })
+  }
+
+  const handleRenameGroup = async (group: string) => {
+    const name = window.prompt('Nowa nazwa grupy:', group)
+    if (!name?.trim() || name.trim() === group) return
+    const n = name.trim()
+    await updateVersion(version.id, {
+      sourceGroups: groupNames.map((g) => (g === group ? n : g)),
+      sourceRefs: version.sourceRefs.map((r) =>
+        r.group === group ? { ...r, group: n } : r,
+      ),
+    })
+  }
+
+  const handleDeleteGroup = async (group: string) => {
+    if (
+      !window.confirm(
+        `Usunąć grupę „${group}"? Źródła z niej wrócą do listy bez grupy.`,
+      )
     )
-  })()
+      return
+    await updateVersion(version.id, {
+      sourceGroups: groupNames.filter((g) => g !== group),
+      sourceRefs: version.sourceRefs.map((r) =>
+        r.group === group ? { ...r, group: undefined } : r,
+      ),
+    })
+  }
+
+  const toggleGroup = (group: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(group)) next.delete(group)
+      else next.add(group)
+      return next
+    })
+
+  /** Chip źródła — przeciągalny między grupami. */
+  const sourceChip = (r: SourceRef) => (
+    <span
+      key={r.id}
+      className="source-chip"
+      draggable={isCurrent}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(SRC_MIME, r.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+    >
+      <button
+        className="source-jump"
+        title="Skocz do miejsca w PDF"
+        onClick={() => onJumpToSource(r)}
+      >
+        📖 {pdfTitle(r.pdfId)} · s. {r.page}
+      </button>
+      {isCurrent && (
+        <button
+          className="source-remove"
+          title="Odepnij źródło"
+          onClick={() => removeSourceRef(r.id)}
+        >
+          ×
+        </button>
+      )}
+    </span>
+  )
 
   const setTags = (raw: string) => {
     const tags = raw
@@ -205,14 +279,24 @@ export function BlockEditor({
       )}
 
       <div className="editor-toolbar">
-        <button
-          className={`btn ${selecting ? 'btn-active' : ''}`}
-          onClick={onToggleSelecting}
-          disabled={!isCurrent}
-          title="Zaznacz fragment PDF i podepnij go jako źródło"
-        >
-          📌 Podepnij źródło
-        </button>
+        <div className="toolbar-left">
+          <button
+            className={`btn ${selecting ? 'btn-active' : ''}`}
+            onClick={onToggleSelecting}
+            disabled={!isCurrent}
+            title="Zaznacz fragment PDF i podepnij go jako źródło"
+          >
+            📌 Podepnij źródło
+          </button>
+          <button
+            className="btn"
+            onClick={handleNewGroup}
+            disabled={!isCurrent}
+            title="Nowa grupa źródeł"
+          >
+            + 🗀
+          </button>
+        </div>
         <div className="view-switch">
           {(['kod', 'podzial', 'podglad'] as ViewMode[]).map((m) => (
             <button
@@ -226,43 +310,73 @@ export function BlockEditor({
         </div>
       </div>
 
-      {version.sourceRefs.length > 0 && (
-        <div className="source-row">
+      {(version.sourceRefs.length > 0 || groupNames.length > 0) && (
+        <div
+          className={`source-row ${srcHint === '' ? 'drop-root' : ''}`}
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes(SRC_MIME)) return
+            e.preventDefault()
+            setSrcHint('')
+          }}
+          onDragLeave={() => setSrcHint(null)}
+          onDrop={(e) => {
+            e.preventDefault()
+            const id = e.dataTransfer.getData(SRC_MIME)
+            setSrcHint(null)
+            if (id) setRefGroup(id, undefined)
+          }}
+        >
           <span className="source-label">Źródła:</span>
-          {sourceGroups.map(([group, refs]) => (
-            <span key={group || '(bez grupy)'} className="source-group">
-              {group && <span className="source-group-name">🗀 {group}</span>}
-              {refs.map((r) => (
-                <span key={r.id} className="source-chip">
-                  <button
-                    className="source-jump"
-                    title="Skocz do miejsca w PDF"
-                    onClick={() => onJumpToSource(r)}
-                  >
-                    📖 {pdfTitle(r.pdfId)} · s. {r.page}
-                  </button>
-                  {isCurrent && (
-                    <>
-                      <button
-                        className="source-groupbtn"
-                        title="Przypisz do grupy"
-                        onClick={() => assignGroup(r)}
-                      >
-                        🗀
-                      </button>
-                      <button
-                        className="source-remove"
-                        title="Odepnij źródło"
-                        onClick={() => removeSourceRef(r.id)}
-                      >
-                        ×
-                      </button>
-                    </>
-                  )}
-                </span>
-              ))}
-            </span>
-          ))}
+          {refsIn(null).map((r) => sourceChip(r))}
+          {groupNames.map((g) => {
+            const open = !collapsedGroups.has(g)
+            return (
+              <span key={g} className="source-group">
+                <button
+                  className={`source-group-head ${srcHint === g ? 'drop-into' : ''}`}
+                  title={open ? 'Zwiń grupę' : 'Rozwiń grupę'}
+                  onClick={() => toggleGroup(g)}
+                  onDragOver={(e) => {
+                    if (!e.dataTransfer.types.includes(SRC_MIME)) return
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setSrcHint(g)
+                  }}
+                  onDragLeave={() => setSrcHint(null)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const id = e.dataTransfer.getData(SRC_MIME)
+                    setSrcHint(null)
+                    if (id) setRefGroup(id, g)
+                  }}
+                >
+                  <span className={`folder-chevron ${open ? 'open' : ''}`}>▸</span>
+                  🗀 {g}
+                  <span className="folder-count">{refsIn(g).length}</span>
+                </button>
+                {isCurrent && (
+                  <span className="source-group-actions">
+                    <button
+                      className="folder-action"
+                      title="Zmień nazwę grupy"
+                      onClick={() => handleRenameGroup(g)}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      className="folder-action"
+                      title="Usuń grupę (źródła wrócą do listy)"
+                      onClick={() => handleDeleteGroup(g)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {open && refsIn(g).map((r) => sourceChip(r))}
+              </span>
+            )
+          })}
         </div>
       )}
 

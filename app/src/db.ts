@@ -143,7 +143,7 @@ export async function moveConcept(
 
 export async function updateVersion(
   id: string,
-  patch: Partial<Pick<BlockVersion, 'content' | 'label' | 'sourceRefs'>>,
+  patch: Partial<Pick<BlockVersion, 'content' | 'label' | 'sourceRefs' | 'sourceGroups'>>,
 ) {
   await db.versions.update(id, { ...patch, updatedAt: now() })
   const v = await db.versions.get(id)
@@ -164,6 +164,7 @@ export async function saveAsNewVersion(conceptId: string, label?: string): Promi
       label,
       content: latest.content,
       sourceRefs: latest.sourceRefs.map((r) => ({ ...r, id: uid() })),
+      sourceGroups: latest.sourceGroups ? [...latest.sourceGroups] : undefined,
       createdAt: t,
       updatedAt: t,
     })
