@@ -337,7 +337,7 @@ export function BlockEditor({
                   className={`version-pill ${v.id === version.id ? 'active' : ''} ${
                     hint === 'before' ? 'drop-left' : hint === 'after' ? 'drop-right' : ''
                   }`}
-                  title={v.label ?? `wersja ${v.version} — przeciągnij, aby zmienić kolejność`}
+                  title={`wersja ${v.version}${v.label ? ` — ${v.label}` : ''} · przeciągnij, aby zmienić kolejność`}
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/x-komp-ver', v.id)
                     e.dataTransfer.effectAllowed = 'move'
@@ -367,8 +367,7 @@ export function BlockEditor({
                       onShowVersion(v.id === concept.currentVersionId ? null : v.id)
                     }
                   >
-                    v{v.version}
-                    {v.label ? ` · ${v.label}` : ''}
+                    {v.label ?? `v${v.version}`}
                   </button>
                   {v.id === version.id && (
                     <span className="version-actions">

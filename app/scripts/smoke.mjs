@@ -38,7 +38,7 @@ await page.screenshot({ path: 'scripts/shot-2-edytor.png' })
 // Nowa wersja (obsłuż window.prompt)
 page.on('dialog', (d) => d.accept('wg Rudina'))
 await page.click('text=+ nowa wersja')
-await page.waitForSelector('text=v2', { timeout: 10000 })
+await page.waitForSelector('.version-pill.active:has-text("wg Rudina")', { timeout: 10000 })
 await page.screenshot({ path: 'scripts/shot-3-wersje.png' })
 
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))

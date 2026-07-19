@@ -29,32 +29,40 @@ console.log(
   `✓ typy bez Intuicji: ${typeOptions.includes('Intuicja') ? 'BŁĄD — jest!' : 'ok'} (${typeOptions.join(', ')})`,
 )
 
-// zmień etykietę v1
+// zmień etykietę v1 (pigułka pokazuje samą etykietę, bez przedrostka v1)
 answers.push('pierwotna')
 await page.click('.version-action[title*="etykietę"]')
-await page.waitForSelector('.version-pill:has-text("v1 · pierwotna")')
-console.log('✓ zmiana etykiety wersji działa')
+await page.waitForSelector('.version-pill:has-text("pierwotna")')
+const pillText = await page.textContent('.version-pill:not(.new)')
+console.log(
+  `✓ etykieta bez przedrostka: "${pillText.trim()}" ${pillText.includes('v1') ? '— BŁĄD, jest v1!' : ''}`,
+)
 
 // nowa wersja z etykietą
 answers.push('druga')
 await page.click('button.version-pill.new')
-await page.waitForSelector('.version-pill.active:has-text("v2 · druga")')
-console.log('✓ nowa wersja v2 · druga')
+await page.waitForSelector('.version-pill.active:has-text("druga")')
+console.log('✓ nowa wersja „druga"')
 
-// zmiana kolejności: przeciągnij v2 przed v1 → numeracja się odwraca
+// zmiana kolejności: przeciągnij „druga" przed „pierwotna" → numeracja się odwraca
 await page.dragAndDrop(
   '.version-pill:has-text("druga")',
   '.version-pill:has-text("pierwotna")',
   { targetPosition: { x: 8, y: 10 } },
 )
-await page.waitForSelector('.version-pill:has-text("v1 · druga")')
-await page.waitForSelector('.version-pill:has-text("v2 · pierwotna")')
-console.log('✓ kolejność wersji zmieniona przeciąganiem (druga jest teraz v1)')
+await page.waitForFunction(() => {
+  const p = document.querySelector('.version-pill:not(.new)')
+  return p && p.title.startsWith('wersja 1 — druga')
+})
+console.log('✓ kolejność wersji zmieniona przeciąganiem (druga jest teraz wersją 1)')
 
-// usuń pokazywaną wersję (aktywna = druga); zostaje pierwotna jako v1
+// usuń pokazywaną wersję (aktywna = druga); zostaje pierwotna jako wersja 1
 answers.push('') // confirm
 await page.click('.version-action[title*="Usuń tę wersję"]')
-await page.waitForSelector('.version-pill:has-text("v1 · pierwotna")')
+await page.waitForFunction(() => {
+  const pills = document.querySelectorAll('.version-pill:not(.new)')
+  return pills.length === 1 && pills[0].title.startsWith('wersja 1 — pierwotna')
+})
 const pills = await page.locator('.version-pill:not(.new)').count()
 console.log(`✓ usuwanie wersji działa (zostało pigułek: ${pills})`)
 await page.click('.btn-close[title*="Zamknij klocek"]')

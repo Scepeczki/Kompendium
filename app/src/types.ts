@@ -20,11 +20,12 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   intuicja: 'Intuicja',
 }
 
-/** Typy do wyboru. „Intuicja" wycofana z wyboru — jej rolę pełnią notatki
- *  na ścieżkach; istniejące klocki intuicji nadal działają. */
+/** Typy do wyboru. Wycofane z wyboru (istniejące klocki nadal działają):
+ *  - „intuicja" — jej rolę pełnią notatki na ścieżkach;
+ *  - „dowód" — do przemyślenia, jak reprezentować dowody w twierdzeniach. */
 export const BLOCK_TYPES: BlockType[] = (
   Object.keys(BLOCK_TYPE_LABELS) as BlockType[]
-).filter((t) => t !== 'intuicja')
+).filter((t) => t !== 'intuicja' && t !== 'dowod')
 
 /** Krótkie oznaczenia typów do zwartych list. */
 export const BLOCK_TYPE_SHORT: Record<BlockType, string> = {

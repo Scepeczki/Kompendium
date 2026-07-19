@@ -100,6 +100,12 @@ wyłącznie w systemie.
 
 ---
 
+## Do przemyślenia
+
+- **Dowody**: typ „Dowód" wycofany z wyboru. Do rozstrzygnięcia, jak reprezentować
+  dowód twierdzenia — jako sekcję wewnątrz klocka twierdzenia (zwijaną?), osobny
+  podklocek podpięty pod twierdzenie, czy jeszcze inaczej.
+
 ## Pomysły na później (świadomie odłożone)
 
 - Active Recall na sterydach: automatyczne generowanie fiszek z klocków (tryb „zakryj dowód").

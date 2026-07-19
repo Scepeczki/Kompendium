@@ -36,6 +36,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
+import { topoOrder } from '../topo'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
@@ -44,6 +45,8 @@ import {
 } from '../types'
 
 const MIME = 'text/x-kompendium'
+/** Przeciąganie segmentów w trybie liniowym. */
+const SEG_MIME = 'text/x-komp-seg'
 
 interface CanvasApi {
   updateData: (id: string, patch: Record<string, unknown>) => void
@@ -168,8 +171,7 @@ function BlockNode({ id, data, selected }: NodeProps) {
           .sort((a, b) => a.version - b.version)
           .map((v) => (
             <option key={v.id} value={v.id}>
-              v{v.version}
-              {v.label ? ` · ${v.label}` : ''}
+              {v.label ?? `v${v.version}`}
             </option>
           ))}
       </select>
@@ -269,6 +271,222 @@ function OrderedEdge({
 
 const edgeTypes = { ordered: OrderedEdge }
 
+// ---------------------------------------------------------------------------
+// Tryb liniowy: pionowe doklejanie segmentów skryptu
+// ---------------------------------------------------------------------------
+
+interface LinearViewProps {
+  ordered: PathNode[]
+  onDropConcept: (conceptId: string, afterId: string | null, beforeId: string | null) => void
+  onMoveSegment: (segId: string, afterId: string | null, beforeId: string | null) => void
+  onAddNote: (kind: 'text' | 'comment', afterId: string | null, beforeId: string | null) => void
+  onRemove: (id: string) => void
+  onEdit: (n: PathNode) => void
+  onUnfuse: (id: string) => void
+}
+
+function LinearView({
+  ordered,
+  onDropConcept,
+  onMoveSegment,
+  onAddNote,
+  onRemove,
+  onEdit,
+  onUnfuse,
+}: LinearViewProps) {
+  const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
+  const [endHint, setEndHint] = useState(false)
+  const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+
+  const conceptById = (id: string) => concepts.find((c) => c.id === id)
+  const versionOf = (conceptId: string, versionId: string | null) => {
+    const c = conceptById(conceptId)
+    if (!c) return undefined
+    return versions.find((v) => v.id === (versionId ?? c.currentVersionId))
+  }
+
+  const isOurs = (e: React.DragEvent) =>
+    e.dataTransfer.types.includes(MIME) || e.dataTransfer.types.includes(SEG_MIME)
+
+  /** Sąsiedzi dla wstawienia względem segmentu o indeksie i. */
+  const neighbors = (i: number, pos: 'before' | 'after') => ({
+    afterId: pos === 'before' ? (ordered[i - 1]?.id ?? null) : ordered[i].id,
+    beforeId: pos === 'before' ? ordered[i].id : (ordered[i + 1]?.id ?? null),
+  })
+
+  const handleDrop = (e: React.DragEvent, afterId: string | null, beforeId: string | null) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setHint(null)
+    setEndHint(false)
+    const seg = e.dataTransfer.getData(SEG_MIME)
+    if (seg) {
+      onMoveSegment(seg, afterId, beforeId)
+      return
+    }
+    try {
+      const raw = e.dataTransfer.getData(MIME)
+      const p = raw ? (JSON.parse(raw) as { kind: string; id: string }) : null
+      if (p?.kind === 'concept') onDropConcept(p.id, afterId, beforeId)
+    } catch {
+      /* zignoruj obcy drop */
+    }
+  }
+
+  const segmentContent = (n: PathNode) => {
+    if (n.kind === 'block') {
+      const c = conceptById(n.conceptId)
+      if (!c) return <div className="script-block">(usunięte pojęcie)</div>
+      const v = versionOf(n.conceptId, n.versionId)
+      return (
+        <section className={`script-block script-${c.type}`}>
+          <h3 className="script-block-title">
+            <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}</span> {c.name}
+            {v?.label && <span className="script-block-version"> ({v.label})</span>}
+          </h3>
+          <div
+            className="markdown-body"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(v?.content ?? '') }}
+          />
+        </section>
+      )
+    }
+    if (n.kind === 'text') {
+      return (
+        <div
+          className="script-text markdown-body linear-note"
+          dangerouslySetInnerHTML={{
+            __html: n.text
+              ? renderMarkdown(n.text)
+              : '<p class="note-empty">pusta notatka — ✏ aby edytować</p>',
+          }}
+        />
+      )
+    }
+    if (n.kind === 'comment') {
+      return (
+        <div className="linear-comment">
+          <span className="linear-comment-badge">💬 komentarz (poza skryptem)</span>
+          <div
+            className="markdown-body"
+            dangerouslySetInnerHTML={{
+              __html: n.text
+                ? renderMarkdown(n.text)
+                : '<p class="note-empty">pusty komentarz — ✏ aby edytować</p>',
+            }}
+          />
+        </div>
+      )
+    }
+    return (
+      <section className="script-block script-fusion">
+        <h3 className="script-block-title">
+          <span className="script-block-type">Blok</span> {n.name}
+        </h3>
+        <ul className="fusion-parts">
+          {n.parts.map((p, i) => (
+            <li key={i}>{conceptById(p.conceptId)?.name ?? '(usunięte)'}</li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  const last = ordered[ordered.length - 1] ?? null
+
+  return (
+    <div className="linear-view">
+      <div className="linear-column">
+        {ordered.map((n, i) => {
+          const h = hint?.id === n.id ? hint.pos : null
+          return (
+            <div
+              key={n.id}
+              className={`linear-seg ${
+                h === 'before' ? 'drop-before' : h === 'after' ? 'drop-after' : ''
+              }`}
+              onDragOver={(e) => {
+                if (!isOurs(e)) return
+                e.preventDefault()
+                e.stopPropagation()
+                const r = e.currentTarget.getBoundingClientRect()
+                const pos = e.clientY - r.top < r.height / 2 ? 'before' : 'after'
+                setHint({ id: n.id, pos })
+                setEndHint(false)
+              }}
+              onDragLeave={() => setHint(null)}
+              onDrop={(e) => {
+                const pos = hint?.id === n.id ? hint.pos : 'after'
+                const { afterId, beforeId } = neighbors(i, pos)
+                handleDrop(e, afterId, beforeId)
+              }}
+            >
+              <div className="linear-side">
+                <button
+                  draggable
+                  className="linear-grip"
+                  title="Przeciągnij, aby zmienić kolejność"
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(SEG_MIME, n.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                  }}
+                >
+                  ⣿
+                </button>
+                <button className="folder-action" title="Edytuj" onClick={() => onEdit(n)}>
+                  ✏
+                </button>
+                {n.kind === 'fusion' && (
+                  <button
+                    className="folder-action"
+                    title="Rozdziel fuzję"
+                    onClick={() => onUnfuse(n.id)}
+                  >
+                    ⇱
+                  </button>
+                )}
+                <button
+                  className="folder-action"
+                  title="Usuń ze ścieżki"
+                  onClick={() => onRemove(n.id)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="linear-content">{segmentContent(n)}</div>
+            </div>
+          )
+        })}
+        <div
+          className={`linear-append ${endHint ? 'drop-into' : ''}`}
+          onDragOver={(e) => {
+            if (!isOurs(e)) return
+            e.preventDefault()
+            setEndHint(true)
+            setHint(null)
+          }}
+          onDragLeave={() => setEndHint(false)}
+          onDrop={(e) => handleDrop(e, last?.id ?? null, null)}
+        >
+          <p>Przeciągnij klocek z listy po lewej, aby dokleić go do skryptu…</p>
+          <div className="linear-append-actions">
+            <button className="btn" onClick={() => onAddNote('text', last?.id ?? null, null)}>
+              + Notatka
+            </button>
+            <button
+              className="btn"
+              onClick={() => onAddNote('comment', last?.id ?? null, null)}
+            >
+              + 💬 Komentarz
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function FusionNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
   const parts = (data.parts as { conceptId: string }[]) ?? []
@@ -363,6 +581,14 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
 
   // edytowana notatka/komentarz (okno edycji)
   const [editingNote, setEditingNote] = useState<string | null>(null)
+
+  // tryb edycji: mapa (canvas) albo linia (pionowe doklejanie segmentów)
+  const [mode, setMode] = useState<'map' | 'linear'>(() =>
+    localStorage.getItem('ui.pathMode') === 'linear' ? 'linear' : 'map',
+  )
+  useEffect(() => {
+    localStorage.setItem('ui.pathMode', mode)
+  }, [mode])
 
   // wczytaj ścieżkę
   useEffect(() => {
@@ -541,6 +767,124 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
     setRfEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
   }
 
+  // -------------------------------------------------------------------------
+  // Operacje łańcuchowe trybu liniowego
+  // -------------------------------------------------------------------------
+
+  const mkEdge = (source: string, target: string): Edge => ({
+    id: crypto.randomUUID(),
+    source,
+    target,
+    type: 'ordered',
+    markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+  })
+
+  /** Pozycja na mapie dla segmentu wstawianego między sąsiadów. */
+  const positionBetween = (afterId: string | null, beforeId: string | null) => {
+    const posOf = (id: string | null) =>
+      id ? rfNodes.find((n) => n.id === id)?.position : undefined
+    const a = posOf(afterId)
+    const b = posOf(beforeId)
+    if (a && b) return { x: a.x, y: (a.y + b.y) / 2 }
+    if (a) return { x: a.x, y: a.y + 240 }
+    if (b) return { x: b.x, y: b.y - 240 }
+    return { x: 120, y: 80 }
+  }
+
+  /** Wstawia węzeł w łańcuch: after → nowy → before (rozcina strzałkę after→before). */
+  const chainInsert = (node: Node, afterId: string | null, beforeId: string | null) => {
+    setRfNodes((ns) => [...ns, node])
+    setRfEdges((es) => {
+      let rest = es
+      if (afterId && beforeId) {
+        rest = rest.filter((e) => !(e.source === afterId && e.target === beforeId))
+      }
+      const add: Edge[] = []
+      if (afterId) add.push(mkEdge(afterId, node.id))
+      if (beforeId) add.push(mkEdge(node.id, beforeId))
+      return [...rest, ...add]
+    })
+  }
+
+  /** Usuwa segment i zszywa łańcuch (poprzednik → następnik). */
+  const removeSegmentHeal = (id: string) => {
+    setRfEdges((es) => {
+      const inc = es.filter((e) => e.target === id).map((e) => e.source)
+      const outs = es.filter((e) => e.source === id).map((e) => e.target)
+      let rest = es.filter((e) => e.source !== id && e.target !== id)
+      if (
+        inc.length === 1 &&
+        outs.length === 1 &&
+        inc[0] !== outs[0] &&
+        !rest.some((e) => e.source === inc[0] && e.target === outs[0])
+      ) {
+        rest = [...rest, mkEdge(inc[0], outs[0])]
+      }
+      return rest
+    })
+    setRfNodes((ns) => ns.filter((n) => n.id !== id))
+  }
+
+  /** Przenosi istniejący segment w inne miejsce łańcucha. */
+  const moveSegment = (segId: string, afterId: string | null, beforeId: string | null) => {
+    if (segId === afterId || segId === beforeId) return
+    if (!rfNodes.some((n) => n.id === segId)) return
+    const pos = positionBetween(afterId, beforeId)
+    setRfEdges((es) => {
+      const inc = es.filter((e) => e.target === segId).map((e) => e.source)
+      const outs = es.filter((e) => e.source === segId).map((e) => e.target)
+      let rest = es.filter((e) => e.source !== segId && e.target !== segId)
+      if (
+        inc.length === 1 &&
+        outs.length === 1 &&
+        inc[0] !== outs[0] &&
+        !rest.some((e) => e.source === inc[0] && e.target === outs[0])
+      ) {
+        rest = [...rest, mkEdge(inc[0], outs[0])]
+      }
+      if (afterId && beforeId) {
+        rest = rest.filter((e) => !(e.source === afterId && e.target === beforeId))
+      }
+      const add: Edge[] = []
+      if (afterId) add.push(mkEdge(afterId, segId))
+      if (beforeId) add.push(mkEdge(segId, beforeId))
+      return [...rest, ...add]
+    })
+    setRfNodes((ns) => ns.map((n) => (n.id === segId ? { ...n, position: pos } : n)))
+  }
+
+  const linearDropConcept = (conceptId: string, afterId: string | null, beforeId: string | null) => {
+    chainInsert(
+      {
+        id: crypto.randomUUID(),
+        type: 'block',
+        position: positionBetween(afterId, beforeId),
+        data: { conceptId, versionId: null },
+      },
+      afterId,
+      beforeId,
+    )
+  }
+
+  const linearAddNote = (
+    kind: 'text' | 'comment',
+    afterId: string | null,
+    beforeId: string | null,
+  ) => {
+    const id = crypto.randomUUID()
+    chainInsert(
+      {
+        id,
+        type: kind,
+        position: positionBetween(afterId, beforeId),
+        data: { text: '' },
+      },
+      afterId,
+      beforeId,
+    )
+    setEditingNote(id)
+  }
+
   const handlePaneContextMenu = (e: React.MouseEvent | MouseEvent) => {
     e.preventDefault()
     const sx = 'clientX' in e ? e.clientX : 0
@@ -636,38 +980,60 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
           }}
           placeholder="Nazwa ścieżki…"
         />
+        <div className="view-switch">
+          <button
+            className={`btn ${mode === 'map' ? 'btn-active' : ''}`}
+            title="Mapa: kafelki i strzałki na nieskończonej tablicy"
+            onClick={() => setMode('map')}
+          >
+            🗺 Mapa
+          </button>
+          <button
+            className={`btn ${mode === 'linear' ? 'btn-active' : ''}`}
+            title="Linia: doklejanie segmentów skryptu jeden pod drugim"
+            onClick={() => setMode('linear')}
+          >
+            ≡ Linia
+          </button>
+        </div>
+        {mode === 'map' && (
         <button className="btn" onClick={handleAddText} title="Dodaj notatkę (tkankę łączną / intuicję)">
           + Notatka
         </button>
-        <button
-          className="btn"
-          onClick={() => {
-            const rect = wrapRef.current?.getBoundingClientRect()
-            const pos = screenToFlowPosition({
-              x: (rect?.left ?? 0) + (rect?.width ?? 600) / 2 + 60,
-              y: (rect?.top ?? 0) + (rect?.height ?? 400) / 2 + 60,
-            })
-            addCommentAt(pos.x, pos.y)
-          }}
-          title="Dodaj komentarz do ścieżki (nie trafia do skryptu)"
-        >
-          + 💬
-        </button>
-        <button
-          className={`btn ${showGrid ? 'btn-active' : ''}`}
-          onClick={() => setShowGrid((g) => !g)}
-          title="Pokaż/ukryj siatkę (Shift podczas przesuwania przyciąga do linii)"
-        >
-          ⊞ Siatka
-        </button>
-        <button
-          className="btn"
-          onClick={handleFuse}
-          disabled={selectedBlocks < 2}
-          title="Scal zaznaczone klocki w jeden bloczek (w tej ścieżce)"
-        >
-          ⧉ Scal ({selectedBlocks})
-        </button>
+        )}
+        {mode === 'map' && (
+          <>
+            <button
+              className="btn"
+              onClick={() => {
+                const rect = wrapRef.current?.getBoundingClientRect()
+                const pos = screenToFlowPosition({
+                  x: (rect?.left ?? 0) + (rect?.width ?? 600) / 2 + 60,
+                  y: (rect?.top ?? 0) + (rect?.height ?? 400) / 2 + 60,
+                })
+                addCommentAt(pos.x, pos.y)
+              }}
+              title="Dodaj komentarz do ścieżki (nie trafia do skryptu)"
+            >
+              + 💬
+            </button>
+            <button
+              className={`btn ${showGrid ? 'btn-active' : ''}`}
+              onClick={() => setShowGrid((g) => !g)}
+              title="Pokaż/ukryj siatkę (Shift podczas przesuwania przyciąga do linii)"
+            >
+              ⊞ Siatka
+            </button>
+            <button
+              className="btn"
+              onClick={handleFuse}
+              disabled={selectedBlocks < 2}
+              title="Scal zaznaczone klocki w jeden bloczek (w tej ścieżce)"
+            >
+              ⧉ Scal ({selectedBlocks})
+            </button>
+          </>
+        )}
         <button className="btn btn-primary" onClick={onOpenScript} title="Złóż ścieżkę w jeden ciągły skrypt">
           📜 Skrypt
         </button>
@@ -676,11 +1042,31 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
         </button>
       </header>
       <div className="path-hint">
-        Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do
-        górnej) · prawy przycisk na tle = nowy klocek/tekst · Ctrl+klik zaznacza wiele
-        · Shift przy przesuwaniu = przyciąganie do siatki · Delete usuwa
+        {mode === 'map'
+          ? 'Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy klocek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
+          : 'Doklejaj segmenty jeden pod drugim: przeciągaj klocki z listy po lewej (także między segmenty), zmieniaj kolejność uchwytem ⣿, dodawaj notatki i komentarze'}
       </div>
-      <div className="path-flow" ref={wrapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
+      {mode === 'linear' && (
+        <LinearView
+          ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
+          onDropConcept={linearDropConcept}
+          onMoveSegment={moveSegment}
+          onAddNote={linearAddNote}
+          onRemove={removeSegmentHeal}
+          onEdit={(n) => {
+            if (n.kind === 'block') onOpenConcept(n.conceptId)
+            else if (n.kind === 'text' || n.kind === 'comment') setEditingNote(n.id)
+          }}
+          onUnfuse={(id) => api.unfuse(id)}
+        />
+      )}
+      <div
+        className="path-flow"
+        ref={wrapRef}
+        style={mode === 'linear' ? { display: 'none' } : undefined}
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
+      >
         <CanvasCtx.Provider value={api}>
           <ReactFlow
             nodes={rfNodes}
@@ -806,48 +1192,48 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
             </button>
           </div>
         )}
-        {editingNote &&
-          (() => {
-            const n = rfNodes.find((x) => x.id === editingNote)
-            if (!n) return null
-            const isComment = n.type === 'comment'
-            const text = (n.data.text as string) ?? ''
-            return (
-              <div className="note-modal-backdrop" onClick={() => setEditingNote(null)}>
-                <div className="note-modal" onClick={(e) => e.stopPropagation()}>
-                  <header className="note-modal-head">
-                    <h3>
-                      {isComment ? '💬 Komentarz do ścieżki' : '✥ Notatka (intuicja)'}
-                    </h3>
-                    <button
-                      className="btn btn-close"
-                      title="Zamknij"
-                      onClick={() => setEditingNote(null)}
-                    >
-                      ✕
-                    </button>
-                  </header>
-                  <div className="note-modal-body">
-                    <div className="editor-code">
-                      <CodeMirror
-                        value={text}
-                        onChange={(v) => api.updateData(n.id, { text: v })}
-                        extensions={[markdown()]}
-                        placeholder={'Markdown + LaTeX: $x^2$…'}
-                        basicSetup={{ lineNumbers: false, foldGutter: false }}
-                        style={{ height: '100%' }}
-                      />
-                    </div>
-                    <div
-                      className="editor-preview markdown-body"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
+      </div>
+      {editingNote &&
+        (() => {
+          const n = rfNodes.find((x) => x.id === editingNote)
+          if (!n) return null
+          const isComment = n.type === 'comment'
+          const text = (n.data.text as string) ?? ''
+          return (
+            <div className="note-modal-backdrop" onClick={() => setEditingNote(null)}>
+              <div className="note-modal" onClick={(e) => e.stopPropagation()}>
+                <header className="note-modal-head">
+                  <h3>
+                    {isComment ? '💬 Komentarz do ścieżki' : '✥ Notatka (intuicja)'}
+                  </h3>
+                  <button
+                    className="btn btn-close"
+                    title="Zamknij"
+                    onClick={() => setEditingNote(null)}
+                  >
+                    ✕
+                  </button>
+                </header>
+                <div className="note-modal-body">
+                  <div className="editor-code">
+                    <CodeMirror
+                      value={text}
+                      onChange={(v) => api.updateData(n.id, { text: v })}
+                      extensions={[markdown()]}
+                      placeholder={'Markdown + LaTeX: $x^2$…'}
+                      basicSetup={{ lineNumbers: false, foldGutter: false }}
+                      style={{ height: '100%' }}
                     />
                   </div>
+                  <div
+                    className="editor-preview markdown-body"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
+                  />
                 </div>
               </div>
-            )
-          })()}
-      </div>
+            </div>
+          )
+        })()}
     </section>
   )
 }
