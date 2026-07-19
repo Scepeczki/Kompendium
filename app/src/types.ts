@@ -38,6 +38,8 @@ export interface SourceRef {
   /** Numer strony, od 1. */
   page: number
   rect: Rect
+  /** Nazwa grupy źródeł w obrębie klocka (proste folderowanie chipów). */
+  group?: string
   note?: string
 }
 
@@ -51,6 +53,8 @@ export interface Folder {
   name: string
   /** null = poziom główny. Dla kind='pdfs' zawsze null (bez zagnieżdżania). */
   parentId: string | null
+  /** Wspólna kolejność z klockami w obrębie rodzica (foldery i klocki się przeplatają). */
+  order: number
   createdAt: string
 }
 

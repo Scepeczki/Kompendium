@@ -6,6 +6,7 @@ import {
   db,
   deleteFolder,
   moveConcept,
+  moveFolder,
   renameFolder,
 } from '../db'
 import {
@@ -23,6 +24,11 @@ interface Props {
 
 /** Ładunek przeciągania (klocek albo folder). */
 type DragPayload = { kind: 'concept' | 'folder'; id: string }
+
+/** Element wspólnej listy dzieci folderu (foldery i klocki przeplatają się). */
+type TreeNode =
+  | { kind: 'folder'; id: string; order: number; folder: Folder }
+  | { kind: 'concept'; id: string; order: number; concept: Concept }
 
 /** Podpowiedź wizualna miejsca upuszczenia. */
 type DropHint = { id: string; pos: 'into' | 'before' | 'after' } | null
@@ -65,31 +71,36 @@ export function Sidebar({ selectedId, onSelect }: Props) {
 
   const filtering = search.trim() !== '' || typeFilter !== 'wszystkie'
 
-  const childFolders = (parentId: string | null) =>
-    folders
+  /** Dzieci rodzica: foldery i klocki we wspólnej, ręcznej kolejności. */
+  const children = (parentId: string | null): TreeNode[] => {
+    const fs: TreeNode[] = folders
       .filter((f) => (f.parentId ?? null) === parentId)
-      .sort((a, b) => a.name.localeCompare(b.name, 'pl'))
+      .map((f) => ({ kind: 'folder', id: f.id, order: f.order ?? 0, folder: f }))
+    const cs: TreeNode[] = concepts
+      .filter((c) => (c.folderId ?? null) === parentId)
+      .map((c) => ({ kind: 'concept', id: c.id, order: c.order ?? 0, concept: c }))
+    return [...fs, ...cs].sort((a, b) => a.order - b.order)
+  }
 
-  const childConcepts = (folderId: string | null) =>
-    concepts
-      .filter((c) => (c.folderId ?? null) === folderId)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  const persistExpanded = (next: Set<string>) => {
+    localStorage.setItem(EXP_KEY, JSON.stringify([...next]))
+    return next
+  }
 
   const toggleExpanded = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
-      localStorage.setItem(EXP_KEY, JSON.stringify([...next]))
-      return next
+      return persistExpanded(next)
     })
   }
 
-  /** Czy folder `candidate` leży wewnątrz folderu `ancestor` (dowolnie głęboko). */
-  const isInside = (candidateId: string, ancestorId: string): boolean => {
-    let cur = folders.find((f) => f.id === candidateId)
+  /** Czy folder `candidateId` leży wewnątrz folderu `ancestorId` (dowolnie głęboko). */
+  const isInside = (candidateId: string | null, ancestorId: string): boolean => {
+    let cur = candidateId ? folders.find((f) => f.id === candidateId) : undefined
     while (cur) {
-      if (cur.parentId === ancestorId) return true
+      if (cur.id === ancestorId || cur.parentId === ancestorId) return true
       cur = folders.find((f) => f.id === cur!.parentId)
     }
     return false
@@ -100,43 +111,46 @@ export function Sidebar({ selectedId, onSelect }: Props) {
     setRootHint(false)
   }
 
-  const dropOnFolder = async (payload: DragPayload, folderId: string) => {
+  /** Przenosi ładunek do wnętrza folderu (na koniec). */
+  const dropInto = async (payload: DragPayload, folderId: string) => {
     if (payload.kind === 'concept') {
       await moveConcept(payload.id, folderId)
     } else {
-      // folder nie może wejść w samego siebie ani we własne wnętrze
       if (payload.id === folderId || isInside(folderId, payload.id)) return
-      await db.folders.update(payload.id, { parentId: folderId })
+      await moveFolder(payload.id, folderId)
     }
-    setExpanded((prev) => {
-      const next = new Set(prev).add(folderId)
-      localStorage.setItem(EXP_KEY, JSON.stringify([...next]))
-      return next
-    })
+    setExpanded((prev) => persistExpanded(new Set(prev).add(folderId)))
   }
 
-  const dropOnConcept = async (
+  /** Ustawia ładunek przed/po elemencie docelowym (wspólna kolejność). */
+  const dropRelative = async (
     payload: DragPayload,
-    target: Concept,
+    target: TreeNode,
+    parentId: string | null,
     pos: 'before' | 'after',
   ) => {
-    if (payload.kind !== 'concept' || payload.id === target.id) return
-    const siblings = childConcepts(target.folderId ?? null)
-    const i = siblings.findIndex((c) => c.id === target.id)
+    if (payload.id === target.id) return
+    if (payload.kind === 'folder') {
+      // folder nie może wylądować we własnym wnętrzu
+      if (parentId !== null && isInside(parentId, payload.id)) return
+    }
+    const siblings = children(parentId)
+    const i = siblings.findIndex((n) => n.id === target.id)
     let order: number
     if (pos === 'before') {
       const prev = siblings[i - 1]
-      order = prev ? ((prev.order ?? 0) + (target.order ?? 0)) / 2 : (target.order ?? 0) - 1
+      order = prev ? (prev.order + target.order) / 2 : target.order - 1
     } else {
       const next = siblings[i + 1]
-      order = next ? ((next.order ?? 0) + (target.order ?? 0)) / 2 : (target.order ?? 0) + 1
+      order = next ? (next.order + target.order) / 2 : target.order + 1
     }
-    await moveConcept(payload.id, target.folderId ?? null, order)
+    if (payload.kind === 'concept') await moveConcept(payload.id, parentId, order)
+    else await moveFolder(payload.id, parentId, order)
   }
 
   const dropOnRoot = async (payload: DragPayload) => {
     if (payload.kind === 'concept') await moveConcept(payload.id, null)
-    else await db.folders.update(payload.id, { parentId: null })
+    else await moveFolder(payload.id, null)
   }
 
   const handleNew = async () => {
@@ -170,7 +184,7 @@ export function Sidebar({ selectedId, onSelect }: Props) {
   // Wiersze drzewa
   // -------------------------------------------------------------------------
 
-  const conceptRow = (c: Concept, depth: number) => {
+  const conceptRow = (c: Concept, parentId: string | null, node: TreeNode) => {
     const hint = dropHint?.id === c.id ? dropHint.pos : null
     return (
       <li key={c.id}>
@@ -179,7 +193,6 @@ export function Sidebar({ selectedId, onSelect }: Props) {
           className={`concept-item ${c.id === selectedId ? 'selected' : ''} ${
             hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
           }`}
-          style={{ paddingLeft: 10 + depth * 16 }}
           onClick={() => onSelect(c.id)}
           onDragStart={(e) => setDragData(e, { kind: 'concept', id: c.id })}
           onDragOver={(e) => {
@@ -195,9 +208,9 @@ export function Sidebar({ selectedId, onSelect }: Props) {
             e.preventDefault()
             e.stopPropagation()
             const p = getDragData(e)
-            const pos = dropHint?.id === c.id ? dropHint.pos : 'after'
+            const pos = dropHint?.id === c.id && dropHint.pos !== 'into' ? dropHint.pos : 'after'
             clearHints()
-            if (p && pos !== 'into') dropOnConcept(p, c, pos)
+            if (p) dropRelative(p, node, parentId, pos)
           }}
         >
           <span className={`type-badge type-${c.type}`}>
@@ -212,24 +225,28 @@ export function Sidebar({ selectedId, onSelect }: Props) {
     )
   }
 
-  const folderRow = (f: Folder, depth: number) => {
+  const folderRow = (f: Folder, parentId: string | null, node: TreeNode) => {
     const isOpen = expanded.has(f.id)
-    const hintInto = dropHint?.id === f.id && dropHint.pos === 'into'
-    const count =
-      childConcepts(f.id).length +
-      folders.filter((x) => x.parentId === f.id).length
+    const hint = dropHint?.id === f.id ? dropHint.pos : null
+    const kids = children(f.id)
     return (
       <li key={f.id}>
         <div
           draggable
-          className={`folder-row ${hintInto ? 'drop-into' : ''}`}
-          style={{ paddingLeft: 6 + depth * 16 }}
+          className={`folder-row ${hint === 'into' ? 'drop-into' : ''} ${
+            hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
+          }`}
           onClick={() => toggleExpanded(f.id)}
           onDragStart={(e) => setDragData(e, { kind: 'folder', id: f.id })}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            setDropHint({ id: f.id, pos: 'into' })
+            // strefy: górne 30% = przed, dolne 30% = po, środek = do środka
+            const rect = e.currentTarget.getBoundingClientRect()
+            const y = e.clientY - rect.top
+            const pos =
+              y < rect.height * 0.3 ? 'before' : y > rect.height * 0.7 ? 'after' : 'into'
+            setDropHint({ id: f.id, pos })
             setRootHint(false)
           }}
           onDragLeave={() => setDropHint(null)}
@@ -237,13 +254,16 @@ export function Sidebar({ selectedId, onSelect }: Props) {
             e.preventDefault()
             e.stopPropagation()
             const p = getDragData(e)
+            const pos = dropHint?.id === f.id ? dropHint.pos : 'into'
             clearHints()
-            if (p) dropOnFolder(p, f.id)
+            if (!p) return
+            if (pos === 'into') dropInto(p, f.id)
+            else dropRelative(p, node, parentId, pos)
           }}
         >
           <span className={`folder-chevron ${isOpen ? 'open' : ''}`}>▸</span>
           <span className="folder-name">{f.name}</span>
-          <span className="folder-count">{count}</span>
+          <span className="folder-count">{kids.length}</span>
           <span className="folder-actions">
             <button
               className="folder-action"
@@ -269,13 +289,18 @@ export function Sidebar({ selectedId, onSelect }: Props) {
         </div>
         {isOpen && (
           <ul className="folder-children">
-            {childFolders(f.id).map((sub) => folderRow(sub, depth + 1))}
-            {childConcepts(f.id).map((c) => conceptRow(c, depth + 1))}
+            {kids.length === 0 && <li className="folder-empty">pusty</li>}
+            {kids.map((n) => renderNode(n, f.id))}
           </ul>
         )}
       </li>
     )
   }
+
+  const renderNode = (n: TreeNode, parentId: string | null) =>
+    n.kind === 'folder'
+      ? folderRow(n.folder, parentId, n)
+      : conceptRow(n.concept, parentId, n)
 
   // Widok płaski przy szukaniu / filtrze typu.
   const flatList = concepts
@@ -331,7 +356,14 @@ export function Sidebar({ selectedId, onSelect }: Props) {
           {flatList.length === 0 && (
             <li className="concept-empty">Nic nie pasuje do filtra.</li>
           )}
-          {flatList.map((c) => conceptRow(c, 0))}
+          {flatList.map((c) =>
+            conceptRow(c, c.folderId ?? null, {
+              kind: 'concept',
+              id: c.id,
+              order: c.order ?? 0,
+              concept: c,
+            }),
+          )}
         </ul>
       ) : (
         <ul
@@ -352,8 +384,7 @@ export function Sidebar({ selectedId, onSelect }: Props) {
           {folders.length === 0 && concepts.length === 0 && (
             <li className="concept-empty">Brak klocków. Utwórz pierwszy!</li>
           )}
-          {childFolders(null).map((f) => folderRow(f, 0))}
-          {childConcepts(null).map((c) => conceptRow(c, 0))}
+          {children(null).map((n) => renderNode(n, null))}
         </ul>
       )}
     </aside>

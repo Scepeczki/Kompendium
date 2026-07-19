@@ -371,10 +371,23 @@ select.type-select {
   color: var(--ink);
 }
 
+/* zasięg folderu: wcięcie + pionowa prowadnica (jak w Obsidianie) */
 .folder-children {
   list-style: none;
-  margin: 0;
-  padding: 0;
+  margin: 1px 0 1px 13px;
+  padding: 0 0 0 7px;
+  border-left: 1px solid var(--line-strong);
+}
+
+.folder-children:hover {
+  border-left-color: var(--muted);
+}
+
+.folder-empty {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 3px 10px;
 }
 
 /* ---- podpowiedzi przeciągania ---- */
@@ -384,11 +397,13 @@ select.type-select {
   border-color: var(--accent);
 }
 
-.concept-item.drop-before {
+.concept-item.drop-before,
+.folder-row.drop-before {
   box-shadow: 0 -2px 0 0 var(--accent);
 }
 
-.concept-item.drop-after {
+.concept-item.drop-after,
+.folder-row.drop-after {
   box-shadow: 0 2px 0 0 var(--accent);
 }
 
@@ -566,6 +581,21 @@ select.type-select {
   letter-spacing: 0.04em;
 }
 
+.source-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.source-group-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 2px 4px 2px 8px;
+  border-left: 2px solid var(--line-strong);
+}
+
 .source-chip {
   display: inline-flex;
   align-items: center;
@@ -573,6 +603,20 @@ select.type-select {
   border-radius: 99px;
   background: var(--panel);
   overflow: hidden;
+}
+
+.source-groupbtn {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 3px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.source-groupbtn:hover {
+  color: var(--accent-ink);
 }
 
 .source-jump {

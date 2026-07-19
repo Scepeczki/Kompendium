@@ -96,6 +96,33 @@ export function BlockEditor({
     })
   }
 
+  /** Przypisuje źródło do nazwanej grupy (puste = bez grupy). */
+  const assignGroup = async (ref: SourceRef) => {
+    if (!isCurrent) return
+    const name = window.prompt(
+      'Nazwa grupy źródeł (puste = bez grupy):',
+      ref.group ?? '',
+    )
+    if (name === null) return
+    await updateVersion(version.id, {
+      sourceRefs: version.sourceRefs.map((r) =>
+        r.id === ref.id ? { ...r, group: name.trim() || undefined } : r,
+      ),
+    })
+  }
+
+  /** Chipy pogrupowane: najpierw bez grupy, potem grupy alfabetycznie. */
+  const sourceGroups = (() => {
+    const map = new Map<string, SourceRef[]>()
+    for (const r of version.sourceRefs) {
+      const key = r.group ?? ''
+      map.set(key, [...(map.get(key) ?? []), r])
+    }
+    return [...map.entries()].sort((a, b) =>
+      a[0] === '' ? -1 : b[0] === '' ? 1 : a[0].localeCompare(b[0], 'pl'),
+    )
+  })()
+
   const setTags = (raw: string) => {
     const tags = raw
       .split(',')
@@ -202,24 +229,38 @@ export function BlockEditor({
       {version.sourceRefs.length > 0 && (
         <div className="source-row">
           <span className="source-label">Źródła:</span>
-          {version.sourceRefs.map((r) => (
-            <span key={r.id} className="source-chip">
-              <button
-                className="source-jump"
-                title="Skocz do miejsca w PDF"
-                onClick={() => onJumpToSource(r)}
-              >
-                📖 {pdfTitle(r.pdfId)} · s. {r.page}
-              </button>
-              {isCurrent && (
-                <button
-                  className="source-remove"
-                  title="Odepnij źródło"
-                  onClick={() => removeSourceRef(r.id)}
-                >
-                  ×
-                </button>
-              )}
+          {sourceGroups.map(([group, refs]) => (
+            <span key={group || '(bez grupy)'} className="source-group">
+              {group && <span className="source-group-name">🗀 {group}</span>}
+              {refs.map((r) => (
+                <span key={r.id} className="source-chip">
+                  <button
+                    className="source-jump"
+                    title="Skocz do miejsca w PDF"
+                    onClick={() => onJumpToSource(r)}
+                  >
+                    📖 {pdfTitle(r.pdfId)} · s. {r.page}
+                  </button>
+                  {isCurrent && (
+                    <>
+                      <button
+                        className="source-groupbtn"
+                        title="Przypisz do grupy"
+                        onClick={() => assignGroup(r)}
+                      >
+                        🗀
+                      </button>
+                      <button
+                        className="source-remove"
+                        title="Odepnij źródło"
+                        onClick={() => removeSourceRef(r.id)}
+                      >
+                        ×
+                      </button>
+                    </>
+                  )}
+                </span>
+              ))}
             </span>
           ))}
         </div>

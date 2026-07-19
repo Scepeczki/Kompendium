@@ -46,6 +46,29 @@ class KompendiumDB extends Dexie {
             p.folderId = null
           })
       })
+    // v3: foldery dostają wspólną kolejność z klockami (przeplatanie).
+    // Istniejące foldery lądują przed klockami (kolejność ujemna), jak dotąd.
+    this.version(3)
+      .stores({
+        concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
+        versions: 'id, conceptId, [conceptId+version], createdAt',
+        pdfs: 'id, title, addedAt, folderId',
+        folders: 'id, kind, parentId, name',
+      })
+      .upgrade(async (tx) => {
+        const all = (await tx.table('folders').toArray()) as Folder[]
+        const byParent = new Map<string, Folder[]>()
+        for (const f of all) {
+          const key = `${f.kind}:${f.parentId ?? ''}`
+          byParent.set(key, [...(byParent.get(key) ?? []), f])
+        }
+        for (const group of byParent.values()) {
+          group.sort((a, b) => a.name.localeCompare(b.name, 'pl'))
+          for (let i = 0; i < group.length; i++) {
+            await tx.table('folders').update(group[i].id, { order: i - group.length })
+          }
+        }
+      })
   }
 }
 
@@ -54,13 +77,19 @@ export const db = new KompendiumDB()
 const now = () => new Date().toISOString()
 const uid = () => crypto.randomUUID()
 
-/** Kolejność „na końcu" danego folderu klocków. */
+/** Kolejność „na końcu" danego folderu — wspólna dla klocków i podfolderów. */
 export async function nextConceptOrder(folderId: string | null): Promise<number> {
-  const all = await db.concepts.toArray()
-  const siblings = all.filter((c) => (c.folderId ?? null) === folderId)
-  return siblings.length
-    ? Math.max(...siblings.map((c) => c.order ?? 0)) + 1
-    : 1
+  const concepts = await db.concepts.toArray()
+  const folders = await db.folders.where('kind').equals('concepts').toArray()
+  const orders = [
+    ...concepts
+      .filter((c) => (c.folderId ?? null) === folderId)
+      .map((c) => c.order ?? 0),
+    ...folders
+      .filter((f) => (f.parentId ?? null) === folderId)
+      .map((f) => f.order ?? 0),
+  ]
+  return orders.length ? Math.max(...orders) + 1 : 1
 }
 
 /** Tworzy nowe pojęcie z pustą wersją v1 i zwraca jego id. */
@@ -160,8 +189,19 @@ export async function createFolder(
   parentId: string | null = null,
 ): Promise<string> {
   const id = uid()
-  await db.folders.add({ id, kind, name, parentId, createdAt: now() })
+  const order = kind === 'concepts' ? await nextConceptOrder(parentId) : 0
+  await db.folders.add({ id, kind, name, parentId, order, createdAt: now() })
   return id
+}
+
+/** Przenosi folder klocków (i/lub ustawia jego pozycję we wspólnej kolejności). */
+export async function moveFolder(
+  id: string,
+  parentId: string | null,
+  order?: number,
+) {
+  const o = order ?? (await nextConceptOrder(parentId))
+  await db.folders.update(id, { parentId, order: o })
 }
 
 export async function renameFolder(id: string, name: string) {
