@@ -31,9 +31,9 @@ console.log('✓ prawy przycisk → nowy klocek na mapie (i w bazie)')
 const p2 = at(0.15, 0.75)
 await page.mouse.click(p2.x, p2.y, { button: 'right' })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=📝 Nowy tekst tutaj')
+await page.click('text=📝 Nowa notatka tutaj')
 await page.waitForSelector('.path-node-text')
-console.log('✓ prawy przycisk → nowy tekst na mapie')
+console.log('✓ prawy przycisk → nowa notatka na mapie')
 
 // 2. PRZESUWALNY TEKST: przeciągnij za uchwyt „✥ notatka"
 const grip = await page.locator('.path-node-grip').boundingBox()
@@ -81,13 +81,18 @@ console.log('✓ Shift-snap do siatki:', JSON.stringify(snapped))
 const p3 = at(0.85, 0.92)
 await page.mouse.click(p3.x, p3.y, { button: 'right' })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=📝 Nowy tekst tutaj')
+await page.click('text=📝 Nowa notatka tutaj')
 await page.waitForTimeout(300)
-// wpisz rozróżnialne treści
-const areas = page.locator('.path-node-text textarea')
-await areas.nth(0).fill('TEKST-PIERWSZY')
-await areas.nth(1).fill('TEKST-DRUGI')
-await page.waitForTimeout(600)
+// wpisz rozróżnialne treści przez okno edycji
+const noteNodes = page.locator('.react-flow__node:has(.path-node-text)')
+for (const [i, txt] of [[0, 'TEKST-PIERWSZY'], [1, 'TEKST-DRUGI']]) {
+  await noteNodes.nth(i).dblclick()
+  await page.waitForSelector('.note-modal .cm-content')
+  await page.click('.note-modal .cm-content')
+  await page.keyboard.type(txt)
+  await page.waitForTimeout(600)
+  await page.click('.note-modal .btn-close')
+}
 
 // połącz klocek z oboma tekstami
 async function connect(fromSel, toSel) {

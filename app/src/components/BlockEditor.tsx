@@ -6,6 +6,9 @@ import {
   createConcept,
   db,
   deleteConcept,
+  deleteVersion,
+  renameVersion,
+  reorderVersions,
   saveAsNewVersion,
   updateConcept,
   updateVersion,
@@ -57,6 +60,10 @@ export function BlockEditor({
   const saveTimer = useRef<number | undefined>(undefined)
   /** Zwinięte grupy źródeł (stan lokalny widoku). */
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  /** Podpowiedź przy przeciąganiu pigułek wersji. */
+  const [pillHint, setPillHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(
+    null,
+  )
   /** Cel przeciągania chipa: nazwa grupy albo '' (obszar „bez grupy"). */
   const [srcHint, setSrcHint] = useState<string | null>(null)
 
@@ -133,6 +140,23 @@ export function BlockEditor({
     if (label === null) return
     const id = await saveAsNewVersion(concept.id, label.trim() || undefined)
     onShowVersion(id)
+  }
+
+  const handleRenameVersion = async (v: BlockVersion) => {
+    const label = window.prompt('Etykieta wersji (puste = brak):', v.label ?? '')
+    if (label === null) return
+    await renameVersion(v.id, label.trim() || undefined)
+  }
+
+  const handleDeleteVersion = async (v: BlockVersion) => {
+    if (
+      window.confirm(
+        `Usunąć wersję v${v.version}${v.label ? ` (${v.label})` : ''}? Jej treść przepadnie.`,
+      )
+    ) {
+      await deleteVersion(v.id)
+      onShowVersion(null)
+    }
   }
 
   const handleDelete = async () => {
@@ -273,6 +297,9 @@ export function BlockEditor({
                 {BLOCK_TYPE_LABELS[t]}
               </option>
             ))}
+            {!BLOCK_TYPES.includes(concept.type) && (
+              <option value={concept.type}>{BLOCK_TYPE_LABELS[concept.type]}</option>
+            )}
           </select>
           <input
             className="input editor-name"
@@ -301,19 +328,71 @@ export function BlockEditor({
             placeholder="tagi, po, przecinku…"
           />
           <div className="version-bar">
-            {sorted.map((v) => (
-              <button
-                key={v.id}
-                className={`version-pill ${v.id === version.id ? 'active' : ''}`}
-                title={v.label ?? `wersja ${v.version}`}
-                onClick={() =>
-                  onShowVersion(v.id === concept.currentVersionId ? null : v.id)
-                }
-              >
-                v{v.version}
-                {v.label ? ` · ${v.label}` : ''}
-              </button>
-            ))}
+            {sorted.map((v) => {
+              const hint = pillHint?.id === v.id ? pillHint.pos : null
+              return (
+                <div
+                  key={v.id}
+                  draggable
+                  className={`version-pill ${v.id === version.id ? 'active' : ''} ${
+                    hint === 'before' ? 'drop-left' : hint === 'after' ? 'drop-right' : ''
+                  }`}
+                  title={v.label ?? `wersja ${v.version} — przeciągnij, aby zmienić kolejność`}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/x-komp-ver', v.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    const r = e.currentTarget.getBoundingClientRect()
+                    const pos = e.clientX - r.left < r.width / 2 ? 'before' : 'after'
+                    setPillHint({ id: v.id, pos })
+                  }}
+                  onDragLeave={() => setPillHint(null)}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    const dragId = e.dataTransfer.getData('text/x-komp-ver')
+                    const pos = pillHint?.id === v.id ? pillHint.pos : 'after'
+                    setPillHint(null)
+                    if (!dragId || dragId === v.id) return
+                    const ids = sorted.map((x) => x.id).filter((x) => x !== dragId)
+                    const idx = ids.indexOf(v.id)
+                    ids.splice(pos === 'before' ? idx : idx + 1, 0, dragId)
+                    await reorderVersions(concept.id, ids)
+                  }}
+                >
+                  <button
+                    className="version-pill-label"
+                    onClick={() =>
+                      onShowVersion(v.id === concept.currentVersionId ? null : v.id)
+                    }
+                  >
+                    v{v.version}
+                    {v.label ? ` · ${v.label}` : ''}
+                  </button>
+                  {v.id === version.id && (
+                    <span className="version-actions">
+                      <button
+                        className="version-action"
+                        title="Zmień etykietę wersji"
+                        onClick={() => handleRenameVersion(v)}
+                      >
+                        ✎
+                      </button>
+                      {sorted.length > 1 && (
+                        <button
+                          className="version-action"
+                          title="Usuń tę wersję"
+                          onClick={() => handleDeleteVersion(v)}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
             <button className="version-pill new" onClick={handleNewVersion}>
               + nowa wersja
             </button>

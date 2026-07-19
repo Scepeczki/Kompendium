@@ -20,7 +20,11 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   intuicja: 'Intuicja',
 }
 
-export const BLOCK_TYPES = Object.keys(BLOCK_TYPE_LABELS) as BlockType[]
+/** Typy do wyboru. „Intuicja" wycofana z wyboru — jej rolę pełnią notatki
+ *  na ścieżkach; istniejące klocki intuicji nadal działają. */
+export const BLOCK_TYPES: BlockType[] = (
+  Object.keys(BLOCK_TYPE_LABELS) as BlockType[]
+).filter((t) => t !== 'intuicja')
 
 /** Krótkie oznaczenia typów do zwartych list. */
 export const BLOCK_TYPE_SHORT: Record<BlockType, string> = {
@@ -116,10 +120,19 @@ export interface PathNodeBlock {
   y: number
 }
 
-/** Tkanka łączna: luźny tekst-intuicja należący do ścieżki (nie do bazy klocków). */
+/** Tkanka łączna / intuicja: luźny tekst (Markdown+LaTeX) należący do ścieżki. */
 export interface PathNodeText {
   id: string
   kind: 'text'
+  text: string
+  x: number
+  y: number
+}
+
+/** Komentarz do ścieżki: jak notatka, ale NIE trafia do generowanego skryptu. */
+export interface PathNodeComment {
+  id: string
+  kind: 'comment'
   text: string
   x: number
   y: number
@@ -135,7 +148,7 @@ export interface PathNodeFusion {
   y: number
 }
 
-export type PathNode = PathNodeBlock | PathNodeText | PathNodeFusion
+export type PathNode = PathNodeBlock | PathNodeText | PathNodeComment | PathNodeFusion
 
 /** Strzałka logicznej kolejności między kafelkami. */
 export interface PathEdge {

@@ -187,6 +187,45 @@ export async function saveAsNewVersion(conceptId: string, label?: string): Promi
   return id
 }
 
+/** Zmienia etykietę wersji (metadane — dozwolone też dla starych wersji). */
+export async function renameVersion(id: string, label: string | undefined) {
+  await db.versions.update(id, { label })
+}
+
+/** Ustawia nową kolejność wersji pojęcia (numery v1..vn wg podanej listy id). */
+export async function reorderVersions(conceptId: string, orderedIds: string[]) {
+  await db.transaction('rw', db.versions, async () => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db.versions.update(orderedIds[i], { version: i + 1 })
+    }
+  })
+  void conceptId
+}
+
+/** Usuwa wersję (nie ostatnią). Numeracja pozostałych jest scalana;
+ *  jeśli usunięto wersję bieżącą, bieżącą staje się ostatnia z pozostałych. */
+export async function deleteVersion(versionId: string) {
+  await db.transaction('rw', db.concepts, db.versions, async () => {
+    const v = await db.versions.get(versionId)
+    if (!v) return
+    const all = await db.versions.where('conceptId').equals(v.conceptId).toArray()
+    if (all.length <= 1) return
+    await db.versions.delete(versionId)
+    const rest = all
+      .filter((x) => x.id !== versionId)
+      .sort((a, b) => a.version - b.version)
+    for (let i = 0; i < rest.length; i++) {
+      await db.versions.update(rest[i].id, { version: i + 1 })
+    }
+    const c = await db.concepts.get(v.conceptId)
+    if (c && c.currentVersionId === versionId) {
+      await db.concepts.update(c.id, {
+        currentVersionId: rest[rest.length - 1].id,
+      })
+    }
+  })
+}
+
 export async function deleteConcept(id: string) {
   await db.transaction('rw', db.concepts, db.versions, async () => {
     await db.versions.where('conceptId').equals(id).delete()

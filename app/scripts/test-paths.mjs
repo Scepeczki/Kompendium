@@ -71,12 +71,17 @@ for (let attempt = 1; attempt <= 4; attempt++) {
 await page.waitForSelector('.react-flow__edge')
 console.log('✓ strzałka logicznej kolejności połączona')
 
-// tkanka łączna
+// tkanka łączna (notatka) — edycja w oknie po podwójnym kliku
 await page.click('button[title*="tkankę łączną"]')
-await page.waitForSelector('.path-node-text textarea')
-await page.fill('.path-node-text textarea', 'Intuicja: odległość uogólnia |x-y|.')
-await page.waitForTimeout(700)
-console.log('✓ tkanka łączna dodana i wypełniona')
+await page.waitForSelector('.path-node-text')
+await page.dblclick('.path-node-text .path-node-notebody')
+await page.waitForSelector('.note-modal .cm-content')
+await page.click('.note-modal .cm-content')
+await page.keyboard.type('Intuicja: odległość uogólnia |x-y|.')
+await page.waitForTimeout(600)
+await page.click('.note-modal .btn-close')
+await page.waitForSelector('.path-node-text:has-text("Intuicja")')
+console.log('✓ tkanka łączna dodana i wypełniona (okno edycji)')
 
 // fuzja: zaznacz oba kafelki klocków (klik + shift-klik) i scal
 await page.click('.path-node:has-text("Metryka")')

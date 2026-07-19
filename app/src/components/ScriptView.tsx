@@ -129,6 +129,7 @@ export function ScriptView({ pathId, onClose }: Props) {
           <p className="hint">Ta ścieżka jest pusta — dodaj kafelki na mapie.</p>
         )}
         {ordered.map((n) => {
+          if (n.kind === 'comment') return null // komentarze nie wchodzą do skryptu
           if (n.kind === 'text') {
             return (
               <div

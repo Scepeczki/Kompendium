@@ -31,6 +31,8 @@ import {
   type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import CodeMirror from '@uiw/react-codemirror'
+import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
@@ -66,7 +68,7 @@ const toRfNode = (n: PathNode): Node => ({
   data:
     n.kind === 'block'
       ? { conceptId: n.conceptId, versionId: n.versionId }
-      : n.kind === 'text'
+      : n.kind === 'text' || n.kind === 'comment'
         ? { text: n.text }
         : { name: n.name, parts: n.parts },
 })
@@ -83,6 +85,9 @@ const fromRfNode = (n: Node): PathNode => {
   }
   if (n.type === 'text') {
     return { ...base, kind: 'text', text: (n.data.text as string) ?? '' }
+  }
+  if (n.type === 'comment') {
+    return { ...base, kind: 'comment', text: (n.data.text as string) ?? '' }
   }
   return {
     ...base,
@@ -177,24 +182,46 @@ function BlockNode({ id, data, selected }: NodeProps) {
   )
 }
 
-function TextNode({ id, data, selected }: NodeProps) {
-  const ctx = useContext(CanvasCtx)
+/** Wspólny wygląd notatki (tkanka/intuicja) i komentarza — treść renderowana
+ *  jak w klocku (Markdown+LaTeX); edycja przez podwójny klik / menu. */
+function NoteBody({
+  data,
+  selected,
+  variant,
+}: {
+  data: Record<string, unknown>
+  selected: boolean | undefined
+  variant: 'text' | 'comment'
+}) {
+  const text = (data.text as string) ?? ''
+  const html = text
+    ? renderMarkdown(text)
+    : '<p class="note-empty">kliknij dwukrotnie, aby edytować…</p>'
   return (
-    <div className={`path-node path-node-text ${selected ? 'selected' : ''}`}>
+    <div
+      className={`path-node path-node-text ${
+        variant === 'comment' ? 'path-node-comment' : ''
+      } ${selected ? 'selected' : ''}`}
+    >
       <Handle type="target" position={Position.Top} />
       <div className="path-node-grip" title="Przeciągnij, aby przesunąć">
-        ✥ notatka
+        {variant === 'comment' ? '💬 komentarz (poza skryptem)' : '✥ notatka'}
       </div>
-      <textarea
-        className="nodrag"
-        value={(data.text as string) ?? ''}
-        placeholder="Tkanka łączna — intuicja, komentarz, przejście…"
-        onChange={(e) => ctx.updateData(id, { text: e.target.value })}
+      <div
+        className="path-node-notebody markdown-body"
+        dangerouslySetInnerHTML={{ __html: html }}
       />
       <Handle type="source" position={Position.Bottom} />
     </div>
   )
 }
+
+const TextNode = ({ data, selected }: NodeProps) => (
+  <NoteBody data={data} selected={selected} variant="text" />
+)
+const CommentNode = ({ data, selected }: NodeProps) => (
+  <NoteBody data={data} selected={selected} variant="comment" />
+)
 
 /** Krawędź z numerkiem kolejności (widocznym, gdy z kafelka wychodzi >1 strzałka).
  *  Klik w numerek przestawia gałąź o jedną pozycję wcześniej. */
@@ -271,7 +298,12 @@ function FusionNode({ id, data, selected }: NodeProps) {
   )
 }
 
-const nodeTypes = { block: BlockNode, text: TextNode, fusion: FusionNode }
+const nodeTypes = {
+  block: BlockNode,
+  text: TextNode,
+  comment: CommentNode,
+  fusion: FusionNode,
+}
 
 // ---------------------------------------------------------------------------
 // Canvas
@@ -320,6 +352,17 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
     fx: number
     fy: number
   } | null>(null)
+
+  // menu kontekstowe kafelka (prawy przycisk na węźle)
+  const [nodeMenu, setNodeMenu] = useState<{
+    sx: number
+    sy: number
+    nodeId: string
+    nodeType: string
+  } | null>(null)
+
+  // edytowana notatka/komentarz (okno edycji)
+  const [editingNote, setEditingNote] = useState<string | null>(null)
 
   // wczytaj ścieżkę
   useEffect(() => {
@@ -379,10 +422,10 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
         const idx = sibs.findIndex((e) => e.id === edgeId)
         const reordered = [...sibs]
         reordered.splice(idx, 1)
-        if (idx > 0) {
-          reordered.splice(idx - 1, 0, edge) // o jedną pozycję wcześniej
+        if (idx < sibs.length - 1) {
+          reordered.splice(idx + 1, 0, edge) // n → n+1 (o pozycję później)
         } else {
-          reordered.push(edge) // z pierwszej pozycji zawija na koniec
+          reordered.unshift(edge) // z ostatniej pozycji wraca na początek
         }
         const prio = new Map(reordered.map((e, i) => [e.id, i + 1]))
         return es.map((e) =>
@@ -480,12 +523,45 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
     addTextAt(pos.x, pos.y)
   }
 
+  const addCommentAt = (fx: number, fy: number) => {
+    setRfNodes((ns) => [
+      ...ns,
+      {
+        id: crypto.randomUUID(),
+        type: 'comment',
+        position: { x: fx, y: fy },
+        data: { text: '' },
+      },
+    ])
+  }
+
+  /** Usuwa kafelek ze ścieżki (klocek zostaje w bazie) wraz z jego strzałkami. */
+  const removeNode = (id: string) => {
+    setRfNodes((ns) => ns.filter((n) => n.id !== id))
+    setRfEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
+  }
+
   const handlePaneContextMenu = (e: React.MouseEvent | MouseEvent) => {
     e.preventDefault()
     const sx = 'clientX' in e ? e.clientX : 0
     const sy = 'clientY' in e ? e.clientY : 0
     const pos = screenToFlowPosition({ x: sx, y: sy })
+    setNodeMenu(null)
     setCtxMenu({ sx, sy, fx: pos.x, fy: pos.y })
+  }
+
+  const handleNodeContextMenu = (e: React.MouseEvent, node: Node) => {
+    e.preventDefault()
+    setCtxMenu(null)
+    setNodeMenu({ sx: e.clientX, sy: e.clientY, nodeId: node.id, nodeType: node.type ?? '' })
+  }
+
+  const handleNodeDoubleClick = (_: React.MouseEvent, node: Node) => {
+    if (node.type === 'block') {
+      onOpenConcept(node.data.conceptId as string)
+    } else if (node.type === 'text' || node.type === 'comment') {
+      setEditingNote(node.id)
+    }
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -560,8 +636,22 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
           }}
           placeholder="Nazwa ścieżki…"
         />
-        <button className="btn" onClick={handleAddText} title="Dodaj luźny tekst (tkankę łączną)">
-          + Tekst
+        <button className="btn" onClick={handleAddText} title="Dodaj notatkę (tkankę łączną / intuicję)">
+          + Notatka
+        </button>
+        <button
+          className="btn"
+          onClick={() => {
+            const rect = wrapRef.current?.getBoundingClientRect()
+            const pos = screenToFlowPosition({
+              x: (rect?.left ?? 0) + (rect?.width ?? 600) / 2 + 60,
+              y: (rect?.top ?? 0) + (rect?.height ?? 400) / 2 + 60,
+            })
+            addCommentAt(pos.x, pos.y)
+          }}
+          title="Dodaj komentarz do ścieżki (nie trafia do skryptu)"
+        >
+          + 💬
         </button>
         <button
           className={`btn ${showGrid ? 'btn-active' : ''}`}
@@ -602,8 +692,17 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
             onConnect={onConnect}
             onSelectionChange={onSelectionChange}
             onPaneContextMenu={handlePaneContextMenu}
-            onPaneClick={() => setCtxMenu(null)}
-            onMoveStart={() => setCtxMenu(null)}
+            onNodeContextMenu={handleNodeContextMenu}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            onPaneClick={() => {
+              setCtxMenu(null)
+              setNodeMenu(null)
+            }}
+            onMoveStart={() => {
+              setCtxMenu(null)
+              setNodeMenu(null)
+            }}
+            zoomOnDoubleClick={false}
             snapToGrid={shiftDown}
             snapGrid={[20, 20]}
             selectionKeyCode={null}
@@ -643,10 +742,111 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
                 setCtxMenu(null)
               }}
             >
-              📝 Nowy tekst tutaj
+              📝 Nowa notatka tutaj
+            </button>
+            <button
+              className="path-ctxmenu-item"
+              onClick={() => {
+                addCommentAt(ctxMenu.fx, ctxMenu.fy)
+                setCtxMenu(null)
+              }}
+            >
+              💬 Nowy komentarz tutaj
             </button>
           </div>
         )}
+        {nodeMenu && (
+          <div
+            className="path-ctxmenu"
+            style={{ left: nodeMenu.sx, top: nodeMenu.sy }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {nodeMenu.nodeType === 'block' && (
+              <button
+                className="path-ctxmenu-item"
+                onClick={() => {
+                  const n = rfNodes.find((x) => x.id === nodeMenu.nodeId)
+                  if (n) onOpenConcept(n.data.conceptId as string)
+                  setNodeMenu(null)
+                }}
+              >
+                ✏ Edytuj klocek
+              </button>
+            )}
+            {(nodeMenu.nodeType === 'text' || nodeMenu.nodeType === 'comment') && (
+              <button
+                className="path-ctxmenu-item"
+                onClick={() => {
+                  setEditingNote(nodeMenu.nodeId)
+                  setNodeMenu(null)
+                }}
+              >
+                ✏ Edytuj
+              </button>
+            )}
+            {nodeMenu.nodeType === 'fusion' && (
+              <button
+                className="path-ctxmenu-item"
+                onClick={() => {
+                  api.unfuse(nodeMenu.nodeId)
+                  setNodeMenu(null)
+                }}
+              >
+                ⇱ Rozdziel fuzję
+              </button>
+            )}
+            <button
+              className="path-ctxmenu-item"
+              onClick={() => {
+                removeNode(nodeMenu.nodeId)
+                setNodeMenu(null)
+              }}
+            >
+              🗑 Usuń ze ścieżki
+            </button>
+          </div>
+        )}
+        {editingNote &&
+          (() => {
+            const n = rfNodes.find((x) => x.id === editingNote)
+            if (!n) return null
+            const isComment = n.type === 'comment'
+            const text = (n.data.text as string) ?? ''
+            return (
+              <div className="note-modal-backdrop" onClick={() => setEditingNote(null)}>
+                <div className="note-modal" onClick={(e) => e.stopPropagation()}>
+                  <header className="note-modal-head">
+                    <h3>
+                      {isComment ? '💬 Komentarz do ścieżki' : '✥ Notatka (intuicja)'}
+                    </h3>
+                    <button
+                      className="btn btn-close"
+                      title="Zamknij"
+                      onClick={() => setEditingNote(null)}
+                    >
+                      ✕
+                    </button>
+                  </header>
+                  <div className="note-modal-body">
+                    <div className="editor-code">
+                      <CodeMirror
+                        value={text}
+                        onChange={(v) => api.updateData(n.id, { text: v })}
+                        extensions={[markdown()]}
+                        placeholder={'Markdown + LaTeX: $x^2$…'}
+                        basicSetup={{ lineNumbers: false, foldGutter: false }}
+                        style={{ height: '100%' }}
+                      />
+                    </div>
+                    <div
+                      className="editor-preview markdown-body"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
       </div>
     </section>
   )
