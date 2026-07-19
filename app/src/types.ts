@@ -135,6 +135,8 @@ export interface PathNodeComment {
   id: string
   kind: 'comment'
   text: string
+  /** Strona w widoku liniowym (notatka boczna). Domyślnie prawa. */
+  side?: 'left' | 'right'
   x: number
   y: number
 }

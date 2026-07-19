@@ -98,14 +98,14 @@ await page.click('text=🧱 Nowy klocek tutaj')
 await page.waitForSelector('.path-node-head')
 await page.waitForTimeout(800) // autozapis ścieżki
 await page.click('text=📜 Skrypt')
-await page.waitForSelector('.script-overlay')
+await page.waitForSelector('.script-embed')
 await page.waitForSelector('.script-block')
 const blocks = await page.locator('.script-block').count()
-const metaInScript = await page.locator('.script-overlay :text("KOMENTARZ-META")').count()
+const metaInScript = await page.locator('.script-embed :text("KOMENTARZ-META")').count()
 console.log(
   `✓ skrypt: bloki=${blocks}, komentarz w skrypcie: ${metaInScript === 0 ? 'nie (dobrze)' : 'TAK — BŁĄD'}`,
 )
-await page.click('.script-overlay .btn-close')
+await page.click('button:has-text("🗺 Mapa")')
 
 // menu kafelka: prawy przycisk na komentarzu → Usuń ze ścieżki
 await page.click('.path-node-comment .path-node-grip', { button: 'right' })

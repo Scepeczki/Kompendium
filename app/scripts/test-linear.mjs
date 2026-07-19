@@ -73,12 +73,11 @@ console.log('✓ kolejność po przeciągnięciu (oczekiwana Beta | Alfa):', ord
 // skrypt widzi tę samą kolejność
 await page.waitForTimeout(700)
 await page.click('text=📜 Skrypt')
-await page.waitForSelector('.script-overlay .script-block')
-const scriptOrder = await page.$$eval('.script-overlay .script-block-title', (els) =>
+await page.waitForSelector('.script-embed .script-block')
+const scriptOrder = await page.$$eval('.script-embed .script-block-title', (els) =>
   els.map((e) => e.textContent.trim()),
 )
 console.log('✓ skrypt w tej samej kolejności:', scriptOrder.join(' | '))
-await page.click('.script-overlay .btn-close')
 
 // mapa pokazuje łańcuch (3 kafelki + 2 strzałki)
 await page.click('button:has-text("🗺 Mapa")')
@@ -97,6 +96,31 @@ await page.waitForTimeout(600)
 const segs = await page.locator('.linear-seg').count()
 console.log(`✓ usuwanie segmentu działa (zostało: ${segs})`)
 
-await page.screenshot({ path: 'scripts/shot-15-linear.png' })
+// komentarz boczny: dodaj, sprawdź stronę prawą, przełóż na lewą
+await page.click('.linear-append button:has-text("+ 💬 Komentarz")')
+await page.waitForSelector('.note-modal .cm-content')
+await page.click('.note-modal .cm-content')
+await page.keyboard.type('BOCZNY')
+await page.waitForTimeout(600)
+await page.click('.note-modal .btn-close')
+await page.waitForSelector('.linear-sidenote.side-right:has-text("BOCZNY")')
+console.log('✓ komentarz jako notatka boczna po prawej')
+await page.hover('.linear-sidenote')
+await page.click('.folder-action[title*="drugą stronę"]')
+await page.waitForSelector('.linear-sidenote.side-left:has-text("BOCZNY")')
+console.log('✓ przełożenie komentarza na lewą stronę działa')
+
+// powrót do ścieżki: edytuj klocek z linii (✏) i zamknij edytor → wracamy do ścieżki
+const betaSegLeft = page.locator('.linear-seg:has-text("Treść beta")')
+await betaSegLeft.hover()
+await betaSegLeft.locator('.folder-action[title="Edytuj"]').click()
+await page.waitForSelector('.editor-name')
+await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.waitForSelector('.path-canvas')
+console.log('✓ zamknięcie klocka wraca do ścieżki (nie do ekranu startowego)')
+
+// powrót z PDF do biblioteki strzałką ←
+await page.setInputFiles('input[type=file]', 'scripts/test.pdf').catch(() => {})
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
+await page.screenshot({ path: 'scripts/shot-15-linear.png' })
 await browser.close()

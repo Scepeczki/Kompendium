@@ -96,16 +96,22 @@ for (const [i, txt] of [[0, 'TEKST-PIERWSZY'], [1, 'TEKST-DRUGI']]) {
 
 // połącz klocek z oboma tekstami
 async function connect(fromSel, toSel) {
-  const s = await page.locator(fromSel).boundingBox()
-  const t = await page.locator(toSel).boundingBox()
-  const sx = s.x + s.width / 2
-  const sy = s.y + s.height / 2
-  await page.mouse.move(sx, sy)
-  await page.mouse.down()
-  await page.mouse.move(sx + 4, sy + 4)
-  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2, { steps: 8 })
-  await page.mouse.up()
-  await page.waitForTimeout(300)
+  // ponawianie — pomiary układu bywają chwilowo nieaktualne
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const before = await page.locator('.react-flow__edge').count()
+    const s = await page.locator(fromSel).boundingBox()
+    const t = await page.locator(toSel).boundingBox()
+    const sx = s.x + s.width / 2
+    const sy = s.y + s.height / 2
+    await page.mouse.move(sx, sy)
+    await page.mouse.down()
+    await page.mouse.move(sx + 4, sy + 4)
+    await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2, { steps: 8 })
+    await page.mouse.up()
+    await page.waitForTimeout(400)
+    if ((await page.locator('.react-flow__edge').count()) > before) return
+  }
+  throw new Error(`nie udało się połączyć: ${fromSel} → ${toSel}`)
 }
 const blockSel = '.react-flow__node:has(.path-node-head)'
 await connect(
@@ -123,16 +129,16 @@ console.log(`✓ numerki kolejności na strzałkach: ${labels}`)
 // sprawdź porządek w skrypcie (bazowo wg pozycji: PIERWSZY jest wyżej? oba y=500;
 // x: 700 vs 1000 → PIERWSZY przed DRUGIM)
 await page.click('text=📜 Skrypt')
-await page.waitForSelector('.script-overlay')
+await page.waitForSelector('.script-embed')
 let texts = await page.$$eval('.script-text', (els) => els.map((e) => e.textContent.trim()))
 console.log('kolejność bazowa w skrypcie:', texts.join(' | '))
-await page.click('.script-overlay .btn-close')
+await page.click('button:has-text("🗺 Mapa")')
 
 // kliknij numerek „2" → ta gałąź staje się pierwsza
 await page.locator('.edge-order:has-text("2")').click()
 await page.waitForTimeout(500)
 await page.click('text=📜 Skrypt')
-await page.waitForSelector('.script-overlay')
+await page.waitForSelector('.script-embed')
 texts = await page.$$eval('.script-text', (els) => els.map((e) => e.textContent.trim()))
 console.log('kolejność po przestawieniu:', texts.join(' | '))
 const swapped = texts[0].includes('TEKST-DRUGI')

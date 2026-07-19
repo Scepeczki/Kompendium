@@ -6,7 +6,6 @@ import { Sidebar } from './components/Sidebar'
 import { BlockEditor } from './components/BlockEditor'
 import { GraphView } from './components/GraphView'
 import { PathCanvas } from './components/PathCanvas'
-import { ScriptView } from './components/ScriptView'
 import { PdfPanel, type PdfTarget } from './components/PdfPanel'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
@@ -40,9 +39,10 @@ export default function App() {
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null)
   /** Widok środkowego panelu: edytor klocka albo graf powiązań. */
   const [showGraph, setShowGraph] = useState(false)
-  /** Otwarta ścieżka (canvas) i podgląd skryptu. */
+  /** Otwarta ścieżka (canvas). */
   const [openPathId, setOpenPathId] = useState<string | null>(null)
-  const [scriptPathId, setScriptPathId] = useState<string | null>(null)
+  /** Ścieżka, do której wracamy po zamknięciu klocka otwartego z jej poziomu. */
+  const [returnPathId, setReturnPathId] = useState<string | null>(null)
 
   // Układ paneli — zapamiętywany między sesjami.
   const [showPdf, setShowPdf] = useState(
@@ -82,6 +82,8 @@ export default function App() {
   const version = versions.find((v) => v.id === effectiveVersionId)
 
   const selectConcept = (id: string) => {
+    // jeśli klocek otwierany jest z poziomu ścieżki — zapamiętaj, dokąd wrócić
+    setReturnPathId(openPathId)
     setSelectedId(id)
     setShownVersionId(null)
     setSelecting(false)
@@ -91,6 +93,7 @@ export default function App() {
 
   const openPath = (id: string) => {
     setOpenPathId(id)
+    setReturnPathId(null)
     setShowGraph(false)
     setSelecting(false)
   }
@@ -99,6 +102,11 @@ export default function App() {
     setSelectedId(null)
     setShownVersionId(null)
     setSelecting(false)
+    // powrót do ścieżki, z której przyszliśmy
+    if (returnPathId) {
+      setOpenPathId(returnPathId)
+      setReturnPathId(null)
+    }
   }
 
   /** Tryb podpinania źródła — jeśli panel PDF jest schowany, pokaż go. */
@@ -142,7 +150,6 @@ export default function App() {
         <PathCanvas
           pathId={openPathId}
           onClose={() => setOpenPathId(null)}
-          onOpenScript={() => setScriptPathId(openPathId)}
           onOpenConcept={selectConcept}
         />
       ) : concept && version ? (
@@ -175,10 +182,6 @@ export default function App() {
             </p>
           </div>
         </section>
-      )}
-
-      {scriptPathId && (
-        <ScriptView pathId={scriptPathId} onClose={() => setScriptPathId(null)} />
       )}
 
       {showPdf ? (

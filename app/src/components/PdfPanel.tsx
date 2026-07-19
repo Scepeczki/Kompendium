@@ -178,6 +178,18 @@ export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props)
   return (
     <section className="pdf-panel">
       <header className="pdf-toolbar">
+        {pdfId && (
+          <button
+            className="btn"
+            title="Wróć do biblioteki PDF-ów"
+            onClick={() => {
+              setPdfId(null)
+              setLibOpen(true)
+            }}
+          >
+            ←
+          </button>
+        )}
         <button
           className={`btn pdf-lib-toggle ${libOpen ? 'btn-active' : ''}`}
           title="Biblioteka PDF-ów"

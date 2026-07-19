@@ -99,17 +99,20 @@ console.log('✓ rozdzielenie fuzji działa')
 
 await page.screenshot({ path: 'scripts/shot-11-sciezka.png' })
 
-// skrypt
+// skrypt (trzeci tryb widoku — panel PDF i pasek boczny zostają)
 await page.click('text=📜 Skrypt')
-await page.waitForSelector('.script-overlay')
+await page.waitForSelector('.script-embed')
 await page.waitForSelector('.script-block')
+const sidebarVisible = await page.locator('.sidebar').isVisible()
 const blockCount = await page.locator('.script-block').count()
 const hasText = await page.locator('.script-text:has-text("Intuicja")').count()
-console.log(`✓ skrypt: ${blockCount} bloki, tkanka łączna: ${hasText === 1 ? 'jest' : 'BRAK'}`)
+console.log(
+  `✓ skrypt: ${blockCount} bloki, tkanka łączna: ${hasText === 1 ? 'jest' : 'BRAK'}, pasek boczny widoczny: ${sidebarVisible}`,
+)
 await page.screenshot({ path: 'scripts/shot-12-skrypt.png' })
 
 // trwałość: przeładuj i wróć do ścieżki
-await page.click('.script-overlay .btn-close')
+await page.click('button:has-text("🗺 Mapa")')
 await page.reload()
 await page.waitForSelector('text=Kompendium')
 await page.click('.path-item:has-text("Analiza")')

@@ -10,11 +10,11 @@ import {
 
 interface Props {
   pathId: string
-  onClose: () => void
 }
 
-/** Widok skryptu: ścieżka złożona w jeden ciągły dokument (+ druk / zapis PDF). */
-export function ScriptView({ pathId, onClose }: Props) {
+/** Treść skryptu: ścieżka złożona w jeden ciągły dokument.
+ *  Osadzana jako trzeci tryb widoku ścieżki (obok Mapy i Linii). */
+export function ScriptBody({ pathId }: Props) {
   const path = useLiveQuery(() => db.paths.get(pathId), [pathId])
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
@@ -49,22 +49,11 @@ export function ScriptView({ pathId, onClose }: Props) {
   const ordered = topoOrder(path.nodes, path.edges)
 
   return (
-    <div className="script-overlay">
-      <header className="script-toolbar">
-        <h2 className="script-title">📜 {path.name}</h2>
-        <div className="toolbar-left">
-          <button className="btn btn-primary" onClick={() => window.print()}>
-            🖶 Drukuj / zapisz PDF
-          </button>
-          <button className="btn btn-close" title="Wróć do mapy" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-      </header>
+    <div className="script-embed">
       <article className="script-body">
         <h1 className="script-heading">{path.name}</h1>
         {ordered.length === 0 && (
-          <p className="hint">Ta ścieżka jest pusta — dodaj kafelki na mapie.</p>
+          <p className="hint">Ta ścieżka jest pusta — dodaj kafelki na mapie lub w linii.</p>
         )}
         {ordered.map((n) => {
           if (n.kind === 'comment') return null // komentarze nie wchodzą do skryptu

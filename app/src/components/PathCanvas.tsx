@@ -37,6 +37,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
+import { ScriptBody } from './ScriptView'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
@@ -71,9 +72,11 @@ const toRfNode = (n: PathNode): Node => ({
   data:
     n.kind === 'block'
       ? { conceptId: n.conceptId, versionId: n.versionId }
-      : n.kind === 'text' || n.kind === 'comment'
+      : n.kind === 'text'
         ? { text: n.text }
-        : { name: n.name, parts: n.parts },
+        : n.kind === 'comment'
+          ? { text: n.text, side: n.side }
+          : { name: n.name, parts: n.parts },
 })
 
 const fromRfNode = (n: Node): PathNode => {
@@ -90,7 +93,12 @@ const fromRfNode = (n: Node): PathNode => {
     return { ...base, kind: 'text', text: (n.data.text as string) ?? '' }
   }
   if (n.type === 'comment') {
-    return { ...base, kind: 'comment', text: (n.data.text as string) ?? '' }
+    return {
+      ...base,
+      kind: 'comment',
+      text: (n.data.text as string) ?? '',
+      side: (n.data.side as 'left' | 'right' | undefined) ?? undefined,
+    }
   }
   return {
     ...base,
@@ -283,6 +291,7 @@ interface LinearViewProps {
   onRemove: (id: string) => void
   onEdit: (n: PathNode) => void
   onUnfuse: (id: string) => void
+  onToggleSide: (id: string) => void
 }
 
 function LinearView({
@@ -293,6 +302,7 @@ function LinearView({
   onRemove,
   onEdit,
   onUnfuse,
+  onToggleSide,
 }: LinearViewProps) {
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
@@ -365,9 +375,38 @@ function LinearView({
       )
     }
     if (n.kind === 'comment') {
+      // notatka boczna: domyślnie po prawej, ⇄ przekłada na drugą stronę
       return (
-        <div className="linear-comment">
-          <span className="linear-comment-badge">💬 komentarz (poza skryptem)</span>
+        <aside
+          className={`linear-sidenote side-${n.side ?? 'right'}`}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(SEG_MIME, n.id)
+            e.dataTransfer.effectAllowed = 'move'
+          }}
+        >
+          <div className="sidenote-head">
+            <span className="linear-comment-badge">💬 komentarz</span>
+            <span className="sidenote-actions">
+              <button
+                className="folder-action"
+                title="Przełóż na drugą stronę"
+                onClick={() => onToggleSide(n.id)}
+              >
+                ⇄
+              </button>
+              <button className="folder-action" title="Edytuj" onClick={() => onEdit(n)}>
+                ✏
+              </button>
+              <button
+                className="folder-action"
+                title="Usuń ze ścieżki"
+                onClick={() => onRemove(n.id)}
+              >
+                ×
+              </button>
+            </span>
+          </div>
           <div
             className="markdown-body"
             dangerouslySetInnerHTML={{
@@ -376,7 +415,7 @@ function LinearView({
                 : '<p class="note-empty">pusty komentarz — ✏ aby edytować</p>',
             }}
           />
-        </div>
+        </aside>
       )
     }
     return (
@@ -403,7 +442,7 @@ function LinearView({
           return (
             <div
               key={n.id}
-              className={`linear-seg ${
+              className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
                 h === 'before' ? 'drop-before' : h === 'after' ? 'drop-after' : ''
               }`}
               onDragOver={(e) => {
@@ -422,6 +461,7 @@ function LinearView({
                 handleDrop(e, afterId, beforeId)
               }}
             >
+              {n.kind !== 'comment' && (
               <div className="linear-side">
                 <button
                   draggable
@@ -454,6 +494,7 @@ function LinearView({
                   ×
                 </button>
               </div>
+              )}
               <div className="linear-content">{segmentContent(n)}</div>
             </div>
           )
@@ -530,11 +571,10 @@ const nodeTypes = {
 interface Props {
   pathId: string
   onClose: () => void
-  onOpenScript: () => void
   onOpenConcept: (id: string) => void
 }
 
-function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
+function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
   const [name, setName] = useState('')
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
@@ -582,12 +622,18 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
   // edytowana notatka/komentarz (okno edycji)
   const [editingNote, setEditingNote] = useState<string | null>(null)
 
-  // tryb edycji: mapa (canvas) albo linia (pionowe doklejanie segmentów)
-  const [mode, setMode] = useState<'map' | 'linear'>(() =>
-    localStorage.getItem('ui.pathMode') === 'linear' ? 'linear' : 'map',
-  )
+  // tryb widoku ścieżki: mapa (canvas) / linia (doklejanie) / skrypt (odczyt)
+  const [mode, setMode] = useState<'map' | 'linear' | 'script'>(() => {
+    const m = localStorage.getItem('ui.pathMode')
+    return m === 'linear' || m === 'script' ? m : 'map'
+  })
   useEffect(() => {
     localStorage.setItem('ui.pathMode', mode)
+  }, [mode])
+  // znacznik dla reguł drukowania (drukujemy tylko treść skryptu)
+  useEffect(() => {
+    document.body.classList.toggle('script-mode', mode === 'script')
+    return () => document.body.classList.remove('script-mode')
   }, [mode])
 
   // wczytaj ścieżkę
@@ -995,6 +1041,13 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
           >
             ≡ Linia
           </button>
+          <button
+            className={`btn ${mode === 'script' ? 'btn-active' : ''}`}
+            title="Skrypt: gotowy ciągły dokument (tylko odczyt)"
+            onClick={() => setMode('script')}
+          >
+            📜 Skrypt
+          </button>
         </div>
         {mode === 'map' && (
         <button className="btn" onClick={handleAddText} title="Dodaj notatkę (tkankę łączną / intuicję)">
@@ -1034,9 +1087,15 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
             </button>
           </>
         )}
-        <button className="btn btn-primary" onClick={onOpenScript} title="Złóż ścieżkę w jeden ciągły skrypt">
-          📜 Skrypt
-        </button>
+        {mode === 'script' && (
+          <button
+            className="btn btn-primary"
+            onClick={() => window.print()}
+            title="Wydrukuj skrypt albo zapisz go jako PDF"
+          >
+            🖶 Drukuj / PDF
+          </button>
+        )}
         <button className="btn btn-close" title="Zamknij ścieżkę" onClick={onClose}>
           ✕
         </button>
@@ -1044,8 +1103,11 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
       <div className="path-hint">
         {mode === 'map'
           ? 'Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy klocek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
-          : 'Doklejaj segmenty jeden pod drugim: przeciągaj klocki z listy po lewej (także między segmenty), zmieniaj kolejność uchwytem ⣿, dodawaj notatki i komentarze'}
+          : mode === 'linear'
+            ? 'Doklejaj segmenty jeden pod drugim: przeciągaj klocki z listy po lewej (także między segmenty), zmieniaj kolejność uchwytem ⣿, dodawaj notatki i komentarze'
+            : 'Gotowy skrypt ścieżki (tylko odczyt) — edytuj na Mapie albo w Linii'}
       </div>
+      {mode === 'script' && <ScriptBody pathId={pathId} />}
       {mode === 'linear' && (
         <LinearView
           ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
@@ -1058,6 +1120,11 @@ function CanvasInner({ pathId, onClose, onOpenScript, onOpenConcept }: Props) {
             else if (n.kind === 'text' || n.kind === 'comment') setEditingNote(n.id)
           }}
           onUnfuse={(id) => api.unfuse(id)}
+          onToggleSide={(id) => {
+            const n = rfNodes.find((x) => x.id === id)
+            const cur = (n?.data.side as 'left' | 'right' | undefined) ?? 'right'
+            api.updateData(id, { side: cur === 'right' ? 'left' : 'right' })
+          }}
         />
       )}
       <div
