@@ -769,6 +769,143 @@ select.type-select {
   padding: 4px 0;
 }
 
+/* wiki-linki [[Nazwa]] */
+.wikilink {
+  color: var(--accent-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent);
+  cursor: pointer;
+}
+
+.wikilink:hover {
+  background: var(--accent-soft);
+}
+
+.wikilink-missing {
+  color: var(--danger);
+  border-bottom: 1px dashed var(--danger);
+}
+
+.wikilink-missing:hover {
+  background: #f9ede9;
+}
+
+/* odwołania zwrotne (co linkuje do tego klocka) */
+.backlinks-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 7px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-alt);
+}
+
+.backlink-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 99px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.backlink-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Graf powiązań
+   -------------------------------------------------------------------------- */
+
+.graph-view {
+  position: relative;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.graph-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.graph-svg:active {
+  cursor: grabbing;
+}
+
+.graph-link {
+  stroke: var(--line-strong);
+  stroke-width: 1.2;
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.graph-node circle {
+  stroke: var(--panel);
+  stroke-width: 1.5;
+  transition: stroke 0.12s;
+}
+
+.graph-node:hover circle {
+  stroke: var(--ink);
+}
+
+.graph-label {
+  font-size: 11px;
+  fill: var(--ink-soft);
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.graph-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.graph-legend {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  padding: 5px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+}
+
+.graph-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.graph-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
 /* --------------------------------------------------------------------------
    Panel PDF
    -------------------------------------------------------------------------- */

@@ -4,6 +4,7 @@ import { db, updateVersion } from './db'
 import type { SourceRef } from './types'
 import { Sidebar } from './components/Sidebar'
 import { BlockEditor } from './components/BlockEditor'
+import { GraphView } from './components/GraphView'
 import { PdfPanel, type PdfTarget } from './components/PdfPanel'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
@@ -35,6 +36,8 @@ export default function App() {
   const [shownVersionId, setShownVersionId] = useState<string | null>(null)
   const [selecting, setSelecting] = useState(false)
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null)
+  /** Widok środkowego panelu: edytor klocka albo graf powiązań. */
+  const [showGraph, setShowGraph] = useState(false)
 
   // Układ paneli — zapamiętywany między sesjami.
   const [showPdf, setShowPdf] = useState(
@@ -77,6 +80,7 @@ export default function App() {
     setSelectedId(id)
     setShownVersionId(null)
     setSelecting(false)
+    setShowGraph(false)
   }
 
   const closeConcept = () => {
@@ -110,10 +114,17 @@ export default function App() {
 
   return (
     <div className="app" style={{ gridTemplateColumns: cols.join(' ') }}>
-      <Sidebar selectedId={selectedId} onSelect={selectConcept} />
+      <Sidebar
+        selectedId={selectedId}
+        onSelect={selectConcept}
+        graphActive={showGraph}
+        onToggleGraph={() => setShowGraph((g) => !g)}
+      />
       <Splitter onDrag={(dx) => setSidebarW((w) => clamp(w + dx, 200, 480))} />
 
-      {concept && version ? (
+      {showGraph ? (
+        <GraphView onOpen={selectConcept} />
+      ) : concept && version ? (
         <BlockEditor
           concept={concept}
           version={version}
@@ -127,6 +138,7 @@ export default function App() {
             setShowPdf(true)
             setPdfTarget({ pdfId: ref.pdfId, page: ref.page, rect: ref.rect })
           }}
+          onOpenConcept={selectConcept}
         />
       ) : (
         <section className="editor editor-welcome">

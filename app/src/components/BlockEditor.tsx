@@ -3,15 +3,17 @@ import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  createConcept,
   db,
   deleteConcept,
   saveAsNewVersion,
   updateConcept,
   updateVersion,
 } from '../db'
-import { renderMarkdown } from '../markdown'
+import { extractLinks, renderMarkdown } from '../markdown'
 import {
   BLOCK_TYPE_LABELS,
+  BLOCK_TYPE_SHORT,
   BLOCK_TYPES,
   type BlockType,
   type BlockVersion,
@@ -34,6 +36,8 @@ interface Props {
   selecting: boolean
   onToggleSelecting: () => void
   onJumpToSource: (ref: SourceRef) => void
+  /** Otwiera inny klocek (nawigacja wiki-linkiem / odwołaniem zwrotnym). */
+  onOpenConcept: (id: string) => void
 }
 
 export function BlockEditor({
@@ -46,6 +50,7 @@ export function BlockEditor({
   selecting,
   onToggleSelecting,
   onJumpToSource,
+  onOpenConcept,
 }: Props) {
   const [view, setView] = useState<ViewMode>('podzial')
   const [draft, setDraft] = useState(version.content)
@@ -58,6 +63,47 @@ export function BlockEditor({
   const isCurrent = version.id === concept.currentVersionId
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
   const pdfTitle = (id: string) => pdfs.find((p) => p.id === id)?.title ?? 'PDF'
+
+  // Wszystkie pojęcia + treści ich bieżących wersji — do wiki-linków i odwołań.
+  const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  const allVersions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+  const currentContent = (c: Concept) =>
+    allVersions.find((v) => v.id === c.currentVersionId)?.content ?? ''
+
+  const findByName = (name: string) => {
+    const lower = name.toLowerCase()
+    return (
+      allConcepts.find((c) => c.name === name) ??
+      allConcepts.find((c) => c.name.toLowerCase() === lower)
+    )
+  }
+
+  /** Klocki, których bieżąca wersja linkuje do tego pojęcia. */
+  const backlinks = allConcepts.filter(
+    (c) =>
+      c.id !== concept.id &&
+      extractLinks(currentContent(c)).some(
+        (n) => n.toLowerCase() === concept.name.toLowerCase(),
+      ),
+  )
+
+  /** Obsługa kliknięć w wiki-linki w podglądzie. */
+  const handlePreviewClick = async (e: React.MouseEvent) => {
+    const a = (e.target as HTMLElement).closest('a.wikilink')
+    if (!a) return
+    e.preventDefault()
+    const name = a.getAttribute('data-target') ?? ''
+    const found = findByName(name)
+    if (found) {
+      onOpenConcept(found.id)
+      return
+    }
+    if (window.confirm(`Pojęcie „${name}" nie istnieje. Utworzyć je?`)) {
+      const id = await createConcept()
+      await updateConcept(id, { name })
+      onOpenConcept(id)
+    }
+  }
 
   // Zmiana pokazywanej wersji → załaduj jej treść do edytora.
   useEffect(() => {
@@ -74,7 +120,11 @@ export function BlockEditor({
     }, 400)
   }
 
-  const preview = useMemo(() => renderMarkdown(draft), [draft])
+  const preview = useMemo(
+    () => renderMarkdown(draft, { exists: (name) => !!findByName(name) }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [draft, allConcepts],
+  )
 
   const handleNewVersion = async () => {
     const label = window.prompt(
@@ -397,10 +447,30 @@ export function BlockEditor({
         {view !== 'kod' && (
           <div
             className="editor-preview markdown-body"
+            onClick={handlePreviewClick}
             dangerouslySetInnerHTML={{ __html: preview }}
           />
         )}
       </div>
+
+      {backlinks.length > 0 && (
+        <footer className="backlinks-row">
+          <span className="source-label">Odwołania:</span>
+          {backlinks.map((c) => (
+            <button
+              key={c.id}
+              className="backlink-chip"
+              title={`Otwórz „${c.name}"`}
+              onClick={() => onOpenConcept(c.id)}
+            >
+              <span className={`type-mini type-${c.type}`}>
+                {BLOCK_TYPE_SHORT[c.type]}
+              </span>
+              {c.name}
+            </button>
+          ))}
+        </footer>
+      )}
     </section>
   )
 }

@@ -21,6 +21,8 @@ import {
 interface Props {
   selectedId: string | null
   onSelect: (id: string) => void
+  graphActive: boolean
+  onToggleGraph: () => void
 }
 
 /** Ładunek przeciągania (klocek albo folder). */
@@ -59,7 +61,7 @@ const getDragData = (e: React.DragEvent): DragPayload | null => {
   }
 }
 
-export function Sidebar({ selectedId, onSelect }: Props) {
+export function Sidebar({ selectedId, onSelect, graphActive, onToggleGraph }: Props) {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<BlockType | 'wszystkie'>('wszystkie')
   const [expanded, setExpanded] = useState<Set<string>>(loadExpanded)
@@ -326,6 +328,13 @@ export function Sidebar({ selectedId, onSelect }: Props) {
           </button>
           <button className="btn" title="Nowy folder" onClick={handleNewFolder}>
             + 🗀
+          </button>
+          <button
+            className={`btn ${graphActive ? 'btn-active' : ''}`}
+            title="Graf powiązań"
+            onClick={onToggleGraph}
+          >
+            🕸
           </button>
         </div>
       </header>

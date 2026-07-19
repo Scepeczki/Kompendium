@@ -57,12 +57,15 @@ wyłącznie w systemie.
 
 ---
 
-## Etap 2 — Wersjonowanie i powiązania
+## Etap 2 — Wersjonowanie i powiązania ✅
 
-- [ ] Wersje klocka: „utwórz nową wersję na podstawie źródła X"; stare wersje widoczne
-  w historii pojęcia.
-- [ ] Linki między klockami (Twierdzenie → używa → Definicja); panel „co się do tego odnosi".
-- [ ] Widok grafu powiązań (mapa łączeń: co, jak i gdzie).
+- [x] Wersje klocka: „zapisz jako v2" z etykietą (np. „wg Rudina"); stare wersje
+  widoczne i tylko do odczytu. *(zrobione już w Etapie 1)*
+- [x] Linki między klockami: wiki-linki `[[Nazwa]]` w treści (z aliasem `[[Nazwa|tekst]]`);
+  klik nawiguje, brakujące pojęcie można utworzyć klikiem.
+- [x] Panel „Odwołania" — co linkuje do tego klocka; klik nawiguje.
+- [x] Widok grafu powiązań (🕸): węzły = pojęcia (kolor typu, rozmiar wg liczby powiązań),
+  krawędzie = wiki-linki; przeciąganie węzłów, zoom/pan, klik otwiera klocek.
 
 ---
 
