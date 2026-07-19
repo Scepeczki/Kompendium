@@ -1162,6 +1162,15 @@ button.version-pill.new {
   border-color: var(--line);
 }
 
+/* druga linijka narzędzi mapy (+ Notatka, + Komentarz, Siatka, Scal) */
+.path-toolbar-tools {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 0 12px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
 .path-hint {
   padding: 5px 12px;
   font-size: 12px;
@@ -1459,17 +1468,13 @@ button.version-pill.new {
 }
 
 .linear-column {
-  max-width: 660px;
+  max-width: 680px;
   margin: 0 auto;
-  padding: 22px 232px 60px;
+  padding: 22px 24px 60px;
 }
 
 /* wąski panel: komentarze boczne wchodzą do kolumny zamiast na margines */
-@container (max-width: 1000px) {
-  .linear-column {
-    padding: 22px 24px 60px;
-  }
-
+@container (max-width: 1140px) {
   .linear-sidenote,
   .linear-sidenote.side-left,
   .linear-sidenote.side-right {

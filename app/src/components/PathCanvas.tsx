@@ -1049,44 +1049,6 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
             📜 Skrypt
           </button>
         </div>
-        {mode === 'map' && (
-        <button className="btn" onClick={handleAddText} title="Dodaj notatkę (tkankę łączną / intuicję)">
-          + Notatka
-        </button>
-        )}
-        {mode === 'map' && (
-          <>
-            <button
-              className="btn"
-              onClick={() => {
-                const rect = wrapRef.current?.getBoundingClientRect()
-                const pos = screenToFlowPosition({
-                  x: (rect?.left ?? 0) + (rect?.width ?? 600) / 2 + 60,
-                  y: (rect?.top ?? 0) + (rect?.height ?? 400) / 2 + 60,
-                })
-                addCommentAt(pos.x, pos.y)
-              }}
-              title="Dodaj komentarz do ścieżki (nie trafia do skryptu)"
-            >
-              + 💬
-            </button>
-            <button
-              className={`btn ${showGrid ? 'btn-active' : ''}`}
-              onClick={() => setShowGrid((g) => !g)}
-              title="Pokaż/ukryj siatkę (Shift podczas przesuwania przyciąga do linii)"
-            >
-              ⊞ Siatka
-            </button>
-            <button
-              className="btn"
-              onClick={handleFuse}
-              disabled={selectedBlocks < 2}
-              title="Scal zaznaczone klocki w jeden bloczek (w tej ścieżce)"
-            >
-              ⧉ Scal ({selectedBlocks})
-            </button>
-          </>
-        )}
         {mode === 'script' && (
           <button
             className="btn btn-primary"
@@ -1100,6 +1062,46 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
           ✕
         </button>
       </header>
+      {mode === 'map' && (
+        <div className="path-toolbar-tools">
+          <button
+            className="btn"
+            onClick={handleAddText}
+            title="Dodaj notatkę (tkankę łączną / intuicję)"
+          >
+            + Notatka
+          </button>
+          <button
+            className="btn"
+            onClick={() => {
+              const rect = wrapRef.current?.getBoundingClientRect()
+              const pos = screenToFlowPosition({
+                x: (rect?.left ?? 0) + (rect?.width ?? 600) / 2 + 60,
+                y: (rect?.top ?? 0) + (rect?.height ?? 400) / 2 + 60,
+              })
+              addCommentAt(pos.x, pos.y)
+            }}
+            title="Dodaj komentarz do ścieżki (nie trafia do skryptu)"
+          >
+            + 💬 Komentarz
+          </button>
+          <button
+            className={`btn ${showGrid ? 'btn-active' : ''}`}
+            onClick={() => setShowGrid((g) => !g)}
+            title="Pokaż/ukryj siatkę (Shift podczas przesuwania przyciąga do linii)"
+          >
+            ⊞ Siatka
+          </button>
+          <button
+            className="btn"
+            onClick={handleFuse}
+            disabled={selectedBlocks < 2}
+            title="Scal zaznaczone klocki w jeden bloczek (w tej ścieżce)"
+          >
+            ⧉ Scal ({selectedBlocks})
+          </button>
+        </div>
+      )}
       <div className="path-hint">
         {mode === 'map'
           ? 'Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy klocek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
@@ -1130,7 +1132,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
       <div
         className="path-flow"
         ref={wrapRef}
-        style={mode === 'linear' ? { display: 'none' } : undefined}
+        style={mode !== 'map' ? { display: 'none' } : undefined}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
       >

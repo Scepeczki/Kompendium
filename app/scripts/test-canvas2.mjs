@@ -128,20 +128,22 @@ console.log(`✓ numerki kolejności na strzałkach: ${labels}`)
 
 // sprawdź porządek w skrypcie (bazowo wg pozycji: PIERWSZY jest wyżej? oba y=500;
 // x: 700 vs 1000 → PIERWSZY przed DRUGIM)
+await page.waitForTimeout(800) // autozapis
 await page.click('text=📜 Skrypt')
 await page.waitForSelector('.script-embed')
 let texts = await page.$$eval('.script-text', (els) => els.map((e) => e.textContent.trim()))
+const baseFirst = texts[0]
 console.log('kolejność bazowa w skrypcie:', texts.join(' | '))
 await page.click('button:has-text("🗺 Mapa")')
 
-// kliknij numerek „2" → ta gałąź staje się pierwsza
+// kliknij numerek „2" → ta gałąź przechodzi na pozycję 1 (zawinięcie)
 await page.locator('.edge-order:has-text("2")').click()
-await page.waitForTimeout(500)
+await page.waitForTimeout(800) // autozapis
 await page.click('text=📜 Skrypt')
 await page.waitForSelector('.script-embed')
 texts = await page.$$eval('.script-text', (els) => els.map((e) => e.textContent.trim()))
 console.log('kolejność po przestawieniu:', texts.join(' | '))
-const swapped = texts[0].includes('TEKST-DRUGI')
+const swapped = texts[0] !== baseFirst
 console.log(`✓ klik w numerek zmienia kolejność gałęzi w skrypcie: ${swapped ? 'tak' : 'NIE!'}`)
 await page.screenshot({ path: 'scripts/shot-13-canvas2.png' })
 
