@@ -78,5 +78,62 @@ await page.waitForSelector('text=Kompendium')
 const themeAfter = await page.evaluate(() => document.documentElement.dataset.theme)
 console.log(`✓ motyw po przeładowaniu: ${themeAfter}`)
 
+// 8. LaTeX z ukośnikami przeżywa tryb wizualny: wpisz w Kodzie \left\{ ... \right\}
+await page.click('.concept-item:has-text("Hybryda")')
+await page.waitForSelector('.view-switch')
+await page.click('.view-switch button:has-text("Kod")')
+await page.click('.editor-code .cm-content')
+await page.keyboard.press('Control+a')
+await page.keyboard.type('Zbiór $$\\left\\{ 0,1,2,\\ldots \\right\\}$$ koniec.')
+await page.waitForTimeout(700)
+await page.click('.view-switch button:has-text("Wizualny")')
+await page.waitForSelector('.rich-content .katex')
+const katexErr = await page.locator('.rich-content .katex-error').count()
+console.log(`✓ \\left\\{…\\right\\} renderuje się w wizualnym (błędy KaTeX: ${katexErr})`)
+// wpisz coś w wizualnym (dopisz na końcu) i wróć do kodu — ukośniki nietknięte
+await page.click('.rich-content .tiptap')
+await page.keyboard.press('Control+End')
+await page.keyboard.type(' dopisek')
+await page.waitForTimeout(700)
+await page.click('.view-switch button:has-text("Kod")')
+const code3 = await page.textContent('.editor-code .cm-content')
+console.log(
+  `✓ po powrocie z wizualnego LaTeX nienaruszony: ${
+    code3.includes('\\left\\{') && code3.includes('\\right\\}') ? 'ok' : 'ZEPSUTY: ' + code3
+  }`,
+)
+
+// 9. przełączanie między klockami w trybie wizualnym odświeża treść
+await page.click('.view-switch button:has-text("Wizualny")')
+await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('text=+ Nowy klocek')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'Drugi klocek')
+await page.click('.rich-content .tiptap')
+await page.keyboard.type('TREŚĆ-DRUGIEGO')
+await page.waitForTimeout(700)
+// przełącz na pierwszy klocek i z powrotem
+await page.click('.concept-item:has-text("Hybryda")')
+await page.waitForFunction(() =>
+  document.querySelector('.rich-content .tiptap')?.textContent.includes('Zbiór'),
+)
+await page.click('.concept-item:has-text("Drugi klocek")')
+await page.waitForFunction(() =>
+  document.querySelector('.rich-content .tiptap')?.textContent.includes('TREŚĆ-DRUGIEGO'),
+)
+console.log('✓ przełączanie klocków odświeża tryb wizualny')
+
+// 10. kolumna tekstu ograniczona (jak w Google Docs)
+const widths = await page.evaluate(() => {
+  const tt = document.querySelector('.rich-content .tiptap')
+  const rc = document.querySelector('.rich-content')
+  return { text: tt.getBoundingClientRect().width, panel: rc.getBoundingClientRect().width }
+})
+console.log(
+  `✓ kolumna tekstu: ${Math.round(widths.text)}px w panelu ${Math.round(widths.panel)}px (ograniczona: ${
+    widths.text <= 690
+  })`,
+)
+
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

@@ -60,37 +60,56 @@ const MathRender = Extension.create({
 })
 
 interface Props {
-  /** Treść w Markdownie (źródło prawdy). */
+  /** Treść w Markdownie (źródło prawdy) — wczytywana raz przy montowaniu;
+   *  komponent montuj z key={id wersji}, żeby zmiana klocka przeładowała treść. */
   value: string
-  /** Zmiana klucza (np. id wersji) przeładowuje treść do edytora. */
-  docKey: string
   editable: boolean
   onChange: (markdown: string) => void
 }
 
+// ---------------------------------------------------------------------------
+// Ochrona LaTeX-a przed parserem Markdown.
+// Markdown traktuje `\{` jako ucieczkę i zamienia na `{`, a przy zapisie
+// dokleja własne ukośniki — bez ochrony wzory typu \left\{ ulegają zniszczeniu.
+// Rozwiązanie: w segmentach $...$ / $$...$$ przed parsowaniem uciekamy każdy
+// znak interpunkcyjny (parser odtworzy oryginał), a po serializacji zdejmujemy
+// wszystkie pary `\x` → `x` (serializator zawsze dubluje ukośniki).
+// ---------------------------------------------------------------------------
+
+const MATH_SEG = /\$\$[\s\S]+?\$\$|\$[^$\n]+?\$/g
+
+const escapeMathForParse = (md: string) =>
+  md.replace(MATH_SEG, (seg) => {
+    const d = seg.startsWith('$$') ? 2 : 1
+    const inner = seg.slice(d, -d)
+    const delim = seg.slice(0, d)
+    return delim + inner.replace(/[!-/:-@[-`{-~]/g, (c) => '\\' + c) + delim
+  })
+
+const unescapeMathAfterSerialize = (md: string) =>
+  md.replace(MATH_SEG, (seg) => {
+    const d = seg.startsWith('$$') ? 2 : 1
+    const inner = seg.slice(d, -d)
+    const delim = seg.slice(0, d)
+    return delim + inner.replace(/\\([\s\S])/g, '$1') + delim
+  })
+
 /** Tryb wizualny (à la Google Docs): rich text edytowany bezpośrednio,
  *  pod spodem zawsze Markdown+LaTeX. Wzory $...$ renderują się w miejscu
  *  (klik we wzór pokazuje jego kod). */
-export function RichEditor({ value, docKey, editable, onChange }: Props) {
+export function RichEditor({ value, editable, onChange }: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit,
       MathRender,
       Markdown.configure({ html: false, linkify: false, breaks: false }),
     ],
-    content: value,
+    content: escapeMathForParse(value),
     editable,
     onUpdate: ({ editor }) => {
-      onChange(editor.storage.markdown.getMarkdown())
+      onChange(unescapeMathAfterSerialize(editor.storage.markdown.getMarkdown()))
     },
   })
-
-  // przeładuj treść przy zmianie wersji/pojęcia (nie przy każdym autozapisie)
-  useEffect(() => {
-    if (!editor) return
-    editor.commands.setContent(value)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docKey, editor])
 
   useEffect(() => {
     editor?.setEditable(editable)

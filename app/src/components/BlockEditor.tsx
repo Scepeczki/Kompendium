@@ -121,9 +121,13 @@ export function BlockEditor({
   }
 
   // Zmiana pokazywanej wersji → załaduj jej treść do edytora.
-  useEffect(() => {
+  // Synchronizacja w trakcie renderu (nie w efekcie), żeby montowany niżej
+  // edytor wizualny nigdy nie zobaczył treści poprzedniego klocka.
+  const [prevVersionId, setPrevVersionId] = useState(version.id)
+  if (prevVersionId !== version.id) {
+    setPrevVersionId(version.id)
     setDraft(version.content)
-  }, [version.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // Autozapis z opóźnieniem (tylko bieżąca wersja — stare są niezmienne).
   const onChange = (val: string) => {
@@ -526,8 +530,8 @@ export function BlockEditor({
       <div className={`editor-body view-${view}`}>
         {view === 'wizualny' ? (
           <RichEditor
+            key={version.id}
             value={draft}
-            docKey={version.id}
             editable={isCurrent}
             onChange={onChange}
           />
