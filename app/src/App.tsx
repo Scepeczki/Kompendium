@@ -33,6 +33,14 @@ function Splitter({ onDrag }: { onDrag: (dx: number) => void }) {
 }
 
 export default function App() {
+  // Ctrl+S: zapis jest automatyczny — blokujemy tylko dialog przeglądarki
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') e.preventDefault()
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** null = pokazuj bieżącą wersję pojęcia. */
   const [shownVersionId, setShownVersionId] = useState<string | null>(null)

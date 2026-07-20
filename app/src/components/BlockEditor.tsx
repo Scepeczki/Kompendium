@@ -4,6 +4,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { RichEditor } from './RichEditor'
 import { mdShortcuts } from '../cmShortcuts'
+import { wikiCompletion } from '../cmWiki'
 import {
   createConcept,
   db,
@@ -72,6 +73,32 @@ export function BlockEditor({
   const [pillHint, setPillHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(
     null,
   )
+  const nameRef = useRef<HTMLInputElement>(null)
+
+  // Nazwa buforowana lokalnie: pisanie nie czeka na bazę (zapis z opóźnieniem).
+  const [nameDraft, setNameDraft] = useState(concept.name)
+  const nameTimer = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    // synchronizuj z bazą, o ile użytkownik właśnie nie pisze w tym polu
+    if (document.activeElement !== nameRef.current) setNameDraft(concept.name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [concept.id, concept.name])
+  const onNameChange = (v: string) => {
+    setNameDraft(v)
+    window.clearTimeout(nameTimer.current)
+    nameTimer.current = window.setTimeout(() => {
+      updateConcept(concept.id, { name: v })
+    }, 300)
+  }
+
+  // świeżo utworzony klocek: nazwa od razu zaznaczona do nadpisania
+  useEffect(() => {
+    if (concept.name === 'Nowe pojęcie') {
+      nameRef.current?.focus()
+      nameRef.current?.select()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [concept.id])
   /** Cel przeciągania chipa: nazwa grupy albo '' (obszar „bez grupy"). */
   const [srcHint, setSrcHint] = useState<string | null>(null)
 
@@ -81,6 +108,15 @@ export function BlockEditor({
 
   // Wszystkie pojęcia + treści ich bieżących wersji — do wiki-linków i odwołań.
   const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+
+  // Rozszerzenia CodeMirror muszą mieć stabilną tożsamość (rekonfiguracja przy
+  // każdym renderze psuje m.in. akceptowanie podpowiedzi klawiszem).
+  const conceptNamesRef = useRef<string[]>([])
+  conceptNamesRef.current = allConcepts.map((c) => c.name)
+  const cmExtensions = useMemo(
+    () => [markdown(), mdShortcuts, wikiCompletion(() => conceptNamesRef.current)],
+    [],
+  )
   const allVersions = useLiveQuery(() => db.versions.toArray(), []) ?? []
   const currentContent = (c: Concept) =>
     allVersions.find((v) => v.id === c.currentVersionId)?.content ?? ''
@@ -314,9 +350,10 @@ export function BlockEditor({
             )}
           </select>
           <input
+            ref={nameRef}
             className="input editor-name"
-            value={concept.name}
-            onChange={(e) => updateConcept(concept.id, { name: e.target.value })}
+            value={nameDraft}
+            onChange={(e) => onNameChange(e.target.value)}
             placeholder="Nazwa pojęcia…"
           />
           <button className="btn btn-danger" title="Usuń pojęcie" onClick={handleDelete}>
@@ -541,10 +578,10 @@ export function BlockEditor({
               <CodeMirror
                 value={draft}
                 onChange={onChange}
-                extensions={[markdown(), mdShortcuts]}
+                extensions={cmExtensions}
                 editable={isCurrent}
                 placeholder={'Treść klocka…\n\nMarkdown + LaTeX: $x^2$, $$\\int_a^b f\\,dx$$'}
-                basicSetup={{ lineNumbers: false, foldGutter: false }}
+                basicSetup={{ lineNumbers: false, foldGutter: false, autocompletion: false }}
                 style={{ height: '100%' }}
               />
             </div>

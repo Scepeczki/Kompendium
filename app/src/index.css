@@ -395,6 +395,27 @@ select.type-select {
   text-overflow: ellipsis;
 }
 
+.concept-item .folder-actions {
+  display: none;
+  margin-left: auto;
+}
+
+.concept-item:hover .folder-actions {
+  display: inline-flex;
+}
+
+.sidebar-footer {
+  padding: 6px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* ---- drzewo folderów ---- */
 
 .folder-row {

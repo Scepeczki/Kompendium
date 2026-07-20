@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface Props {
   onClose: () => void
@@ -6,6 +6,11 @@ interface Props {
 
 /** Globalne ustawienia aplikacji: motyw i szerokość strony tekstu. */
 export function SettingsModal({ onClose }: Props) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
   const [theme, setTheme] = useState(
     () => document.documentElement.dataset.theme ?? 'light',
   )

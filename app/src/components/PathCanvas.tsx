@@ -637,6 +637,27 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
     return () => document.body.classList.remove('script-mode')
   }, [mode])
 
+  // tytuł karty = nazwa ścieżki w widoku skryptu (ładna nazwa pliku PDF)
+  useEffect(() => {
+    if (mode !== 'script') return
+    document.title = `${name || 'Skrypt'} — Kompendium`
+    return () => {
+      document.title = 'Kompendium'
+    }
+  }, [mode, name])
+
+  // Escape zamyka okno notatki i menu kontekstowe
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setEditingNote(null)
+      setCtxMenu(null)
+      setNodeMenu(null)
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [])
+
   // wczytaj ścieżkę
   useEffect(() => {
     loadedRef.current = false

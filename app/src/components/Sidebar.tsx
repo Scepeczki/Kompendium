@@ -5,12 +5,14 @@ import {
   createFolder,
   createPath,
   db,
+  deleteConcept,
   deleteFolder,
   deletePath,
   moveConcept,
   moveFolder,
   movePath,
   renameFolder,
+  updateConcept,
   updatePath,
 } from '../db'
 import {
@@ -235,11 +237,27 @@ export function Sidebar({
   // Wiersze drzewa
   // -------------------------------------------------------------------------
 
+  const handleRenameConcept = async (c: Concept) => {
+    const name = window.prompt('Nowa nazwa pojęcia:', c.name)
+    if (!name?.trim()) return
+    await updateConcept(c.id, { name: name.trim() })
+  }
+
+  const handleDeleteConcept = async (c: Concept) => {
+    if (
+      window.confirm(
+        `Usunąć pojęcie „${c.name}" ze wszystkimi wersjami? Tego nie da się cofnąć.`,
+      )
+    ) {
+      await deleteConcept(c.id)
+    }
+  }
+
   const conceptRow = (c: Concept, parentId: string | null, node: TreeNode) => {
     const hint = dropHint?.id === c.id ? dropHint.pos : null
     return (
       <li key={c.id}>
-        <button
+        <div
           draggable
           className={`concept-item ${c.id === selectedId ? 'selected' : ''} ${
             hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
@@ -271,7 +289,29 @@ export function Sidebar({
             {BLOCK_TYPE_SHORT[c.type]}
           </span>
           <span className="concept-name">{c.name}</span>
-        </button>
+          <span className="folder-actions">
+            <button
+              className="folder-action"
+              title="Zmień nazwę pojęcia"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRenameConcept(c)
+              }}
+            >
+              ✎
+            </button>
+            <button
+              className="folder-action"
+              title="Usuń pojęcie (ze wszystkimi wersjami)"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDeleteConcept(c)
+              }}
+            >
+              ×
+            </button>
+          </span>
+        </div>
       </li>
     )
   }
@@ -429,6 +469,15 @@ export function Sidebar({
     })
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 
+  // Szukajka znajduje też ścieżki (po nazwie).
+  const flatPaths =
+    typeFilter !== 'wszystkie'
+      ? []
+      : paths.filter((p) => {
+          const q = search.trim().toLowerCase()
+          return q && p.name.toLowerCase().includes(q)
+        })
+
   return (
     <aside className="sidebar">
       <header className="sidebar-header">
@@ -480,7 +529,7 @@ export function Sidebar({
 
       {filtering ? (
         <ul className="concept-list">
-          {flatList.length === 0 && (
+          {flatList.length === 0 && flatPaths.length === 0 && (
             <li className="concept-empty">Nic nie pasuje do filtra.</li>
           )}
           {flatList.map((c) =>
@@ -489,6 +538,14 @@ export function Sidebar({
               id: c.id,
               order: c.order ?? 0,
               concept: c,
+            }),
+          )}
+          {flatPaths.map((p) =>
+            pathRow(p, p.folderId ?? null, {
+              kind: 'path',
+              id: p.id,
+              order: p.order ?? 0,
+              path: p,
             }),
           )}
         </ul>
@@ -514,6 +571,9 @@ export function Sidebar({
           {children(null).map((n) => renderNode(n, null))}
         </ul>
       )}
+      <footer className="sidebar-footer">
+        Klocki: {concepts.length} · Ścieżki: {paths.length}
+      </footer>
     </aside>
   )
 }
