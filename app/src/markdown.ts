@@ -47,7 +47,16 @@ export function renderMarkdown(src: string, opts: RenderOptions = {}): string {
 
   let html = marked.parse(text) as string
   html = html.replace(/%%STASH(\d+)%%/g, (_, i: string) => stashed[Number(i)])
-  return DOMPurify.sanitize(html)
+  html = DOMPurify.sanitize(html)
+  // znaczniki wcięć akapitów ⟦wL,F⟧ / ⟦wL,F,R⟧ (px) → style; patrz src/indent.ts
+  html = html.replace(
+    /<(p|li)>⟦w(-?\d+),(-?\d+)(?:,(\d+))?⟧/g,
+    (_, tag: string, l: string, f: string, r?: string) =>
+      `<${tag} style="margin-left:${l}px;text-indent:${f}px${
+        r ? `;margin-right:${r}px` : ''
+      }">`,
+  )
+  return html
 }
 
 /** Wyciąga nazwy pojęć linkowanych w treści ([[...]]), bez aliasów. */

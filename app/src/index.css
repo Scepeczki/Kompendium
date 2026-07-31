@@ -869,12 +869,14 @@ button.version-pill.new {
   overflow-y: auto;
   /* marginesy poza kolumną tekstu — tło odrobinę inne niż sama strona */
   background: var(--panel-alt);
+  /* lekki odstęp między linijką a stroną, jak w Google Docs */
+  padding-top: 10px;
 }
 
-/* kolumna tekstu jak w Google Docs: szerokość z ustawień, wyśrodkowana,
-   z cienkimi liniami na krawędziach (przedłużenie trójkącików z linijki) */
+/* kolumna tekstu jak w Google Docs: szerokość z ustawień, wyśrodkowana;
+   krawędź strony rysuje cień (nie border — nie przesuwa geometrii tekstu) */
 .rich-content .tiptap {
-  min-height: 100%;
+  min-height: calc(100% - 10px);
   max-width: var(--page-width, 800px);
   margin: 0 auto;
   padding: 20px 26px 60px;
@@ -882,7 +884,34 @@ button.version-pill.new {
   font-size: 15px;
   line-height: var(--content-line, 1.65);
   background: var(--panel);
-  border-inline: 1px solid var(--line);
+  box-shadow: 0 0 0 1px var(--line);
+  position: relative;
+}
+
+/* cienkie linie marginesów — dokładnie tam, gdzie zaczyna się tekst
+   (i gdzie na linijce stoją trójkąciki) */
+.rich-content .tiptap::before,
+.rich-content .tiptap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+
+.rich-content .tiptap::before {
+  left: 25px;
+}
+
+.rich-content .tiptap::after {
+  right: 25px;
+}
+
+/* schowany znacznik wcięcia akapitu (⟦w…⟧) w trybie wizualnym */
+.rich-content .ind-hide {
+  display: none;
 }
 
 /* ---- linijka szerokości strony (à la Google Docs) ---- */
@@ -890,7 +919,7 @@ button.version-pill.new {
 .page-ruler {
   position: relative;
   flex: none;
-  height: 18px;
+  height: 22px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   user-select: none;
@@ -911,11 +940,11 @@ button.version-pill.new {
   border-left: 1px solid var(--line-strong);
 }
 
-/* trójkącik-uchwyt: szersza strefa łapania, sam trójkąt rysowany w ::after */
+/* zielony trójkącik szerokości: strefa łapania w górnej połowie linijki */
 .ruler-handle {
   position: absolute;
   top: 0;
-  height: 100%;
+  height: 12px;
   width: 16px;
   transform: translateX(-50%);
   display: flex;
@@ -928,7 +957,7 @@ button.version-pill.new {
 
 .ruler-handle::after {
   content: '';
-  margin-top: 4px;
+  margin-top: 3px;
   width: 0;
   height: 0;
   border-left: 5px solid transparent;
@@ -938,6 +967,56 @@ button.version-pill.new {
 
 .ruler-handle:hover::after {
   border-top-color: var(--accent-ink);
+}
+
+/* niebieskie znaczniki wcięć (lokalne, na akapit): prostokącik = pierwsza
+   linia, trójkąciki w górę = lewa/prawa krawędź tekstu akapitu */
+.ruler-ind {
+  position: absolute;
+  width: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  cursor: ew-resize;
+  z-index: 3;
+  touch-action: none;
+}
+
+.ruler-ind-first {
+  top: 9px;
+  height: 5px;
+  /* nad trójkącikami — przy tej samej pozycji prostokącik ma pierwszeństwo */
+  z-index: 4;
+}
+
+.ruler-ind-first::after {
+  content: '';
+  width: 9px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--c-definicja);
+}
+
+.ruler-ind-left,
+.ruler-ind-right {
+  bottom: 0;
+  height: 8px;
+  align-items: flex-end;
+}
+
+.ruler-ind-left::after,
+.ruler-ind-right::after {
+  content: '';
+  width: 0;
+  height: 0;
+  margin-bottom: 1px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 8px solid var(--c-definicja);
+}
+
+.ruler-ind:hover::after {
+  filter: brightness(0.8);
 }
 
 /* kreseczka szerokości domyślnej */

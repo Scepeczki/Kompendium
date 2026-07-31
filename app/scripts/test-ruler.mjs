@@ -97,6 +97,92 @@ await page.keyboard.press('Escape')
 const popGone = (await page.locator('.spacing-pop').count()) === 0
 console.log(`✓ Escape zamyka menu odstępów: ${popGone}`)
 
+// 8a. znaczniki wcięć: 3 sztuki (pierwsza linia + lewy + prawy)
+const indMarks = await page.locator('.ruler-ind').count()
+console.log(`✓ znaczniki wcięć na linijce: ${indMarks === 3 ? 'ok (3)' : 'BRAK! ' + indMarks}`)
+
+// 8b. przeciągnięcie lewego trójkącika wcina akapit pod kursorem (lokalnie)
+await page.click('.rich-content .tiptap p')
+const leftInd = page.locator('.ruler-ind-left')
+const lb = await leftInd.boundingBox()
+await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2)
+await page.mouse.down()
+await page.mouse.move(lb.x + lb.width / 2 + 60, lb.y + lb.height / 2, { steps: 6 })
+await page.mouse.up()
+await page.waitForTimeout(200)
+const pStyle = await page.evaluate(() => {
+  const p = document.querySelector('.rich-content .tiptap p')
+  return getComputedStyle(p).marginLeft
+})
+console.log(`✓ wcięcie akapitu po przeciągnięciu: margin-left=${pStyle} (oczekiwane ~60px)`)
+if (pStyle === '0px') console.log('BŁĄD: wcięcie nie zadziałało!')
+
+// 8c. drugi akapit bez wcięcia (lokalne, nie globalne)
+const p2Style = await page.evaluate(() => {
+  const ps = document.querySelectorAll('.rich-content .tiptap p')
+  return ps.length > 1 ? getComputedStyle(ps[1]).marginLeft : 'brak'
+})
+console.log(`✓ sąsiedni akapit bez wcięcia: margin-left=${p2Style} (oczekiwane 0px)`)
+
+// 8d. prostokącik: wcięcie pierwszej linii
+const firstInd = page.locator('.ruler-ind-first')
+const fb = await firstInd.boundingBox()
+await page.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2)
+await page.mouse.down()
+await page.mouse.move(fb.x + fb.width / 2 + 40, fb.y + fb.height / 2, { steps: 5 })
+await page.mouse.up()
+await page.waitForTimeout(200)
+const tiStyle = await page.evaluate(() => {
+  const p = document.querySelector('.rich-content .tiptap p')
+  return getComputedStyle(p).textIndent
+})
+console.log(`✓ wcięcie pierwszej linii: text-indent=${tiStyle} (oczekiwane ~40px)`)
+
+// 8e. w widoku Kod widać znacznik ⟦w…⟧, a treść jest nienaruszona
+await page.click('.view-switch button:has-text("Kod")')
+await page.waitForSelector('.editor-code .cm-content')
+const codeTxt = await page.textContent('.editor-code .cm-content')
+const hasMarker = /⟦w\d+,\d+(,\d+)?⟧/.test(codeTxt)
+console.log(`✓ znacznik wcięcia w Kodzie: ${hasMarker ? 'ok' : 'BRAK! ' + codeTxt.slice(0, 80)}`)
+
+// 8f. podgląd (Podział) renderuje wcięcie ze znacznika
+await page.click('.view-switch button:has-text("Podział")')
+await page.waitForSelector('.editor-preview')
+const prevStyle = await page.evaluate(() => {
+  const p = document.querySelector('.editor-preview p[style]')
+  return p ? getComputedStyle(p).marginLeft : 'brak'
+})
+console.log(`✓ wcięcie w podglądzie: margin-left=${prevStyle} (oczekiwane ~60px)`)
+
+// 8g. dwuklik lewego trójkącika zeruje wcięcie
+await page.click('.view-switch button:has-text("Wizualny")')
+await page.waitForSelector('.rich-content .tiptap')
+await page.click('.rich-content .tiptap p')
+await page.locator('.ruler-ind-left').dblclick()
+await page.waitForTimeout(200)
+const afterReset = await page.evaluate(() => {
+  const p = document.querySelector('.rich-content .tiptap p')
+  return getComputedStyle(p).marginLeft
+})
+console.log(`✓ dwuklik zeruje wcięcie akapitu: margin-left=${afterReset} (oczekiwane 0px)`)
+
+// 8h. pisanie na początku wciętego akapitu nie psuje znacznika (samonaprawa)
+await page.click('.rich-content .tiptap p')
+await page.keyboard.press('Home')
+await page.keyboard.type('X')
+await page.waitForTimeout(400)
+const healed = await page.evaluate(() => {
+  const p = document.querySelector('.rich-content .tiptap p')
+  return {
+    ti: getComputedStyle(p).textIndent,
+    visible: p.innerText.includes('⟦'),
+    hasX: p.textContent.includes('X'),
+  }
+})
+console.log(
+  `✓ samonaprawa znacznika: wcięcie ${healed.ti} (oczekiwane 40px), znacznik widoczny: ${healed.visible} (oczekiwane false), litera wpisana: ${healed.hasX}`,
+)
+
 // 9. trwałość po przeładowaniu
 await page.evaluate(() => localStorage.setItem('ui.pageWidth', '1000'))
 await page.reload()

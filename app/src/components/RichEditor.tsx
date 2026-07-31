@@ -8,6 +8,7 @@ import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
 import { PageRuler } from './PageRuler'
 import { SpacingMenu } from './SpacingMenu'
+import { INDENT_RE, INDENT_RE_ANY, indentStyle, parseIndents } from '../indent'
 
 /** Renderuje wzory $...$ i $$...$$ w miejscu (dekoracje nad tekstem).
  *  Tekst w dokumencie pozostaje czystym LaTeX-em (bezpieczny Markdown);
@@ -61,6 +62,67 @@ const MathRender = Extension.create({
   },
 })
 
+/** Renderuje wcięcia akapitów ze znaczników ⟦w…⟧ (patrz src/indent.ts):
+ *  akapit dostaje styl, sam znacznik jest schowany. Dodatkowo samonaprawa —
+ *  znacznik, który przestał być na początku akapitu (np. użytkownik wpisał
+ *  coś przed nim), wraca na początek zamiast straszyć w treści. */
+const IndentRender = Extension.create({
+  name: 'indentRender',
+  addProseMirrorPlugins() {
+    const build = (doc: import('@tiptap/pm/model').Node) => {
+      const decos: Decoration[] = []
+      doc.descendants((node, pos) => {
+        if (!node.isTextblock) return true
+        const first = node.firstChild
+        const ind = first?.isText ? parseIndents(first.text ?? '') : null
+        if (ind) {
+          const len = INDENT_RE.exec(first!.text ?? '')![0].length
+          decos.push(
+            Decoration.node(pos, pos + node.nodeSize, { style: indentStyle(ind) }),
+          )
+          decos.push(Decoration.inline(pos + 1, pos + 1 + len, { class: 'ind-hide' }))
+        }
+        return false
+      })
+      return decos
+    }
+    return [
+      new Plugin({
+        key: new PluginKey('indentRender'),
+        props: {
+          decorations(state) {
+            return DecorationSet.create(state.doc, build(state.doc))
+          },
+        },
+        appendTransaction(trs, _old, state) {
+          if (!trs.some((t) => t.docChanged)) return null
+          let tr: typeof state.tr | null = null
+          state.doc.descendants((node, pos) => {
+            if (!node.isTextblock) return true
+            // znajdź znacznik w tekście akapitu (tylko w całym, pojedynczym
+            // fragmencie tekstu — pocięty formatowaniem zostawiamy w spokoju)
+            let off = 0
+            node.forEach((child) => {
+              if (child.isText && child.text) {
+                const m = INDENT_RE_ANY.exec(child.text)
+                if (m && off + m.index > 0 && !tr) {
+                  const from = pos + 1 + off + m.index
+                  tr = state.tr
+                    .delete(from, from + m[0].length)
+                    .insertText(m[0], pos + 1, pos + 1)
+                }
+              }
+              off += child.nodeSize
+            })
+            return false
+          })
+          return tr
+        },
+      }),
+    ]
+  },
+})
+
 interface Props {
   /** Treść w Markdownie (źródło prawdy) — wczytywana raz przy montowaniu;
    *  komponent montuj z key={id wersji}, żeby zmiana klocka przeładowała treść. */
@@ -104,6 +166,7 @@ export function RichEditor({ value, editable, onChange }: Props) {
     extensions: [
       StarterKit,
       MathRender,
+      IndentRender,
       Markdown.configure({ html: false, linkify: false, breaks: false }),
     ],
     content: escapeMathForParse(value),
@@ -116,6 +179,17 @@ export function RichEditor({ value, editable, onChange }: Props) {
   useEffect(() => {
     editor?.setEditable(editable)
   }, [editable, editor])
+
+  // Firefox potrafi dorysować własne zielone uchwyty zmiany rozmiaru na
+  // elementach w polu edycji — wyłączamy jego wbudowane edytowanie obiektów.
+  useEffect(() => {
+    try {
+      document.execCommand('enableObjectResizing', false, 'false')
+      document.execCommand('enableInlineTableEditing', false, 'false')
+    } catch {
+      // przeglądarki bez tych komend — nic do roboty
+    }
+  }, [editor])
 
   if (!editor) return null
 
@@ -195,7 +269,7 @@ export function RichEditor({ value, editable, onChange }: Props) {
           <SpacingMenu />
         </div>
       )}
-      {editable && <PageRuler />}
+      {editable && <PageRuler editor={editor} />}
       <EditorContent editor={editor} className="rich-content markdown-body" />
     </div>
   )
