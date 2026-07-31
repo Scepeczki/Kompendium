@@ -119,5 +119,37 @@ console.log(
   `✓ treść nietknięta: ${code3.includes('ważny fragment') && code3.includes('Zwykły tekst') ? 'ok' : 'ZEPSUTA: ' + code3}`,
 )
 
+// 8. wzór LaTeX wewnątrz powiększonego fragmentu skaluje się razem z tekstem
+await page.click('.view-switch button:has-text("Kod")')
+await page.click('.editor-code .cm-content')
+await page.keyboard.press('Control+a')
+await page.keyboard.type('Mały $a^2$ i ⟦s28⟧duży $b^2$ wzór⟦/s⟧.')
+await page.waitForTimeout(700)
+await page.click('.view-switch button:has-text("Wizualny")')
+await page.waitForSelector('.rich-content .katex')
+await page.waitForTimeout(400)
+const mathSizes = await page.evaluate(() => {
+  const els = [...document.querySelectorAll('.rich-content .math-render')]
+  return els.map((e) => Math.round(e.getBoundingClientRect().height))
+})
+console.log(
+  `✓ wzory w wizualnym — wysokości ${mathSizes.join(' vs ')}: ${
+    mathSizes.length === 2 && mathSizes[1] > mathSizes[0] ? 'powiększony większy, ok' : 'BRAK SKALOWANIA!'
+  }`,
+)
+
+// 9. to samo w podglądzie (Podział)
+await page.click('.view-switch button:has-text("Podział")')
+await page.waitForSelector('.editor-preview .katex')
+const prevMath = await page.evaluate(() => {
+  const els = [...document.querySelectorAll('.editor-preview .katex')]
+  return els.map((e) => Math.round(e.getBoundingClientRect().height))
+})
+console.log(
+  `✓ wzory w podglądzie — wysokości ${prevMath.join(' vs ')}: ${
+    prevMath.length === 2 && prevMath[1] > prevMath[0] ? 'ok' : 'BRAK SKALOWANIA!'
+  }`,
+)
+
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

@@ -14,7 +14,9 @@ import {
   applySizeToSelection,
   blockTextWithMap,
   findSizeSpans,
+  sizeAtPos,
   sizeAtSelection,
+  sizeRangesInDoc,
 } from '../textsize'
 
 /** Renderuje wzory $...$ i $$...$$ w miejscu (dekoracje nad tekstem).
@@ -25,6 +27,9 @@ const MathRender = Extension.create({
   addProseMirrorPlugins() {
     const build = (doc: import('@tiptap/pm/model').Node, selFrom: number, selTo: number) => {
       const decos: Decoration[] = []
+      // wzór jest osobnym elementem obok tekstu, więc nie dziedziczy rozmiaru
+      // z dekoracji ⟦sNN⟧ — ustawiamy go jawnie
+      const sizes = sizeRangesInDoc(doc)
       doc.descendants((node, pos) => {
         if (!node.isText) return
         const text = node.text ?? ''
@@ -42,6 +47,8 @@ const MathRender = Extension.create({
           const tex = m[1] ?? m[2]
           const el = document.createElement(display ? 'div' : 'span')
           el.className = `math-render${display ? ' math-render-display' : ''}`
+          const size = sizeAtPos(sizes, from)
+          if (size !== null) el.style.fontSize = `${size}px`
           try {
             katex.render(tex, el, { displayMode: display, throwOnError: false })
           } catch {
