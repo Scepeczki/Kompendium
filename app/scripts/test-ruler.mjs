@@ -101,6 +101,28 @@ console.log(`✓ Escape zamyka menu odstępów: ${popGone}`)
 const indMarks = await page.locator('.ruler-ind').count()
 console.log(`✓ znaczniki wcięć na linijce: ${indMarks === 3 ? 'ok (3)' : 'BRAK! ' + indMarks}`)
 
+// 8a′. niebieski znacznik stoi dokładnie tam, gdzie zaczyna się tekst
+const alignment = await page.evaluate(() => {
+  const mark = document.querySelector('.ruler-ind-left').getBoundingClientRect()
+  const p = document.querySelector('.rich-content .tiptap p')
+  const r = document.createRange()
+  r.setStart(p.firstChild, 0)
+  r.setEnd(p.firstChild, 1)
+  const glyph = r.getBoundingClientRect()
+  const card = document.querySelector('.rich-content .tiptap').getBoundingClientRect()
+  const green = document.querySelector('.ruler-handle').getBoundingClientRect()
+  return {
+    markVsText: Math.round(mark.left + mark.width / 2 - glyph.left),
+    greenVsCard: Math.round(green.left + green.width / 2 - card.left),
+  }
+})
+console.log(
+  `✓ niebieski znacznik na początku tekstu: różnica ${alignment.markVsText}px (oczekiwane ~0)`,
+)
+console.log(
+  `✓ zielony trójkącik na krawędzi kartki: różnica ${alignment.greenVsCard}px (oczekiwane ~0)`,
+)
+
 // 8b. przeciągnięcie lewego trójkącika wcina akapit pod kursorem (lokalnie)
 await page.click('.rich-content .tiptap p')
 const leftInd = page.locator('.ruler-ind-left')

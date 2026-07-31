@@ -993,7 +993,9 @@ button.version-pill.new {
   min-height: calc(100% - 10px);
   max-width: var(--page-width, 800px);
   margin: 0 auto;
-  padding: 22px 6px 60px;
+  /* margines boczny = bazowe odsunięcie znaczników wcięć: tekst zaczyna się
+     dokładnie tam, gdzie na linijce stoją niebieskie znaczniki */
+  padding: 22px var(--text-pad, 14px) 60px;
   outline: none;
   font-size: 15px;
   line-height: var(--content-line, 1.65);

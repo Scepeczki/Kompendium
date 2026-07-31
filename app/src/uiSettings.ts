@@ -57,6 +57,9 @@ export function getIndOffset(): number {
 
 export function setIndOffset(v: number): void {
   const val = clamp(Math.round(v), IND_OFFSET_MIN, IND_OFFSET_MAX)
+  // to jest zarazem margines tekstu wewnątrz kartki: niebieskie znaczniki
+  // na linijce stoją dokładnie tam, gdzie zaczyna się tekst
+  document.documentElement.style.setProperty('--text-pad', `${val}px`)
   localStorage.setItem('ui.indOffset', String(val))
   notify()
 }
@@ -95,4 +98,5 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--page-width', `${getPageWidth()}px`)
   document.documentElement.style.setProperty('--content-line', String(getLineSpacing()))
   document.documentElement.style.setProperty('--content-para', `${getParaSpacing()}em`)
+  document.documentElement.style.setProperty('--text-pad', `${getIndOffset()}px`)
 }
