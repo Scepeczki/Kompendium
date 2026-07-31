@@ -9,6 +9,13 @@ import katex from 'katex'
 import { PageRuler } from './PageRuler'
 import { SpacingMenu } from './SpacingMenu'
 import { INDENT_RE, INDENT_RE_ANY, indentStyle, parseIndents } from '../indent'
+import {
+  SIZE_OPTIONS,
+  applySizeToSelection,
+  blockTextWithMap,
+  findSizeSpans,
+  sizeAtSelection,
+} from '../textsize'
 
 /** Renderuje wzory $...$ i $$...$$ w miejscu (dekoracje nad tekstem).
  *  Tekst w dokumencie pozostaje czystym LaTeX-em (bezpieczny Markdown);
@@ -123,6 +130,53 @@ const IndentRender = Extension.create({
   },
 })
 
+/** Renderuje rozmiar tekstu ze znaczników ⟦sNN⟧…⟦/s⟧ (patrz src/textsize.ts):
+ *  fragment dostaje font-size, a same znaczniki są niewidoczne (rozmiar zmienia
+ *  się kontrolką w pasku, więc podglądanie ich kodu jest zbędne). */
+const SizeRender = Extension.create({
+  name: 'sizeRender',
+  addProseMirrorPlugins() {
+    const build = (doc: import('@tiptap/pm/model').Node) => {
+      const decos: Decoration[] = []
+      doc.descendants((node, pos) => {
+        if (!node.isTextblock) return true
+        const base = pos + 1
+        const { text, map } = blockTextWithMap(node)
+        const docAt = (i: number) =>
+          base + (i < map.length ? map[i] : node.content.size)
+        for (const s of findSizeSpans(text)) {
+          const tokens: [number, number][] = [
+            [docAt(s.openFrom), docAt(s.openTo)],
+            [docAt(s.closeFrom), docAt(s.closeTo)],
+          ]
+          for (const [f, t] of tokens) {
+            decos.push(Decoration.inline(f, t, { class: 'ind-hide' }))
+          }
+          const innerF = docAt(s.openTo)
+          const innerT = docAt(s.closeFrom)
+          if (innerF < innerT) {
+            decos.push(
+              Decoration.inline(innerF, innerT, { style: `font-size:${s.size}px` }),
+            )
+          }
+        }
+        return false
+      })
+      return decos
+    }
+    return [
+      new Plugin({
+        key: new PluginKey('sizeRender'),
+        props: {
+          decorations(state) {
+            return DecorationSet.create(state.doc, build(state.doc))
+          },
+        },
+      }),
+    ]
+  },
+})
+
 interface Props {
   /** Treść w Markdownie (źródło prawdy) — wczytywana raz przy montowaniu;
    *  komponent montuj z key={id wersji}, żeby zmiana klocka przeładowała treść. */
@@ -175,6 +229,7 @@ export function RichEditor({ value, editable, onChange }: Props) {
       StarterKit,
       MathRender,
       IndentRender,
+      SizeRender,
       Markdown.configure({ html: false, linkify: false, breaks: false }),
     ],
     content: escapeMathForParse(value),
@@ -239,6 +294,25 @@ export function RichEditor({ value, editable, onChange }: Props) {
           >
             H
           </button>
+          <select
+            className="rich-size"
+            title="Rozmiar zaznaczonego tekstu (zaznacz fragment i wybierz)"
+            value={sizeAtSelection(editor) ?? ''}
+            onChange={(e) => {
+              applySizeToSelection(
+                editor,
+                e.target.value ? Number(e.target.value) : null,
+              )
+              editor.chain().focus().run()
+            }}
+          >
+            <option value="">Aa</option>
+            {SIZE_OPTIONS.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
           <button
             className={`btn rich-btn ${editor.isActive('bulletList') ? 'btn-active' : ''}`}
             title="Lista punktowana"

@@ -965,6 +965,18 @@ button.version-pill.new {
   font-size: 13px;
 }
 
+/* rozmiar zaznaczonego tekstu — jak w Google Docs */
+.rich-size {
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
 .rich-content {
   flex: 1;
   overflow-y: auto;

@@ -56,6 +56,10 @@ export function renderMarkdown(src: string, opts: RenderOptions = {}): string {
         r ? `;margin-right:${r}px` : ''
       }">`,
   )
+  // znaczniki rozmiaru tekstu ⟦sNN⟧…⟦/s⟧ → span; patrz src/textsize.ts
+  html = html
+    .replace(/⟦s(\d{1,2})⟧/g, '<span style="font-size:$1px">')
+    .replace(/⟦\/s⟧/g, '</span>')
   return html
 }
 
