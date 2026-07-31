@@ -1644,6 +1644,15 @@ button.version-pill.new {
   color: var(--muted);
 }
 
+.settings-backup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-status {
+  color: var(--accent-ink);
+}
+
 /* fuzja */
 .path-node-fusion {
   border-style: double;

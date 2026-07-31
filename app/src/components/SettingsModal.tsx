@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { exportBackup, importBackup } from '../backup'
 
 interface Props {
   onClose: () => void
@@ -29,6 +30,50 @@ export function SettingsModal({ onClose }: Props) {
     setWidth(w)
     document.documentElement.style.setProperty('--page-width', `${w}px`)
     localStorage.setItem('ui.pageWidth', String(w))
+  }
+
+  const [busy, setBusy] = useState<'export' | 'import' | null>(null)
+  const [status, setStatus] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleExport = async () => {
+    setBusy('export')
+    setStatus(null)
+    try {
+      await exportBackup()
+      setStatus('Kopia zapasowa pobrana.')
+    } catch (e) {
+      setStatus(`Błąd eksportu: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file) return
+    if (
+      !window.confirm(
+        'Wczytać kopię zapasową? Klocki, wersje, foldery, ścieżki i PDF-y o tych ' +
+          'samych identyfikatorach co w kopii zostaną nadpisane. Reszta danych zostaje bez zmian.',
+      )
+    ) {
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
+    setBusy('import')
+    setStatus(null)
+    try {
+      const s = await importBackup(file)
+      setStatus(
+        `Wczytano: ${s.concepts} klocków, ${s.versions} wersji, ${s.folders} folderów, ` +
+          `${s.paths} ścieżek, ${s.pdfs} PDF-ów.`,
+      )
+    } catch (e) {
+      setStatus(`Błąd importu: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(null)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   return (
@@ -74,6 +119,34 @@ export function SettingsModal({ onClose }: Props) {
             />
             <p className="settings-hint">
               Dotyczy edytora wizualnego, widoku Linia i Skryptu. Zmiany widać od razu.
+            </p>
+          </div>
+          <div className="settings-row">
+            <span className="settings-label">Kopia zapasowa</span>
+            <div className="settings-backup-actions">
+              <button className="btn" disabled={busy !== null} onClick={handleExport}>
+                {busy === 'export' ? 'Pakuję…' : '⬇ Eksportuj kopię'}
+              </button>
+              <button
+                className="btn"
+                disabled={busy !== null}
+                onClick={() => fileRef.current?.click()}
+              >
+                {busy === 'import' ? 'Wczytuję…' : '⬆ Wczytaj kopię'}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".zip"
+                hidden
+                onChange={(e) => handleImportFile(e.target.files?.[0])}
+              />
+            </div>
+            {status && <p className="settings-hint settings-status">{status}</p>}
+            <p className="settings-hint">
+              Eksport zapisuje wszystko (klocki, wersje, foldery, ścieżki, PDF-y) do
+              jednego pliku .zip na dysku — to zarazem backup i sposób przeniesienia
+              danych do innej przeglądarki lub komputera.
             </p>
           </div>
         </div>

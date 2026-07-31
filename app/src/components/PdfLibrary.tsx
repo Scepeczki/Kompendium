@@ -24,8 +24,12 @@ export function PdfLibrary({ currentId, onOpen }: Props) {
   const sortedFolders = [...folders].sort((a, b) =>
     a.name.localeCompare(b.name, 'pl'),
   )
+  // Odporność: PDF wskazujący na nieistniejący (już usunięty gdzie indziej)
+  // folder ląduje na poziomie głównym zamiast znikać z widoku.
+  const folderIds = new Set(folders.map((f) => f.id))
+  const effectiveFolder = (id: string | null) => (id && folderIds.has(id) ? id : null)
   const inFolder = (folderId: string | null) =>
-    pdfs.filter((p) => (p.folderId ?? null) === folderId)
+    pdfs.filter((p) => effectiveFolder(p.folderId ?? null) === folderId)
 
   const toggle = (id: string) =>
     setExpanded((prev) => {

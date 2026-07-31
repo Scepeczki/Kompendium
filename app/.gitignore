@@ -15,6 +15,7 @@ dist-ssr
 # artefakty testów dymnych
 scripts/shot-*.png
 scripts/test.pdf
+scripts/backup-test.zip
 
 # Editor directories and files
 .vscode/*

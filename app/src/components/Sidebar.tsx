@@ -94,16 +94,22 @@ export function Sidebar({
 
   const filtering = search.trim() !== '' || typeFilter !== 'wszystkie'
 
+  // Odporność na osierocone odwołania: jeśli folderId/parentId wskazuje na
+  // folder, który już nie istnieje (np. zaszłość ze starszej wersji bazy),
+  // element traktujemy jak leżący na poziomie głównym zamiast go tracić z oczu.
+  const folderIds = new Set(folders.map((f) => f.id))
+  const effectiveParent = (id: string | null) => (id && folderIds.has(id) ? id : null)
+
   /** Dzieci rodzica: foldery, klocki i ścieżki we wspólnej, ręcznej kolejności. */
   const children = (parentId: string | null): TreeNode[] => {
     const fs: TreeNode[] = folders
-      .filter((f) => (f.parentId ?? null) === parentId)
+      .filter((f) => effectiveParent(f.parentId ?? null) === parentId)
       .map((f) => ({ kind: 'folder', id: f.id, order: f.order ?? 0, folder: f }))
     const cs: TreeNode[] = concepts
-      .filter((c) => (c.folderId ?? null) === parentId)
+      .filter((c) => effectiveParent(c.folderId ?? null) === parentId)
       .map((c) => ({ kind: 'concept', id: c.id, order: c.order ?? 0, concept: c }))
     const ps: TreeNode[] = paths
-      .filter((p) => (p.folderId ?? null) === parentId)
+      .filter((p) => effectiveParent(p.folderId ?? null) === parentId)
       .map((p) => ({ kind: 'path', id: p.id, order: p.order ?? 0, path: p }))
     return [...fs, ...cs, ...ps].sort((a, b) => a.order - b.order)
   }
