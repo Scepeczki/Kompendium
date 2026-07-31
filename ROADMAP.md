@@ -109,9 +109,12 @@ wyłącznie w systemie.
 
 ## Do przemyślenia
 
-- **Dowody**: typ „Dowód" wycofany z wyboru. Do rozstrzygnięcia, jak reprezentować
-  dowód twierdzenia — jako sekcję wewnątrz klocka twierdzenia (zwijaną?), osobny
-  podklocek podpięty pod twierdzenie, czy jeszcze inaczej.
+- **Dowody** — ROZSTRZYGNIĘTE (2026-07-31): każdy klocek może mieć dowolnie
+  wiele „stron" o dowolnych nazwach (najczęściej „Dowód") — dodatkowe treści
+  obok głównej, przełączane listwą z lewej strony edytora. W kafelku ścieżki
+  wybiera się stronę pokazywaną bazowo, a w Skrypcie można je przełączać
+  zakładkami podczas czytania (bez zmiany ścieżki). Strony są wspólne dla
+  wszystkich wersji pojęcia i wchodzą do kopii zapasowej.
 
 ## Pomysły na później (świadomie odłożone)
 

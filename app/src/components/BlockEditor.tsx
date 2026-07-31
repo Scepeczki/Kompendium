@@ -7,13 +7,17 @@ import { mdShortcuts } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import {
   createConcept,
+  createSubpage,
   db,
   deleteConcept,
+  deleteSubpage,
   deleteVersion,
+  renameSubpage,
   renameVersion,
   reorderVersions,
   saveAsNewVersion,
   updateConcept,
+  updateSubpage,
   updateVersion,
 } from '../db'
 import { extractLinks, renderMarkdown } from '../markdown'
@@ -104,6 +108,40 @@ export function BlockEditor({
 
   const isCurrent = version.id === concept.currentVersionId
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
+
+  // Strony klocka (dowody itp.) — dodatkowe treści obok głównej.
+  const subs =
+    useLiveQuery(
+      () => db.subpages.where('conceptId').equals(concept.id).sortBy('order'),
+      [concept.id],
+    ) ?? []
+  const [subId, setSubId] = useState<string | null>(null)
+  // zmiana klocka → wróć na główną treść (synchronizacja w trakcie renderu)
+  const [prevConceptId, setPrevConceptId] = useState(concept.id)
+  if (prevConceptId !== concept.id) {
+    setPrevConceptId(concept.id)
+    setSubId(null)
+  }
+  const activeSub = subs.find((s) => s.id === subId) ?? null
+
+  const handleAddSubpage = async () => {
+    const name = window.prompt('Nazwa nowej strony (np. „Dowód"):', 'Dowód')
+    if (!name?.trim()) return
+    const id = await createSubpage(concept.id, name.trim())
+    setSubId(id)
+  }
+
+  const handleRenameSubpage = async (id: string, current: string) => {
+    const name = window.prompt('Nazwa strony:', current)
+    if (!name?.trim() || name.trim() === current) return
+    await renameSubpage(id, name.trim())
+  }
+
+  const handleDeleteSubpage = async (id: string, name: string) => {
+    if (!window.confirm(`Usunąć stronę „${name}"? Jej treść przepadnie.`)) return
+    await deleteSubpage(id)
+    if (subId === id) setSubId(null)
+  }
   const pdfTitle = (id: string) => pdfs.find((p) => p.id === id)?.title ?? 'PDF'
 
   // Wszystkie pojęcia + treści ich bieżących wersji — do wiki-linków i odwołań.
@@ -156,22 +194,28 @@ export function BlockEditor({
     }
   }
 
-  // Zmiana pokazywanej wersji → załaduj jej treść do edytora.
+  // Zmiana pokazywanej wersji lub strony → załaduj jej treść do edytora.
   // Synchronizacja w trakcie renderu (nie w efekcie), żeby montowany niżej
   // edytor wizualny nigdy nie zobaczył treści poprzedniego klocka.
-  const [prevVersionId, setPrevVersionId] = useState(version.id)
-  if (prevVersionId !== version.id) {
-    setPrevVersionId(version.id)
-    setDraft(version.content)
+  const contentKey = `${version.id}:${activeSub?.id ?? 'main'}`
+  const [prevKey, setPrevKey] = useState(contentKey)
+  if (prevKey !== contentKey) {
+    setPrevKey(contentKey)
+    setDraft(activeSub ? activeSub.content : version.content)
   }
 
-  // Autozapis z opóźnieniem (tylko bieżąca wersja — stare są niezmienne).
+  // Strony są edytowalne zawsze; główna treść tylko w wersji bieżącej.
+  const editable = activeSub ? true : isCurrent
+
+  // Autozapis z opóźnieniem (strona klocka albo bieżąca wersja).
   const onChange = (val: string) => {
     setDraft(val)
-    if (!isCurrent) return
+    if (!editable) return
     window.clearTimeout(saveTimer.current)
+    const subToSave = activeSub?.id
     saveTimer.current = window.setTimeout(() => {
-      updateVersion(version.id, { content: val })
+      if (subToSave) updateSubpage(subToSave, { content: val })
+      else updateVersion(version.id, { content: val })
     }, 400)
   }
 
@@ -412,9 +456,10 @@ export function BlockEditor({
                 >
                   <button
                     className="version-pill-label"
-                    onClick={() =>
+                    onClick={() => {
+                      setSubId(null) // wersje dotyczą głównej treści
                       onShowVersion(v.id === concept.currentVersionId ? null : v.id)
-                    }
+                    }}
                   >
                     {v.label ?? `v${v.version}`}
                   </button>
@@ -448,7 +493,7 @@ export function BlockEditor({
         </div>
       </header>
 
-      {!isCurrent && (
+      {!isCurrent && !activeSub && (
         <div className="editor-banner">
           Przeglądasz starszą wersję v{version.version} — tylko do odczytu.
           Edycja odbywa się w wersji bieżącej.
@@ -460,8 +505,12 @@ export function BlockEditor({
           <button
             className={`btn ${selecting ? 'btn-active' : ''}`}
             onClick={onToggleSelecting}
-            disabled={!isCurrent}
-            title="Zaznacz fragment PDF i podepnij go jako źródło"
+            disabled={!isCurrent || !!activeSub}
+            title={
+              activeSub
+                ? 'Źródła podpina się do głównej treści klocka'
+                : 'Zaznacz fragment PDF i podepnij go jako źródło'
+            }
           >
             📌 Podepnij źródło
           </button>
@@ -565,11 +614,62 @@ export function BlockEditor({
       )}
 
       <div className={`editor-body view-${view}`}>
+        {/* strony klocka: główna treść + dowody itp. — wąska kolumna kart */}
+        <div className="subpage-rail nodrag">
+          <button
+            className={`subpage-item ${!activeSub ? 'active' : ''}`}
+            title="Główna treść klocka"
+            onClick={() => setSubId(null)}
+          >
+            Treść
+          </button>
+          {subs.map((s) => (
+            <div
+              key={s.id}
+              className={`subpage-item ${activeSub?.id === s.id ? 'active' : ''}`}
+              onClick={() => setSubId(s.id)}
+              title={`Strona „${s.name}"`}
+            >
+              <span className="subpage-name">{s.name}</span>
+              {activeSub?.id === s.id && (
+                <span className="subpage-actions">
+                  <button
+                    className="folder-action"
+                    title="Zmień nazwę strony"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRenameSubpage(s.id, s.name)
+                    }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    className="folder-action"
+                    title="Usuń stronę"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteSubpage(s.id, s.name)
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </div>
+          ))}
+          <button
+            className="subpage-add"
+            title="Dodaj stronę klocka (np. dowód) — nazwa dowolna"
+            onClick={handleAddSubpage}
+          >
+            + strona
+          </button>
+        </div>
         {view === 'wizualny' ? (
           <RichEditor
-            key={version.id}
+            key={contentKey}
             value={draft}
-            editable={isCurrent}
+            editable={editable}
             onChange={onChange}
           />
         ) : (
@@ -579,7 +679,7 @@ export function BlockEditor({
                 value={draft}
                 onChange={onChange}
                 extensions={cmExtensions}
-                editable={isCurrent}
+                editable={editable}
                 placeholder={'Treść klocka…\n\nMarkdown + LaTeX: $x^2$, $$\\int_a^b f\\,dx$$'}
                 basicSetup={{ lineNumbers: false, foldGutter: false, autocompletion: false }}
                 style={{ height: '100%' }}

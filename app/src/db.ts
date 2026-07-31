@@ -7,6 +7,7 @@ import type {
   FolderKind,
   LearningPath,
   PdfDoc,
+  Subpage,
 } from './types'
 
 class KompendiumDB extends Dexie {
@@ -15,6 +16,7 @@ class KompendiumDB extends Dexie {
   pdfs!: Table<PdfDoc, string>
   folders!: Table<Folder, string>
   paths!: Table<LearningPath, string>
+  subpages!: Table<Subpage, string>
 
   constructor() {
     super('kompendium')
@@ -78,6 +80,15 @@ class KompendiumDB extends Dexie {
       pdfs: 'id, title, addedAt, folderId',
       folders: 'id, kind, parentId, name',
       paths: 'id, name, folderId, createdAt, updatedAt',
+    })
+    // v5: strony klocka (dowody itp. — dodatkowe treści pojęcia).
+    this.version(5).stores({
+      concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
+      versions: 'id, conceptId, [conceptId+version], createdAt',
+      pdfs: 'id, title, addedAt, folderId',
+      folders: 'id, kind, parentId, name',
+      paths: 'id, name, folderId, createdAt, updatedAt',
+      subpages: 'id, conceptId',
     })
   }
 }
@@ -227,10 +238,50 @@ export async function deleteVersion(versionId: string) {
 }
 
 export async function deleteConcept(id: string) {
-  await db.transaction('rw', db.concepts, db.versions, async () => {
+  await db.transaction('rw', db.concepts, db.versions, db.subpages, async () => {
     await db.versions.where('conceptId').equals(id).delete()
+    await db.subpages.where('conceptId').equals(id).delete()
     await db.concepts.delete(id)
   })
+}
+
+// ---------------------------------------------------------------------------
+// Strony klocka (dowody itp.)
+// ---------------------------------------------------------------------------
+
+/** Dodaje nową stronę (np. dowód) do pojęcia i zwraca jej id. */
+export async function createSubpage(conceptId: string, name: string): Promise<string> {
+  const id = uid()
+  const t = now()
+  const existing = await db.subpages.where('conceptId').equals(conceptId).toArray()
+  const order = existing.length
+    ? Math.max(...existing.map((s) => s.order ?? 0)) + 1
+    : 1
+  await db.subpages.add({
+    id,
+    conceptId,
+    name,
+    content: '',
+    order,
+    createdAt: t,
+    updatedAt: t,
+  })
+  return id
+}
+
+export async function renameSubpage(id: string, name: string) {
+  await db.subpages.update(id, { name, updatedAt: now() })
+}
+
+export async function updateSubpage(
+  id: string,
+  patch: Partial<Pick<Subpage, 'content'>>,
+) {
+  await db.subpages.update(id, { ...patch, updatedAt: now() })
+}
+
+export async function deleteSubpage(id: string) {
+  await db.subpages.delete(id)
 }
 
 // ---------------------------------------------------------------------------

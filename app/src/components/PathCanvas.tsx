@@ -39,6 +39,7 @@ import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
+import { SubpageTabs } from './SubpageTabs'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
@@ -72,7 +73,11 @@ const toRfNode = (n: PathNode): Node => ({
   position: { x: n.x, y: n.y },
   data:
     n.kind === 'block'
-      ? { conceptId: n.conceptId, versionId: n.versionId }
+      ? {
+          conceptId: n.conceptId,
+          versionId: n.versionId,
+          subpageId: n.subpageId ?? null,
+        }
       : n.kind === 'text'
         ? { text: n.text }
         : n.kind === 'comment'
@@ -88,6 +93,7 @@ const fromRfNode = (n: Node): PathNode => {
       kind: 'block',
       conceptId: n.data.conceptId as string,
       versionId: (n.data.versionId as string | null) ?? null,
+      subpageId: (n.data.subpageId as string | null) ?? null,
     }
   }
   if (n.type === 'text') {
@@ -133,6 +139,7 @@ function BlockNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
   const conceptId = data.conceptId as string
   const versionId = (data.versionId as string | null) ?? null
+  const subpageId = (data.subpageId as string | null) ?? null
   const concept = useLiveQuery(() => db.concepts.get(conceptId), [conceptId])
   const versions =
     useLiveQuery(
@@ -142,6 +149,12 @@ function BlockNode({ id, data, selected }: NodeProps) {
   const version = versionId
     ? versions.find((v) => v.id === versionId)
     : versions.find((v) => v.id === concept?.currentVersionId)
+  const subs =
+    useLiveQuery(
+      () => db.subpages.where('conceptId').equals(conceptId).toArray(),
+      [conceptId],
+    ) ?? []
+  const activeSub = subs.find((s) => s.id === subpageId) ?? null
 
   if (!concept) {
     return (
@@ -184,9 +197,17 @@ function BlockNode({ id, data, selected }: NodeProps) {
             </option>
           ))}
       </select>
+      <SubpageTabs
+        conceptId={conceptId}
+        active={subpageId}
+        onSelect={(sid) => ctx.updateData(id, { subpageId: sid })}
+        hint="Strona pokazywana bazowo przy oglądaniu tej ścieżki"
+      />
       <div
         className="path-node-body markdown-body"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(version?.content ?? '') }}
+        dangerouslySetInnerHTML={{
+          __html: renderMarkdown(activeSub ? activeSub.content : (version?.content ?? '')),
+        }}
       />
       <Handle type="source" position={Position.Bottom} />
     </div>
@@ -293,6 +314,7 @@ interface LinearViewProps {
   onEdit: (n: PathNode) => void
   onUnfuse: (id: string) => void
   onToggleSide: (id: string) => void
+  onSetSubpage: (segId: string, subpageId: string | null) => void
 }
 
 function LinearView({
@@ -304,11 +326,13 @@ function LinearView({
   onEdit,
   onUnfuse,
   onToggleSide,
+  onSetSubpage,
 }: LinearViewProps) {
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+  const subpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
 
   const conceptById = (id: string) => concepts.find((c) => c.id === id)
   const versionOf = (conceptId: string, versionId: string | null) => {
@@ -350,15 +374,25 @@ function LinearView({
       const c = conceptById(n.conceptId)
       if (!c) return <div className="script-block">(usunięte pojęcie)</div>
       const v = versionOf(n.conceptId, n.versionId)
+      const sub = subpages.find((s) => s.id === (n.subpageId ?? null)) ?? null
       return (
         <section className={`script-block script-${c.type}`}>
           <h3 className="script-block-title">
             <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}</span> {c.name}
             {v?.label && <span className="script-block-version"> ({v.label})</span>}
+            {sub && <span className="script-block-version"> · {sub.name}</span>}
           </h3>
+          <SubpageTabs
+            conceptId={n.conceptId}
+            active={n.subpageId ?? null}
+            onSelect={(sid) => onSetSubpage(n.id, sid)}
+            hint="Strona pokazywana bazowo przy oglądaniu tej ścieżki"
+          />
           <div
             className="markdown-body"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(v?.content ?? '') }}
+            dangerouslySetInnerHTML={{
+              __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
+            }}
           />
         </section>
       )
@@ -1149,6 +1183,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
             const cur = (n?.data.side as 'left' | 'right' | undefined) ?? 'right'
             api.updateData(id, { side: cur === 'right' ? 'left' : 'right' })
           }}
+          onSetSubpage={(segId, subpageId) => api.updateData(segId, { subpageId })}
         />
       )}
       <div

@@ -831,15 +831,116 @@ button.version-pill.new {
   flex: 1;
   display: grid;
   overflow: hidden;
+  position: relative;
 }
 
+/* ---- strony klocka (dowody itp.) — pionowa listwa na lewym marginesie ---- */
+
+.subpage-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 118px;
+  padding: 12px 7px;
+  border-right: 1px solid var(--line);
+  background: var(--panel-alt);
+  overflow-y: auto;
+}
+
+.subpage-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink-soft);
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.subpage-item:hover {
+  border-color: var(--line-strong);
+  opacity: 1;
+}
+
+.subpage-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  opacity: 1;
+}
+
+.subpage-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 96px;
+}
+
+.subpage-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.subpage-add {
+  font-family: inherit;
+  border: 1px dashed var(--line-strong);
+  background: none;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.subpage-add:hover {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+/* zakładki stron klocka w kafelkach ścieżek i w Skrypcie */
+.page-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 4px 0 6px;
+}
+
+.page-chip {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.page-chip:hover {
+  border-color: var(--line-strong);
+}
+
+.page-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* pierwsza kolumna: listwa stron klocka */
 .editor-body.view-podzial {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: auto 1fr 1fr;
 }
 
 .editor-body.view-kod,
 .editor-body.view-wizualny {
-  grid-template-columns: 1fr;
+  grid-template-columns: auto 1fr;
 }
 
 /* ---- tryb wizualny (TipTap) ---- */

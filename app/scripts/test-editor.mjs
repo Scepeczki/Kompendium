@@ -114,6 +114,22 @@ console.log(
   }`,
 )
 
+// 8a. znaki <, >, & we wzorze pisanym w wizualnym nie zamieniają się w encje
+await page.click('.view-switch button:has-text("Wizualny")')
+await page.click('.rich-content .tiptap')
+await page.keyboard.press('Control+End')
+await page.keyboard.type(' Nierówność $n > 1$ i $a < b$.')
+await page.waitForTimeout(700)
+await page.click('.view-switch button:has-text("Kod")')
+const code4 = await page.textContent('.editor-code .cm-content')
+console.log(
+  `✓ < i > we wzorach bez encji HTML: ${
+    code4.includes('$n > 1$') && code4.includes('$a < b$') && !code4.includes('&gt;')
+      ? 'ok'
+      : 'ZEPSUTE: ' + code4.slice(-90)
+  }`,
+)
+
 // 9. przełączanie między klockami w trybie wizualnym odświeża treść
 await page.click('.view-switch button:has-text("Wizualny")')
 await page.click('.btn-close[title*="Zamknij klocek"]')

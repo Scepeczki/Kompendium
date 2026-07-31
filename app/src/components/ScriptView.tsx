@@ -1,7 +1,9 @@
-﻿import { useLiveQuery } from 'dexie-react-hooks'
+﻿import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
+import { SubpageTabs } from './SubpageTabs'
 import {
   BLOCK_TYPE_LABELS,
   type BlockVersion,
@@ -18,6 +20,10 @@ export function ScriptBody({ pathId }: Props) {
   const path = useLiveQuery(() => db.paths.get(pathId), [pathId])
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+  const subpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
+  // Strona wybrana podczas oglądania (per kafelek) — nadpisuje bazową
+  // z ustawień ścieżki, ale niczego nie zapisuje.
+  const [pageOverride, setPageOverride] = useState<Record<string, string | null>>({})
 
   if (!path) return null
 
@@ -33,18 +39,37 @@ export function ScriptBody({ pathId }: Props) {
     return { concept: c, version: v }
   }
 
-  const blockSection = (c: Concept, v: BlockVersion | undefined, key: string) => (
-    <section key={key} className={`script-block script-${c.type}`}>
-      <h3 className="script-block-title">
-        <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}</span> {c.name}
-        {v?.label && <span className="script-block-version"> ({v.label})</span>}
-      </h3>
-      <div
-        className="markdown-body"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(v?.content ?? '') }}
-      />
-    </section>
-  )
+  const blockSection = (
+    c: Concept,
+    v: BlockVersion | undefined,
+    key: string,
+    baseSubpageId: string | null,
+  ) => {
+    const activeId =
+      key in pageOverride ? pageOverride[key] : baseSubpageId
+    const sub = subpages.find((s) => s.id === activeId) ?? null
+    return (
+      <section key={key} className={`script-block script-${c.type}`}>
+        <h3 className="script-block-title">
+          <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}</span> {c.name}
+          {v?.label && <span className="script-block-version"> ({v.label})</span>}
+          {sub && <span className="script-block-version"> · {sub.name}</span>}
+        </h3>
+        <SubpageTabs
+          conceptId={c.id}
+          active={sub?.id ?? null}
+          onSelect={(sid) => setPageOverride((o) => ({ ...o, [key]: sid }))}
+          hint="Przełącz stronę klocka (tylko podgląd — nie zmienia ścieżki)"
+        />
+        <div
+          className="markdown-body"
+          dangerouslySetInnerHTML={{
+            __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
+          }}
+        />
+      </section>
+    )
+  }
 
   const ordered = topoOrder(path.nodes, path.edges)
 
@@ -69,7 +94,7 @@ export function ScriptBody({ pathId }: Props) {
           if (n.kind === 'block') {
             const r = resolve(n.conceptId, n.versionId)
             if (!r) return null
-            return blockSection(r.concept, r.version, n.id)
+            return blockSection(r.concept, r.version, n.id, n.subpageId ?? null)
           }
           // fuzja: wspólna ramka z częściami w środku
           return (

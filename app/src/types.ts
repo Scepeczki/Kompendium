@@ -106,6 +106,21 @@ export interface BlockVersion {
   updatedAt: string
 }
 
+/** Dodatkowa strona klocka (najczęściej dowód — nazwa dowolna).
+ *  Strony są wspólne dla wszystkich wersji pojęcia. */
+export interface Subpage {
+  id: string
+  conceptId: string
+  /** Np. „Dowód", „Dowód (indukcja)", „Szkic". */
+  name: string
+  /** Markdown + LaTeX. */
+  content: string
+  /** Kolejność na liście stron klocka. */
+  order: number
+  createdAt: string
+  updatedAt: string
+}
+
 // ---------------------------------------------------------------------------
 // Ścieżki (Poziom Przestrzenny) — komponowanie klocków w skrypty nauki
 // ---------------------------------------------------------------------------
@@ -117,6 +132,8 @@ export interface PathNodeBlock {
   conceptId: string
   /** Konkretna wersja użyta w tej ścieżce; null = zawsze bieżąca. */
   versionId: string | null
+  /** Strona klocka pokazywana bazowo przy oglądaniu (null = główna treść). */
+  subpageId?: string | null
   x: number
   y: number
 }

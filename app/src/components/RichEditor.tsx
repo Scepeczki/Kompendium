@@ -155,7 +155,15 @@ const unescapeMathAfterSerialize = (md: string) =>
     const d = seg.startsWith('$$') ? 2 : 1
     const inner = seg.slice(d, -d)
     const delim = seg.slice(0, d)
-    return delim + inner.replace(/\\([\s\S])/g, '$1') + delim
+    // serializator poza parami \x potrafi też zamienić <, > i & na encje HTML
+    const clean = inner
+      .replace(/\\([\s\S])/g, '$1')
+      .replace(/&gt;/g, '>')
+      .replace(/&lt;/g, '<')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&')
+    return delim + clean + delim
   })
 
 /** Tryb wizualny (à la Google Docs): rich text edytowany bezpośrednio,

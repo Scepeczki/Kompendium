@@ -1,6 +1,13 @@
 import JSZip from 'jszip'
 import { db } from './db'
-import type { BlockVersion, Concept, Folder, LearningPath, PdfDoc } from './types'
+import type {
+  BlockVersion,
+  Concept,
+  Folder,
+  LearningPath,
+  PdfDoc,
+  Subpage,
+} from './types'
 
 /** Struktura pliku danych wewnątrz archiwum kopii zapasowej. Blob-y PDF-ów
  *  leżą osobno jako prawdziwe pliki .pdf (nie base64 — mniejszy plik,
@@ -13,6 +20,8 @@ interface BackupData {
   folders: Folder[]
   paths: LearningPath[]
   pdfs: Omit<PdfDoc, 'data'>[]
+  /** Strony klocków (dowody itp.) — brak w starszych kopiach. */
+  subpages?: Subpage[]
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -26,12 +35,13 @@ function backupFileName(): string {
 /** Eksportuje całą bazę (klocki, wersje, foldery, ścieżki, PDF-y) do jednego
  *  pliku .zip i uruchamia jego pobranie w przeglądarce. */
 export async function exportBackup(): Promise<void> {
-  const [concepts, versions, folders, paths, pdfs] = await Promise.all([
+  const [concepts, versions, folders, paths, pdfs, subpages] = await Promise.all([
     db.concepts.toArray(),
     db.versions.toArray(),
     db.folders.toArray(),
     db.paths.toArray(),
     db.pdfs.toArray(),
+    db.subpages.toArray(),
   ])
 
   const zip = new JSZip()
@@ -43,6 +53,7 @@ export async function exportBackup(): Promise<void> {
     folders,
     paths,
     pdfs: pdfs.map(({ data: _blob, ...meta }) => meta),
+    subpages,
   }
   zip.file('dane.json', JSON.stringify(data, null, 1))
   const pdfFolder = zip.folder('pdfy')!
@@ -86,17 +97,14 @@ export async function importBackup(file: File): Promise<ImportSummary> {
 
   await db.transaction(
     'rw',
-    db.concepts,
-    db.versions,
-    db.folders,
-    db.paths,
-    db.pdfs,
+    [db.concepts, db.versions, db.folders, db.paths, db.pdfs, db.subpages],
     async () => {
       await db.concepts.bulkPut(data.concepts)
       await db.versions.bulkPut(data.versions)
       await db.folders.bulkPut(data.folders)
       await db.paths.bulkPut(data.paths)
       await db.pdfs.bulkPut(pdfs)
+      await db.subpages.bulkPut(data.subpages ?? [])
     },
   )
 
