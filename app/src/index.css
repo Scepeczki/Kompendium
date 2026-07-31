@@ -873,40 +873,22 @@ button.version-pill.new {
   padding-top: 10px;
 }
 
-/* kolumna tekstu jak w Google Docs: szerokość z ustawień, wyśrodkowana;
-   krawędź strony rysuje cień (nie border — nie przesuwa geometrii tekstu) */
+/* kolumna tekstu jak w Google Docs: szerokość z ustawień, wyśrodkowana.
+   Kartka kończy się dokładnie na liniach — krawędź rysuje cień (nie border,
+   żeby nie przesuwać geometrii tekstu), tekst ma tylko minimalny oddech. */
 .rich-content .tiptap {
   min-height: calc(100% - 10px);
   max-width: var(--page-width, 800px);
   margin: 0 auto;
-  padding: 20px 26px 60px;
+  padding: 22px 6px 60px;
   outline: none;
   font-size: 15px;
   line-height: var(--content-line, 1.65);
   background: var(--panel);
-  box-shadow: 0 0 0 1px var(--line);
-  position: relative;
-}
-
-/* cienkie linie marginesów — dokładnie tam, gdzie zaczyna się tekst
-   (i gdzie na linijce stoją trójkąciki) */
-.rich-content .tiptap::before,
-.rich-content .tiptap::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--line);
-  pointer-events: none;
-}
-
-.rich-content .tiptap::before {
-  left: 25px;
-}
-
-.rich-content .tiptap::after {
-  right: 25px;
+  border-radius: 6px 6px 0 0;
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 2px 12px rgba(0, 0, 0, 0.05);
 }
 
 /* schowany znacznik wcięcia akapitu (⟦w…⟧) w trybie wizualnym */
@@ -933,11 +915,11 @@ button.version-pill.new {
 }
 
 .ruler-margin-left {
-  border-right: 1px solid var(--line-strong);
+  border-right: 1px solid var(--line);
 }
 
 .ruler-margin-right {
-  border-left: 1px solid var(--line-strong);
+  border-left: 1px solid var(--line);
 }
 
 /* zielony trójkącik szerokości: strefa łapania w górnej połowie linijki */
@@ -945,7 +927,7 @@ button.version-pill.new {
   position: absolute;
   top: 0;
   height: 12px;
-  width: 16px;
+  width: 18px;
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
@@ -963,23 +945,29 @@ button.version-pill.new {
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
   border-top: 8px solid var(--accent);
+  transition: transform 0.1s, border-top-color 0.1s;
 }
 
 .ruler-handle:hover::after {
   border-top-color: var(--accent-ink);
+  transform: scale(1.25);
 }
 
 /* niebieskie znaczniki wcięć (lokalne, na akapit): prostokącik = pierwsza
    linia, trójkąciki w górę = lewa/prawa krawędź tekstu akapitu */
 .ruler-ind {
   position: absolute;
-  width: 14px;
+  width: 18px;
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
   cursor: ew-resize;
   z-index: 3;
   touch-action: none;
+}
+
+.ruler-ind::after {
+  transition: transform 0.1s, filter 0.1s;
 }
 
 .ruler-ind-first {
@@ -1017,6 +1005,7 @@ button.version-pill.new {
 
 .ruler-ind:hover::after {
   filter: brightness(0.8);
+  transform: scale(1.25);
 }
 
 /* kreseczka szerokości domyślnej */

@@ -15,7 +15,7 @@ import {
 
 /** Wewnętrzny margines kolumny tekstu — musi zgadzać się z CSS
  *  (padding-inline w .rich-content .tiptap). */
-const PAD = 26
+const PAD = 6
 
 /** Linijka nad edytorem (jak w Google Docs).
  *  Zielone trójkąciki = szerokość tekstu (globalna, ta sama co w Ustawieniach);
