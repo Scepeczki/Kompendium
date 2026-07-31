@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  FONT_SIZE_OPTIONS,
   LINE_SPACING_OPTIONS,
   PARA_SPACING_OPTIONS,
-  getFontSize,
   getLineSpacing,
   getParaSpacing,
-  setFontSize,
   setLineSpacing,
   setParaSpacing,
 } from '../uiSettings'
@@ -17,7 +14,6 @@ export function SpacingMenu() {
   const [open, setOpen] = useState(false)
   const [line, setLine] = useState(getLineSpacing)
   const [para, setPara] = useState(getParaSpacing)
-  const [size, setSize] = useState(getFontSize)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -38,30 +34,13 @@ export function SpacingMenu() {
     <div className="spacing-menu" ref={ref}>
       <button
         className={`btn rich-btn ${open ? 'btn-active' : ''}`}
-        title="Tekst: rozmiar, interlinia i odstęp akapitów (globalnie)"
+        title="Odstępy tekstu: interlinia i odstęp akapitów (globalnie)"
         onClick={() => setOpen((o) => !o)}
       >
         ↕
       </button>
       {open && (
         <div className="spacing-pop">
-          <div className="spacing-group">
-            <span className="spacing-title">Rozmiar tekstu</span>
-            <div className="spacing-opts">
-              {FONT_SIZE_OPTIONS.map((v) => (
-                <button
-                  key={v}
-                  className={`btn spacing-opt ${size === v ? 'btn-active' : ''}`}
-                  onClick={() => {
-                    setFontSize(v)
-                    setSize(v)
-                  }}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          </div>
           <div className="spacing-group">
             <span className="spacing-title">Interlinia</span>
             <div className="spacing-opts">
