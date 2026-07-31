@@ -1228,7 +1228,7 @@ button.version-pill.new {
 .rich-content .math-render-display {
   display: block;
   text-align: center;
-  padding: 6px 0;
+  padding: var(--math-gap, 0.5em) 0;
 }
 
 .editor-code {
@@ -1305,7 +1305,14 @@ button.version-pill.new {
 .markdown-body .katex-display {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px 0;
+  padding: 0;
+  margin: var(--math-gap, 0.5em) 0;
+}
+
+/* Skala wzorów względem tekstu. KaTeX rysuje domyślnie 1,21× wielkości
+   otoczenia — przy 1,0 wzór ma dokładnie rozmiar sąsiedniego tekstu. */
+.katex {
+  font-size: calc(1em * var(--math-scale, 1));
 }
 
 /* wiki-linki [[Nazwa]] */

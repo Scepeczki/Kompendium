@@ -1,7 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
+// katex przed naszymi stylami — inaczej jego `.katex { font: 1.21em }`
+// wygrywa z naszym ustawieniem wielkości wzorów (ta sama specyficzność)
 import 'katex/dist/katex.min.css'
+import './index.css'
 import App from './App.tsx'
 import { initUiSettings } from './uiSettings'
 

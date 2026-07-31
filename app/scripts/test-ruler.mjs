@@ -78,8 +78,54 @@ const lh = await page.evaluate(() => {
 })
 console.log(`✓ interlinia 2,0 → line-height/font-size = ${lh.toFixed(2)} (oczekiwane ~2)`)
 
+// 6a. wielkość wzorów: 100% = dokładnie rozmiar tekstu, 121% większe
+await page.click('.rich-content .tiptap') // zamyka menu (klik poza nim)
+await page.keyboard.type('wzór $a^2$ w tekście')
+await page.waitForTimeout(500)
+await page.click('.spacing-menu .rich-btn') // otwórz menu ponownie
+await page.waitForSelector('.spacing-pop')
+const mathFs = await page.evaluate(() => ({
+  katex: getComputedStyle(document.querySelector('.rich-content .katex')).fontSize,
+  text: getComputedStyle(document.querySelector('.rich-content .tiptap')).fontSize,
+}))
+console.log(
+  `✓ wzór proporcjonalny do tekstu: ${mathFs.katex} vs ${mathFs.text} (${
+    mathFs.katex === mathFs.text ? 'ok' : 'DYSPROPORCJA!'
+  })`,
+)
+await page.click('.spacing-group:has-text("Wielkość wzorów") .spacing-opt:text-is("121%")')
+await page.waitForTimeout(300)
+const mathBig = await page.evaluate(
+  () => getComputedStyle(document.querySelector('.rich-content .katex')).fontSize,
+)
+console.log(
+  `✓ 121% powiększa wzory: ${mathBig} (oczekiwane 18.15px, ${
+    parseFloat(mathBig) > parseFloat(mathFs.text) ? 'ok' : 'BRAK ZMIANY!'
+  })`,
+)
+await page.click('.spacing-group:has-text("Wielkość wzorów") .spacing-opt:text-is("100%")')
+
+// 6b. odstęp wzorów wystawionych sterowalny
+const gapFor = async (label) => {
+  await page.click(`.spacing-group:has-text("Odstęp wzorów") .spacing-opt:text-is("${label}")`)
+  await page.waitForTimeout(250)
+  return page.evaluate(
+    () => getComputedStyle(document.documentElement).getPropertyValue('--math-gap').trim(),
+  )
+}
+const gapNone = await gapFor('Brak')
+const gapWide = await gapFor('Bardzo duży')
+await gapFor('Zwykły')
+console.log(
+  `✓ odstęp wzorów sterowalny: Brak=${gapNone}, Bardzo duży=${gapWide} (${
+    gapNone === '0em' && gapWide === '1.6em' ? 'ok' : 'BŁĄD!'
+  })`,
+)
+
 // 7. odstęp akapitów „Brak" → margines p = 0
-await page.click('.spacing-opt:has-text("Brak")')
+await page.click(
+  '.spacing-group:has-text("Odstęp między akapitami") .spacing-opt:text-is("Brak")',
+)
 await page.click('.rich-content .tiptap')
 await page.keyboard.type('akapit pierwszy')
 await page.keyboard.press('Enter')
