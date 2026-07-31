@@ -6,6 +6,10 @@ export const PAGE_WIDTH_DEFAULT = 800
 export const PAGE_WIDTH_MIN = 560
 export const PAGE_WIDTH_MAX = 1400
 
+export const IND_OFFSET_DEFAULT = 14
+export const IND_OFFSET_MIN = 0
+export const IND_OFFSET_MAX = 40
+
 export const LINE_SPACING_DEFAULT = 1.65
 export const LINE_SPACING_OPTIONS = [1.0, 1.15, 1.3, 1.5, 1.65, 2.0]
 
@@ -24,7 +28,37 @@ const notify = () => window.dispatchEvent(new Event('komp:ui'))
 
 export function getPageWidth(): number {
   const w = Number(localStorage.getItem('ui.pageWidth'))
+  return w >= PAGE_WIDTH_MIN && w <= PAGE_WIDTH_MAX ? w : getPageWidthDefault()
+}
+
+/** Bazowa (domyślna) szerokość strony — to do niej wraca dwuklik trójkącika
+ *  i ją pokazują kreseczki na linijce. */
+export function getPageWidthDefault(): number {
+  const w = Number(localStorage.getItem('ui.pageWidthDefault'))
   return w >= PAGE_WIDTH_MIN && w <= PAGE_WIDTH_MAX ? w : PAGE_WIDTH_DEFAULT
+}
+
+export function setPageWidthDefault(w: number): void {
+  const v = clamp(Math.round(w), PAGE_WIDTH_MIN, PAGE_WIDTH_MAX)
+  localStorage.setItem('ui.pageWidthDefault', String(v))
+  notify()
+}
+
+/** Bazowe odsunięcie niebieskich znaczników wcięć od zielonego trójkącika. */
+export function getIndOffset(): number {
+  const v = Number(localStorage.getItem('ui.indOffset'))
+  return Number.isFinite(v) &&
+    localStorage.getItem('ui.indOffset') !== null &&
+    v >= IND_OFFSET_MIN &&
+    v <= IND_OFFSET_MAX
+    ? v
+    : IND_OFFSET_DEFAULT
+}
+
+export function setIndOffset(v: number): void {
+  const val = clamp(Math.round(v), IND_OFFSET_MIN, IND_OFFSET_MAX)
+  localStorage.setItem('ui.indOffset', String(val))
+  notify()
 }
 
 export function setPageWidth(w: number): void {

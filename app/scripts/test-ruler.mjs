@@ -202,5 +202,20 @@ await page.waitForSelector('.settings-modal')
 const slider = await page.inputValue('.settings-slider')
 console.log(`✓ suwak w Ustawieniach zsynchronizowany: ${slider} (oczekiwane 1000)`)
 
+// 11. nowe ustawienia: bazowa szerokość strony i odsunięcie znaczników wcięć
+await page.fill('.settings-row:has-text("Bazowa szerokość") .settings-slider', '900')
+await page.fill('.settings-row:has-text("Odsunięcie") .settings-slider', '30')
+await page.click('.settings-modal .btn-close')
+await page.click('.concept-item')
+await page.waitForSelector('.page-ruler .ruler-handle')
+await page.locator('.ruler-handle').nth(1).dblclick()
+const defW = await page.evaluate(() =>
+  document.documentElement.style.getPropertyValue('--page-width'),
+)
+console.log(`✓ dwuklik wraca do bazowej z ustawień: ${defW} (oczekiwane 900px)`)
+const hx = (await page.locator('.ruler-handle').first().boundingBox()).x
+const ix = (await page.locator('.ruler-ind-left').boundingBox()).x
+console.log(`✓ odsunięcie znaczników z ustawień: ${Math.round(ix - hx)}px (oczekiwane 30)`)
+
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

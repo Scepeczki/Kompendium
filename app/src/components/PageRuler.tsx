@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import {
-  PAGE_WIDTH_DEFAULT,
+  getIndOffset,
   getPageWidth,
+  getPageWidthDefault,
   setPageWidth,
 } from '../uiSettings'
 import {
@@ -16,10 +17,6 @@ import {
 /** Wewnętrzny margines kolumny tekstu — musi zgadzać się z CSS
  *  (padding-inline w .rich-content .tiptap). */
 const PAD = 6
-
-/** Bazowe odsunięcie niebieskich znaczników wcięć od zielonego trójkącika
- *  na linijce — żeby się nie nakładały i dało się je wygodnie złapać. */
-const IND_OFF = 14
 
 /** Linijka nad edytorem (jak w Google Docs).
  *  Zielone trójkąciki = szerokość tekstu (globalna, ta sama co w Ustawieniach);
@@ -47,8 +44,16 @@ export function PageRuler({ editor }: { editor?: Editor | null }) {
     return () => ro.disconnect()
   }, [])
 
+  // bazowa szerokość i odsunięcie znaczników — zmieniane w Ustawieniach
+  const [pwDef, setPwDef] = useState(getPageWidthDefault)
+  const [indOff, setIndOff] = useState(getIndOffset)
+
   useEffect(() => {
-    const h = () => setPw(getPageWidth())
+    const h = () => {
+      setPw(getPageWidth())
+      setPwDef(getPageWidthDefault())
+      setIndOff(getIndOffset())
+    }
     window.addEventListener('komp:ui', h)
     return () => window.removeEventListener('komp:ui', h)
   }, [])
@@ -69,7 +74,7 @@ export function PageRuler({ editor }: { editor?: Editor | null }) {
   // krawędzie właściwego tekstu (kolumna minus margines wewnętrzny)
   const textL = cx - half + PAD
   const textR = cx + half - PAD
-  const defHalf = Math.min(PAGE_WIDTH_DEFAULT, w) / 2
+  const defHalf = Math.min(pwDef, w) / 2
   const clampX = (x: number) => Math.min(w - 5, Math.max(5, x))
   const snap = (v: number) => Math.round(v / 5) * 5
 
@@ -104,26 +109,26 @@ export function PageRuler({ editor }: { editor?: Editor | null }) {
   const dragLeft = drag((x) => {
     if (!editor) return
     const cur = indRef.current
-    const left = clampInd(x - textL - IND_OFF)
+    const left = clampInd(x - textL - indOff)
     if (left !== cur.left) applyIndents(editor, { ...cur, left })
   })
   const dragFirst = drag((x) => {
     if (!editor) return
     const cur = indRef.current
-    const first = clampInd(x - textL - IND_OFF - cur.left, -cur.left)
+    const first = clampInd(x - textL - indOff - cur.left, -cur.left)
     if (first !== cur.first) applyIndents(editor, { ...cur, first })
   })
   const dragRight = drag((x) => {
     if (!editor) return
     const cur = indRef.current
-    const right = clampInd(textR - IND_OFF - x)
+    const right = clampInd(textR - indOff - x)
     if (right !== cur.right) applyIndents(editor, { ...cur, right })
   })
 
-  const resetWidth = () => setPageWidth(PAGE_WIDTH_DEFAULT)
+  const resetWidth = () => setPageWidth(pwDef)
 
-  const widthTitle = `Szerokość tekstu: ${pw}px — przeciągnij, aby zmienić · dwuklik: domyślna (${PAGE_WIDTH_DEFAULT}px)`
-  const defTitle = `Szerokość domyślna (${PAGE_WIDTH_DEFAULT}px)`
+  const widthTitle = `Szerokość tekstu: ${pw}px — przeciągnij, aby zmienić · dwuklik: bazowa (${pwDef}px)`
+  const defTitle = `Szerokość bazowa (${pwDef}px)`
 
   return (
     <div ref={ref} className="page-ruler">
@@ -137,7 +142,7 @@ export function PageRuler({ editor }: { editor?: Editor | null }) {
             className="ruler-margin ruler-margin-right"
             style={{ left: Math.min(w, textR), right: 0 }}
           />
-          {pw !== PAGE_WIDTH_DEFAULT && w > PAGE_WIDTH_DEFAULT && (
+          {pw !== pwDef && w > pwDef && (
             <>
               <span
                 className="ruler-default"
@@ -169,21 +174,21 @@ export function PageRuler({ editor }: { editor?: Editor | null }) {
             <>
               <span
                 className="ruler-ind ruler-ind-first"
-                style={{ left: clampX(textL + IND_OFF + ind.left + ind.first) }}
+                style={{ left: clampX(textL + indOff + ind.left + ind.first) }}
                 title="Wcięcie pierwszej linii akapitu (lokalne — zaznaczone akapity) · dwuklik: zeruje"
                 onPointerDown={dragFirst}
                 onDoubleClick={() => applyIndents(editor, { ...ind, first: 0 })}
               />
               <span
                 className="ruler-ind ruler-ind-left"
-                style={{ left: clampX(textL + IND_OFF + ind.left) }}
+                style={{ left: clampX(textL + indOff + ind.left) }}
                 title="Wcięcie tekstu akapitu z lewej (lokalne — zaznaczone akapity) · dwuklik: zeruje"
                 onPointerDown={dragLeft}
                 onDoubleClick={() => applyIndents(editor, { ...ind, left: 0 })}
               />
               <span
                 className="ruler-ind ruler-ind-right"
-                style={{ left: clampX(textR - IND_OFF - ind.right) }}
+                style={{ left: clampX(textR - indOff - ind.right) }}
                 title="Wcięcie akapitu z prawej (lokalne — zaznaczone akapity) · dwuklik: zeruje"
                 onPointerDown={dragRight}
                 onDoubleClick={() => applyIndents(editor, { ...ind, right: 0 })}

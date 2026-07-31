@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { exportBackup, importBackup } from '../backup'
 import {
+  IND_OFFSET_MAX,
+  IND_OFFSET_MIN,
   PAGE_WIDTH_MAX,
   PAGE_WIDTH_MIN,
+  getIndOffset,
   getPageWidth,
+  getPageWidthDefault,
+  setIndOffset,
   setPageWidth,
+  setPageWidthDefault,
 } from '../uiSettings'
 
 interface Props {
@@ -22,9 +28,15 @@ export function SettingsModal({ onClose }: Props) {
     () => document.documentElement.dataset.theme ?? 'light',
   )
   const [width, setWidth] = useState(getPageWidth)
-  // linijka nad edytorem zmienia to samo ustawienie — trzymaj suwak w synchronizacji
+  const [widthDef, setWidthDef] = useState(getPageWidthDefault)
+  const [indOff, setIndOff] = useState(getIndOffset)
+  // linijka nad edytorem zmienia to samo ustawienie — trzymaj suwaki w synchronizacji
   useEffect(() => {
-    const h = () => setWidth(getPageWidth())
+    const h = () => {
+      setWidth(getPageWidth())
+      setWidthDef(getPageWidthDefault())
+      setIndOff(getIndOffset())
+    }
     window.addEventListener('komp:ui', h)
     return () => window.removeEventListener('komp:ui', h)
   }, [])
@@ -128,6 +140,44 @@ export function SettingsModal({ onClose }: Props) {
             <p className="settings-hint">
               Dotyczy edytora wizualnego, widoku Linia i Skryptu. Zmiany widać od
               razu. Możesz też przeciągać trójkąciki na linijce nad edytorem.
+            </p>
+          </div>
+          <div className="settings-row">
+            <span className="settings-label">
+              Bazowa szerokość strony
+              <span className="settings-value">{widthDef}px</span>
+            </span>
+            <input
+              className="settings-slider"
+              type="range"
+              min={PAGE_WIDTH_MIN}
+              max={PAGE_WIDTH_MAX}
+              step={20}
+              value={widthDef}
+              onChange={(e) => setPageWidthDefault(Number(e.target.value))}
+            />
+            <p className="settings-hint">
+              Do tej szerokości wraca dwuklik trójkącika na linijce i ją pokazują
+              małe kreseczki.
+            </p>
+          </div>
+          <div className="settings-row">
+            <span className="settings-label">
+              Odsunięcie znaczników wcięć
+              <span className="settings-value">{indOff}px</span>
+            </span>
+            <input
+              className="settings-slider"
+              type="range"
+              min={IND_OFFSET_MIN}
+              max={IND_OFFSET_MAX}
+              step={2}
+              value={indOff}
+              onChange={(e) => setIndOffset(Number(e.target.value))}
+            />
+            <p className="settings-hint">
+              Jak daleko od zielonego trójkącika stoją bazowo niebieskie znaczniki
+              wcięć na linijce.
             </p>
           </div>
           <div className="settings-row">
