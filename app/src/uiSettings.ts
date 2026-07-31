@@ -13,6 +13,9 @@ export const IND_OFFSET_MAX = 40
 export const LINE_SPACING_DEFAULT = 1.65
 export const LINE_SPACING_OPTIONS = [1.0, 1.15, 1.3, 1.5, 1.65, 2.0]
 
+export const FONT_SIZE_DEFAULT = 15
+export const FONT_SIZE_OPTIONS = [13, 14, 15, 16, 17, 18, 20, 22]
+
 export const PARA_SPACING_DEFAULT = 1
 export const PARA_SPACING_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: 'Brak' },
@@ -79,6 +82,18 @@ export function setLineSpacing(v: number): void {
   notify()
 }
 
+/** Rozmiar tekstu treści (edytor, podgląd, Linia, Skrypt) w px. */
+export function getFontSize(): number {
+  const v = Number(localStorage.getItem('ui.fontSize'))
+  return FONT_SIZE_OPTIONS.includes(v) ? v : FONT_SIZE_DEFAULT
+}
+
+export function setFontSize(v: number): void {
+  document.documentElement.style.setProperty('--content-size', `${v}px`)
+  localStorage.setItem('ui.fontSize', String(v))
+  notify()
+}
+
 export function getParaSpacing(): number {
   const v = Number(localStorage.getItem('ui.paraSpacing'))
   return PARA_SPACING_OPTIONS.some((o) => o.value === v) ? v : PARA_SPACING_DEFAULT
@@ -95,4 +110,5 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--page-width', `${getPageWidth()}px`)
   document.documentElement.style.setProperty('--content-line', String(getLineSpacing()))
   document.documentElement.style.setProperty('--content-para', `${getParaSpacing()}em`)
+  document.documentElement.style.setProperty('--content-size', `${getFontSize()}px`)
 }

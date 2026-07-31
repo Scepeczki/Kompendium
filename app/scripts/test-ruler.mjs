@@ -78,6 +78,13 @@ const lh = await page.evaluate(() => {
 })
 console.log(`✓ interlinia 2,0 → line-height/font-size = ${lh.toFixed(2)} (oczekiwane ~2)`)
 
+// 6a. rozmiar tekstu 18 zmienia font-size treści
+await page.click('.spacing-opt:has-text("18")')
+const fs18 = await page.evaluate(
+  () => getComputedStyle(document.querySelector('.rich-content .tiptap')).fontSize,
+)
+console.log(`✓ rozmiar tekstu 18 → font-size: ${fs18} (oczekiwane 18px)`)
+
 // 7. odstęp akapitów „Brak" → margines p = 0
 await page.click('.spacing-opt:has-text("Brak")')
 await page.click('.rich-content .tiptap')
@@ -191,9 +198,10 @@ const persisted = await page.evaluate(() => ({
   w: document.documentElement.style.getPropertyValue('--page-width'),
   line: document.documentElement.style.getPropertyValue('--content-line'),
   para: document.documentElement.style.getPropertyValue('--content-para'),
+  size: document.documentElement.style.getPropertyValue('--content-size'),
 }))
 console.log(
-  `✓ po przeładowaniu: szerokość ${persisted.w} (oczekiwane 1000px), interlinia ${persisted.line} (oczekiwane 2), akapity ${persisted.para} (oczekiwane 0em)`,
+  `✓ po przeładowaniu: szerokość ${persisted.w} (oczekiwane 1000px), interlinia ${persisted.line} (oczekiwane 2), akapity ${persisted.para} (oczekiwane 0em), rozmiar ${persisted.size} (oczekiwane 18px)`,
 )
 
 // 10. suwak w Ustawieniach pokazuje wartość z linijki
