@@ -25,4 +25,10 @@ For i = 1 To 30
     On Error Goto 0
 Next
 
-shell.Run "http://localhost:5173"
+' Otwórz zawsze w Firefoksie, niezależnie od domyślnej przeglądarki systemu
+firefoxPath = "C:\Program Files\Mozilla Firefox\firefox.exe"
+If fso.FileExists(firefoxPath) Then
+    shell.Run """" & firefoxPath & """ http://localhost:5173"
+Else
+    shell.Run "http://localhost:5173"
+End If
