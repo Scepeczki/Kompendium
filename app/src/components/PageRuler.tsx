@@ -17,6 +17,10 @@ import {
  *  (padding-inline w .rich-content .tiptap). */
 const PAD = 6
 
+/** Bazowe odsunięcie niebieskich znaczników wcięć od zielonego trójkącika
+ *  na linijce — żeby się nie nakładały i dało się je wygodnie złapać. */
+const IND_OFF = 14
+
 /** Linijka nad edytorem (jak w Google Docs).
  *  Zielone trójkąciki = szerokość tekstu (globalna, ta sama co w Ustawieniach);
  *  celują dokładnie w początek/koniec tekstu. Kreseczki pokazują szerokość
@@ -100,19 +104,19 @@ export function PageRuler({ editor }: { editor?: Editor | null }) {
   const dragLeft = drag((x) => {
     if (!editor) return
     const cur = indRef.current
-    const left = clampInd(x - textL)
+    const left = clampInd(x - textL - IND_OFF)
     if (left !== cur.left) applyIndents(editor, { ...cur, left })
   })
   const dragFirst = drag((x) => {
     if (!editor) return
     const cur = indRef.current
-    const first = clampInd(x - textL - cur.left, -cur.left)
+    const first = clampInd(x - textL - IND_OFF - cur.left, -cur.left)
     if (first !== cur.first) applyIndents(editor, { ...cur, first })
   })
   const dragRight = drag((x) => {
     if (!editor) return
     const cur = indRef.current
-    const right = clampInd(textR - x)
+    const right = clampInd(textR - IND_OFF - x)
     if (right !== cur.right) applyIndents(editor, { ...cur, right })
   })
 
@@ -165,21 +169,21 @@ export function PageRuler({ editor }: { editor?: Editor | null }) {
             <>
               <span
                 className="ruler-ind ruler-ind-first"
-                style={{ left: clampX(textL + ind.left + ind.first) }}
+                style={{ left: clampX(textL + IND_OFF + ind.left + ind.first) }}
                 title="Wcięcie pierwszej linii akapitu (lokalne — zaznaczone akapity) · dwuklik: zeruje"
                 onPointerDown={dragFirst}
                 onDoubleClick={() => applyIndents(editor, { ...ind, first: 0 })}
               />
               <span
                 className="ruler-ind ruler-ind-left"
-                style={{ left: clampX(textL + ind.left) }}
+                style={{ left: clampX(textL + IND_OFF + ind.left) }}
                 title="Wcięcie tekstu akapitu z lewej (lokalne — zaznaczone akapity) · dwuklik: zeruje"
                 onPointerDown={dragLeft}
                 onDoubleClick={() => applyIndents(editor, { ...ind, left: 0 })}
               />
               <span
                 className="ruler-ind ruler-ind-right"
-                style={{ left: clampX(textR - ind.right) }}
+                style={{ left: clampX(textR - IND_OFF - ind.right) }}
                 title="Wcięcie akapitu z prawej (lokalne — zaznaczone akapity) · dwuklik: zeruje"
                 onPointerDown={dragRight}
                 onDoubleClick={() => applyIndents(editor, { ...ind, right: 0 })}
