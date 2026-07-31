@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { exportBackup, importBackup } from '../backup'
+import {
+  PAGE_WIDTH_MAX,
+  PAGE_WIDTH_MIN,
+  getPageWidth,
+  setPageWidth,
+} from '../uiSettings'
 
 interface Props {
   onClose: () => void
@@ -15,10 +21,13 @@ export function SettingsModal({ onClose }: Props) {
   const [theme, setTheme] = useState(
     () => document.documentElement.dataset.theme ?? 'light',
   )
-  const [width, setWidth] = useState(() => {
-    const w = Number(localStorage.getItem('ui.pageWidth'))
-    return w >= 560 && w <= 1400 ? w : 800
-  })
+  const [width, setWidth] = useState(getPageWidth)
+  // linijka nad edytorem zmienia to samo ustawienie — trzymaj suwak w synchronizacji
+  useEffect(() => {
+    const h = () => setWidth(getPageWidth())
+    window.addEventListener('komp:ui', h)
+    return () => window.removeEventListener('komp:ui', h)
+  }, [])
 
   const applyTheme = (t: 'light' | 'dark') => {
     setTheme(t)
@@ -28,8 +37,7 @@ export function SettingsModal({ onClose }: Props) {
 
   const applyWidth = (w: number) => {
     setWidth(w)
-    document.documentElement.style.setProperty('--page-width', `${w}px`)
-    localStorage.setItem('ui.pageWidth', String(w))
+    setPageWidth(w)
   }
 
   const [busy, setBusy] = useState<'export' | 'import' | null>(null)
@@ -111,14 +119,15 @@ export function SettingsModal({ onClose }: Props) {
             <input
               className="settings-slider"
               type="range"
-              min={560}
-              max={1400}
+              min={PAGE_WIDTH_MIN}
+              max={PAGE_WIDTH_MAX}
               step={20}
               value={width}
               onChange={(e) => applyWidth(Number(e.target.value))}
             />
             <p className="settings-hint">
-              Dotyczy edytora wizualnego, widoku Linia i Skryptu. Zmiany widać od razu.
+              Dotyczy edytora wizualnego, widoku Linia i Skryptu. Zmiany widać od
+              razu. Możesz też przeciągać trójkąciki na linijce nad edytorem.
             </p>
           </div>
           <div className="settings-row">

@@ -867,9 +867,12 @@ button.version-pill.new {
 .rich-content {
   flex: 1;
   overflow-y: auto;
+  /* marginesy poza kolumną tekstu — tło odrobinę inne niż sama strona */
+  background: var(--panel-alt);
 }
 
-/* kolumna tekstu jak w Google Docs: szerokość z ustawień, wyśrodkowana */
+/* kolumna tekstu jak w Google Docs: szerokość z ustawień, wyśrodkowana,
+   z cienkimi liniami na krawędziach (przedłużenie trójkącików z linijki) */
 .rich-content .tiptap {
   min-height: 100%;
   max-width: var(--page-width, 800px);
@@ -877,7 +880,132 @@ button.version-pill.new {
   padding: 20px 26px 60px;
   outline: none;
   font-size: 15px;
-  line-height: 1.65;
+  line-height: var(--content-line, 1.65);
+  background: var(--panel);
+  border-inline: 1px solid var(--line);
+}
+
+/* ---- linijka szerokości strony (à la Google Docs) ---- */
+
+.page-ruler {
+  position: relative;
+  flex: none;
+  height: 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+
+.ruler-margin {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--panel-alt);
+}
+
+.ruler-margin-left {
+  border-right: 1px solid var(--line-strong);
+}
+
+.ruler-margin-right {
+  border-left: 1px solid var(--line-strong);
+}
+
+/* trójkącik-uchwyt: szersza strefa łapania, sam trójkąt rysowany w ::after */
+.ruler-handle {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  cursor: ew-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.ruler-handle::after {
+  content: '';
+  margin-top: 4px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 8px solid var(--accent);
+}
+
+.ruler-handle:hover::after {
+  border-top-color: var(--accent-ink);
+}
+
+/* kreseczka szerokości domyślnej */
+.ruler-default {
+  position: absolute;
+  top: 6px;
+  width: 2px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--line-strong);
+  transform: translateX(-50%);
+}
+
+/* podgląd wartości podczas przeciągania */
+.ruler-label {
+  position: absolute;
+  top: 1px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* ---- menu odstępów tekstu ---- */
+
+.spacing-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.spacing-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  width: 280px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spacing-title {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+.spacing-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.spacing-opt {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.spacing-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .rich-content .tiptap p.is-editor-empty:first-child::before {
@@ -953,7 +1081,12 @@ button.version-pill.new {
 /* typografia podglądu */
 .markdown-body {
   font-size: 15px;
-  line-height: 1.65;
+  line-height: var(--content-line, 1.65);
+}
+
+/* odstęp między akapitami — globalne ustawienie z menu odstępów */
+.markdown-body p {
+  margin-block: var(--content-para, 1em);
 }
 
 .markdown-body h1,

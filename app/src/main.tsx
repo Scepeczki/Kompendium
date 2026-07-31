@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import 'katex/dist/katex.min.css'
 import App from './App.tsx'
+import { initUiSettings } from './uiSettings'
 
 // motyw: zapamiętany wybór albo preferencja systemowa
 const savedTheme = localStorage.getItem('ui.theme')
@@ -14,12 +15,8 @@ document.documentElement.dataset.theme =
       ? 'dark'
       : 'light'
 
-// szerokość strony tekstu (edytor wizualny, linia, skrypt)
-const savedWidth = Number(localStorage.getItem('ui.pageWidth'))
-document.documentElement.style.setProperty(
-  '--page-width',
-  `${savedWidth >= 560 && savedWidth <= 1400 ? savedWidth : 800}px`,
-)
+// zapamiętane ustawienia wyglądu tekstu (szerokość strony, interlinia, akapity)
+initUiSettings()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

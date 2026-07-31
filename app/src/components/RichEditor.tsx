@@ -6,6 +6,8 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
+import { PageRuler } from './PageRuler'
+import { SpacingMenu } from './SpacingMenu'
 
 /** Renderuje wzory $...$ i $$...$$ w miejscu (dekoracje nad tekstem).
  *  Tekst w dokumencie pozostaje czystym LaTeX-em (bezpieczny Markdown);
@@ -190,8 +192,10 @@ export function RichEditor({ value, editable, onChange }: Props) {
           >
             $$
           </button>
+          <SpacingMenu />
         </div>
       )}
+      {editable && <PageRuler />}
       <EditorContent editor={editor} className="rich-content markdown-body" />
     </div>
   )
