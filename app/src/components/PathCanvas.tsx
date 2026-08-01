@@ -377,23 +377,27 @@ function LinearView({
       const sub = subpages.find((s) => s.id === (n.subpageId ?? null)) ?? null
       return (
         <section className={`script-block script-${c.type}`}>
-          <h3 className="script-block-title">
-            <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}</span> {c.name}
-            {v?.label && <span className="script-block-version"> ({v.label})</span>}
-            {sub && <span className="script-block-version"> · {sub.name}</span>}
-          </h3>
-          <SubpageTabs
-            conceptId={n.conceptId}
-            active={n.subpageId ?? null}
-            onSelect={(sid) => onSetSubpage(n.id, sid)}
-            hint="Strona pokazywana bazowo przy oglądaniu tej ścieżki"
-          />
-          <div
-            className="markdown-body"
-            dangerouslySetInnerHTML={{
-              __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
-            }}
-          />
+          <header className="script-block-head">
+            <h3 className="script-block-title">
+              <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}:</span>{' '}
+              {c.name}
+            </h3>
+            {v?.label && <span className="script-block-version">{v.label}</span>}
+          </header>
+          <div className="script-block-body">
+            <SubpageTabs
+              conceptId={n.conceptId}
+              active={n.subpageId ?? null}
+              onSelect={(sid) => onSetSubpage(n.id, sid)}
+              hint="Strona pokazywana bazowo przy oglądaniu tej ścieżki"
+            />
+            <div
+              className="markdown-body"
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
+              }}
+            />
+          </div>
         </section>
       )
     }
@@ -455,14 +459,18 @@ function LinearView({
     }
     return (
       <section className="script-block script-fusion">
-        <h3 className="script-block-title">
-          <span className="script-block-type">Blok</span> {n.name}
-        </h3>
-        <ul className="fusion-parts">
-          {n.parts.map((p, i) => (
-            <li key={i}>{conceptById(p.conceptId)?.name ?? '(usunięte)'}</li>
-          ))}
-        </ul>
+        <header className="script-block-head">
+          <h3 className="script-block-title">
+            <span className="script-block-type">Blok:</span> {n.name}
+          </h3>
+        </header>
+        <div className="script-block-body">
+          <ul className="fusion-parts">
+            {n.parts.map((p, i) => (
+              <li key={i}>{conceptById(p.conceptId)?.name ?? '(usunięte)'}</li>
+            ))}
+          </ul>
+        </div>
       </section>
     )
   }
@@ -1165,7 +1173,9 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
             ? 'Doklejaj segmenty jeden pod drugim: przeciągaj klocki z listy po lewej (także między segmenty), zmieniaj kolejność uchwytem ⣿, dodawaj notatki i komentarze'
             : 'Gotowy skrypt ścieżki (tylko odczyt) — edytuj na Mapie albo w Linii'}
       </div>
-      {mode === 'script' && <ScriptBody pathId={pathId} />}
+      {mode === 'script' && (
+        <ScriptBody pathId={pathId} onOpenConcept={onOpenConcept} />
+      )}
       {mode === 'linear' && (
         <LinearView
           ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}

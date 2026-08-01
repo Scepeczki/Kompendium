@@ -1,17 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { exportBackup, importBackup } from '../backup'
 import {
+  BLOCK_COLOR_DEFAULTS,
+  BLOCK_TINT_MAX,
+  BLOCK_TINT_MIN,
   IND_OFFSET_MAX,
   IND_OFFSET_MIN,
   PAGE_WIDTH_MAX,
   PAGE_WIDTH_MIN,
+  getBlockColor,
+  getBlockTint,
   getIndOffset,
   getPageWidth,
   getPageWidthDefault,
+  hasCustomBlockColors,
+  resetBlockColors,
+  setBlockColor,
+  setBlockTint,
   setIndOffset,
   setPageWidth,
   setPageWidthDefault,
 } from '../uiSettings'
+import { BLOCK_TYPE_LABELS, type BlockType } from '../types'
 
 interface Props {
   onClose: () => void
@@ -30,12 +40,16 @@ export function SettingsModal({ onClose }: Props) {
   const [width, setWidth] = useState(getPageWidth)
   const [widthDef, setWidthDef] = useState(getPageWidthDefault)
   const [indOff, setIndOff] = useState(getIndOffset)
+  const [tint, setTint] = useState(getBlockTint)
+  // przerysowanie próbek kolorów po zmianie/wyzerowaniu
+  const [colorTick, setColorTick] = useState(0)
   // linijka nad edytorem zmienia to samo ustawienie — trzymaj suwaki w synchronizacji
   useEffect(() => {
     const h = () => {
       setWidth(getPageWidth())
       setWidthDef(getPageWidthDefault())
       setIndOff(getIndOffset())
+      setTint(getBlockTint())
     }
     window.addEventListener('komp:ui', h)
     return () => window.removeEventListener('komp:ui', h)
@@ -178,6 +192,55 @@ export function SettingsModal({ onClose }: Props) {
             <p className="settings-hint">
               Jak daleko od zielonego trójkącika stoją bazowo niebieskie znaczniki
               wcięć na linijce.
+            </p>
+          </div>
+          <div className="settings-row">
+            <span className="settings-label">
+              Kolory bloków
+              {hasCustomBlockColors() && (
+                <button
+                  className="btn settings-reset"
+                  title="Przywróć fabryczne kolory typów"
+                  onClick={() => {
+                    resetBlockColors()
+                    setColorTick((t) => t + 1)
+                  }}
+                >
+                  Przywróć
+                </button>
+              )}
+            </span>
+            <div className="settings-colors" key={colorTick}>
+              {(Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]).map((t) => (
+                <label key={t} className="settings-color">
+                  <input
+                    type="color"
+                    value={getBlockColor(t)}
+                    onChange={(e) => {
+                      setBlockColor(t, e.target.value)
+                      setColorTick((x) => x + 1)
+                    }}
+                  />
+                  <span>{BLOCK_TYPE_LABELS[t]}</span>
+                </label>
+              ))}
+            </div>
+            <span className="settings-label settings-sublabel">
+              Nasycenie tła bloków
+              <span className="settings-value">{tint}%</span>
+            </span>
+            <input
+              className="settings-slider"
+              type="range"
+              min={BLOCK_TINT_MIN}
+              max={BLOCK_TINT_MAX}
+              step={2}
+              value={tint}
+              onChange={(e) => setBlockTint(Number(e.target.value))}
+            />
+            <p className="settings-hint">
+              Kolor typu barwi pasek nagłówka, tło i kreskę przy treści bloku
+              w widoku Linia i Skrypt. Przy 0% zostają same kreski i napisy.
             </p>
           </div>
           <div className="settings-row">

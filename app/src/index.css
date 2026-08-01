@@ -1967,6 +1967,43 @@ button.version-pill.new {
   color: var(--muted);
 }
 
+/* kolory typów klocków */
+.settings-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 6px 10px;
+}
+
+.settings-color {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.settings-color input[type='color'] {
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+}
+
+.settings-sublabel {
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.settings-reset {
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 400;
+}
+
 .settings-backup-actions {
   display: flex;
   gap: 8px;
@@ -2199,38 +2236,101 @@ button.version-pill.new {
   margin: 0 0 24px;
 }
 
+/* Blok w skrypcie: pasek nagłówka w kolorze typu + przygaszona treść
+   z pionowym akcentem. Odcienie liczone z jednego koloru na typ
+   (--block-color), więc zmiana koloru w Ustawieniach przestraja całość. */
 .script-block {
-  border: 1px solid var(--line-strong);
-  border-left-width: 4px;
-  border-radius: 6px;
-  padding: 12px 18px;
-  margin: 16px 0;
-  background: var(--panel);
+  --block-color: var(--ink-soft);
+  border-radius: 8px;
+  margin: 22px 0;
+  overflow: hidden;
+  background: color-mix(
+    in srgb,
+    var(--block-color) calc(var(--block-tint, 14) * 0.4%),
+    var(--panel)
+  );
 }
 
-.script-definicja { border-left-color: var(--c-definicja); }
-.script-twierdzenie { border-left-color: var(--c-twierdzenie); }
-.script-lemat { border-left-color: var(--c-lemat); }
-.script-dowod { border-left-color: var(--c-dowod); }
-.script-przyklad { border-left-color: var(--c-przyklad); }
-.script-uwaga { border-left-color: var(--c-uwaga); }
-.script-intuicja { border-left-color: var(--c-intuicja); }
-.script-fusion { border-left-color: var(--ink-soft); }
+.script-definicja { --block-color: var(--c-definicja); }
+.script-twierdzenie { --block-color: var(--c-twierdzenie); }
+.script-lemat { --block-color: var(--c-lemat); }
+.script-dowod { --block-color: var(--c-dowod); }
+.script-przyklad { --block-color: var(--c-przyklad); }
+.script-uwaga { --block-color: var(--c-uwaga); }
+.script-intuicja { --block-color: var(--c-intuicja); }
+
+.script-block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px;
+  background: color-mix(
+    in srgb,
+    var(--block-color) calc(var(--block-tint, 14) * 1.6%),
+    var(--panel)
+  );
+}
 
 .script-block-title {
-  font-family: Georgia, serif;
-  font-size: 17px;
-  margin: 0 0 8px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  color: color-mix(in srgb, var(--block-color) 70%, var(--ink));
 }
 
 .script-block-type {
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .script-block-version {
-  color: var(--muted);
+  color: color-mix(in srgb, var(--block-color) 45%, var(--ink-soft));
   font-weight: 400;
-  font-size: 14px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* przycisk otwarcia klocka — dyskretny, wyraźniejszy po najechaniu */
+.script-block-open {
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 3px 6px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: color-mix(in srgb, var(--block-color) 55%, var(--ink-soft));
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.script-block-head:hover .script-block-open {
+  opacity: 1;
+}
+
+.script-block-open:hover {
+  background: color-mix(in srgb, var(--block-color) 18%, transparent);
+}
+
+/* treść: pionowy akcent z lewej, jak marginalna kreska w podręczniku */
+.script-block-body {
+  padding: 14px 18px 16px;
+  border-left: 3px solid color-mix(in srgb, var(--block-color) 55%, transparent);
+  margin-left: 14px;
+}
+
+.script-block-body > .markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.script-block-body > .markdown-body > :last-child {
+  margin-bottom: 0;
 }
 
 .script-text {

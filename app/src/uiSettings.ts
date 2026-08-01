@@ -2,6 +2,26 @@
  *  Każda zmiana wysyła zdarzenie 'komp:ui', dzięki czemu otwarte kontrolki
  *  (linijka nad edytorem, suwak w Ustawieniach) trzymają się w synchronizacji. */
 
+import type { BlockType } from './types'
+
+/** Kolory typów klocków — te same wartości co w index.css (motyw jasny).
+ *  Własny kolor nadpisuje oba motywy; odcienie tła bloków liczone są z niego
+ *  automatycznie, więc wystarczy jedna barwa na typ. */
+export const BLOCK_COLOR_DEFAULTS: Record<BlockType, string> = {
+  definicja: '#31619e',
+  twierdzenie: '#6d4a9e',
+  lemat: '#8a5fb0',
+  dowod: '#6b6b66',
+  przyklad: '#3d7a52',
+  uwaga: '#a9742c',
+  intuicja: '#b05575',
+}
+
+/** Nasycenie tła bloków (procenty koloru typu). */
+export const BLOCK_TINT_DEFAULT = 14
+export const BLOCK_TINT_MIN = 0
+export const BLOCK_TINT_MAX = 34
+
 export const PAGE_WIDTH_DEFAULT = 800
 export const PAGE_WIDTH_MIN = 560
 export const PAGE_WIDTH_MAX = 1400
@@ -144,6 +164,50 @@ export function setParaSpacing(v: number): void {
   notify()
 }
 
+const colorKey = (t: BlockType) => `ui.color.${t}`
+
+export function getBlockColor(t: BlockType): string {
+  const v = localStorage.getItem(colorKey(t))
+  return v && /^#[0-9a-f]{6}$/i.test(v) ? v : BLOCK_COLOR_DEFAULTS[t]
+}
+
+export function setBlockColor(t: BlockType, hex: string): void {
+  document.documentElement.style.setProperty(`--c-${t}`, hex)
+  localStorage.setItem(colorKey(t), hex)
+  notify()
+}
+
+/** Przywraca fabryczne kolory: usuwa nadpisania, więc wracają też wersje
+ *  kolorów dla motywu ciemnego zdefiniowane w arkuszu stylów. */
+export function resetBlockColors(): void {
+  for (const t of Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]) {
+    document.documentElement.style.removeProperty(`--c-${t}`)
+    localStorage.removeItem(colorKey(t))
+  }
+  notify()
+}
+
+export function hasCustomBlockColors(): boolean {
+  return (Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]).some(
+    (t) => localStorage.getItem(colorKey(t)) !== null,
+  )
+}
+
+export function getBlockTint(): number {
+  return readNum(
+    'ui.blockTint',
+    (v) => v >= BLOCK_TINT_MIN && v <= BLOCK_TINT_MAX,
+    BLOCK_TINT_DEFAULT,
+  )
+}
+
+export function setBlockTint(v: number): void {
+  const val = clamp(Math.round(v), BLOCK_TINT_MIN, BLOCK_TINT_MAX)
+  document.documentElement.style.setProperty('--block-tint', String(val))
+  localStorage.setItem('ui.blockTint', String(val))
+  notify()
+}
+
 /** Wywoływane raz przy starcie aplikacji — nakłada zapamiętane wartości. */
 export function initUiSettings(): void {
   document.documentElement.style.setProperty('--page-width', `${getPageWidth()}px`)
@@ -152,4 +216,9 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--text-pad', `${getIndOffset()}px`)
   document.documentElement.style.setProperty('--math-scale', String(getMathScale()))
   document.documentElement.style.setProperty('--math-gap', `${getMathGap()}em`)
+  document.documentElement.style.setProperty('--block-tint', String(getBlockTint()))
+  for (const t of Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]) {
+    const v = localStorage.getItem(colorKey(t))
+    if (v) document.documentElement.style.setProperty(`--c-${t}`, v)
+  }
 }

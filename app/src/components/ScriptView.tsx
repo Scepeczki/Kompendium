@@ -12,11 +12,13 @@ import {
 
 interface Props {
   pathId: string
+  /** Otwarcie klocka w edytorze (przycisk w nagłówku bloku). */
+  onOpenConcept?: (id: string) => void
 }
 
 /** Treść skryptu: ścieżka złożona w jeden ciągły dokument.
  *  Osadzana jako trzeci tryb widoku ścieżki (obok Mapy i Linii). */
-export function ScriptBody({ pathId }: Props) {
+export function ScriptBody({ pathId, onOpenConcept }: Props) {
   const path = useLiveQuery(() => db.paths.get(pathId), [pathId])
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
@@ -50,23 +52,36 @@ export function ScriptBody({ pathId }: Props) {
     const sub = subpages.find((s) => s.id === activeId) ?? null
     return (
       <section key={key} className={`script-block script-${c.type}`}>
-        <h3 className="script-block-title">
-          <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}</span> {c.name}
-          {v?.label && <span className="script-block-version"> ({v.label})</span>}
-          {sub && <span className="script-block-version"> · {sub.name}</span>}
-        </h3>
-        <SubpageTabs
-          conceptId={c.id}
-          active={sub?.id ?? null}
-          onSelect={(sid) => setPageOverride((o) => ({ ...o, [key]: sid }))}
-          hint="Przełącz stronę klocka (tylko podgląd — nie zmienia ścieżki)"
-        />
-        <div
-          className="markdown-body"
-          dangerouslySetInnerHTML={{
-            __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
-          }}
-        />
+        <header className="script-block-head">
+          <h3 className="script-block-title">
+            <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}:</span>{' '}
+            {c.name}
+          </h3>
+          {v?.label && <span className="script-block-version">{v.label}</span>}
+          {onOpenConcept && (
+            <button
+              className="script-block-open"
+              title="Otwórz klocek w edytorze"
+              onClick={() => onOpenConcept(c.id)}
+            >
+              ↗
+            </button>
+          )}
+        </header>
+        <div className="script-block-body">
+          <SubpageTabs
+            conceptId={c.id}
+            active={sub?.id ?? null}
+            onSelect={(sid) => setPageOverride((o) => ({ ...o, [key]: sid }))}
+            hint="Przełącz stronę klocka (tylko podgląd — nie zmienia ścieżki)"
+          />
+          <div
+            className="markdown-body"
+            dangerouslySetInnerHTML={{
+              __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
+            }}
+          />
+        </div>
       </section>
     )
   }
@@ -99,26 +114,30 @@ export function ScriptBody({ pathId }: Props) {
           // fuzja: wspólna ramka z częściami w środku
           return (
             <section key={n.id} className="script-block script-fusion">
-              <h3 className="script-block-title">
-                <span className="script-block-type">Blok</span> {n.name}
-              </h3>
-              {n.parts.map((p, i) => {
-                const r = resolve(p.conceptId, p.versionId)
-                if (!r) return null
-                return (
-                  <div key={i} className="script-fusion-part">
-                    <h4 className="script-fusion-part-title">
-                      {BLOCK_TYPE_LABELS[r.concept.type]}: {r.concept.name}
-                    </h4>
-                    <div
-                      className="markdown-body"
-                      dangerouslySetInnerHTML={{
-                        __html: renderMarkdown(r.version?.content ?? ''),
-                      }}
-                    />
-                  </div>
-                )
-              })}
+              <header className="script-block-head">
+                <h3 className="script-block-title">
+                  <span className="script-block-type">Blok:</span> {n.name}
+                </h3>
+              </header>
+              <div className="script-block-body">
+                {n.parts.map((p, i) => {
+                  const r = resolve(p.conceptId, p.versionId)
+                  if (!r) return null
+                  return (
+                    <div key={i} className="script-fusion-part">
+                      <h4 className="script-fusion-part-title">
+                        {BLOCK_TYPE_LABELS[r.concept.type]}: {r.concept.name}
+                      </h4>
+                      <div
+                        className="markdown-body"
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkdown(r.version?.content ?? ''),
+                        }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
             </section>
           )
         })}
