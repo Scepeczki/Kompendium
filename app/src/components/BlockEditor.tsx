@@ -3,7 +3,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { RichEditor } from './RichEditor'
-import { mdShortcuts } from '../cmShortcuts'
+import { mdShortcuts, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import {
   createConcept,
@@ -152,7 +152,12 @@ export function BlockEditor({
   const conceptNamesRef = useRef<string[]>([])
   conceptNamesRef.current = allConcepts.map((c) => c.name)
   const cmExtensions = useMemo(
-    () => [markdown(), mdShortcuts, wikiCompletion(() => conceptNamesRef.current)],
+    () => [
+      markdown(),
+      mdShortcuts,
+      wrapLines,
+      wikiCompletion(() => conceptNamesRef.current),
+    ],
     [],
   )
   const allVersions = useLiveQuery(() => db.versions.toArray(), []) ?? []

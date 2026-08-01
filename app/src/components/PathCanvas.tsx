@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -33,7 +34,9 @@ import {
 import '@xyflow/react/dist/style.css'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
-import { mdShortcuts } from '../cmShortcuts'
+import { mdShortcuts, wrapLines } from '../cmShortcuts'
+import { wikiCompletion } from '../cmWiki'
+import { RichEditor } from './RichEditor'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
@@ -664,6 +667,28 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
 
   // edytowana notatka/komentarz (okno edycji)
   const [editingNote, setEditingNote] = useState<string | null>(null)
+  // tryb pisania w oknie notatki — jak w edytorze klocka
+  const [noteView, setNoteView] = useState<'wizualny' | 'kod' | 'podzial'>(() => {
+    const v = localStorage.getItem('ui.noteView')
+    return v === 'kod' || v === 'podzial' ? v : 'wizualny'
+  })
+  useEffect(() => {
+    localStorage.setItem('ui.noteView', noteView)
+  }, [noteView])
+
+  // nazwy pojęć do podpowiedzi wiki-linków w notatkach
+  const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  const conceptNamesRef = useRef<string[]>([])
+  conceptNamesRef.current = allConcepts.map((c) => c.name)
+  const noteExtensions = useMemo(
+    () => [
+      markdown(),
+      mdShortcuts,
+      wrapLines,
+      wikiCompletion(() => conceptNamesRef.current),
+    ],
+    [],
+  )
 
   // tryb widoku ścieżki: mapa (canvas) / linia (doklejanie) / skrypt (odczyt)
   const [mode, setMode] = useState<'map' | 'linear' | 'script'>(() => {
@@ -1342,29 +1367,67 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
                   <h3>
                     {isComment ? '💬 Komentarz do ścieżki' : '✥ Notatka (intuicja)'}
                   </h3>
+                  <div className="view-switch">
+                    {(['wizualny', 'kod', 'podzial'] as const).map((m) => (
+                      <button
+                        key={m}
+                        className={`btn ${noteView === m ? 'btn-active' : ''}`}
+                        title={
+                          m === 'wizualny'
+                            ? 'Pisanie z wzorami renderowanymi w miejscu'
+                            : m === 'kod'
+                              ? 'Czysty Markdown + LaTeX'
+                              : 'Kod i podgląd obok siebie'
+                        }
+                        onClick={() => setNoteView(m)}
+                      >
+                        {m === 'wizualny' ? 'Wizualny' : m === 'kod' ? 'Kod' : 'Podział'}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     className="btn btn-close"
-                    title="Zamknij"
+                    title="Zamknij (Escape)"
                     onClick={() => setEditingNote(null)}
                   >
                     ✕
                   </button>
                 </header>
-                <div className="note-modal-body">
-                  <div className="editor-code">
-                    <CodeMirror
+                <div className={`note-modal-body view-${noteView}`}>
+                  {noteView === 'wizualny' ? (
+                    <RichEditor
+                      key={n.id}
                       value={text}
+                      editable
+                      ruler={false}
+                      autoFocus
                       onChange={(v) => api.updateData(n.id, { text: v })}
-                      extensions={[markdown(), mdShortcuts]}
-                      placeholder={'Markdown + LaTeX: $x^2$…'}
-                      basicSetup={{ lineNumbers: false, foldGutter: false }}
-                      style={{ height: '100%' }}
                     />
-                  </div>
-                  <div
-                    className="editor-preview markdown-body"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
-                  />
+                  ) : (
+                    <>
+                      <div className="editor-code">
+                        <CodeMirror
+                          value={text}
+                          onChange={(v) => api.updateData(n.id, { text: v })}
+                          extensions={noteExtensions}
+                          autoFocus
+                          placeholder={'Markdown + LaTeX: $x^2$…'}
+                          basicSetup={{
+                            lineNumbers: false,
+                            foldGutter: false,
+                            autocompletion: false,
+                          }}
+                          style={{ height: '100%' }}
+                        />
+                      </div>
+                      {noteView === 'podzial' && (
+                        <div
+                          className="editor-preview markdown-body"
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>

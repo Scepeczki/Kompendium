@@ -1,6 +1,9 @@
-import { keymap } from '@codemirror/view'
-import type { EditorView } from '@codemirror/view'
+import { EditorView, keymap } from '@codemirror/view'
 import { Prec } from '@codemirror/state'
+
+/** Zawijanie długich wierszy — bez tego pisanie ciągłego tekstu wymaga
+ *  przewijania w bok. Dotyczy każdego pola z kodem w aplikacji. */
+export const wrapLines = EditorView.lineWrapping
 
 /** Owija zaznaczenie znacznikami (albo wstawia pustą parę i staje w środku). */
 const wrap = (left: string, right: string) => (view: EditorView) => {

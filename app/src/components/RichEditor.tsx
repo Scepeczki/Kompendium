@@ -190,6 +190,11 @@ interface Props {
   value: string
   editable: boolean
   onChange: (markdown: string) => void
+  /** Linijka szerokości strony — tylko tam, gdzie treść jest „stroną"
+   *  (w oknie notatki nie ma sensu, bo okno nie jest stroną). */
+  ruler?: boolean
+  /** Ustaw kursor w treści zaraz po otwarciu. */
+  autoFocus?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +235,13 @@ const unescapeMathAfterSerialize = (md: string) =>
 /** Tryb wizualny (à la Google Docs): rich text edytowany bezpośrednio,
  *  pod spodem zawsze Markdown+LaTeX. Wzory $...$ renderują się w miejscu
  *  (klik we wzór pokazuje jego kod). */
-export function RichEditor({ value, editable, onChange }: Props) {
+export function RichEditor({
+  value,
+  editable,
+  onChange,
+  ruler = true,
+  autoFocus = false,
+}: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -241,6 +252,7 @@ export function RichEditor({ value, editable, onChange }: Props) {
     ],
     content: escapeMathForParse(value),
     editable,
+    autofocus: autoFocus ? 'end' : false,
     onUpdate: ({ editor }) => {
       onChange(unescapeMathAfterSerialize(editor.storage.markdown.getMarkdown()))
     },
@@ -358,7 +370,7 @@ export function RichEditor({ value, editable, onChange }: Props) {
           <SpacingMenu />
         </div>
       )}
-      {editable && <PageRuler editor={editor} />}
+      {editable && ruler && <PageRuler editor={editor} />}
       <EditorContent editor={editor} className="rich-content markdown-body" />
     </div>
   )

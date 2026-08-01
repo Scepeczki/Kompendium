@@ -1882,8 +1882,8 @@ button.version-pill.new {
 }
 
 .note-modal {
-  width: min(860px, 92vw);
-  height: min(480px, 80vh);
+  width: min(940px, 94vw);
+  height: min(620px, 86vh);
   background: var(--panel);
   border: 1px solid var(--line-strong);
   border-radius: 12px;
@@ -1914,9 +1914,37 @@ button.version-pill.new {
   overflow: hidden;
 }
 
+/* tryb wizualny i kod zajmują całe okno; podział dzieli na pół */
+.note-modal-body.view-wizualny,
+.note-modal-body.view-kod {
+  grid-template-columns: 1fr;
+}
+
 .note-modal-body .editor-code {
   border-right: 1px solid var(--line);
   overflow: auto;
+}
+
+.note-modal-body.view-kod .editor-code {
+  border-right: none;
+}
+
+/* w oknie notatki kolumna tekstu wypełnia okno (to nie jest „strona") */
+.note-modal-body .rich-content .tiptap {
+  max-width: none;
+  box-shadow: none;
+  border-radius: 0;
+  min-height: 100%;
+  padding: 18px 22px 40px;
+}
+
+.note-modal-body .rich-content {
+  background: var(--panel);
+  padding-top: 0;
+}
+
+.note-modal-head .view-switch {
+  margin-left: auto;
 }
 
 .note-modal-body .editor-preview {

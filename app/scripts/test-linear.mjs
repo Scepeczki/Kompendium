@@ -47,8 +47,8 @@ console.log('✓ klocki doklejone do linii (forma jak w skrypcie)')
 
 // notatka na końcu (otwiera od razu okno edycji) — wpisz i zamknij
 await page.click('.linear-append button:has-text("+ Notatka")')
-await page.waitForSelector('.note-modal .cm-content')
-await page.click('.note-modal .cm-content')
+await page.waitForSelector('.note-modal .rich-content .tiptap')
+await page.click('.note-modal .rich-content .tiptap')
 await page.keyboard.type('NOTATKA-POD-BETĄ')
 await page.waitForTimeout(600)
 await page.click('.note-modal .btn-close')
@@ -99,8 +99,8 @@ console.log(`✓ usuwanie segmentu działa (zostało: ${segs})`)
 
 // komentarz boczny: dodaj, sprawdź stronę prawą, przełóż na lewą
 await page.click('.linear-append button:has-text("+ 💬 Komentarz")')
-await page.waitForSelector('.note-modal .cm-content')
-await page.click('.note-modal .cm-content')
+await page.waitForSelector('.note-modal .rich-content .tiptap')
+await page.click('.note-modal .rich-content .tiptap')
 await page.keyboard.type('BOCZNY')
 await page.waitForTimeout(600)
 await page.click('.note-modal .btn-close')
