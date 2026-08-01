@@ -97,6 +97,14 @@ export function ScriptBody({ pathId, onOpenConcept }: Props) {
         )}
         {ordered.map((n) => {
           if (n.kind === 'comment') return null // komentarze nie wchodzą do skryptu
+          if (n.kind === 'heading') {
+            const H = (`h${n.level + 1}` as unknown) as 'h2'
+            return (
+              <H key={n.id} className={`script-heading-node level-${n.level}`}>
+                {n.text}
+              </H>
+            )
+          }
           if (n.kind === 'text') {
             return (
               <div

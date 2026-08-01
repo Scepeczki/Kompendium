@@ -168,7 +168,23 @@ export interface PathNodeFusion {
   y: number
 }
 
-export type PathNode = PathNodeBlock | PathNodeText | PathNodeComment | PathNodeFusion
+/** Rozdział / podrozdział — nagłówek dzielący ścieżkę na części. */
+export interface PathNodeHeading {
+  id: string
+  kind: 'heading'
+  text: string
+  /** 1 = rozdział, 2 = podrozdział, 3 = sekcja. */
+  level: 1 | 2 | 3
+  x: number
+  y: number
+}
+
+export type PathNode =
+  | PathNodeBlock
+  | PathNodeText
+  | PathNodeComment
+  | PathNodeFusion
+  | PathNodeHeading
 
 /** Strzałka logicznej kolejności między kafelkami. */
 export interface PathEdge {

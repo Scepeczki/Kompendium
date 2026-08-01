@@ -399,3 +399,13 @@ export async function importPdf(file: File): Promise<string> {
 export async function movePdf(id: string, folderId: string | null) {
   await db.pdfs.update(id, { folderId })
 }
+
+export async function renamePdf(id: string, title: string) {
+  await db.pdfs.update(id, { title })
+}
+
+/** Usuwa PDF z biblioteki (wraz z plikiem). Podpięte źródła w klockach
+ *  zostają — to odnośniki, nie kopie treści; przestają tylko prowadzić do pliku. */
+export async function deletePdf(id: string) {
+  await db.pdfs.delete(id)
+}

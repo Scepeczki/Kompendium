@@ -1508,7 +1508,9 @@ button.version-pill.new {
 }
 
 .pdflib-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   width: 100%;
   text-align: left;
   font: inherit;
@@ -1519,9 +1521,26 @@ button.version-pill.new {
   background: none;
   color: var(--ink);
   cursor: pointer;
+}
+
+.pdflib-title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* akcje PDF-a widoczne po najechaniu (jak przy folderach) */
+.pdflib-item .folder-actions {
+  display: inline-flex;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.pdflib-item:hover .folder-actions,
+.pdflib-item:focus-within .folder-actions {
+  opacity: 1;
 }
 
 .pdflib-item:hover {
@@ -1555,10 +1574,17 @@ button.version-pill.new {
   border-bottom: 1px solid var(--line);
 }
 
+/* widok dokumentu: strony jedna pod drugą, przewijane w pionie */
 .pdf-scroll {
   flex: 1;
   overflow: auto;
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: var(--paper);
+  scroll-behavior: smooth;
 }
 
 .pdf-empty {
@@ -1576,11 +1602,33 @@ button.version-pill.new {
 
 .pdf-page-wrap {
   position: relative;
-  display: inline-block;
+  flex: none;
+  background: #fff;
   box-shadow: 0 1px 6px rgba(60, 50, 30, 0.14);
   border-radius: 3px;
   overflow: hidden;
   user-select: none;
+  scroll-margin: 12px;
+}
+
+/* numer strony — dyskretny, w rogu kartki */
+.pdf-page-number {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  font-size: 10px;
+  color: #9a9384;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 3px;
+  padding: 0 4px;
+  pointer-events: none;
+}
+
+.pdf-page-input {
+  width: 56px;
+  padding: 3px 6px;
+  font-size: 13px;
+  text-align: right;
 }
 
 .pdf-page-wrap canvas {
@@ -2262,6 +2310,87 @@ button.version-pill.new {
   font-family: Georgia, serif;
   font-size: 30px;
   margin: 0 0 24px;
+}
+
+/* rozdziały i podrozdziały w Linii i Skrypcie */
+.script-heading-node {
+  font-family: Georgia, serif;
+  margin: 30px 0 10px;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.script-heading-node.level-1 {
+  font-size: 24px;
+  border-bottom: 2px solid var(--line-strong);
+  padding-bottom: 6px;
+}
+
+.script-heading-node.level-2 {
+  font-size: 19px;
+  color: var(--ink-soft);
+}
+
+.script-heading-node.level-3 {
+  font-size: 16px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+/* kafelek rozdziału na mapie */
+.path-node-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 200px;
+  max-width: 340px;
+  padding: 8px 14px;
+  background: var(--panel-alt);
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--ink-soft);
+  border-radius: 8px;
+  font-family: Georgia, serif;
+}
+
+.path-node-heading.level-1 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.path-node-heading.level-2 {
+  font-size: 14px;
+  border-left-color: var(--muted);
+}
+
+.path-node-heading.level-3 {
+  font-size: 13px;
+  font-style: italic;
+  border-left-color: var(--line-strong);
+}
+
+.heading-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heading-level button {
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: -0.05em;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.heading-level button:hover {
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* Blok w skrypcie: pasek nagłówka w kolorze typu + przygaszona treść

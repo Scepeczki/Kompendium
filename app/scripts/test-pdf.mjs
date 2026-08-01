@@ -58,7 +58,8 @@ await page.waitForTimeout(500)
 // tryb podpinania + zaznaczenie prostokątem
 await page.click('text=📌 Podepnij źródło')
 await page.waitForSelector('.pdf-banner')
-const canvas = await page.locator('.pdf-page-wrap canvas').boundingBox()
+// widok ciągły: wszystkie strony pod sobą — bierzemy pierwszą
+const canvas = await page.locator('.pdf-page-wrap canvas').first().boundingBox()
 await page.mouse.move(canvas.x + 40, canvas.y + 40)
 await page.mouse.down()
 await page.mouse.move(canvas.x + 300, canvas.y + 120, { steps: 5 })
@@ -68,15 +69,18 @@ await page.mouse.up()
 await page.waitForSelector('.source-chip', { timeout: 10000 })
 await page.screenshot({ path: 'scripts/shot-4-zrodlo.png' })
 
-// przejdź na stronę 2, potem skocz z powrotem przez chip
-await page.click('.pdf-nav button:last-child')
-await page.waitForTimeout(400)
+// przewiń na stronę 2, potem skocz z powrotem przez chip
+await page.fill('.pdf-page-input', '2')
+await page.waitForTimeout(600)
 await page.click('.source-jump')
 await page.waitForSelector('.pdf-highlight', { timeout: 10000 })
-await page.waitForTimeout(400)
+await page.waitForTimeout(600)
 await page.screenshot({ path: 'scripts/shot-5-skok.png' })
 
-const info = await page.locator('.pdf-page-info').textContent()
-console.log('Strona po skoku:', info)
+const jumped = await page.evaluate(() => {
+  const h = document.querySelector('.pdf-highlight')
+  return h?.closest('.pdf-page-wrap')?.dataset.page
+})
+console.log(`Skok do źródła: podświetlenie na stronie ${jumped} (oczekiwana 1)`)
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

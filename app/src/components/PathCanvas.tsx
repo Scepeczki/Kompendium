@@ -85,7 +85,9 @@ const toRfNode = (n: PathNode): Node => ({
         ? { text: n.text }
         : n.kind === 'comment'
           ? { text: n.text, side: n.side }
-          : { name: n.name, parts: n.parts },
+          : n.kind === 'heading'
+            ? { text: n.text, level: n.level }
+            : { name: n.name, parts: n.parts },
 })
 
 const fromRfNode = (n: Node): PathNode => {
@@ -108,6 +110,14 @@ const fromRfNode = (n: Node): PathNode => {
       kind: 'comment',
       text: (n.data.text as string) ?? '',
       side: (n.data.side as 'left' | 'right' | undefined) ?? undefined,
+    }
+  }
+  if (n.type === 'heading') {
+    return {
+      ...base,
+      kind: 'heading',
+      text: (n.data.text as string) ?? '',
+      level: ((n.data.level as 1 | 2 | 3) ?? 1),
     }
   }
   return {
@@ -318,6 +328,7 @@ interface LinearViewProps {
   onUnfuse: (id: string) => void
   onToggleSide: (id: string) => void
   onSetSubpage: (segId: string, subpageId: string | null) => void
+  onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
 }
 
 function LinearView({
@@ -330,6 +341,7 @@ function LinearView({
   onUnfuse,
   onToggleSide,
   onSetSubpage,
+  onAddHeading,
 }: LinearViewProps) {
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
@@ -402,6 +414,14 @@ function LinearView({
             />
           </div>
         </section>
+      )
+    }
+    if (n.kind === 'heading') {
+      const H = (`h${n.level + 1}` as unknown) as 'h2'
+      return (
+        <H className={`script-heading-node level-${n.level}`} onDoubleClick={() => onEdit(n)}>
+          {n.text || '(rozdział bez nazwy)'}
+        </H>
       )
     }
     if (n.kind === 'text') {
@@ -558,6 +578,20 @@ function LinearView({
         >
           <p>Przeciągnij klocek z listy po lewej, aby dokleić go do skryptu…</p>
           <div className="linear-append-actions">
+            <button
+              className="btn"
+              title="Rozdział — dzieli skrypt na części"
+              onClick={() => onAddHeading(1, last?.id ?? null, null)}
+            >
+              + § Rozdział
+            </button>
+            <button
+              className="btn"
+              title="Podrozdział"
+              onClick={() => onAddHeading(2, last?.id ?? null, null)}
+            >
+              + §§ Podrozdział
+            </button>
             <button className="btn" onClick={() => onAddNote('text', last?.id ?? null, null)}>
               + Notatka
             </button>
@@ -603,11 +637,33 @@ function FusionNode({ id, data, selected }: NodeProps) {
   )
 }
 
+/** Rozdział / podrozdział — nagłówek porządkujący ścieżkę. */
+function HeadingNode({ id, data, selected }: NodeProps) {
+  const ctx = useContext(CanvasCtx)
+  const level = (data.level as 1 | 2 | 3) ?? 1
+  const text = (data.text as string) ?? ''
+  return (
+    <div
+      className={`path-node path-node-heading level-${level} ${selected ? 'selected' : ''}`}
+    >
+      <Handle type="target" position={Position.Top} />
+      <span className="heading-level nodrag" title="Poziom: rozdział → podrozdział → sekcja">
+        <button onClick={() => ctx.updateData(id, { level: level === 3 ? 1 : level + 1 })}>
+          {'§'.repeat(level)}
+        </button>
+      </span>
+      <span className="heading-text">{text || 'Nowy rozdział…'}</span>
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  )
+}
+
 const nodeTypes = {
   block: BlockNode,
   text: TextNode,
   comment: CommentNode,
   fusion: FusionNode,
+  heading: HeadingNode,
 }
 
 // ---------------------------------------------------------------------------
@@ -884,6 +940,31 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
     addTextAt(pos.x, pos.y)
   }
 
+  /** Rozdział na mapie — nazwa od razu w oknie pytania (jak przy folderach). */
+  const addHeadingAt = (fx: number, fy: number, level: 1 | 2 | 3 = 1) => {
+    const label = level === 1 ? 'rozdziału' : level === 2 ? 'podrozdziału' : 'sekcji'
+    const text = window.prompt(`Nazwa ${label}:`)
+    if (!text?.trim()) return
+    setRfNodes((ns) => [
+      ...ns,
+      {
+        id: crypto.randomUUID(),
+        type: 'heading',
+        position: { x: fx, y: fy },
+        data: { text: text.trim(), level },
+      },
+    ])
+  }
+
+  const handleAddHeading = (level: 1 | 2 | 3 = 1) => {
+    const rect = wrapRef.current?.getBoundingClientRect()
+    const pos = screenToFlowPosition({
+      x: (rect?.left ?? 0) + (rect?.width ?? 600) / 2,
+      y: (rect?.top ?? 0) + (rect?.height ?? 400) / 2,
+    })
+    addHeadingAt(pos.x, pos.y, level)
+  }
+
   const addCommentAt = (fx: number, fy: number) => {
     setRfNodes((ns) => [
       ...ns,
@@ -1001,6 +1082,27 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
     )
   }
 
+  /** Rozdział w widoku liniowym — wstawiany w łańcuch jak zwykły segment. */
+  const linearAddHeading = (
+    level: 1 | 2 | 3,
+    afterId: string | null,
+    beforeId: string | null,
+  ) => {
+    const label = level === 1 ? 'rozdziału' : level === 2 ? 'podrozdziału' : 'sekcji'
+    const text = window.prompt(`Nazwa ${label}:`)
+    if (!text?.trim()) return
+    chainInsert(
+      {
+        id: crypto.randomUUID(),
+        type: 'heading',
+        position: positionBetween(afterId, beforeId),
+        data: { text: text.trim(), level },
+      },
+      afterId,
+      beforeId,
+    )
+  }
+
   const linearAddNote = (
     kind: 'text' | 'comment',
     afterId: string | null,
@@ -1040,6 +1142,9 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
       onOpenConcept(node.data.conceptId as string)
     } else if (node.type === 'text' || node.type === 'comment') {
       setEditingNote(node.id)
+    } else if (node.type === 'heading') {
+      const text = window.prompt('Nazwa rozdziału:', (node.data.text as string) ?? '')
+      if (text?.trim()) api.updateData(node.id, { text: text.trim() })
     }
   }
 
@@ -1175,6 +1280,13 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
             + 💬 Komentarz
           </button>
           <button
+            className="btn"
+            onClick={() => handleAddHeading(1)}
+            title="Dodaj rozdział (dwuklik na kafelku zmienia nazwę, § zmienia poziom)"
+          >
+            + § Rozdział
+          </button>
+          <button
             className={`btn ${showGrid ? 'btn-active' : ''}`}
             onClick={() => setShowGrid((g) => !g)}
             title="Pokaż/ukryj siatkę (Shift podczas przesuwania przyciąga do linii)"
@@ -1211,6 +1323,10 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
           onEdit={(n) => {
             if (n.kind === 'block') onOpenConcept(n.conceptId)
             else if (n.kind === 'text' || n.kind === 'comment') setEditingNote(n.id)
+            else if (n.kind === 'heading') {
+              const text = window.prompt('Nazwa rozdziału:', n.text)
+              if (text?.trim()) api.updateData(n.id, { text: text.trim() })
+            }
           }}
           onUnfuse={(id) => api.unfuse(id)}
           onToggleSide={(id) => {
@@ -1219,6 +1335,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
             api.updateData(id, { side: cur === 'right' ? 'left' : 'right' })
           }}
           onSetSubpage={(segId, subpageId) => api.updateData(segId, { subpageId })}
+          onAddHeading={linearAddHeading}
         />
       )}
       <div
@@ -1281,6 +1398,24 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
               }}
             >
               🧱 Nowy klocek tutaj
+            </button>
+            <button
+              className="path-ctxmenu-item"
+              onClick={() => {
+                addHeadingAt(ctxMenu.fx, ctxMenu.fy, 1)
+                setCtxMenu(null)
+              }}
+            >
+              § Nowy rozdział tutaj
+            </button>
+            <button
+              className="path-ctxmenu-item"
+              onClick={() => {
+                addHeadingAt(ctxMenu.fx, ctxMenu.fy, 2)
+                setCtxMenu(null)
+              }}
+            >
+              §§ Nowy podrozdział tutaj
             </button>
             <button
               className="path-ctxmenu-item"

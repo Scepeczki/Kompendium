@@ -1,18 +1,28 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { createFolder, db, deleteFolder, movePdf, renameFolder } from '../db'
+import {
+  createFolder,
+  db,
+  deleteFolder,
+  deletePdf,
+  movePdf,
+  renameFolder,
+  renamePdf,
+} from '../db'
 import type { Folder, PdfDoc } from '../types'
 
 interface Props {
   currentId: string | null
   onOpen: (id: string) => void
+  /** Wywoływane po usunięciu PDF-a (żeby zamknąć go, jeśli był otwarty). */
+  onDeleted?: (id: string) => void
 }
 
 const MIME = 'text/x-kompendium-pdf'
 
 /** Biblioteka PDF-ów: prosta, jednopoziomowa struktura folderów.
  *  PDF-y przeciąga się na foldery; upuszczenie poza folderem = poziom główny. */
-export function PdfLibrary({ currentId, onOpen }: Props) {
+export function PdfLibrary({ currentId, onOpen, onDeleted }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [hintId, setHintId] = useState<string | null>(null)
   const [rootHint, setRootHint] = useState(false)
@@ -61,8 +71,32 @@ export function PdfLibrary({ currentId, onOpen }: Props) {
     }
   }
 
+  const handleRenamePdf = async (p: PdfDoc) => {
+    const name = window.prompt('Nazwa PDF-a w bibliotece:', p.title)
+    if (!name?.trim() || name.trim() === p.title) return
+    await renamePdf(p.id, name.trim())
+  }
+
+  /** Usuwa PDF wraz z plikiem. Ostrzega, jeśli jakieś klocki mają w nim źródła —
+   *  odnośniki do niego przestaną działać. */
+  const handleDeletePdf = async (p: PdfDoc) => {
+    const versions = await db.versions.toArray()
+    const used = versions.filter((v) => v.sourceRefs.some((r) => r.pdfId === p.id)).length
+    const warn = used
+      ? `\n\nUWAGA: ${used} wersji klocków ma podpięte źródła z tego PDF-a — te odnośniki przestaną działać.`
+      : ''
+    if (
+      !window.confirm(
+        `Usunąć „${p.title}" z biblioteki? Plik zniknie z aplikacji na stałe.${warn}`,
+      )
+    )
+      return
+    await deletePdf(p.id)
+    onDeleted?.(p.id)
+  }
+
   const pdfRow = (p: PdfDoc) => (
-    <button
+    <div
       key={p.id}
       draggable
       className={`pdflib-item ${p.id === currentId ? 'selected' : ''}`}
@@ -72,8 +106,30 @@ export function PdfLibrary({ currentId, onOpen }: Props) {
         e.dataTransfer.effectAllowed = 'move'
       }}
     >
-      🕮 {p.title}
-    </button>
+      <span className="pdflib-title">🕮 {p.title}</span>
+      <span className="folder-actions">
+        <button
+          className="folder-action"
+          title="Zmień nazwę"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleRenamePdf(p)
+          }}
+        >
+          ✎
+        </button>
+        <button
+          className="folder-action"
+          title="Usuń PDF z biblioteki"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleDeletePdf(p)
+          }}
+        >
+          ×
+        </button>
+      </span>
+    </div>
   )
 
   return (

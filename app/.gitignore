@@ -17,6 +17,9 @@ scripts/shot-*.png
 scripts/test.pdf
 scripts/backup-test.zip
 
+# dane pomocnicze pdf.js kopiowane z node_modules przy starcie Vite
+public/pdfjs
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -27,3 +30,4 @@ scripts/backup-test.zip
 *.njsproj
 *.sln
 *.sw?
+scripts/test-multi.pdf
