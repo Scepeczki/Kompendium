@@ -2510,36 +2510,104 @@ button.version-pill.new {
   background: color-mix(in srgb, var(--block-color) 18%, transparent);
 }
 
-/* treść: pionowy akcent z lewej, jak marginalna kreska w podręczniku */
 .script-block-body {
-  padding: 14px 18px 16px;
-  border-left: 3px solid color-mix(in srgb, var(--block-color) 55%, transparent);
-  margin-left: 14px;
+  padding: 10px 18px 10px;
 }
 
-.script-block-body > .markdown-body > :first-child {
+/* wybór wersji — mała etykieta w kolorze typu, nad treścią */
+.block-pick {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--block-color) 70%, var(--ink));
+  margin-bottom: 6px;
+}
+
+.block-pick-select,
+.block-pick-static {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  padding: 0;
+}
+
+.block-pick-select {
+  border: none;
+  background: none;
+  cursor: pointer;
+  /* strzałka listy dopiero pod kursorem — spokojniejszy widok */
+  appearance: none;
+}
+
+.block-pick-select:hover,
+.block-pick-select:focus {
+  text-decoration: underline dotted;
+  outline: none;
+}
+
+/* treść: pionowy akcent z lewej, jak marginalna kreska w podręczniku */
+.block-content {
+  border-left: 3px solid color-mix(in srgb, var(--block-color) 55%, transparent);
+  padding-left: 14px;
+  margin-left: 2px;
+}
+
+/* wybór strony klocka — dyskretne etykiety nad treścią */
+.block-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.block-page {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.block-page:hover {
+  color: var(--ink-soft);
+}
+
+.block-page.active {
+  color: var(--ink);
+}
+
+.block-content > .markdown-body > :first-child {
   margin-top: 0;
 }
 
-.script-block-body > .markdown-body > :last-child {
+.block-content > .markdown-body > :last-child {
   margin-bottom: 0;
 }
 
 /* ---- źródła pod treścią bloku ---- */
 
+/* stopka bloku — ta sama typografia co etykieta wersji, tyle że wyciszona */
 .source-list {
-  margin-top: 10px;
-  padding-top: 7px;
-  border-top: 1px dashed color-mix(in srgb, var(--block-color, var(--line-strong)) 35%, transparent);
+  margin-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--block-color, var(--line-strong)) 22%, var(--line));
 }
 
 .source-list-toggle {
   font: inherit;
-  font-size: 12px;
-  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 4px;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 0 2px;
   border: none;
   background: none;
   color: var(--muted);
@@ -2547,14 +2615,27 @@ button.version-pill.new {
 }
 
 .source-list-toggle:hover {
-  color: var(--accent-ink);
+  color: color-mix(in srgb, var(--block-color, var(--ink-soft)) 60%, var(--ink-soft));
+}
+
+.source-list-count {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* znak +/− dosunięty do prawej krawędzi bloku */
+.source-list-sign {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .source-list-items {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin-top: 5px;
+  margin: 2px 0 6px;
 }
 
 /* pozycja odniesienia dla wyskakującego podglądu */

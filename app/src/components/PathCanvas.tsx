@@ -43,7 +43,7 @@ import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
-import { SourceList } from './SourceList'
+import { BlockShell } from './BlockShell'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
@@ -330,8 +330,10 @@ interface LinearViewProps {
   onUnfuse: (id: string) => void
   onToggleSide: (id: string) => void
   onSetSubpage: (segId: string, subpageId: string | null) => void
+  onSetVersion: (segId: string, versionId: string | null) => void
   onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
   onJumpToSource?: (ref: SourceRef) => void
+  onOpenConcept?: (id: string) => void
 }
 
 function LinearView({
@@ -344,21 +346,17 @@ function LinearView({
   onUnfuse,
   onToggleSide,
   onSetSubpage,
+  onSetVersion,
   onAddHeading,
   onJumpToSource,
+  onOpenConcept,
 }: LinearViewProps) {
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
-  const subpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
 
   const conceptById = (id: string) => concepts.find((c) => c.id === id)
-  const versionOf = (conceptId: string, versionId: string | null) => {
-    const c = conceptById(conceptId)
-    if (!c) return undefined
-    return versions.find((v) => v.id === (versionId ?? c.currentVersionId))
-  }
 
   const isOurs = (e: React.DragEvent) =>
     e.dataTransfer.types.includes(MIME) || e.dataTransfer.types.includes(SEG_MIME)
@@ -392,33 +390,18 @@ function LinearView({
     if (n.kind === 'block') {
       const c = conceptById(n.conceptId)
       if (!c) return <div className="script-block">(usunięte pojęcie)</div>
-      const v = versionOf(n.conceptId, n.versionId)
-      const sub = subpages.find((s) => s.id === (n.subpageId ?? null)) ?? null
       return (
-        <section className={`script-block script-${c.type}`}>
-          <header className="script-block-head">
-            <h3 className="script-block-title">
-              <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}:</span>{' '}
-              {c.name}
-            </h3>
-            {v?.label && <span className="script-block-version">{v.label}</span>}
-          </header>
-          <div className="script-block-body">
-            <SubpageTabs
-              conceptId={n.conceptId}
-              active={n.subpageId ?? null}
-              onSelect={(sid) => onSetSubpage(n.id, sid)}
-              hint="Strona pokazywana bazowo przy oglądaniu tej ścieżki"
-            />
-            <div
-              className="markdown-body"
-              dangerouslySetInnerHTML={{
-                __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
-              }}
-            />
-            <SourceList refs={v?.sourceRefs ?? []} onJump={onJumpToSource} />
-          </div>
-        </section>
+        <BlockShell
+          concept={c}
+          versions={versions.filter((v) => v.conceptId === c.id)}
+          versionId={n.versionId}
+          onVersionChange={(id: string | null) => onSetVersion(n.id, id)}
+          subpageId={n.subpageId ?? null}
+          onSubpageChange={(id: string | null) => onSetSubpage(n.id, id)}
+          onOpenConcept={onOpenConcept}
+          onJumpToSource={onJumpToSource}
+          pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
+        />
       )
     }
     if (n.kind === 'heading') {
@@ -1346,8 +1329,10 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             api.updateData(id, { side: cur === 'right' ? 'left' : 'right' })
           }}
           onSetSubpage={(segId, subpageId) => api.updateData(segId, { subpageId })}
+          onSetVersion={(segId, versionId) => api.updateData(segId, { versionId })}
           onAddHeading={linearAddHeading}
           onJumpToSource={onJumpToSource}
+          onOpenConcept={onOpenConcept}
         />
       )}
       <div

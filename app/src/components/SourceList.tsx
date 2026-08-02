@@ -68,8 +68,9 @@ export function SourceList({ refs, onJump }: Props) {
         title="Miejsca w PDF-ach, na których oparty jest ten klocek"
         onClick={() => setOpen((o) => !o)}
       >
-        <span className={`folder-chevron ${open ? 'open' : ''}`}>▸</span>
-        Źródła ({refs.length})
+        <span className="source-list-label">Źródła</span>
+        <span className="source-list-count">{refs.length}</span>
+        <span className="source-list-sign">{open ? '−' : '+'}</span>
       </button>
       {open && (
         <div className="source-list-items">

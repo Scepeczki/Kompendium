@@ -40,7 +40,7 @@ await page.waitForTimeout(400)
 const struct = await page.evaluate(() => {
   const b = document.querySelector('.script-block')
   const head = b.querySelector('.script-block-head')
-  const body = b.querySelector('.script-block-body')
+  const body = b.querySelector('.block-content')
   const type = b.querySelector('.script-block-type')
   return {
     hasHead: !!head,
@@ -50,6 +50,11 @@ const struct = await page.evaluate(() => {
     headBg: head ? getComputedStyle(head).backgroundColor : '',
     bodyBorder: body ? getComputedStyle(body).borderLeftWidth : '',
     bodyBorderColor: body ? getComputedStyle(body).borderLeftColor : '',
+    // jednolita oprawa: etykieta wersji nad treścią i stopka ze źródłami
+    versionLabel: b.querySelector('.block-pick')?.textContent?.trim() ?? '(brak)',
+    versionUpper: b.querySelector('.block-pick')
+      ? getComputedStyle(b.querySelector('.block-pick')).textTransform
+      : '',
   }
 })
 console.log(
@@ -57,6 +62,9 @@ console.log(
 )
 console.log(
   `✓ akcent przy treści: ${struct.bodyBorder} ${struct.bodyBorderColor} (oczekiwana kreska > 0px)`,
+)
+console.log(
+  `✓ etykieta wersji w oprawie bloku: „${struct.versionLabel}" (${struct.versionUpper})`,
 )
 
 // 2. pasek nagłówka zabarwiony kolorem typu (nie tłem panelu)

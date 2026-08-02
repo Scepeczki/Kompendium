@@ -3,12 +3,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
-import { SubpageTabs } from './SubpageTabs'
-import { SourceList } from './SourceList'
+import { BlockShell } from './BlockShell'
 import {
   BLOCK_TYPE_LABELS,
   type BlockVersion,
-  type Concept,
   type SourceRef,
 } from '../types'
 
@@ -26,10 +24,10 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
   const path = useLiveQuery(() => db.paths.get(pathId), [pathId])
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
-  const subpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
-  // Strona wybrana podczas oglądania (per kafelek) — nadpisuje bazową
-  // z ustawień ścieżki, ale niczego nie zapisuje.
+  // Wybór podczas oglądania (per kafelek) — nadpisuje ustawienia ścieżki,
+  // ale niczego nie zapisuje: to tylko sposób czytania, nie zmiana skryptu.
   const [pageOverride, setPageOverride] = useState<Record<string, string | null>>({})
+  const [verOverride, setVerOverride] = useState<Record<string, string | null>>({})
 
   if (!path) return null
 
@@ -46,48 +44,26 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
   }
 
   const blockSection = (
-    c: Concept,
-    v: BlockVersion | undefined,
+    conceptId: string,
     key: string,
+    baseVersionId: string | null,
     baseSubpageId: string | null,
   ) => {
-    const activeId =
-      key in pageOverride ? pageOverride[key] : baseSubpageId
-    const sub = subpages.find((s) => s.id === activeId) ?? null
+    const c = conceptById.get(conceptId)
+    if (!c) return null
     return (
-      <section key={key} className={`script-block script-${c.type}`}>
-        <header className="script-block-head">
-          <h3 className="script-block-title">
-            <span className="script-block-type">{BLOCK_TYPE_LABELS[c.type]}:</span>{' '}
-            {c.name}
-          </h3>
-          {v?.label && <span className="script-block-version">{v.label}</span>}
-          {onOpenConcept && (
-            <button
-              className="script-block-open"
-              title="Otwórz klocek w edytorze"
-              onClick={() => onOpenConcept(c.id)}
-            >
-              ↗
-            </button>
-          )}
-        </header>
-        <div className="script-block-body">
-          <SubpageTabs
-            conceptId={c.id}
-            active={sub?.id ?? null}
-            onSelect={(sid) => setPageOverride((o) => ({ ...o, [key]: sid }))}
-            hint="Przełącz stronę klocka (tylko podgląd — nie zmienia ścieżki)"
-          />
-          <div
-            className="markdown-body"
-            dangerouslySetInnerHTML={{
-              __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
-            }}
-          />
-          <SourceList refs={v?.sourceRefs ?? []} onJump={onJumpToSource} />
-        </div>
-      </section>
+      <BlockShell
+        key={key}
+        concept={c}
+        versions={versions.filter((v) => v.conceptId === c.id)}
+        versionId={key in verOverride ? verOverride[key] : baseVersionId}
+        onVersionChange={(id) => setVerOverride((o) => ({ ...o, [key]: id }))}
+        subpageId={key in pageOverride ? pageOverride[key] : baseSubpageId}
+        onSubpageChange={(id) => setPageOverride((o) => ({ ...o, [key]: id }))}
+        onOpenConcept={onOpenConcept}
+        onJumpToSource={onJumpToSource}
+        pickHint="Przełącz przy czytaniu — nie zmienia ustawień ścieżki"
+      />
     )
   }
 
@@ -120,9 +96,7 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
             )
           }
           if (n.kind === 'block') {
-            const r = resolve(n.conceptId, n.versionId)
-            if (!r) return null
-            return blockSection(r.concept, r.version, n.id, n.subpageId ?? null)
+            return blockSection(n.conceptId, n.id, n.versionId, n.subpageId ?? null)
           }
           // fuzja: wspólna ramka z częściami w środku
           return (

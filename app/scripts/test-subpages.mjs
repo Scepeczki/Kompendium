@@ -102,7 +102,8 @@ const scriptTxt = await page.textContent('.script-body .script-block')
 console.log(
   `✓ Skrypt pokazuje bazową stronę: ${scriptTxt.includes('indukcj') ? 'ok' : 'BRAK! ' + scriptTxt.slice(0, 80)}`,
 )
-await page.click('.script-body .page-chip:has-text("Treść")')
+// w Skrypcie strony wybiera się etykietami w oprawie bloku (.block-page)
+await page.click('.script-body .block-page:has-text("Treść")')
 await page.waitForTimeout(300)
 const scriptTxt2 = await page.textContent('.script-body .script-block')
 console.log(
