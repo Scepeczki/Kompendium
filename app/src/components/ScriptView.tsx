@@ -4,21 +4,25 @@ import { db } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { SubpageTabs } from './SubpageTabs'
+import { SourceList } from './SourceList'
 import {
   BLOCK_TYPE_LABELS,
   type BlockVersion,
   type Concept,
+  type SourceRef,
 } from '../types'
 
 interface Props {
   pathId: string
   /** Otwarcie klocka w edytorze (przycisk w nagłówku bloku). */
   onOpenConcept?: (id: string) => void
+  /** Skok do miejsca w PDF (klik w źródło pod treścią). */
+  onJumpToSource?: (ref: SourceRef) => void
 }
 
 /** Treść skryptu: ścieżka złożona w jeden ciągły dokument.
  *  Osadzana jako trzeci tryb widoku ścieżki (obok Mapy i Linii). */
-export function ScriptBody({ pathId, onOpenConcept }: Props) {
+export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
   const path = useLiveQuery(() => db.paths.get(pathId), [pathId])
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
@@ -81,6 +85,7 @@ export function ScriptBody({ pathId, onOpenConcept }: Props) {
               __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
             }}
           />
+          <SourceList refs={v?.sourceRefs ?? []} onJump={onJumpToSource} />
         </div>
       </section>
     )

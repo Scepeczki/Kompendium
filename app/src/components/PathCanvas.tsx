@@ -43,11 +43,13 @@ import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
+import { SourceList } from './SourceList'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
   type PathEdge,
   type PathNode,
+  type SourceRef,
 } from '../types'
 
 const MIME = 'text/x-kompendium'
@@ -329,6 +331,7 @@ interface LinearViewProps {
   onToggleSide: (id: string) => void
   onSetSubpage: (segId: string, subpageId: string | null) => void
   onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
+  onJumpToSource?: (ref: SourceRef) => void
 }
 
 function LinearView({
@@ -342,6 +345,7 @@ function LinearView({
   onToggleSide,
   onSetSubpage,
   onAddHeading,
+  onJumpToSource,
 }: LinearViewProps) {
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
@@ -412,6 +416,7 @@ function LinearView({
                 __html: renderMarkdown(sub ? sub.content : (v?.content ?? '')),
               }}
             />
+            <SourceList refs={v?.sourceRefs ?? []} onJump={onJumpToSource} />
           </div>
         </section>
       )
@@ -674,9 +679,11 @@ interface Props {
   pathId: string
   onClose: () => void
   onOpenConcept: (id: string) => void
+  /** Skok do miejsca w PDF (klik w źródło pod treścią bloku). */
+  onJumpToSource?: (ref: SourceRef) => void
 }
 
-function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
+function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) {
   const [name, setName] = useState('')
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
@@ -1311,7 +1318,11 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
             : 'Gotowy skrypt ścieżki (tylko odczyt) — edytuj na Mapie albo w Linii'}
       </div>
       {mode === 'script' && (
-        <ScriptBody pathId={pathId} onOpenConcept={onOpenConcept} />
+        <ScriptBody
+          pathId={pathId}
+          onOpenConcept={onOpenConcept}
+          onJumpToSource={onJumpToSource}
+        />
       )}
       {mode === 'linear' && (
         <LinearView
@@ -1336,6 +1347,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept }: Props) {
           }}
           onSetSubpage={(segId, subpageId) => api.updateData(segId, { subpageId })}
           onAddHeading={linearAddHeading}
+          onJumpToSource={onJumpToSource}
         />
       )}
       <div

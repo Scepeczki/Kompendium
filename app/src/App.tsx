@@ -119,6 +119,12 @@ export default function App() {
     }
   }
 
+  /** Pokazuje w panelu PDF miejsce, na którym oparte jest źródło. */
+  const jumpToSource = (ref: SourceRef) => {
+    setShowPdf(true)
+    setPdfTarget({ pdfId: ref.pdfId, page: ref.page, rect: ref.rect })
+  }
+
   /** Tryb podpinania źródła — jeśli panel PDF jest schowany, pokaż go. */
   const toggleSelecting = () => {
     setSelecting((s) => {
@@ -163,6 +169,7 @@ export default function App() {
           pathId={openPathId}
           onClose={() => setOpenPathId(null)}
           onOpenConcept={selectConcept}
+          onJumpToSource={jumpToSource}
         />
       ) : concept && version ? (
         <BlockEditor
@@ -174,10 +181,7 @@ export default function App() {
           onDeleted={closeConcept}
           selecting={selecting}
           onToggleSelecting={toggleSelecting}
-          onJumpToSource={(ref) => {
-            setShowPdf(true)
-            setPdfTarget({ pdfId: ref.pdfId, page: ref.page, rect: ref.rect })
-          }}
+          onJumpToSource={jumpToSource}
           onOpenConcept={selectConcept}
         />
       ) : (
@@ -213,6 +217,7 @@ export default function App() {
               setShowPdf(false)
               setSelecting(false)
             }}
+            onOpenConcept={selectConcept}
           />
         </>
       ) : (

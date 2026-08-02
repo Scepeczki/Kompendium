@@ -1639,6 +1639,41 @@ button.version-pill.new {
   cursor: crosshair;
 }
 
+/* fragmenty już wykorzystane w klockach */
+.pdf-used {
+  position: absolute;
+  padding: 0;
+  border: 1px solid rgba(49, 97, 158, 0.75);
+  background: rgba(49, 97, 158, 0.1);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.pdf-used:hover {
+  background: rgba(49, 97, 158, 0.22);
+}
+
+.pdf-used-label {
+  position: absolute;
+  left: -1px;
+  bottom: 100%;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 0 5px;
+  background: rgba(49, 97, 158, 0.9);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.pdf-used:hover .pdf-used-label {
+  opacity: 1;
+}
+
 .pdf-highlight {
   position: absolute;
   border: 2px solid var(--accent);
@@ -2398,7 +2433,7 @@ button.version-pill.new {
    (--block-color), więc zmiana koloru w Ustawieniach przestraja całość. */
 .script-block {
   --block-color: var(--ink-soft);
-  border-radius: 8px;
+  border-radius: 2px;
   margin: 22px 0;
   overflow: hidden;
   background: color-mix(
@@ -2488,6 +2523,77 @@ button.version-pill.new {
 
 .script-block-body > .markdown-body > :last-child {
   margin-bottom: 0;
+}
+
+/* ---- źródła pod treścią bloku ---- */
+
+.source-list {
+  margin-top: 10px;
+  padding-top: 7px;
+  border-top: 1px dashed color-mix(in srgb, var(--block-color, var(--line-strong)) 35%, transparent);
+}
+
+.source-list-toggle {
+  font: inherit;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.source-list-toggle:hover {
+  color: var(--accent-ink);
+}
+
+.source-list-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+/* pozycja odniesienia dla wyskakującego podglądu */
+.source-list-item {
+  position: relative;
+  display: inline-flex;
+}
+
+.source-list-group {
+  color: var(--muted);
+}
+
+/* podgląd fragmentu strony po najechaniu */
+.source-preview {
+  position: absolute;
+  z-index: 60;
+  bottom: calc(100% + 6px);
+  left: 0;
+  padding: 5px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
+
+.source-preview img {
+  display: block;
+  max-width: 380px;
+  max-height: 300px;
+  background: #fff;
+}
+
+.source-preview-status {
+  display: block;
+  max-width: 240px;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 6px;
 }
 
 .script-text {

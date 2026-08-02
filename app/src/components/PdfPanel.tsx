@@ -1,24 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import * as pdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, importPdf } from '../db'
+import { forgetPdf, loadPdf } from '../pdfDoc'
 import type { Rect, SourceRef } from '../types'
 import { PdfLibrary } from './PdfLibrary'
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
-
-/** Dane pomocnicze pdf.js (kopiowane do public/pdfjs przez vite.config.ts).
- *  Bez czcionek standardowych dokumenty z niewbudowanymi krojami tracą tekst,
- *  bez map znaków — dokumenty z nietypowym kodowaniem. */
-const PDF_ASSETS = {
-  cMapUrl: `${import.meta.env.BASE_URL}pdfjs/cmaps/`,
-  cMapPacked: true,
-  standardFontDataUrl: `${import.meta.env.BASE_URL}pdfjs/standard_fonts/`,
-  wasmUrl: `${import.meta.env.BASE_URL}pdfjs/wasm/`,
-  iccUrl: `${import.meta.env.BASE_URL}pdfjs/iccs/`,
-}
 
 /** Cel skoku do źródła (klik w odnośnik w edytorze). */
 export interface PdfTarget {
@@ -33,6 +19,8 @@ interface Props {
   onRegionSelected: (ref: Omit<SourceRef, 'id'>) => void
   target: PdfTarget | null
   onHide: () => void
+  /** Otwarcie klocka po kliknięciu w użyty fragment strony. */
+  onOpenConcept?: (id: string) => void
 }
 
 interface DragState {
@@ -48,7 +36,13 @@ const ZOOM_MAX = 4
 
 /** Widok PDF: wszystkie strony jedna pod drugą, przewijane jak w zwykłej
  *  przeglądarce dokumentów. Strony renderują się, gdy zbliżają się do okna. */
-export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props) {
+export function PdfPanel({
+  selecting,
+  onRegionSelected,
+  target,
+  onHide,
+  onOpenConcept,
+}: Props) {
   const pdfs = useLiveQuery(() => db.pdfs.orderBy('addedAt').toArray(), []) ?? []
   const [pdfId, setPdfId] = useState<string | null>(null)
   const [libOpen, setLibOpen] = useState(false)
@@ -61,6 +55,27 @@ export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props)
   const [visiblePage, setVisiblePage] = useState(1)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [highlight, setHighlight] = useState<{ page: number; rect: Rect } | null>(null)
+  /** Pokazywanie wszystkich już wykorzystanych fragmentów tego PDF-a. */
+  const [showUsed, setShowUsed] = useState(
+    () => localStorage.getItem('ui.pdfShowUsed') !== '0',
+  )
+  useEffect(() => {
+    localStorage.setItem('ui.pdfShowUsed', showUsed ? '1' : '0')
+  }, [showUsed])
+
+  // Wszystkie źródła wskazujące na otwarty PDF — z nazwą klocka, do etykiet.
+  const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+  const usedRects = pdfId
+    ? versions.flatMap((v) => {
+        const c = concepts.find((x) => x.id === v.conceptId)
+        // pokazujemy tylko bieżące wersje — stare zaśmiecałyby stronę
+        if (!c || c.currentVersionId !== v.id) return []
+        return v.sourceRefs
+          .filter((r) => r.pdfId === pdfId)
+          .map((r) => ({ ref: r, conceptId: c.id, name: c.name }))
+      })
+    : []
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -97,11 +112,8 @@ export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props)
         setBaseSize(null)
         return
       }
-      const rec = await db.pdfs.get(pdfId)
-      if (!rec || cancelled) return
-      const data = await rec.data.arrayBuffer()
-      const loaded = await pdfjsLib.getDocument({ data, ...PDF_ASSETS }).promise
-      if (cancelled) return
+      const loaded = await loadPdf(pdfId)
+      if (!loaded || cancelled) return
       const first = await loaded.getPage(1)
       const vp = first.getViewport({ scale: 1 })
       if (cancelled) return
@@ -319,6 +331,13 @@ export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props)
               onChange={(e) => goToPage(Number(e.target.value))}
             />
             <span className="pdf-page-info">/ {pageCount}</span>
+            <button
+              className={`btn ${showUsed ? 'btn-active' : ''}`}
+              title={`Pokaż fragmenty użyte w klockach (${usedRects.length})`}
+              onClick={() => setShowUsed((s) => !s)}
+            >
+              ▣ {usedRects.length}
+            </button>
           </div>
         )}
         <button className="btn btn-close" title="Schowaj panel PDF" onClick={onHide}>
@@ -334,6 +353,7 @@ export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props)
             setLibOpen(false)
           }}
           onDeleted={(id) => {
+            forgetPdf(id)
             if (id === pdfId) setPdfId(null)
           }}
         />
@@ -377,6 +397,28 @@ export function PdfPanel({ selecting, onRegionSelected, target, onHide }: Props)
                 }}
               />
               <span className="pdf-page-number">{num}</span>
+              {showUsed &&
+                usedRects
+                  .filter((u) => u.ref.page === num)
+                  .map((u) => (
+                    <button
+                      key={u.ref.id}
+                      className="pdf-used"
+                      style={{
+                        left: u.ref.rect.x * scale,
+                        top: u.ref.rect.y * scale,
+                        width: u.ref.rect.w * scale,
+                        height: u.ref.rect.h * scale,
+                      }}
+                      title={`Użyte w: ${u.name}${onOpenConcept ? ' — kliknij, aby otworzyć' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onOpenConcept?.(u.conceptId)
+                      }}
+                    >
+                      <span className="pdf-used-label">{u.name}</span>
+                    </button>
+                  ))}
               {highlight?.page === num && (
                 <div
                   className="pdf-highlight"
