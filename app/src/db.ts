@@ -150,7 +150,7 @@ export async function createConcept(type: BlockType = 'definicja'): Promise<stri
 
 export async function updateConcept(
   id: string,
-  patch: Partial<Pick<Concept, 'name' | 'type' | 'tags'>>,
+  patch: Partial<Pick<Concept, 'name' | 'type' | 'tags' | 'mainPageName'>>,
 ) {
   await db.concepts.update(id, { ...patch, updatedAt: now() })
 }
@@ -248,6 +248,10 @@ export async function deleteConcept(id: string) {
 // ---------------------------------------------------------------------------
 // Strony klocka (dowody itp.)
 // ---------------------------------------------------------------------------
+
+/** Nazwa strony głównej klocka — domyślnie „Treść". */
+export const mainPageName = (c: { mainPageName?: string }) =>
+  c.mainPageName?.trim() || 'Treść'
 
 /** Dodaje nową stronę (np. dowód) do pojęcia i zwraca jej id. */
 export async function createSubpage(conceptId: string, name: string): Promise<string> {

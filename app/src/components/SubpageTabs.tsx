@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, mainPageName } from '../db'
 
 interface Props {
   conceptId: string
@@ -18,6 +18,7 @@ export function SubpageTabs({ conceptId, active, onSelect, hint }: Props) {
       () => db.subpages.where('conceptId').equals(conceptId).sortBy('order'),
       [conceptId],
     ) ?? []
+  const concept = useLiveQuery(() => db.concepts.get(conceptId), [conceptId])
   if (subs.length === 0) return null
   const activeSub = subs.find((s) => s.id === active) ?? null
   return (
@@ -30,7 +31,7 @@ export function SubpageTabs({ conceptId, active, onSelect, hint }: Props) {
           onSelect(null)
         }}
       >
-        Treść
+        {concept ? mainPageName(concept) : 'Treść'}
       </button>
       {subs.map((s) => (
         <button

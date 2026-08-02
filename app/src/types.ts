@@ -80,6 +80,10 @@ export interface Concept {
   name: string
   type: BlockType
   tags: string[]
+  /** Nazwa strony głównej klocka (domyślnie „Treść"). Same strony dodatkowe
+   *  są w tabeli subpages; źródła należą do wersji, więc są wspólne dla
+   *  wszystkich stron. */
+  mainPageName?: string
   /** null = poziom główny drzewa. */
   folderId: string | null
   /** Ręczna kolejność w obrębie folderu (ułamkowa — wstawianie pomiędzy). */

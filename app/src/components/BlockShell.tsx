@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, mainPageName } from '../db'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
 import {
@@ -105,7 +105,7 @@ export function BlockShell({
                 title={pickHint ?? 'Strona klocka'}
                 onClick={() => onSubpageChange?.(null)}
               >
-                Treść
+                {mainPageName(concept)}
               </button>
               {subs.map((s) => (
                 <button

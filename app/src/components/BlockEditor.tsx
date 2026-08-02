@@ -12,6 +12,7 @@ import {
   deleteConcept,
   deleteSubpage,
   deleteVersion,
+  mainPageName,
   renameSubpage,
   renameVersion,
   reorderVersions,
@@ -141,6 +142,16 @@ export function BlockEditor({
     if (!window.confirm(`Usunąć stronę „${name}"? Jej treść przepadnie.`)) return
     await deleteSubpage(id)
     if (subId === id) setSubId(null)
+  }
+
+  /** Strona główna też ma nazwę — bywa, że „Treść" nie pasuje. */
+  const handleRenameMainPage = async () => {
+    const name = window.prompt(
+      'Nazwa strony głównej klocka (puste = „Treść"):',
+      mainPageName(concept),
+    )
+    if (name === null) return
+    await updateConcept(concept.id, { mainPageName: name.trim() || undefined })
   }
   const pdfTitle = (id: string) => pdfs.find((p) => p.id === id)?.title ?? 'PDF'
 
@@ -510,12 +521,8 @@ export function BlockEditor({
           <button
             className={`btn ${selecting ? 'btn-active' : ''}`}
             onClick={onToggleSelecting}
-            disabled={!isCurrent || !!activeSub}
-            title={
-              activeSub
-                ? 'Źródła podpina się do głównej treści klocka'
-                : 'Zaznacz fragment PDF i podepnij go jako źródło'
-            }
+            disabled={!isCurrent}
+            title="Zaznacz fragment PDF i podepnij go jako źródło (wspólne dla wszystkich stron tej wersji)"
           >
             📌 Podepnij źródło
           </button>
@@ -564,7 +571,12 @@ export function BlockEditor({
             if (id) setRefGroup(id, undefined)
           }}
         >
-          <span className="source-label">Źródła:</span>
+          <span
+            className="source-label"
+            title="Źródła należą do wersji — są wspólne dla wszystkich jej stron"
+          >
+            Źródła:
+          </span>
           {refsIn(null).map((r) => sourceChip(r))}
           {groupNames.map((g) => {
             const open = !collapsedGroups.has(g)
@@ -621,13 +633,27 @@ export function BlockEditor({
       <div className={`editor-body view-${view}`}>
         {/* strony klocka: główna treść + dowody itp. — wąska kolumna kart */}
         <div className="subpage-rail nodrag">
-          <button
+          <div
             className={`subpage-item ${!activeSub ? 'active' : ''}`}
             title="Główna treść klocka"
             onClick={() => setSubId(null)}
           >
-            Treść
-          </button>
+            <span className="subpage-name">{mainPageName(concept)}</span>
+            {!activeSub && (
+              <span className="subpage-actions">
+                <button
+                  className="folder-action"
+                  title="Zmień nazwę strony głównej"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRenameMainPage()
+                  }}
+                >
+                  ✎
+                </button>
+              </span>
+            )}
+          </div>
           {subs.map((s) => (
             <div
               key={s.id}
