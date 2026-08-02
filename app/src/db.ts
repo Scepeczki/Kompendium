@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { isSymmetricRelation } from './types'
 import type {
   BlockType,
   BlockVersion,
@@ -7,6 +8,8 @@ import type {
   FolderKind,
   LearningPath,
   PdfDoc,
+  Relation,
+  RelationKind,
   Subpage,
 } from './types'
 
@@ -17,6 +20,7 @@ class KompendiumDB extends Dexie {
   folders!: Table<Folder, string>
   paths!: Table<LearningPath, string>
   subpages!: Table<Subpage, string>
+  relations!: Table<Relation, string>
 
   constructor() {
     super('kompendium')
@@ -89,6 +93,16 @@ class KompendiumDB extends Dexie {
       folders: 'id, kind, parentId, name',
       paths: 'id, name, folderId, createdAt, updatedAt',
       subpages: 'id, conceptId',
+    })
+    // v6: relacje między klockami (uogólnienie, równoważność, część, wymaganie).
+    this.version(6).stores({
+      concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
+      versions: 'id, conceptId, [conceptId+version], createdAt',
+      pdfs: 'id, title, addedAt, folderId',
+      folders: 'id, kind, parentId, name',
+      paths: 'id, name, folderId, createdAt, updatedAt',
+      subpages: 'id, conceptId',
+      relations: 'id, fromId, toId, kind',
     })
   }
 }
@@ -238,10 +252,75 @@ export async function deleteVersion(versionId: string) {
 }
 
 export async function deleteConcept(id: string) {
-  await db.transaction('rw', db.concepts, db.versions, db.subpages, async () => {
-    await db.versions.where('conceptId').equals(id).delete()
-    await db.subpages.where('conceptId').equals(id).delete()
-    await db.concepts.delete(id)
+  await db.transaction(
+    'rw',
+    [db.concepts, db.versions, db.subpages, db.relations],
+    async () => {
+      await db.versions.where('conceptId').equals(id).delete()
+      await db.subpages.where('conceptId').equals(id).delete()
+      await db.relations.where('fromId').equals(id).delete()
+      await db.relations.where('toId').equals(id).delete()
+      await db.concepts.delete(id)
+    },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Relacje między klockami
+// ---------------------------------------------------------------------------
+
+/** Dodaje relację `from --kind--> to`. Nie duplikuje istniejącej pary
+ *  (w tym w drugą stronę, gdy relacja jest symetryczna). */
+export async function addRelation(
+  fromId: string,
+  toId: string,
+  kind: RelationKind,
+  note?: string,
+): Promise<string | null> {
+  if (fromId === toId) return null
+  const all = await db.relations.toArray()
+  const symmetric = isSymmetricRelation(kind)
+  const exists = all.some(
+    (r) =>
+      r.kind === kind &&
+      ((r.fromId === fromId && r.toId === toId) ||
+        (symmetric && r.fromId === toId && r.toId === fromId)),
+  )
+  if (exists) return null
+  const id = uid()
+  await db.relations.add({
+    id,
+    fromId,
+    fromVersionId: null,
+    toId,
+    toVersionId: null,
+    kind,
+    note,
+    createdAt: now(),
+  })
+  return id
+}
+
+export async function updateRelation(
+  id: string,
+  patch: Partial<Pick<Relation, 'kind' | 'note' | 'fromVersionId' | 'toVersionId'>>,
+) {
+  await db.relations.update(id, patch)
+}
+
+export async function deleteRelation(id: string) {
+  await db.relations.delete(id)
+}
+
+/** Odwraca kierunek relacji (np. pomyłka przy wskazywaniu, co jest mocniejsze). */
+export async function flipRelation(id: string) {
+  const r = await db.relations.get(id)
+  if (!r) return
+  await db.relations.update(id, {
+    fromId: r.toId,
+    fromVersionId: r.toVersionId ?? null,
+    toId: r.fromId,
+    toVersionId: r.fromVersionId ?? null,
   })
 }
 

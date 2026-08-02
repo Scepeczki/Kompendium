@@ -132,6 +132,62 @@ export interface BlockVersion {
   updatedAt: string
 }
 
+// ---------------------------------------------------------------------------
+// Relacje między klockami — warstwa wiedzy, niezależna od ścieżek.
+// Wersje mówią „to samo pojęcie, inne ujęcie"; relacje mówią, jak różne
+// pojęcia mają się do siebie (uogólnienie, równoważność, część, wymaganie).
+// ---------------------------------------------------------------------------
+
+/** Trzy osie powiązań między klockami:
+ *  - `zawieranie` (mereologia) — to jest częścią tamtego,
+ *  - `skala` (taksonomia i wnioskowanie) — to jest mocniejsze/szczegółowsze
+ *    od tamtego; z mocniejszego wynika słabsze,
+ *  - `perspektywa` (epistemologia) — dwa spojrzenia na ten sam zbiór znaczeń
+ *    (odpowiednik wersji, tyle że między osobnymi klockami). */
+export type RelationKind = 'zawieranie' | 'skala' | 'perspektywa'
+
+/** Etykiety relacji widziane „od strony" klocka źródłowego i docelowego. */
+export const RELATION_LABELS: Record<
+  RelationKind,
+  { forward: string; backward: string; hint: string }
+> = {
+  zawieranie: {
+    forward: 'zawiera',
+    backward: 'jest częścią',
+    hint: 'Mereologia: tamten klocek jest pojęciową częścią tego',
+  },
+  skala: {
+    forward: 'mocniejsze niż',
+    backward: 'słabsze niż',
+    hint: 'Skala i wnioskowanie: to jest uszczegółowieniem tamtego, z tego wynika tamto',
+  },
+  perspektywa: {
+    forward: 'inna perspektywa',
+    backward: 'inna perspektywa',
+    hint: 'Epistemologia: dwa różne spojrzenia na ten sam zbiór znaczeń',
+  },
+}
+
+export const RELATION_KINDS = Object.keys(RELATION_LABELS) as RelationKind[]
+
+/** Relacje symetryczne nie mają wyróżnionego kierunku. */
+export const isSymmetricRelation = (k: RelationKind) => k === 'perspektywa'
+
+/** Skierowana relacja: `from` --kind--> `to`.
+ *  Końce mogą wskazywać konkretną wersję — bo jedna perspektywa klocka
+ *  bywa uogólnieniem, a inna nie. Brak wersji = klocek jako całość. */
+export interface Relation {
+  id: string
+  fromId: string
+  fromVersionId?: string | null
+  toId: string
+  toVersionId?: string | null
+  kind: RelationKind
+  /** Np. wartość parametru przy uszczegółowieniu („n = 1"). */
+  note?: string
+  createdAt: string
+}
+
 /** Dodatkowa strona klocka (najczęściej dowód — nazwa dowolna).
  *  Strony są wspólne dla wszystkich wersji pojęcia. */
 export interface Subpage {

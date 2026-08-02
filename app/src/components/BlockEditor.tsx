@@ -4,6 +4,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { RichEditor } from './RichEditor'
 import { ConceptPicker } from './ConceptPicker'
+import { RelationPanel } from './RelationPanel'
 import { mdShortcuts, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import {
@@ -775,6 +776,8 @@ export function BlockEditor({
           onClose={() => setPickingSource(false)}
         />
       )}
+
+      <RelationPanel concept={concept} onOpenConcept={onOpenConcept} />
 
       {backlinks.length > 0 && (
         <footer className="backlinks-row">

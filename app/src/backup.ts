@@ -6,6 +6,7 @@ import type {
   Folder,
   LearningPath,
   PdfDoc,
+  Relation,
   Subpage,
 } from './types'
 
@@ -22,6 +23,8 @@ interface BackupData {
   pdfs: Omit<PdfDoc, 'data'>[]
   /** Strony klocków (dowody itp.) — brak w starszych kopiach. */
   subpages?: Subpage[]
+  /** Relacje między klockami — brak w starszych kopiach. */
+  relations?: Relation[]
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -35,14 +38,16 @@ function backupFileName(): string {
 /** Eksportuje całą bazę (klocki, wersje, foldery, ścieżki, PDF-y) do jednego
  *  pliku .zip i uruchamia jego pobranie w przeglądarce. */
 export async function exportBackup(): Promise<void> {
-  const [concepts, versions, folders, paths, pdfs, subpages] = await Promise.all([
-    db.concepts.toArray(),
-    db.versions.toArray(),
-    db.folders.toArray(),
-    db.paths.toArray(),
-    db.pdfs.toArray(),
-    db.subpages.toArray(),
-  ])
+  const [concepts, versions, folders, paths, pdfs, subpages, relations] =
+    await Promise.all([
+      db.concepts.toArray(),
+      db.versions.toArray(),
+      db.folders.toArray(),
+      db.paths.toArray(),
+      db.pdfs.toArray(),
+      db.subpages.toArray(),
+      db.relations.toArray(),
+    ])
 
   const zip = new JSZip()
   const data: BackupData = {
@@ -54,6 +59,7 @@ export async function exportBackup(): Promise<void> {
     paths,
     pdfs: pdfs.map(({ data: _blob, ...meta }) => meta),
     subpages,
+    relations,
   }
   zip.file('dane.json', JSON.stringify(data, null, 1))
   const pdfFolder = zip.folder('pdfy')!
@@ -97,7 +103,15 @@ export async function importBackup(file: File): Promise<ImportSummary> {
 
   await db.transaction(
     'rw',
-    [db.concepts, db.versions, db.folders, db.paths, db.pdfs, db.subpages],
+    [
+      db.concepts,
+      db.versions,
+      db.folders,
+      db.paths,
+      db.pdfs,
+      db.subpages,
+      db.relations,
+    ],
     async () => {
       await db.concepts.bulkPut(data.concepts)
       await db.versions.bulkPut(data.versions)
@@ -105,6 +119,7 @@ export async function importBackup(file: File): Promise<ImportSummary> {
       await db.paths.bulkPut(data.paths)
       await db.pdfs.bulkPut(pdfs)
       await db.subpages.bulkPut(data.subpages ?? [])
+      await db.relations.bulkPut(data.relations ?? [])
     },
   )
 
