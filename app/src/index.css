@@ -2886,6 +2886,70 @@ button.version-pill.new {
   border-left: 2px solid var(--line-strong);
 }
 
+/* ---- scalony blok na mapie ---- */
+
+.fusion-type {
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 3px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.fusion-type.type-definicja { color: var(--c-definicja); border-color: var(--c-definicja); }
+.fusion-type.type-twierdzenie { color: var(--c-twierdzenie); border-color: var(--c-twierdzenie); }
+.fusion-type.type-lemat { color: var(--c-lemat); border-color: var(--c-lemat); }
+.fusion-type.type-przyklad { color: var(--c-przyklad); border-color: var(--c-przyklad); }
+.fusion-type.type-uwaga { color: var(--c-uwaga); border-color: var(--c-uwaga); }
+
+.path-node-fusion .fusion-parts li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fusion-part-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.path-node-fusion .fusion-parts .folder-action {
+  opacity: 0;
+}
+
+.path-node-fusion .fusion-parts li:hover .folder-action {
+  opacity: 1;
+}
+
+/* ---- powiązania pokazywane na mapie ścieżki ---- */
+
+.relation-edge .react-flow__edge-path {
+  stroke-dasharray: 5 4;
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+
+.relation-edge .react-flow__edge-text {
+  font-size: 9px;
+  fill: var(--muted);
+}
+
+.relation-edge .react-flow__edge-textbg {
+  fill: var(--paper);
+}
+
+.relation-edge.rel-zawieranie .react-flow__edge-path { stroke: var(--c-przyklad); }
+.relation-edge.rel-skala .react-flow__edge-path { stroke: var(--c-twierdzenie); }
+.relation-edge.rel-perspektywa .react-flow__edge-path { stroke: var(--c-definicja); }
+
 /* trzy osie powiązań, każda w innym kolorze */
 .minimap-group.rel-zawieranie { border-left-color: var(--c-przyklad); }
 .minimap-group.rel-skala { border-left-color: var(--c-twierdzenie); }

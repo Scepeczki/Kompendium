@@ -240,11 +240,15 @@ export interface PathNodeComment {
   y: number
 }
 
-/** Fuzja: kilka klocków scalonych w jeden kafelek w obrębie tej ścieżki. */
+/** Fuzja: kilka klocków scalonych w jeden kafelek w obrębie tej ścieżki.
+ *  Klocki w bazie zostają atomowe — to jest wyłącznie sposób pokazania. */
 export interface PathNodeFusion {
   id: string
   kind: 'fusion'
   name: string
+  /** Czym jest scalona całość (np. jedno twierdzenie z dwóch twierdzeń).
+   *  Brak = neutralny „Blok". */
+  type?: BlockType
   parts: { conceptId: string; versionId: string | null }[]
   x: number
   y: number

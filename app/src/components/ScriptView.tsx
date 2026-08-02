@@ -107,12 +107,19 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
           if (n.kind === 'block') {
             return blockSection(n.conceptId, n.id, n.versionId, n.subpageId ?? null)
           }
-          // fuzja: wspólna ramka z częściami w środku
+          // fuzja: wspólna ramka z częściami w środku; typ (np. twierdzenie
+          // złożone z dwóch twierdzeń) barwi ją tak samo jak zwykły blok
           return (
-            <section key={n.id} className="script-block script-fusion">
+            <section
+              key={n.id}
+              className={`script-block script-fusion ${n.type ? `script-${n.type}` : ''}`}
+            >
               <header className="script-block-head">
                 <h3 className="script-block-title">
-                  <span className="script-block-type">Blok:</span> {n.name}
+                  <span className="script-block-type">
+                    {n.type ? BLOCK_TYPE_LABELS[n.type] : 'Blok'}:
+                  </span>{' '}
+                  {n.name}
                 </h3>
               </header>
               <div className="script-block-body">

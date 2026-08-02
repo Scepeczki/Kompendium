@@ -45,9 +45,14 @@ import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
 import { Outline, outlineId, type OutlineItem } from './Outline'
+import { ConceptPicker } from './ConceptPicker'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
+  BLOCK_TYPES,
+  RELATION_LABELS,
+  isSymmetricRelation,
+  type BlockType,
   type PathEdge,
   type PathNode,
   type SourceRef,
@@ -60,6 +65,9 @@ const SEG_MIME = 'text/x-komp-seg'
 interface CanvasApi {
   updateData: (id: string, patch: Record<string, unknown>) => void
   unfuse: (id: string) => void
+  renameFusion: (id: string) => void
+  addFusionPart: (id: string) => void
+  removeFusionPart: (id: string, index: number) => void
   openConcept: (id: string) => void
   /** Numer i liczba strzałek wychodzących z tego samego źródła. */
   edgeOrderInfo: (edgeId: string, source: string) => { index: number; count: number }
@@ -90,7 +98,7 @@ const toRfNode = (n: PathNode): Node => ({
           ? { text: n.text, side: n.side }
           : n.kind === 'heading'
             ? { text: n.text, level: n.level }
-            : { name: n.name, parts: n.parts },
+            : { name: n.name, parts: n.parts, type: n.type },
 })
 
 const fromRfNode = (n: Node): PathNode => {
@@ -127,6 +135,7 @@ const fromRfNode = (n: Node): PathNode => {
     ...base,
     kind: 'fusion',
     name: (n.data.name as string) ?? '',
+    type: (n.data.type as BlockType | undefined) ?? undefined,
     parts: (n.data.parts as { conceptId: string; versionId: string | null }[]) ?? [],
   }
 }
@@ -474,10 +483,15 @@ function LinearView({
       )
     }
     return (
-      <section className="script-block script-fusion">
+      <section
+        className={`script-block script-fusion ${n.type ? `script-${n.type}` : ''}`}
+      >
         <header className="script-block-head">
           <h3 className="script-block-title">
-            <span className="script-block-type">Blok:</span> {n.name}
+            <span className="script-block-type">
+              {n.type ? BLOCK_TYPE_LABELS[n.type] : 'Blok'}:
+            </span>{' '}
+            {n.name}
           </h3>
         </header>
         <div className="script-block-body">
@@ -607,15 +621,45 @@ function LinearView({
 
 function FusionNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
-  const parts = (data.parts as { conceptId: string }[]) ?? []
+  const parts = (data.parts as { conceptId: string; versionId: string | null }[]) ?? []
+  const type = (data.type as BlockType | undefined) ?? ''
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const nameOf = (cid: string) => concepts.find((c) => c.id === cid)?.name ?? '(usunięte)'
   return (
-    <div className={`path-node path-node-fusion ${selected ? 'selected' : ''}`}>
+    <div
+      className={`path-node path-node-fusion ${type ? `fusion-typed type-border-${type}` : ''} ${
+        selected ? 'selected' : ''
+      }`}
+    >
       <Handle type="target" position={Position.Top} />
       <header className="path-node-head">
-        <span className="fusion-badge">FUZJA</span>
-        <span className="path-node-name">{data.name as string}</span>
+        <select
+          className={`fusion-type nodrag ${type ? `type-${type}` : ''}`}
+          value={type}
+          title="Czym jest scalona całość (np. jedno twierdzenie z dwóch)"
+          onChange={(e) => ctx.updateData(id, { type: e.target.value || undefined })}
+        >
+          <option value="">BLOK</option>
+          {BLOCK_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {BLOCK_TYPE_SHORT[t]}
+            </option>
+          ))}
+        </select>
+        <span
+          className="path-node-name nodrag"
+          title="Kliknij dwukrotnie, aby zmienić nazwę"
+          onDoubleClick={() => ctx.renameFusion(id)}
+        >
+          {(data.name as string) || 'Bez nazwy'}
+        </span>
+        <button
+          className="path-node-open nodrag"
+          title="Dodaj klocek do tego bloku"
+          onClick={() => ctx.addFusionPart(id)}
+        >
+          +
+        </button>
         <button
           className="path-node-open nodrag"
           title="Rozdziel z powrotem na osobne klocki"
@@ -626,7 +670,16 @@ function FusionNode({ id, data, selected }: NodeProps) {
       </header>
       <ul className="fusion-parts">
         {parts.map((p, i) => (
-          <li key={i}>{nameOf(p.conceptId)}</li>
+          <li key={i}>
+            <span className="fusion-part-name">{nameOf(p.conceptId)}</span>
+            <button
+              className="folder-action nodrag"
+              title="Wyjmij ten klocek z bloku"
+              onClick={() => ctx.removeFusionPart(id, i)}
+            >
+              ×
+            </button>
+          </li>
         ))}
       </ul>
       <Handle type="source" position={Position.Bottom} />
@@ -704,6 +757,15 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     }
   }, [])
 
+  // pokazywanie powiązań między klockami (relacje z warstwy wiedzy)
+  const [showRelations, setShowRelations] = useState(
+    () => localStorage.getItem('ui.pathRelations') !== '0',
+  )
+  useEffect(() => {
+    localStorage.setItem('ui.pathRelations', showRelations ? '1' : '0')
+  }, [showRelations])
+  const allRelations = useLiveQuery(() => db.relations.toArray(), []) ?? []
+
   // menu kontekstowe (prawy przycisk na pustym obszarze)
   const [ctxMenu, setCtxMenu] = useState<{
     sx: number
@@ -722,6 +784,8 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
 
   // edytowana notatka/komentarz (okno edycji)
   const [editingNote, setEditingNote] = useState<string | null>(null)
+  /** Fuzja, do której dokładamy klocek (otwiera okno wyboru). */
+  const [fusionTarget, setFusionTarget] = useState<string | null>(null)
   // tryb pisania w oknie notatki — jak w edytorze klocka
   const [noteView, setNoteView] = useState<'wizualny' | 'kod' | 'podzial'>(() => {
     const v = localStorage.getItem('ui.noteView')
@@ -865,6 +929,26 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         setRfEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
         return [...ns.filter((n) => n.id !== id), ...blocks]
       }),
+    renameFusion: (id) => {
+      const n = rfNodes.find((x) => x.id === id)
+      const name = window.prompt(
+        'Nazwa scalonego bloku w tej ścieżce:',
+        (n?.data.name as string) ?? '',
+      )
+      if (name?.trim()) api.updateData(id, { name: name.trim() })
+    },
+    addFusionPart: (id) => setFusionTarget(id),
+    removeFusionPart: (id, index) =>
+      setRfNodes((ns) =>
+        ns.map((n) => {
+          if (n.id !== id) return n
+          const parts = [
+            ...((n.data.parts as { conceptId: string; versionId: string | null }[]) ?? []),
+          ]
+          parts.splice(index, 1)
+          return { ...n, data: { ...n.data, parts } }
+        }),
+      ),
     openConcept: onOpenConcept,
   }
 
@@ -873,6 +957,14 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     if (sel.length < 2) return
     const nm = window.prompt('Nazwa scalonego bloku (np. „Przestrzeń metryczna"):')
     if (!nm?.trim()) return
+    // typ całości bierzemy z części, gdy wszystkie są tego samego rodzaju
+    const partTypes = sel.map(
+      (n) => allConcepts.find((c) => c.id === (n.data.conceptId as string))?.type,
+    )
+    const commonType =
+      partTypes.length > 0 && partTypes.every((t) => t && t === partTypes[0])
+        ? partTypes[0]
+        : undefined
     const fid = crypto.randomUUID()
     const cx = sel.reduce((s, n) => s + n.position.x, 0) / sel.length
     const cy = sel.reduce((s, n) => s + n.position.y, 0) / sel.length
@@ -883,6 +975,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       position: { x: cx, y: cy },
       data: {
         name: nm.trim(),
+        type: commonType,
         parts: sel.map((n) => ({
           conceptId: n.data.conceptId as string,
           versionId: (n.data.versionId as string | null) ?? null,
@@ -1179,7 +1272,14 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     [],
   )
   const onEdgesChange = useCallback(
-    (chs: EdgeChange[]) => setRfEdges((es) => applyEdgeChanges(chs, es)),
+    // strzałki powiązań są tylko pokazywane — nie należą do ścieżki
+    (chs: EdgeChange[]) =>
+      setRfEdges((es) =>
+        applyEdgeChanges(
+          chs.filter((c) => !('id' in c) || !c.id.startsWith('rel-')),
+          es,
+        ),
+      ),
     [],
   )
   const onConnect = useCallback(
@@ -1196,6 +1296,51 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       ),
     [],
   )
+  /** Powiązania z warstwy wiedzy jako dodatkowe, przerywane strzałki między
+   *  kafelkami tej ścieżki. Nie należą do ścieżki — są tylko pokazywane. */
+  const relationEdges: Edge[] = showRelations
+    ? (() => {
+        // kafelki (także części fuzji) wskazujące na dany klocek
+        const nodesByConcept = new Map<string, string[]>()
+        for (const n of rfNodes) {
+          const ids =
+            n.type === 'block'
+              ? [n.data.conceptId as string]
+              : n.type === 'fusion'
+                ? ((n.data.parts as { conceptId: string }[]) ?? []).map(
+                    (p) => p.conceptId,
+                  )
+                : []
+          for (const cid of ids) {
+            nodesByConcept.set(cid, [...(nodesByConcept.get(cid) ?? []), n.id])
+          }
+        }
+        const out: Edge[] = []
+        for (const r of allRelations) {
+          for (const source of nodesByConcept.get(r.fromId) ?? []) {
+            for (const target of nodesByConcept.get(r.toId) ?? []) {
+              if (source === target) continue
+              out.push({
+                id: `rel-${r.id}-${source}-${target}`,
+                source,
+                target,
+                selectable: false,
+                deletable: false,
+                focusable: false,
+                className: `relation-edge rel-${r.kind}`,
+                label: RELATION_LABELS[r.kind].forward,
+                animated: false,
+                markerEnd: isSymmetricRelation(r.kind)
+                  ? undefined
+                  : { type: MarkerType.Arrow, width: 16, height: 16 },
+              })
+            }
+          }
+        }
+        return out
+      })()
+    : []
+
   const onSelectionChange = useCallback(
     ({ nodes }: { nodes: Node[] }) =>
       setSelected((prev) => {
@@ -1286,6 +1431,13 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             + § Rozdział
           </button>
           <button
+            className={`btn ${showRelations ? 'btn-active' : ''}`}
+            onClick={() => setShowRelations((r) => !r)}
+            title="Pokaż powiązania między klockami (zawieranie, skala, perspektywa) jako przerywane strzałki"
+          >
+            ⇢ Powiązania
+          </button>
+          <button
             className={`btn ${showGrid ? 'btn-active' : ''}`}
             onClick={() => setShowGrid((g) => !g)}
             title="Pokaż/ukryj siatkę (Shift podczas przesuwania przyciąga do linii)"
@@ -1354,7 +1506,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         <CanvasCtx.Provider value={api}>
           <ReactFlow
             nodes={rfNodes}
-            edges={rfEdges}
+            edges={[...rfEdges, ...relationEdges]}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onNodesChange={onNodesChange}
@@ -1495,6 +1647,30 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           </div>
         )}
       </div>
+      {fusionTarget && (
+        <ConceptPicker
+          title="⧉ Dołóż klocek do scalonego bloku"
+          onPick={(c: { id: string }) => {
+            setRfNodes((ns) =>
+              ns.map((n) => {
+                if (n.id !== fusionTarget) return n
+                const parts = [
+                  ...((n.data.parts as {
+                    conceptId: string
+                    versionId: string | null
+                  }[]) ?? []),
+                ]
+                if (parts.some((p) => p.conceptId === c.id)) return n
+                parts.push({ conceptId: c.id, versionId: null })
+                return { ...n, data: { ...n.data, parts } }
+              }),
+            )
+            setFusionTarget(null)
+          }}
+          onClose={() => setFusionTarget(null)}
+        />
+      )}
+
       {editingNote &&
         (() => {
           const n = rfNodes.find((x) => x.id === editingNote)
