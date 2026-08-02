@@ -4,6 +4,7 @@ import { db } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { BlockShell } from './BlockShell'
+import { Outline, outlineId, type OutlineItem } from './Outline'
 import {
   BLOCK_TYPE_LABELS,
   type BlockVersion,
@@ -68,9 +69,13 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
   }
 
   const ordered = topoOrder(path.nodes, path.edges)
+  const outline: OutlineItem[] = ordered
+    .filter((n) => n.kind === 'heading')
+    .map((n) => ({ domId: outlineId(n.id), text: n.text, level: n.level }))
 
   return (
     <div className="script-embed">
+      <Outline items={outline} />
       <article className="script-body">
         <h1 className="script-heading">{path.name}</h1>
         {ordered.length === 0 && (
@@ -81,7 +86,11 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
           if (n.kind === 'heading') {
             const H = (`h${n.level + 1}` as unknown) as 'h2'
             return (
-              <H key={n.id} className={`script-heading-node level-${n.level}`}>
+              <H
+                key={n.id}
+                id={outlineId(n.id)}
+                className={`script-heading-node level-${n.level}`}
+              >
                 {n.text}
               </H>
             )

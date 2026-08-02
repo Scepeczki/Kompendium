@@ -44,6 +44,7 @@ import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
+import { Outline, outlineId, type OutlineItem } from './Outline'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
@@ -407,7 +408,11 @@ function LinearView({
     if (n.kind === 'heading') {
       const H = (`h${n.level + 1}` as unknown) as 'h2'
       return (
-        <H className={`script-heading-node level-${n.level}`} onDoubleClick={() => onEdit(n)}>
+        <H
+          id={outlineId(n.id)}
+          className={`script-heading-node level-${n.level}`}
+          onDoubleClick={() => onEdit(n)}
+        >
           {n.text || '(rozdział bez nazwy)'}
         </H>
       )
@@ -487,9 +492,13 @@ function LinearView({
   }
 
   const last = ordered[ordered.length - 1] ?? null
+  const outline: OutlineItem[] = ordered
+    .filter((n) => n.kind === 'heading')
+    .map((n) => ({ domId: outlineId(n.id), text: n.text, level: n.level }))
 
   return (
     <div className="linear-view">
+      <Outline items={outline} />
       <div className="linear-column">
         {ordered.map((n, i) => {
           const h = hint?.id === n.id ? hint.pos : null
