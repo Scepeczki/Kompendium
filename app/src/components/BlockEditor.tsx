@@ -3,6 +3,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { RichEditor } from './RichEditor'
+import { ConceptPicker } from './ConceptPicker'
 import { mdShortcuts, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import {
@@ -26,6 +27,7 @@ import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
   BLOCK_TYPES,
+  isPdfSource,
   type BlockType,
   type BlockVersion,
   type Concept,
@@ -157,6 +159,8 @@ export function BlockEditor({
 
   // Wszystkie pojęcia + treści ich bieżących wersji — do wiki-linków i odwołań.
   const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  const conceptTitle = (id: string) =>
+    allConcepts.find((c) => c.id === id)?.name ?? '(usunięty klocek)'
 
   // Rozszerzenia CodeMirror muszą mieć stabilną tożsamość (rekonfiguracja przy
   // każdym renderze psuje m.in. akceptowanie podpowiedzi klawiszem).
@@ -278,6 +282,30 @@ export function BlockEditor({
     }
   }
 
+  /** Okno wyboru klocka-źródła. */
+  const [pickingSource, setPickingSource] = useState(false)
+
+  /** Podpina inny klocek jako źródło tej wersji (genealogia wiedzy). */
+  const addBlockSource = async (source: Concept) => {
+    setPickingSource(false)
+    if (!isCurrent) return
+    const already = version.sourceRefs.some(
+      (r) => !isPdfSource(r) && r.conceptId === source.id,
+    )
+    if (already) return
+    await updateVersion(version.id, {
+      sourceRefs: [
+        ...version.sourceRefs,
+        {
+          id: crypto.randomUUID(),
+          kind: 'block' as const,
+          conceptId: source.id,
+          versionId: null,
+        },
+      ],
+    })
+  }
+
   const removeSourceRef = async (refId: string) => {
     if (!isCurrent) return
     await updateVersion(version.id, {
@@ -362,10 +390,14 @@ export function BlockEditor({
     >
       <button
         className="source-jump"
-        title="Skocz do miejsca w PDF"
+        title={
+          isPdfSource(r) ? 'Skocz do miejsca w PDF' : 'Otwórz klocek będący źródłem'
+        }
         onClick={() => onJumpToSource(r)}
       >
-        📖 {pdfTitle(r.pdfId)} · s. {r.page}
+        {isPdfSource(r)
+          ? `📖 ${pdfTitle(r.pdfId)} · s. ${r.page}`
+          : `🧱 ${conceptTitle(r.conceptId)}`}
       </button>
       {isCurrent && (
         <button
@@ -525,6 +557,14 @@ export function BlockEditor({
             title="Zaznacz fragment PDF i podepnij go jako źródło (wspólne dla wszystkich stron tej wersji)"
           >
             📌 Podepnij źródło
+          </button>
+          <button
+            className="btn"
+            onClick={() => setPickingSource(true)}
+            disabled={!isCurrent}
+            title="Wskaż inny klocek jako źródło tego klocka (np. przy podsumowaniu)"
+          >
+            🧱 Klocek jako źródło
           </button>
           <button
             className="btn"
@@ -726,6 +766,15 @@ export function BlockEditor({
           </>
         )}
       </div>
+
+      {pickingSource && (
+        <ConceptPicker
+          title="🧱 Który klocek jest źródłem?"
+          excludeIds={[concept.id]}
+          onPick={addBlockSource}
+          onClose={() => setPickingSource(false)}
+        />
+      )}
 
       {backlinks.length > 0 && (
         <footer className="backlinks-row">

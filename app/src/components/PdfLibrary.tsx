@@ -9,7 +9,7 @@ import {
   renameFolder,
   renamePdf,
 } from '../db'
-import type { Folder, PdfDoc } from '../types'
+import { isPdfSource, type Folder, type PdfDoc } from '../types'
 
 interface Props {
   currentId: string | null
@@ -81,7 +81,9 @@ export function PdfLibrary({ currentId, onOpen, onDeleted }: Props) {
    *  odnośniki do niego przestaną działać. */
   const handleDeletePdf = async (p: PdfDoc) => {
     const versions = await db.versions.toArray()
-    const used = versions.filter((v) => v.sourceRefs.some((r) => r.pdfId === p.id)).length
+    const used = versions.filter((v) =>
+      v.sourceRefs.some((r) => isPdfSource(r) && r.pdfId === p.id),
+    ).length
     const warn = used
       ? `\n\nUWAGA: ${used} wersji klocków ma podpięte źródła z tego PDF-a — te odnośniki przestaną działać.`
       : ''

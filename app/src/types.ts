@@ -47,17 +47,39 @@ export interface Rect {
   h: number
 }
 
-/** Context-Lock: odnośnik z treści klocka do konkretnego miejsca w PDF. */
-export interface SourceRef {
+interface SourceRefBase {
   id: string
-  pdfId: string
-  /** Numer strony, od 1. */
-  page: number
-  rect: Rect
   /** Nazwa grupy źródeł w obrębie klocka (proste folderowanie chipów). */
   group?: string
   note?: string
 }
+
+/** Context-Lock: odnośnik z treści klocka do konkretnego miejsca w PDF. */
+export interface PdfSourceRef extends SourceRefBase {
+  /** Brak pola = źródło z PDF (zgodność ze starszymi danymi). */
+  kind?: 'pdf'
+  pdfId: string
+  /** Numer strony, od 1. */
+  page: number
+  rect: Rect
+}
+
+/** Źródłem może być też inny klocek — tak powstaje genealogia wiedzy:
+ *  klocek podsumowujący → klocki z książek → wycinki stron. */
+export interface BlockSourceRef extends SourceRefBase {
+  kind: 'block'
+  conceptId: string
+  /** Konkretna wersja albo null = zawsze bieżąca. */
+  versionId: string | null
+}
+
+export type SourceRef = PdfSourceRef | BlockSourceRef
+
+export const isPdfSource = (r: SourceRef): r is PdfSourceRef =>
+  (r as PdfSourceRef).pdfId !== undefined
+
+export const isBlockSource = (r: SourceRef): r is BlockSourceRef =>
+  (r as BlockSourceRef).conceptId !== undefined
 
 /** Rodzaj folderu: na klocki (drzewo) albo na PDF-y (jeden poziom). */
 export type FolderKind = 'concepts' | 'pdfs'

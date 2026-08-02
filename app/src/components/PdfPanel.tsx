@@ -3,7 +3,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, importPdf } from '../db'
 import { forgetPdf, loadPdf } from '../pdfDoc'
-import type { Rect, SourceRef } from '../types'
+import { isPdfSource, type PdfSourceRef, type Rect } from '../types'
 import { PdfLibrary } from './PdfLibrary'
 
 /** Cel skoku do źródła (klik w odnośnik w edytorze). */
@@ -16,7 +16,7 @@ export interface PdfTarget {
 interface Props {
   /** Tryb podpinania źródła: po narysowaniu prostokąta wywołuje onRegionSelected. */
   selecting: boolean
-  onRegionSelected: (ref: Omit<SourceRef, 'id'>) => void
+  onRegionSelected: (ref: Omit<PdfSourceRef, 'id'>) => void
   target: PdfTarget | null
   onHide: () => void
   /** Otwarcie klocka po kliknięciu w użyty fragment strony. */
@@ -72,8 +72,8 @@ export function PdfPanel({
         // pokazujemy tylko bieżące wersje — stare zaśmiecałyby stronę
         if (!c || c.currentVersionId !== v.id) return []
         return v.sourceRefs
-          .filter((r) => r.pdfId === pdfId)
-          .map((r) => ({ ref: r, conceptId: c.id, name: c.name }))
+          .filter((r) => isPdfSource(r) && r.pdfId === pdfId)
+          .map((r) => ({ ref: r as PdfSourceRef, conceptId: c.id, name: c.name }))
       })
     : []
 

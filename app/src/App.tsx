@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, updateVersion } from './db'
-import type { SourceRef } from './types'
+import { isBlockSource, isPdfSource, type PdfSourceRef, type SourceRef } from './types'
 import { Sidebar } from './components/Sidebar'
 import { BlockEditor } from './components/BlockEditor'
 import { GraphView } from './components/GraphView'
@@ -119,10 +119,16 @@ export default function App() {
     }
   }
 
-  /** Pokazuje w panelu PDF miejsce, na którym oparte jest źródło. */
+  /** Skok do źródła: wycinek PDF pokazujemy w panelu, a źródło-klocek
+   *  otwieramy w edytorze (tak wędruje się w górę genealogii wiedzy). */
   const jumpToSource = (ref: SourceRef) => {
-    setShowPdf(true)
-    setPdfTarget({ pdfId: ref.pdfId, page: ref.page, rect: ref.rect })
+    if (isPdfSource(ref)) {
+      setShowPdf(true)
+      setPdfTarget({ pdfId: ref.pdfId, page: ref.page, rect: ref.rect })
+    } else if (isBlockSource(ref)) {
+      selectConcept(ref.conceptId)
+      if (ref.versionId) setShownVersionId(ref.versionId)
+    }
   }
 
   /** Tryb podpinania źródła — jeśli panel PDF jest schowany, pokaż go. */
@@ -134,7 +140,7 @@ export default function App() {
   }
 
   /** Użytkownik narysował prostokąt w PDF → podpinamy źródło do pokazywanej wersji. */
-  const handleRegionSelected = async (base: Omit<SourceRef, 'id'>) => {
+  const handleRegionSelected = async (base: Omit<PdfSourceRef, 'id'>) => {
     if (!effectiveVersionId) return
     const v = await db.versions.get(effectiveVersionId)
     if (!v) return

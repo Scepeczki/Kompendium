@@ -1,17 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
+import { renderMarkdown } from '../markdown'
 import { renderRegion } from '../pdfDoc'
-import type { SourceRef } from '../types'
+import {
+  BLOCK_TYPE_SHORT,
+  isPdfSource,
+  type BlockSourceRef,
+  type PdfSourceRef,
+  type SourceRef,
+} from '../types'
 
 interface Props {
   refs: SourceRef[]
-  /** Skok do miejsca w PDF (klik w źródło). */
+  /** Skok do źródła: wycinek PDF albo klocek (klik w pozycję listy). */
   onJump?: (ref: SourceRef) => void
 }
 
-/** Podgląd wycinka strony pokazywany po najechaniu na źródło. */
-function Preview({ refItem }: { refItem: SourceRef }) {
+/** Podgląd wycinka strony PDF pokazywany po najechaniu. */
+function PdfPreview({ refItem }: { refItem: PdfSourceRef }) {
   const [src, setSrc] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -31,25 +38,69 @@ function Preview({ refItem }: { refItem: SourceRef }) {
         <img src={src} alt={`Fragment strony ${refItem.page}`} />
       ) : (
         <span className="source-preview-status">
-          {failed ? 'Nie udało się wczytać fragmentu (czy PDF nadal jest w bibliotece?)' : 'Wczytuję…'}
+          {failed
+            ? 'Nie udało się wczytać fragmentu (czy PDF nadal jest w bibliotece?)'
+            : 'Wczytuję…'}
         </span>
       )}
     </div>
   )
 }
 
-/** Lista źródeł pod treścią bloku: zwijana, z podglądem fragmentu PDF
- *  po najechaniu i skokiem do miejsca po kliknięciu. */
+/** Podgląd treści klocka będącego źródłem. */
+function BlockPreview({ refItem }: { refItem: BlockSourceRef }) {
+  const concept = useLiveQuery(
+    () => db.concepts.get(refItem.conceptId),
+    [refItem.conceptId],
+  )
+  const versions =
+    useLiveQuery(
+      () => db.versions.where('conceptId').equals(refItem.conceptId).toArray(),
+      [refItem.conceptId],
+    ) ?? []
+  if (!concept) {
+    return (
+      <div className="source-preview">
+        <span className="source-preview-status">Klocek został usunięty.</span>
+      </div>
+    )
+  }
+  const v =
+    versions.find((x) => x.id === refItem.versionId) ??
+    versions.find((x) => x.id === concept.currentVersionId)
+  return (
+    <div className="source-preview source-preview-block">
+      <span className="source-preview-head">
+        <span className={`type-mini type-${concept.type}`}>
+          {BLOCK_TYPE_SHORT[concept.type]}
+        </span>
+        {concept.name}
+        {v?.label && <span className="source-list-group"> · {v.label}</span>}
+      </span>
+      <div
+        className="markdown-body"
+        dangerouslySetInnerHTML={{ __html: renderMarkdown(v?.content ?? '') }}
+      />
+    </div>
+  )
+}
+
+/** Lista źródeł pod treścią bloku: zwijana, z podglądem po najechaniu
+ *  i skokiem do źródła po kliknięciu. Źródłem może być wycinek PDF
+ *  albo inny klocek — stąd genealogia wiedzy aż do strony w książce. */
 export function SourceList({ refs, onJump }: Props) {
   const [open, setOpen] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
   const timer = useRef<number | undefined>(undefined)
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
+  const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   if (refs.length === 0) return null
-  const titleOf = (id: string) => pdfs.find((p) => p.id === id)?.title ?? 'PDF (usunięty)'
+  const pdfTitle = (id: string) => pdfs.find((p) => p.id === id)?.title ?? 'PDF (usunięty)'
+  const blockTitle = (id: string) =>
+    concepts.find((c) => c.id === id)?.name ?? 'klocek (usunięty)'
 
   /** Krótka zwłoka, żeby podgląd nie migał przy przejeżdżaniu myszą. */
   const enter = (id: string) => {
@@ -65,7 +116,7 @@ export function SourceList({ refs, onJump }: Props) {
     <div className="source-list">
       <button
         className="source-list-toggle"
-        title="Miejsca w PDF-ach, na których oparty jest ten klocek"
+        title="Skąd to wiem: miejsca w PDF-ach i klocki, na których oparty jest ten klocek"
         onClick={() => setOpen((o) => !o)}
       >
         <span className="source-list-label">Źródła</span>
@@ -83,13 +134,22 @@ export function SourceList({ refs, onJump }: Props) {
             >
               <button
                 className="source-jump"
-                title="Pokaż to miejsce w PDF"
+                title={
+                  isPdfSource(r) ? 'Pokaż to miejsce w PDF' : 'Otwórz klocek będący źródłem'
+                }
                 onClick={() => onJump?.(r)}
               >
-                📖 {titleOf(r.pdfId)} · s. {r.page}
+                {isPdfSource(r)
+                  ? `📖 ${pdfTitle(r.pdfId)} · s. ${r.page}`
+                  : `🧱 ${blockTitle(r.conceptId)}`}
                 {r.group && <span className="source-list-group"> · {r.group}</span>}
               </button>
-              {hover === r.id && <Preview refItem={r} />}
+              {hover === r.id &&
+                (isPdfSource(r) ? (
+                  <PdfPreview refItem={r} />
+                ) : (
+                  <BlockPreview refItem={r} />
+                ))}
             </span>
           ))}
         </div>
