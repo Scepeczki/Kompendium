@@ -15,7 +15,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // pojęcie „Metryka"
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Metryka')
 await page.click('.view-switch button:has-text("Podział")')
@@ -25,7 +25,7 @@ await page.waitForTimeout(600)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 
 // pojęcie „Przestrzeń metryczna" linkujące do Metryki
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Przestrzeń metryczna')
 await page.click('.view-switch button:has-text("Podział")')

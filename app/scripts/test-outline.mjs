@@ -1,4 +1,4 @@
-// Test spisu treści ścieżki: lista rozdziałów, skok po kliknięciu,
+﻿// Test spisu treści ścieżki: lista rozdziałów, skok po kliknięciu,
 // podświetlenie bieżącego rozdziału i chowanie panelu.
 import { chromium } from 'playwright'
 
@@ -24,7 +24,7 @@ await page.waitForSelector('text=Kompendium')
 
 // kilka klocków, żeby skrypt był dłuższy niż ekran
 for (const n of ['Alfa', 'Beta', 'Gamma']) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.click('.view-switch button:has-text("Kod")')

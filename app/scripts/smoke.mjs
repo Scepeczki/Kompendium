@@ -18,7 +18,7 @@ await page.waitForSelector('text=Kompendium', { timeout: 20000 })
 await page.screenshot({ path: 'scripts/shot-1-start.png' })
 
 // Nowy klocek
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name', { timeout: 10000 })
 
 // Nazwa

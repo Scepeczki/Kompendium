@@ -1,4 +1,4 @@
-// Test źródeł-klocków: klocek podsumowujący wskazuje inne klocki jako źródła,
+﻿// Test źródeł-klocków: klocek podsumowujący wskazuje inne klocki jako źródła,
 // powstaje genealogia (podsumowanie → klocek z książki → wycinek PDF).
 import { chromium } from 'playwright'
 
@@ -17,7 +17,7 @@ await page.waitForSelector('text=Kompendium')
 
 // dwa klocki „z książek", pierwszy ze źródłem w PDF
 const mkBlock = async (name, content) => {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.click('.view-switch button:has-text("Kod")')

@@ -21,7 +21,7 @@ for (const [name, content] of [
   ['Metryka', 'Funkcja $d: X \\times X \\to [0,\\infty)$.'],
   ['Przestrzeń', 'Zbiór $X$ z metryką.'],
 ]) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.click('.view-switch button:has-text("Podział")')

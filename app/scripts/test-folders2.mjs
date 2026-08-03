@@ -1,4 +1,4 @@
-// Test: wspólna kolejność folderów i klocków, prowadnice, grupy źródeł.
+﻿// Test: wspólna kolejność folderów i klocków, prowadnice, grupy źródeł.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
@@ -43,7 +43,7 @@ await page.waitForSelector('text=Kompendium')
 
 // klocki A i B
 for (const name of ['Klocek A', 'Klocek B']) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.waitForTimeout(150)

@@ -1,4 +1,4 @@
-// Test źródeł pod treścią bloku (lista + podgląd fragmentu po najechaniu)
+﻿// Test źródeł pod treścią bloku (lista + podgląd fragmentu po najechaniu)
 // oraz pokazywania wszystkich wykorzystanych fragmentów w widoku PDF.
 import { chromium } from 'playwright'
 
@@ -16,7 +16,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // klocek + PDF + dwa podpięte źródła
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Definicja ze źródłem')
 await page.click('.view-switch button:has-text("Kod")')

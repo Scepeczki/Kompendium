@@ -1,4 +1,4 @@
-// Test nazwy strony głównej klocka oraz źródeł wspólnych dla wszystkich stron:
+﻿// Test nazwy strony głównej klocka oraz źródeł wspólnych dla wszystkich stron:
 // źródło można podpiąć z dowolnej strony i nie zmienia się przy ich przełączaniu.
 import { chromium } from 'playwright'
 
@@ -17,7 +17,7 @@ page.on('dialog', (d) => d.accept(answers.shift() ?? 'X'))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.rich-content .tiptap')
 await page.fill('.editor-name', 'Twierdzenie o stronach')
 await page.click('.rich-content .tiptap')

@@ -1,4 +1,4 @@
-// Test warstwy danych powiązań: trzy osie, zawężenie do wersji, kasowanie
+﻿// Test warstwy danych powiązań: trzy osie, zawężenie do wersji, kasowanie
 // razem z klockiem i przetrwanie kopii zapasowej.
 // (Interfejs tworzenia powiązań jest przebudowywany — panel w edytorze
 // został wycofany, docelowo ma to być osobna mapa pojęć.)
@@ -18,7 +18,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 const mk = async (name, twoVersions = false) => {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.waitForTimeout(400)

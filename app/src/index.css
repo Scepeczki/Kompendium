@@ -309,13 +309,34 @@ select.type-select {
   gap: 10px;
 }
 
-.sidebar-actions {
+/* rząd tworzenia — tuż nad drzewem, bo dotyczy jego zawartości */
+.sidebar-create {
   display: flex;
-  gap: 6px;
+  justify-content: center;
+  gap: 2px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
 }
 
-.sidebar-actions .btn-primary {
-  flex: 1;
+.sidebar-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.sidebar-create-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .app-title {
@@ -404,11 +425,46 @@ select.type-select {
   display: inline-flex;
 }
 
+/* dół paska: sprawy całej aplikacji (graf, licznik, ustawienia) */
 .sidebar-footer {
-  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
   border-top: 1px solid var(--line);
   font-size: 11.5px;
   color: var(--muted);
+}
+
+.sidebar-foot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.sidebar-foot-btn:hover {
+  background: var(--panel);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.sidebar-foot-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.sidebar-counts {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 :focus-visible {

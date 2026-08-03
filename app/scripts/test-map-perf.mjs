@@ -1,4 +1,4 @@
-// Test płynności mapy i układania kafelków: mierzy czas przerysowania przy
+﻿// Test płynności mapy i układania kafelków: mierzy czas przerysowania przy
 // przeciąganiu, sprawdza brak nakładania po dodaniu i po „Ułóż".
 import { chromium } from 'playwright'
 
@@ -24,7 +24,7 @@ await page.waitForSelector('text=Kompendium')
 // dziesięć klocków z realistyczną treścią (wzory = najdroższe renderowanie)
 const N = 10
 for (let i = 1; i <= N; i++) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', `Klocek ${i}`)
   await page.click('.view-switch button:has-text("Kod")')

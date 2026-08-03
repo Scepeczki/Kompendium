@@ -1,4 +1,4 @@
-// Test folderów: tworzenie, przeciąganie klocków do folderów, zmiana
+﻿// Test folderów: tworzenie, przeciąganie klocków do folderów, zmiana
 // kolejności przeciąganiem, foldery w bibliotece PDF.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
@@ -46,7 +46,7 @@ await page.waitForSelector('text=Kompendium')
 
 // trzy klocki: A, B, C
 for (const name of ['Klocek A', 'Klocek B', 'Klocek C']) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.waitForTimeout(150)

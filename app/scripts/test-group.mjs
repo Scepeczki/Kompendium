@@ -1,4 +1,4 @@
-// Test grupowania klocków w ścieżce: kilka klocków pod jedną nazwą, ale nadal
+﻿// Test grupowania klocków w ścieżce: kilka klocków pod jedną nazwą, ale nadal
 // jako osobne pełne klocki (własny wybór wersji), w jednej ramce.
 import { chromium } from 'playwright'
 
@@ -18,7 +18,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 const mk = async (name, content, twoVersions = false) => {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.click('.view-switch button:has-text("Kod")')

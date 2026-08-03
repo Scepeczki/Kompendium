@@ -1,4 +1,4 @@
-// Test drobnych ulepszeń: autofokus nazwy, akcje na liście, autouzupełnianie [[,
+﻿// Test drobnych ulepszeń: autofokus nazwy, akcje na liście, autouzupełnianie [[,
 // Escape, szukajka ze ścieżkami, licznik.
 import { chromium } from 'playwright'
 
@@ -17,7 +17,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // 1. nowy klocek → nazwa od razu zaznaczona: samo pisanie ją nadpisuje
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.waitForFunction(
   () => document.activeElement?.classList.contains('editor-name'),
@@ -35,7 +35,7 @@ await page.waitForSelector('.concept-item:has-text("Granica"):not(:has-text("ci�
 console.log('✓ zmiana nazwy z listy działa')
 
 // 3. autouzupełnianie [[ w widoku Kod
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.keyboard.type('Ciąg zbieżny')
 await page.click('.view-switch button:has-text("Kod")')

@@ -1,4 +1,4 @@
-// Test: komentarze do ścieżki, menu kafelka, zarządzanie wersjami klocka.
+﻿// Test: komentarze do ścieżki, menu kafelka, zarządzanie wersjami klocka.
 import { chromium } from 'playwright'
 
 const errors = []
@@ -17,7 +17,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // --- WERSJE KLOCKA ---
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Pojęcie W')
 
@@ -81,8 +81,8 @@ await page.waitForSelector('.path-ctxmenu')
 await page.click('text=💬 Nowy komentarz tutaj')
 await page.waitForSelector('.path-node-comment')
 await page.dblclick('.path-node-comment .path-node-notebody')
-await page.waitForSelector('.note-modal .cm-content')
-await page.click('.note-modal .cm-content')
+await page.waitForSelector('.note-modal .rich-content .tiptap')
+await page.click('.note-modal .rich-content .tiptap')
 await page.keyboard.type('KOMENTARZ-META o ścieżce')
 await page.waitForTimeout(600)
 await page.click('.note-modal .btn-close')

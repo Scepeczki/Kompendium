@@ -1,4 +1,4 @@
-// Test stylistyki bloków w Skrypcie (pasek nagłówka w kolorze typu, treść
+﻿// Test stylistyki bloków w Skrypcie (pasek nagłówka w kolorze typu, treść
 // z akcentem) oraz ustawień kolorów i nasycenia tła.
 import { chromium } from 'playwright'
 
@@ -16,7 +16,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // klocek typu Twierdzenie + ścieżka z nim
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Blok testowy')
 await page.selectOption('.type-select', 'twierdzenie')

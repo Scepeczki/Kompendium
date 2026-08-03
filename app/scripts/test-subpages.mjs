@@ -1,4 +1,4 @@
-// Test stron klocka (dowodów): dodawanie/nazywanie/edycja w edytorze,
+﻿// Test stron klocka (dowodów): dodawanie/nazywanie/edycja w edytorze,
 // zakładki w kafelku ścieżki (wybór bazowej strony), przełączanie w Skrypcie.
 import { chromium } from 'playwright'
 
@@ -30,7 +30,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // 1. nowy klocek z treścią główną
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.rich-content .tiptap')
 await page.fill('.editor-name', 'Twierdzenie testowe')
 await page.click('.rich-content .tiptap')

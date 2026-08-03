@@ -488,27 +488,6 @@ export function Sidebar({
     <aside className="sidebar">
       <header className="sidebar-header">
         <h1 className="app-title">Kompendium</h1>
-        <div className="sidebar-actions">
-          <button className="btn btn-primary" onClick={handleNew}>
-            + Nowy klocek
-          </button>
-          <button className="btn" title="Nowy folder" onClick={handleNewFolder}>
-            + 🗀
-          </button>
-          <button className="btn" title="Nowa ścieżka (skrypt nauki)" onClick={handleNewPath}>
-            + 🗺
-          </button>
-          <button
-            className={`btn ${graphActive ? 'btn-active' : ''}`}
-            title="Graf powiązań"
-            onClick={onToggleGraph}
-          >
-            🕸
-          </button>
-          <button className="btn" title="Ustawienia" onClick={onOpenSettings}>
-            ⚙
-          </button>
-        </div>
       </header>
 
       <div className="sidebar-filters">
@@ -531,6 +510,27 @@ export function Sidebar({
             </option>
           ))}
         </select>
+      </div>
+
+      {/* tworzenie — tuż nad drzewem, bo dotyczy jego zawartości */}
+      <div className="sidebar-create">
+        <button className="sidebar-create-btn" title="Nowy klocek" onClick={handleNew}>
+          ✎ <span>klocek</span>
+        </button>
+        <button
+          className="sidebar-create-btn"
+          title="Nowy folder"
+          onClick={handleNewFolder}
+        >
+          🗀 <span>folder</span>
+        </button>
+        <button
+          className="sidebar-create-btn"
+          title="Nowa ścieżka (materiał do nauki)"
+          onClick={handleNewPath}
+        >
+          🗺 <span>ścieżka</span>
+        </button>
       </div>
 
       {filtering ? (
@@ -577,8 +577,25 @@ export function Sidebar({
           {children(null).map((n) => renderNode(n, null))}
         </ul>
       )}
+      {/* dół: rzeczy dotyczące całej aplikacji, nie zawartości drzewa */}
       <footer className="sidebar-footer">
-        Klocki: {concepts.length} · Ścieżki: {paths.length}
+        <button
+          className={`sidebar-foot-btn ${graphActive ? 'active' : ''}`}
+          title="Graf powiązań"
+          onClick={onToggleGraph}
+        >
+          🕸 <span>Graf</span>
+        </button>
+        <span className="sidebar-counts" title="Liczba klocków i ścieżek">
+          {concepts.length} · {paths.length}
+        </span>
+        <button
+          className="sidebar-foot-btn"
+          title="Ustawienia"
+          onClick={onOpenSettings}
+        >
+          ⚙
+        </button>
       </footer>
     </aside>
   )

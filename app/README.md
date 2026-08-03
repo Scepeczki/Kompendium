@@ -1,32 +1,58 @@
-# React + TypeScript + Vite
+# Kompendium — aplikacja
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Kod aplikacji. Opis projektu: [../VISION.md](../VISION.md) ·
+plan: [../ROADMAP.md](../ROADMAP.md) · słownictwo: [../SLOWNIK.md](../SLOWNIK.md) ·
+format danych: [../docs/DATA-FORMAT.md](../docs/DATA-FORMAT.md).
 
-Currently, two official plugins are available:
+## Uruchamianie
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Na co dzień: **skrót „Kompendium" na pulpicie** — uruchamia serwer w tle
+i otwiera aplikację w Firefoksie (`start-kompendium.vbs`).
 
-## React Compiler
+Ręcznie:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install      # tylko za pierwszym razem
+npm run dev      # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Przy starcie Vite kopiuje dane pomocnicze PDF.js (czcionki standardowe, mapy
+znaków, moduły WASM, profile ICC) z `node_modules` do `public/pdfjs` — bez nich
+dokumenty z niewbudowanymi czcionkami tracą tekst. Katalog jest w `.gitignore`.
+
+## Gdzie są dane
+
+Wszystko siedzi lokalnie w **IndexedDB przeglądarki** (baza `kompendium`):
+klocki, wersje, strony, powiązania, ścieżki, foldery i pliki PDF.
+
+**Dane są związane z przeglądarką i profilem.** Otwarcie aplikacji w innej
+przeglądarce pokaże pustą bazę — to nie jest utrata danych. Przenoszenie
+i zabezpieczenie: Ustawienia → *Kopia zapasowa* (eksport/import `.zip`).
+
+## Testy
+
+Testy end-to-end (Playwright, uruchamiane przy działającym `npm run dev`):
+
+```bash
+node scripts/test-paths-deep.mjs     # najszerszy test poprawności ścieżek
+node scripts/test-map-perf.mjs       # płynność mapy i układanie kafelków
+node scripts/smoke.mjs               # test dymny
+```
+
+Pozostałe pliki `scripts/test-*.mjs` pokrywają kolejne obszary (edytor, PDF,
+źródła, grupy, spis treści, kopia zapasowa…). Każdy wypisuje `BŁĘDY KONSOLI`
+na końcu — pusto znaczy dobrze.
+
+Pomiar płynności w Firefoksie (przeglądarka docelowa) wymaga jednorazowo
+`npx playwright install firefox`:
+
+```bash
+node scripts/perf-firefox.mjs
+```
+
+## Budowanie
+
+```bash
+npm run build    # sprawdzenie typów + build produkcyjny do dist/
+npm run lint
+```

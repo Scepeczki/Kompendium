@@ -21,7 +21,7 @@ for (const [name, content] of [
   ['Alfa', 'Treść alfa $a^2$.'],
   ['Beta', 'Treść beta $b^2$.'],
 ]) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.click('.view-switch button:has-text("Podział")')

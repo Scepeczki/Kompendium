@@ -1,4 +1,4 @@
-// Pomiar płynności przeciągania kafelków w Firefoksie — czyli w przeglądarce,
+﻿// Pomiar płynności przeciągania kafelków w Firefoksie — czyli w przeglądarce,
 // w której aplikacja jest naprawdę używana (reszta testów chodzi na Brave).
 //
 // Wymaga jednorazowo:  npx playwright install firefox
@@ -15,7 +15,7 @@ await page.waitForSelector('text=Kompendium')
 
 const N = 10
 for (let i = 1; i <= N; i++) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', `Klocek ${i}`)
   await page.click('.view-switch button:has-text("Kod")')

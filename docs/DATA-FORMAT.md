@@ -1,44 +1,112 @@
 # Kompendium — Format danych
 
 > Najtrwalsza decyzja projektu: treść musi przeżyć każdą wersję aplikacji.
-> Kod typów: [app/src/types.ts](../app/src/types.ts)
+> Kod typów: [app/src/types.ts](../app/src/types.ts) · Słownictwo: [SLOWNIK.md](../SLOWNIK.md)
 
-## Model: Pojęcie → Wersje → Odnośniki źródłowe
+## Warstwa wiedzy: Klocek → Wersje → Źródła
 
 ```
-Concept (pojęcie/klocek)          BlockVersion (wersja treści)         SourceRef (Context-Lock)
-├─ id                             ├─ id                                ├─ id
-├─ name        „Przestrzeń        ├─ conceptId ──► Concept             ├─ pdfId ──► PdfDoc
-│               metryczna"        ├─ version    1, 2, 3…               ├─ page   (od 1)
-├─ type        definicja /        ├─ label      „wg Rudina"            ├─ rect   {x,y,w,h}
-│              twierdzenie /      ├─ content    Markdown + LaTeX       └─ note?
-│              lemat / dowód /    ├─ sourceRefs SourceRef[]
-│              przykład / uwaga / ├─ createdAt
-│              intuicja           └─ updatedAt
-├─ tags        [„matematyka"]
-├─ createdAt   ← oś zdobywania wiedzy
-├─ updatedAt
-└─ currentVersionId ──► BlockVersion
+Concept (klocek)                  BlockVersion (wersja treści)
+├─ id                             ├─ id
+├─ name          „Kres górny"     ├─ conceptId ──► Concept
+├─ type          definicja /      ├─ version     1, 2, 3…
+│                twierdzenie /    ├─ label       „wg Rudina"
+│                lemat /          ├─ content     Markdown + LaTeX
+│                przykład /       ├─ sourceRefs  SourceRef[]      ← źródła należą
+│                uwaga            ├─ sourceGroups?  string[]        do WERSJI
+├─ tags          [„analiza"]      ├─ createdAt
+├─ mainPageName? „Sformułowanie"  └─ updatedAt
+├─ folderId      | null
+├─ order         (ułamkowa)       Subpage (strona klocka)
+├─ createdAt     ← oś wiedzy      ├─ id
+├─ updatedAt                      ├─ conceptId ──► Concept
+└─ currentVersionId ──►           ├─ name        „Dowód"
+                    BlockVersion  ├─ content     Markdown + LaTeX
+                                  └─ order
 ```
+
+### Źródło — dwa rodzaje (unia)
+
+```
+PdfSourceRef                      BlockSourceRef
+├─ id                             ├─ id
+├─ kind?  'pdf' (brak = pdf)      ├─ kind    'block'
+├─ pdfId ──► PdfDoc               ├─ conceptId ──► Concept
+├─ page   (od 1)                  ├─ versionId | null  (null = zawsze bieżąca)
+├─ rect   {x,y,w,h}               ├─ group?
+├─ group?                         └─ note?
+└─ note?
+```
+
+Rozpoznawanie: `isPdfSource(r)` / `isBlockSource(r)`. **Starsze rekordy nie mają
+pola `kind`** — obecność `pdfId` oznacza źródło z PDF, dlatego zmiana była
+bezmigracyjna.
+
+### Powiązanie między klockami
+
+```
+Relation
+├─ id
+├─ fromId ──► Concept      ├─ kind   'zawieranie' | 'skala' | 'perspektywa'
+├─ fromVersionId? | null   ├─ note?   np. „n = 1"
+├─ toId ──► Concept        └─ createdAt
+└─ toVersionId?   | null
+```
+
+Końce można zawęzić do konkretnej wersji, bo jedna perspektywa klocka bywa
+uogólnieniem, a inna nie. `perspektywa` jest symetryczna (bez kierunku).
+
+## Warstwa kompozycji: Ścieżka
+
+```
+LearningPath                      PathNode — pięć rodzajów (pole `kind`)
+├─ id                             ├─ block    conceptId, versionId, subpageId?
+├─ name                           ├─ fusion   name, type?, parts[]   ← GRUPA
+├─ folderId | null                ├─ heading  text, level 1|2|3
+├─ order                          ├─ text     text                   ← notatka
+├─ nodes    PathNode[]            └─ comment  text, side?            ← poza skryptem
+├─ edges    PathEdge[]                (wszystkie mają id, x, y)
+├─ createdAt
+└─ updatedAt                      PathEdge: id, from, to, priority?
+```
+
+**Uwaga historyczna:** grupa ma w danych `kind: 'fusion'` — nazwa z czasów, gdy
+scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
 
 ## Kluczowe zasady
 
-1. **Pojęcie nie ma treści** — treść żyje wyłącznie w wersjach. „Zapisz jako v2"
-   kopiuje bieżącą wersję jako nową; stare wersje są niezmienne (tylko do odczytu).
-2. **Treść to czysty tekst** (Markdown + LaTeX) — niezależny od jakiejkolwiek aplikacji,
-   grosze pamięciowo, łatwy backup i eksport.
-3. **Context-Lock to współrzędne, nie obrazy** — `rect` jest prostokątem na stronie PDF
-   we współrzędnych strony **przy skali 1** (punkty PDF, początek w lewym górnym rogu).
-   Wycinek renderuje się z PDF na żądanie. Prostokąt działa też na skanach bez warstwy tekstu.
-4. **PDF-y przechowywane lokalnie** w IndexedDB jako `Blob` (tabela `pdfs`);
-   w przyszłości (Etap 5) będą pobierane na żądanie z chmury.
-5. **Chronologia** — `createdAt` pojęcia to punkt na osi zdobywania wiedzy;
-   domyślne sortowanie listy klocków.
+1. **Klocek nie ma treści** — treść żyje wyłącznie w wersjach. „Zapisz jako v2"
+   kopiuje bieżącą wersję jako nową; stare wersje są niezmienne.
+2. **Treść to czysty tekst** (Markdown + LaTeX) — niezależny od aplikacji, grosze
+   pamięciowo, łatwy backup i eksport.
+3. **Formatowanie, którego Markdown nie zna, zapisujemy znacznikami w tekście:**
+   `⟦wL,F,R⟧` na początku akapitu = wcięcia (px), `⟦sNN⟧…⟦/s⟧` = rozmiar fragmentu.
+   W trybie wizualnym są niewidoczne, w trybie kodu widoczne jawnie.
+4. **Źródła należą do wersji**, nie do strony — są wspólne dla wszystkich stron
+   danej wersji.
+5. **Odnośnik do PDF to współrzędne, nie obraz** — `rect` jest prostokątem na
+   stronie przy skali 1 (punkty PDF, początek w lewym górnym rogu). Wycinek
+   renderuje się na żądanie; działa też na skanach bez warstwy tekstu.
+6. **Ścieżka nigdy nie zmienia klocka** — jest widokiem, nie edytorem.
+7. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
 
-## Baza (IndexedDB przez Dexie, baza `kompendium`)
+## Baza (IndexedDB przez Dexie, baza `kompendium`, schemat v6)
 
-| Tabela | Indeksy |
-|---|---|
-| `concepts` | `id, name, type, createdAt, updatedAt, *tags` |
-| `versions` | `id, conceptId, [conceptId+version], createdAt` |
-| `pdfs` | `id, title, addedAt` |
+| Tabela | Indeksy | Zawiera |
+|---|---|---|
+| `concepts` | `id, name, type, createdAt, updatedAt, folderId, *tags` | klocki |
+| `versions` | `id, conceptId, [conceptId+version], createdAt` | wersje treści |
+| `subpages` | `id, conceptId` | strony klocka |
+| `relations` | `id, fromId, toId, kind` | powiązania |
+| `paths` | `id, name, folderId, createdAt, updatedAt` | ścieżki |
+| `folders` | `id, kind, parentId, name` | foldery (`concepts` / `pdfs`) |
+| `pdfs` | `id, title, addedAt, folderId` | pliki PDF jako `Blob` |
+
+Historia schematu: v1 podstawy → v2 foldery i kolejność → v3 wspólna kolejność
+folderów z klockami → v4 ścieżki → v5 strony klocka → v6 powiązania.
+
+## Kopia zapasowa
+
+Jeden plik `.zip`: `dane.json` (wszystkie tabele poza plikami) + katalog `pdfy/`
+z prawdziwymi plikami `.pdf`. Import dopisuje zawartość do bieżącej bazy —
+rekordy o tym samym `id` nadpisują istniejące, reszta zostaje nietknięta.

@@ -1,4 +1,4 @@
-// Test lokalnego rozmiaru tekstu (jak w Google Docs): zaznaczenie + wybór
+﻿// Test lokalnego rozmiaru tekstu (jak w Google Docs): zaznaczenie + wybór
 // rozmiaru, znaczniki w Kodzie, render w podglądzie, zmiana i powrót
 // do domyślnego, brak wpływu na resztę tekstu.
 import { chromium } from 'playwright'
@@ -40,7 +40,7 @@ const selectText = async (needle) => {
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.rich-content .tiptap')
 await page.fill('.editor-name', 'Rozmiary')
 await page.click('.rich-content .tiptap')

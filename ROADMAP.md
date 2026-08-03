@@ -3,139 +3,134 @@
 > Zasada nadrzędna: **jak najszybciej dojść do wersji, w której da się realnie uczyć**.
 > Każdy etap kończy się czymś używalnym. Unikamy pułapki budowania systemu do nauki
 > zamiast nauki (patrz [VISION.md](VISION.md) §1).
+>
+> Słownictwo: [SLOWNIK.md](SLOWNIK.md). Format danych: [docs/DATA-FORMAT.md](docs/DATA-FORMAT.md).
 
 ---
 
-## Etap 0 — Decyzje fundamentalne ✅ *(rozstrzygnięte)*
+## Stan na 3 sierpnia 2026
 
-- [x] **Build vs. adapt** → BUILD, od zera (VISION.md §4).
-- [x] **Stack** → wybrany (tabela niżej). Twarde ograniczenie: **zero kosztów**.
-- [ ] Zdefiniować format danych klocka (schemat JSON/frontmatter) — to najtrwalsza
-  decyzja w całym projekcie; treść musi przeżyć każdą wersję aplikacji.
-  → *pierwsze zadanie Etapu 1*.
+Aplikacja jest **w codziennym użyciu** — trwa przenoszenie własnych notatek.
+Poniżej to, co działa, pogrupowane tak, jak się z tego korzysta.
 
-**Stack (zdecydowany):**
+### Klocki i treść
 
-| Warstwa | Wybór | Dlaczego |
+- [x] Klocki z typem, nazwą, tagami; lista z wyszukiwarką i filtrem typu.
+- [x] Foldery (drzewo, przeciąganie, wspólna kolejność klocków i ścieżek).
+- [x] Wersje klocka z etykietą, zmianą nazwy, kolejności i usuwaniem.
+- [x] Strony klocka (dowolna liczba, dowolne nazwy — najczęściej „Dowód");
+      nazwę strony głównej też można zmienić.
+- [x] Hybrydowy edytor: **Wizualny** (TipTap) ↔ **Kod** (CodeMirror) ↔ **Podział**;
+      źródłem prawdy zawsze Markdown + LaTeX.
+- [x] Wzory KaTeX renderowane w miejscu podczas pisania; klik we wzór pokazuje kod.
+- [x] Skróty Ctrl+B/I/M, pasek formatowania, zawijanie wierszy w trybie kodu.
+- [x] Linijka strony: szerokość tekstu, wcięcia akapitów (lokalne), rozmiar
+      zaznaczonego fragmentu, interlinia, odstęp akapitów, wielkość i odstęp wzorów.
+- [x] Wiki-linki `[[Nazwa]]`, panel odwołań, widok grafu powiązań.
+
+### Źródła
+
+- [x] Import PDF do bazy lokalnej; biblioteka z folderami, zmianą nazwy i usuwaniem.
+- [x] Czytnik PDF: wszystkie strony w pionie, zoom, skok do strony, leniwe rysowanie.
+- [x] Podpięcie źródła prostokątem (działa na skanach); skok z klocka do miejsca w PDF.
+- [x] **Źródłem może być inny klocek** → genealogia wiedzy aż do strony w książce.
+- [x] Lista źródeł pod treścią bloku z podglądem fragmentu po najechaniu.
+- [x] Mapa wykorzystanych fragmentów na stronach PDF (klik otwiera klocek).
+
+### Powiązania
+
+- [x] Trzy osie: zawieranie, skala, perspektywa; z dopiskiem i zawężeniem do wersji.
+- [x] Widoczne na mapie ścieżki jako przerywane strzałki (można wyłączyć).
+- [ ] **Sposób tworzenia powiązań — do przeprojektowania.** Panel w edytorze
+      i pigułki pod treścią zostały wycofane (odrzucona forma graficzna).
+      Kierunek: osobna mapa pojęć. Dane i pokazywanie na mapie zostają.
+
+### Ścieżki
+
+- [x] Trzy widoki: **Mapa**, **Linia**, **Skrypt**.
+- [x] Kafelki z wyborem wersji i strony; strzałki kolejności z priorytetem gałęzi.
+- [x] Rozdziały, podrozdziały i sekcje + klikalny spis treści (można schować).
+- [x] Notatki i komentarze (komentarz nie trafia do skryptu).
+- [x] Grupy: kilka klocków jako jeden blok wybranego typu; scalanie na mapie
+      i w linii, edycja nazwy i typu, rozgrupowanie.
+- [x] Generowanie skryptu (porządek topologiczny) → druk / zapis PDF.
+- [x] Układanie kafelków: unikanie nakładania przy dodawaniu + przycisk „Ułóż".
+
+### Całość
+
+- [x] Motyw jasny/ciemny, ustawienia wyglądu (szerokość strony, kolory typów,
+      nasycenie tła bloków), zapamiętywane między sesjami.
+- [x] Kopia zapasowa: eksport i import całej bazy do jednego pliku `.zip`.
+- [x] Skrót na pulpicie uruchamiający aplikację w Firefoksie.
+- [x] Bateria testów Playwright (24 pliki) + pomiar płynności mapy w Firefoksie.
+
+---
+
+## Kolejka — co dalej
+
+1. **Układ paska bocznego** — obecny jest doraźny; do przemyślenia (inspiracja
+   Obsidianem: ustawienia na dole, przyciski tworzenia nad listą).
+2. **Tworzenie powiązań** — osobna mapa pojęć zamiast wycofanych paneli.
+3. **Szybkie wstawianie środowisk** (twierdzenie, dowód □) w edytorze.
+4. **Pełny LaTeX / TikZ** — najbardziej ryzykowny element stacku, patrz niżej.
+5. **Synchronizacja i telefon** — na telefonie priorytet to *czytanie* ścieżek,
+   nie edycja mapy; tryb offline z późniejszą synchronizacją.
+
+---
+
+## Decyzje rozstrzygnięte
+
+- **2026-08-03 — Grupowanie.** Scalanie to zabieg **estetyczny**: grupa czyta się
+  jak jeden blok wybranego typu, a klocki w środku tracą własne ramki i tytuły.
+  W bazie pozostają osobnymi klockami.
+- **2026-08-02/03 — Synteza wielu źródeł.** Trzy warstwy (źródło / wiedza /
+  kompozycja), źródłem może być klocek, jeden klocek = jeden byt, powiązania na
+  trzech osiach z zawężeniem do wersji, uogólnienie przykrywa przypadki szczególne.
+  Szczegóły: [VISION.md](VISION.md) §2.
+- **2026-07-31 — Dowody.** Nie osobny typ klocka, tylko **strona klocka** o dowolnej
+  nazwie. W ścieżce wybiera się stronę pokazywaną bazowo; w skrypcie można je
+  przełączać podczas czytania.
+- **2026-07-30 — Kopia zapasowa zamiast plików na dysku.** Interfejs dostępu do
+  plików (File System Access API) działa tylko w przeglądarkach Chromium, a używamy
+  Firefoksa — dlatego eksport/import `.zip` zamiast katalogu z notatkami.
+- **Etap 0 — Build vs adapt** → budujemy od zera. **Stack** → tabela niżej.
+  **Format danych** → [docs/DATA-FORMAT.md](docs/DATA-FORMAT.md).
+- **Canvas** → **React Flow** (prototyp tldraw okazał się zbędny).
+
+### Otwarte drobiazgi
+
+- **Przecinanie się zakresów** przy osi zawierania — dziś tylko pochłanianie
+  („zawiera" / „jest częścią") plus dopisek; częściowe przecięcie nie ma etykiety.
+- **Oś dydaktyczna „wymaga"** („żeby to zrozumieć, znaj najpierw tamto") — świadomie
+  poza trzema osiami ontologicznymi; wróci, jeśli ścieżki mają podpowiadać kolejność.
+
+---
+
+## Stack
+
+| Warstwa | Wybór | Stan |
 |---|---|---|
-| Aplikacja | **React + TypeScript + Vite**, jako PWA | Jeden kod na komputer i telefon; największy ekosystem bibliotek; wszystko darmowe i open-source |
-| Edytor — widok wizualny | **TipTap** (nakładka na ProseMirror) | To silnik edytorów „jak Google Docs"; darmowy rdzeń wystarcza |
-| Edytor — widok kodu | **CodeMirror 6** | To silnik trybu kodu „jak w Overleafie" (Overleaf faktycznie używa CodeMirror); podświetlanie LaTeX/Markdown |
-| Wzory (szybkie) | **KaTeX** | Natychmiastowy rendering `$...$` podczas pisania |
-| Pełny LaTeX / TikZ | **Kompilator LaTeX w przeglądarce (WASM: SwiftLaTeX / TeXLive-wasm)** | Prawdziwy silnik TeX działający lokalnie w przeglądarce — TikZ, pgfplots, dociąganie pakietów CTAN na żądanie jak w Overleafie; zero serwera = zero kosztów; wynik cache'owany jako SVG |
-| Canvas (Etap 3) | do ustalenia: **React Flow** vs **tldraw** | Zrobimy prototyp obu i wybierzesz wyglądem |
-| PDF | **PDF.js** (silnik Firefoksa) | Podgląd PDF + nakładka do zaznaczania prostokątów (Context-Lock); działa też ze skanami bez warstwy tekstu |
-| Baza lokalna | **IndexedDB (przez Dexie)** — notatki + metadane + PDF-y | Wbudowana w każdą przeglądarkę, zero instalacji, zero kosztów; działa offline |
-| Sync (Etap 5) | kierunek: darmowy tier (np. Supabase 500 MB) na notatki; PDF-y pobierane na żądanie | Notatki to kilobajty — darmowy tier starczy na lata; ciężkie PDF-y nie zapychają telefonu |
+| Aplikacja | React + TypeScript + Vite (PWA) | działa |
+| Edytor wizualny | TipTap (ProseMirror) | działa |
+| Edytor kodu | CodeMirror 6 | działa |
+| Wzory | KaTeX | działa |
+| Mapa ścieżek | React Flow | działa |
+| PDF | PDF.js | działa (komplet danych pomocniczych: czcionki, mapy znaków, WASM, ICC) |
+| Baza lokalna | IndexedDB przez Dexie | działa (wersja schematu 6) |
+| Kopia zapasowa | JSZip → jeden plik `.zip` | działa |
+| Testy | Playwright (Brave + Firefox do pomiarów) | działa |
+| Pełny LaTeX / TikZ | kompilator w przeglądarce (WASM) | **niezrobione** |
+| Synchronizacja | darmowy tier (kierunek: Supabase) | **niezrobione** |
 
-**Uczciwa notka o TikZ:** pełny LaTeX w przeglądarce (WASM) to najbardziej ryzykowny
-element stacku — działa, ale pierwsza kompilacja bywa wolna (sekundy). Plan: wzory
-renderuje KaTeX natychmiast, a bloki `tikz` kompilują się w tle i są cache'owane,
-więc wolno jest tylko za pierwszym razem. Jeśli WASM okaże się zbyt toporny,
-alternatywą jest darmowy własny mini-serwer kompilacji — decyzja po testach w Etapie 1.
-
----
-
-## Etap 1 — MVP: Baza Atomowa *(pierwsza używalna wersja)*
-
-Cel: mogę czytać książkę (PDF) i budować z niej klocki wiedzy ze źródłami.
-
-- [ ] Model danych klocka: typ (Definicja/Twierdzenie/Dowód/Przykład), nazwa, tagi, treść.
-- [ ] Edytor treści klocka z pełnym wsparciem LaTeX (na start może być sam Markdown+LaTeX,
-  hybrydowy WYSIWYG dojdzie w Etapie 3).
-- [ ] Import PDF: wrzucenie pliku do aplikacji (przechowywany lokalnie w IndexedDB).
-- [ ] Podgląd PDF obok edytora.
-- [ ] **Context-Lock v1**: zaznacz **prostokątem** region strony PDF (działa też na skanach
-  bez warstwy tekstu) → do klocka podpina się odnośnik (plik, strona, współrzędne prostokąta);
-  wycinek renderuje się z PDF na żądanie (nie zapisujemy obrazów — oszczędność pamięci).
-  Klik w wycinek → **skok do PDF-a**: właściwa strona + podświetlony prostokąt.
-- [ ] Lista/przegląd klocków: filtrowanie po typie i tagach, wyszukiwarka pełnotekstowa.
-- [ ] Chronologia: klocki zachowują kolejność powstawania („oś zdobywania wiedzy").
-
-**Kryterium ukończenia:** przerobienie jednego rozdziału prawdziwej książki
-wyłącznie w systemie.
+**Uczciwa notka o TikZ:** pełny LaTeX w przeglądarce to najbardziej ryzykowny element
+stacku — pierwsza kompilacja bywa wolna (sekundy). Plan: wzory renderuje KaTeX
+natychmiast, a bloki `tikz` kompilują się w tle i są cache'owane. Jeśli WASM okaże
+się zbyt toporny, alternatywą jest własny mini-serwer kompilacji.
 
 ---
-
-## Etap 2 — Wersjonowanie i powiązania ✅
-
-- [x] Wersje klocka: „zapisz jako v2" z etykietą (np. „wg Rudina"); stare wersje
-  widoczne i tylko do odczytu. *(zrobione już w Etapie 1)*
-- [x] Linki między klockami: wiki-linki `[[Nazwa]]` w treści (z aliasem `[[Nazwa|tekst]]`);
-  klik nawiguje, brakujące pojęcie można utworzyć klikiem.
-- [x] Panel „Odwołania" — co linkuje do tego klocka; klik nawiguje.
-- [x] Widok grafu powiązań (🕸): węzły = pojęcia (kolor typu, rozmiar wg liczby powiązań),
-  krawędzie = wiki-linki; przeciąganie węzłów, zoom/pan, klik otwiera klocek.
-
----
-
-## Etap 3 — Poziom Przestrzenny: Ścieżki ✅
-
-- [x] Canvas (React Flow): klocki przeciągane z paska bocznego jako kafelki
-  (z podglądem treści i KaTeX), łączone strzałkami logicznej kolejności.
-- [x] Tkanka łączna: żółte węzły tekstowe na mapie, należące do ścieżki.
-- [x] Wybór wersji klocka per kafelek („zawsze bieżąca" albo konkretna vN).
-- [x] Fuzja bloków: Ctrl+klik zaznacza kilka kafelków → „Scal" tworzy wspólny
-  bloczek (podwójna ramka); można rozdzielić z powrotem.
-- [x] **Generowanie skryptu**: porządek topologiczny wg strzałek (remisy wg
-  pozycji na mapie) → jeden ciągły dokument → druk / zapis PDF z przeglądarki.
-- [x] Ścieżki żyją w tym samym drzewie folderów co klocki (wspólna kolejność).
-
----
-
-## Etap 4 — Hybrydowy edytor i dopieszczenie ✅ (rdzeń)
-
-- [x] Tryb WYSIWYG „Wizualny" (TipTap) ↔ „Kod" (CodeMirror) ↔ „Podział",
-  przełączane w locie; źródłem prawdy zawsze Markdown+LaTeX. Wzory `$…$`
-  renderują się w miejscu w trybie wizualnym; klik we wzór pokazuje kod.
-- [x] Motyw jasny/ciemny: przełącznik ☾ w pasku bocznym, start wg preferencji
-  systemowej, wybór zapamiętywany.
-- [x] Skróty: Ctrl+B/I (pogrubienie/kursywa), Ctrl+M wzór `$…$`,
-  Ctrl+Shift+M wzór `$$…$$` (w trybie kodu i oknie notatki); pasek
-  formatowania w trybie wizualnym (B, I, nagłówek, listy, cytat, wzory).
-- [ ] Szybkie wstawianie środowisk (twierdzenie, dowód □) — wróci razem
-  z decyzją o reprezentacji dowodów (sekcja „Do przemyślenia").
-
----
-
-## Etap 5 — Synchronizacja i telefon
-
-- [ ] Sync w czasie rzeczywistym między urządzeniami.
-- [ ] Interfejs mobilny: na telefonie priorytet to **czytanie i powtórka ścieżek**,
-  nie pełna edycja canvasu.
-- [ ] Tryb offline z późniejszą synchronizacją.
-
----
-
-## Do przemyślenia
-
-- **Synteza wielu źródeł** — ROZSTRZYGNIĘTE (2026-08-02/03), po zderzeniu
-  z praktyką (dwie książki + ścieżka podsumowująca). Szczegóły w
-  [VISION.md](VISION.md) §2. W skrócie:
-  - **źródłem może być klocek**, nie tylko wycinek PDF → genealogia wiedzy
-    aż do strony w książce;
-  - **jeden klocek = jeden byt** zostaje; autor definiujący 3 rzeczy naraz →
-    3 klocki i ten sam wycinek pod każdym;
-  - **scalanie** w ścieżce pokazuje kilka klocków jako jeden blok danego typu
-    (np. twierdzenie z dwóch twierdzeń), bez naruszania atomowości;
-  - **powiązania na trzech osiach** (zawieranie / skala / perspektywa),
-    z możliwością zawężenia do konkretnej wersji, bo jedna perspektywa bywa
-    uogólnieniem, a inna nie;
-  - **przykrywanie**: klocek ogólny w skrypcie wypisuje swoje przypadki
-    szczególne i pozwala rozwinąć ich treść w miejscu.
-  - Otwarte drobiazgi: częściowe **przecinanie się** zakresów przy mereologii
-    (dziś tylko pochłanianie + dopisek) oraz oś dydaktyczna „wymaga".
-
-- **Dowody** — ROZSTRZYGNIĘTE (2026-07-31): każdy klocek może mieć dowolnie
-  wiele „stron" o dowolnych nazwach (najczęściej „Dowód") — dodatkowe treści
-  obok głównej, przełączane listwą z lewej strony edytora. W kafelku ścieżki
-  wybiera się stronę pokazywaną bazowo, a w Skrypcie można je przełączać
-  zakładkami podczas czytania (bez zmiany ścieżki). Strony są wspólne dla
-  wszystkich wersji pojęcia i wchodzą do kopii zapasowej.
 
 ## Pomysły na później (świadomie odłożone)
 
-- Active Recall na sterydach: automatyczne generowanie fiszek z klocków (tryb „zakryj dowód").
-- Spaced repetition na ścieżkach.
+- Automatyczne fiszki z klocków (tryb „zakryj dowód"), powtórki rozłożone w czasie.
 - Eksport ścieżki do pełnego LaTeX-a (gotowy skrypt akademicki).
 - Współdzielenie ścieżek z innymi.

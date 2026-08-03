@@ -1,4 +1,4 @@
-// Głęboki test poprawności ścieżek: wszystkie rodzaje kafelków, strzałki,
+﻿// Głęboki test poprawności ścieżek: wszystkie rodzaje kafelków, strzałki,
 // kolejność, grupowanie/rozgrupowanie, tryb liniowy, skrypt, trwałość
 // i odporność na usunięte klocki. Zgłasza każdą niezgodność jako BŁĄD.
 import { chromium } from 'playwright'
@@ -80,7 +80,7 @@ for (const [name, type] of [
   ['Gamma', 'twierdzenie'],
   ['Delta', 'przyklad'],
 ]) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.selectOption('.type-select', type)

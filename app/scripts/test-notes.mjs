@@ -1,4 +1,4 @@
-// Test okna notatek/komentarzy: zawijanie długich wierszy (brak przewijania
+﻿// Test okna notatek/komentarzy: zawijanie długich wierszy (brak przewijania
 // w bok), tryby Wizualny/Kod/Podział, pisanie ze wzorami, zapis treści.
 import { chromium } from 'playwright'
 
@@ -105,7 +105,7 @@ console.log(`✓ tryb zapamiętany (Podział): ${remembered > 0 ? 'ok' : 'BRAK!'
 // 8. to samo zawijanie w widoku Kod klocka
 await page.keyboard.press('Escape')
 await page.click('.path-canvas .btn-close')
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.click('.view-switch button:has-text("Kod")')
 await page.click('.editor-code .cm-content')

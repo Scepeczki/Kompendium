@@ -1,4 +1,4 @@
-// Test scalania klocków w widoku Linia: przycisk ⧉ scala segment z następnym,
+﻿// Test scalania klocków w widoku Linia: przycisk ⧉ scala segment z następnym,
 // kolejne kliknięcia dokładają następne klocki do tej samej grupy.
 import { chromium } from 'playwright'
 
@@ -48,7 +48,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 for (const n of ['Kres gorny', 'Kres dolny', 'Supremum ciagu']) {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.click('.view-switch button:has-text("Kod")')

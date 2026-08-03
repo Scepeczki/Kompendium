@@ -1,4 +1,4 @@
-// Test pokazywania powiązań z warstwy wiedzy na mapie ścieżki.
+﻿// Test pokazywania powiązań z warstwy wiedzy na mapie ścieżki.
 // (Grupowanie klocków ma własny test: test-group.mjs)
 import { chromium } from 'playwright'
 
@@ -16,7 +16,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 const mk = async (name, type) => {
-  await page.click('text=+ Nowy klocek')
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.selectOption('.type-select', type)

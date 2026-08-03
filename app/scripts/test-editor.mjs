@@ -1,4 +1,4 @@
-// Test Etapu 4: tryb wizualny (TipTap), przełączanie z kodem, wzory KaTeX
+﻿// Test Etapu 4: tryb wizualny (TipTap), przełączanie z kodem, wzory KaTeX
 // w miejscu, skróty Ctrl+B/M w kodzie, motyw jasny/ciemny.
 import { chromium } from 'playwright'
 
@@ -14,7 +14,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Hybryda')
 
@@ -133,7 +133,7 @@ console.log(
 // 9. przełączanie między klockami w trybie wizualnym odświeża treść
 await page.click('.view-switch button:has-text("Wizualny")')
 await page.click('.btn-close[title*="Zamknij klocek"]')
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Drugi klocek')
 await page.click('.rich-content .tiptap')

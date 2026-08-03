@@ -1,4 +1,4 @@
-// Test kopii zapasowej: eksport zip, wyczyszczenie bazy, import, odzyskanie
+﻿// Test kopii zapasowej: eksport zip, wyczyszczenie bazy, import, odzyskanie
 // klocków / ścieżek / PDF-a. Sprawdza też odporność na osierocony folderId.
 import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
@@ -17,7 +17,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // dane: klocek, PDF, ścieżka
-await page.click('text=+ Nowy klocek')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Do kopii zapasowej')
 await page.setInputFiles('input[type=file][accept="application/pdf"]', {

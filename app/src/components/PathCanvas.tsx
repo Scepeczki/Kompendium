@@ -354,6 +354,20 @@ function OrderedEdge({
 
 const edgeTypes = { ordered: OrderedEdge }
 
+/** Przytrzymuje menu kontekstowe w oknie — przy dolnej albo prawej krawędzi
+ *  rozwinęłoby się poza ekran i część pozycji byłaby nieklikalna. */
+const clampMenu = (el: HTMLDivElement | null) => {
+  if (!el) return
+  const pad = 8
+  const r = el.getBoundingClientRect()
+  if (r.bottom > window.innerHeight - pad) {
+    el.style.top = `${Math.max(pad, window.innerHeight - pad - r.height)}px`
+  }
+  if (r.right > window.innerWidth - pad) {
+    el.style.left = `${Math.max(pad, window.innerWidth - pad - r.width)}px`
+  }
+}
+
 /** Przedrostek id strzałek powiązań — te są tylko pokazywane, nie zapisywane. */
 const REL_PREFIX = 'rel-'
 
@@ -1781,6 +1795,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         {ctxMenu && (
           <div
             className="path-ctxmenu"
+            ref={clampMenu}
             style={{ left: ctxMenu.sx, top: ctxMenu.sy }}
             onContextMenu={(e) => e.preventDefault()}
           >
@@ -1834,6 +1849,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         {nodeMenu && (
           <div
             className="path-ctxmenu"
+            ref={clampMenu}
             style={{ left: nodeMenu.sx, top: nodeMenu.sy }}
             onContextMenu={(e) => e.preventDefault()}
           >

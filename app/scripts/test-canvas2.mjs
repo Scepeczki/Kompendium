@@ -1,4 +1,4 @@
-// Test ulepszeń canvasu: przesuwalny tekst, siatka + Shift-snap,
+﻿// Test ulepszeń canvasu: przesuwalny tekst, siatka + Shift-snap,
 // menu prawego przycisku, kolejność gałęzi (numerki na strzałkach).
 import { chromium } from 'playwright'
 
@@ -87,8 +87,8 @@ await page.waitForTimeout(300)
 const noteNodes = page.locator('.react-flow__node:has(.path-node-text)')
 for (const [i, txt] of [[0, 'TEKST-PIERWSZY'], [1, 'TEKST-DRUGI']]) {
   await noteNodes.nth(i).dblclick()
-  await page.waitForSelector('.note-modal .cm-content')
-  await page.click('.note-modal .cm-content')
+  await page.waitForSelector('.note-modal .rich-content .tiptap')
+  await page.click('.note-modal .rich-content .tiptap')
   await page.keyboard.type(txt)
   await page.waitForTimeout(600)
   await page.click('.note-modal .btn-close')
