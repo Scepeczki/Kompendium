@@ -70,7 +70,9 @@ const afterDrop = await overlaps()
 check('kafelki upuszczone w to samo miejsce nie nakładają się',
   afterDrop === 0, `nakładających się par: ${afterDrop}`)
 
-// --- pomiar płynności: przeciąganie kafelka przez mapę ---
+// --- pomiar płynności: ciągłe przeciąganie kafelka przez mapę ---
+// Liczymy też, ile treści kafelków przerysowuje przeglądarka: przy dobrej
+// memoizacji przesuwanie jednego kafelka nie rusza pozostałych.
 const measureDrag = async () => {
   const box = await page.locator('.react-flow__node').first().boundingBox()
   await page.evaluate(() => {
@@ -81,16 +83,34 @@ const measureDrag = async () => {
       if (window.__raf) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
+    // liczymy przebudowy treści kafelków (podmiany HTML w .path-node-body)
+    window.__rerenders = 0
+    window.__touched = new Set()
+    window.__obs = new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.target instanceof Element && m.target.closest('.path-node-body')) {
+          window.__rerenders++
+          const nd = m.target.closest('.react-flow__node')
+          if (nd) window.__touched.add(nd.getAttribute('data-id'))
+        }
+      }
+    })
+    window.__obs.observe(document.querySelector('.react-flow__nodes'), {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    })
   })
   await page.mouse.move(box.x + box.width / 2, box.y + 10)
   await page.mouse.down()
-  for (let i = 0; i < 30; i++) {
-    await page.mouse.move(box.x + box.width / 2 + i * 8, box.y + 10 + i * 4)
-    await page.waitForTimeout(16)
+  // ciągły ruch bez przerw — tak jak przy prawdziwym przeciąganiu myszą
+  for (let i = 0; i < 60; i++) {
+    await page.mouse.move(box.x + box.width / 2 + i * 6, box.y + 10 + i * 3)
   }
   await page.mouse.up()
   return page.evaluate(() => {
     window.__raf = false
+    window.__obs.disconnect()
     const f = window.__frames
     const deltas = []
     for (let i = 1; i < f.length; i++) deltas.push(f[i] - f[i - 1])
@@ -100,18 +120,24 @@ const measureDrag = async () => {
       medianaMs: Math.round(deltas[Math.floor(deltas.length / 2)] * 10) / 10,
       najgorszaMs: Math.round(deltas[deltas.length - 1] * 10) / 10,
       dlugieKlatki: deltas.filter((d) => d > 50).length,
+      przebudowyTresci: window.__rerenders,
+      przerysowaneKafelki: window.__touched.size,
+      wszystkieKafelki: document.querySelectorAll('.react-flow__node').length,
     }
   })
 }
 
 const perf = await measureDrag()
 console.log(
-  `   płynność przeciągania: mediana ${perf.medianaMs} ms/klatkę, najgorsza ${perf.najgorszaMs} ms, klatek > 50 ms: ${perf.dlugieKlatki} (z ${perf.klatek})`,
+  `   płynność przeciągania: mediana ${perf.medianaMs} ms/klatkę, najgorsza ${perf.najgorszaMs} ms, klatek > 50 ms: ${perf.dlugieKlatki} (z ${perf.klatek}), przebudowy treści kafelków: ${perf.przebudowyTresci}`,
 )
 check('przeciąganie płynne (mediana poniżej 25 ms/klatkę)', perf.medianaMs < 25,
   `${perf.medianaMs} ms`)
 check('brak długich zacięć podczas przeciągania (max 2 klatki > 50 ms)',
   perf.dlugieKlatki <= 2, `${perf.dlugieKlatki} klatek`)
+check('przeciąganie rusza tylko przeciągany kafelek, nie pozostałe',
+  perf.przerysowaneKafelki <= 1,
+  `przerysowanych kafelków: ${perf.przerysowaneKafelki} z ${perf.wszystkieKafelki} (przebudów treści: ${perf.przebudowyTresci})`)
 
 // --- przycisk „Ułóż" ---
 await page.click('button:has-text("⇅ Ułóż")')

@@ -1,5 +1,6 @@
 import {
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -79,6 +80,23 @@ interface CanvasApi {
 }
 
 const CanvasCtx = createContext<CanvasApi>(null!)
+
+/** Strzałki z tego samego źródła w efektywnej kolejności: jawny priorytet,
+ *  a bez niego pozycja celu na mapie (y, potem x). Poza komponentem, żeby
+ *  akcje kafelków mogły mieć stałą tożsamość. */
+const siblingsSorted = (source: string, edges: Edge[], nodes: Node[]) => {
+  const pos = (id: string) => nodes.find((n) => n.id === id)?.position ?? { x: 0, y: 0 }
+  return edges
+    .filter((e) => e.source === source)
+    .sort((a, b) => {
+      const pa = (a.data?.priority as number | undefined) ?? Infinity
+      const pb = (b.data?.priority as number | undefined) ?? Infinity
+      if (pa !== pb) return pa - pb
+      const ta = pos(a.target)
+      const tb = pos(b.target)
+      return ta.y - tb.y || ta.x - tb.x
+    })
+}
 
 // ---------------------------------------------------------------------------
 // Konwersje: nasz format <-> React Flow
@@ -163,6 +181,19 @@ const fromRfEdge = (e: Edge): PathEdge => ({
 // Węzły niestandardowe
 // ---------------------------------------------------------------------------
 
+/** Wyrenderowana treść kafelka w osobnym, zmemoizowanym komponencie:
+ *  przeciąganie zmienia tylko pozycję, więc React w ogóle nie wchodzi
+ *  w to poddrzewo (a jest w nim najdroższa część — wzory KaTeX). */
+const NodeBody = memo(function NodeBody({
+  html,
+  className = 'path-node-body markdown-body',
+}: {
+  html: string
+  className?: string
+}) {
+  return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />
+})
+
 function BlockNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
   const conceptId = data.conceptId as string
@@ -231,11 +262,8 @@ function BlockNode({ id, data, selected }: NodeProps) {
         onSelect={(sid) => ctx.updateData(id, { subpageId: sid })}
         hint="Strona pokazywana bazowo przy oglądaniu tej ścieżki"
       />
-      <div
-        className="path-node-body markdown-body"
-        dangerouslySetInnerHTML={{
-          __html: renderMarkdown(activeSub ? activeSub.content : (version?.content ?? '')),
-        }}
+      <NodeBody
+        html={renderMarkdown(activeSub ? activeSub.content : (version?.content ?? ''))}
       />
       <Handle type="source" position={Position.Bottom} />
     </div>
@@ -267,10 +295,7 @@ function NoteBody({
       <div className="path-node-grip" title="Przeciągnij, aby przesunąć">
         {variant === 'comment' ? '💬 komentarz (poza skryptem)' : '✥ notatka'}
       </div>
-      <div
-        className="path-node-notebody markdown-body"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <NodeBody html={html} className="path-node-notebody markdown-body" />
       <Handle type="source" position={Position.Bottom} />
     </div>
   )
@@ -703,10 +728,7 @@ function GroupMember({
           ×
         </button>
       </div>
-      <div
-        className="path-node-body markdown-body"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(version?.content ?? '') }}
-      />
+      <NodeBody html={renderMarkdown(version?.content ?? '')} />
     </div>
   )
 }
@@ -793,12 +815,14 @@ function HeadingNode({ id, data, selected }: NodeProps) {
   )
 }
 
+/** Kafelki opakowane w memo: przeciąganie jednego nie przerysowuje reszty
+ *  (React Flow zmienia wtedy tylko jego wpis, więc props pozostałych są te same). */
 const nodeTypes = {
-  block: BlockNode,
-  text: TextNode,
-  comment: CommentNode,
-  fusion: FusionNode,
-  heading: HeadingNode,
+  block: memo(BlockNode),
+  text: memo(TextNode),
+  comment: memo(CommentNode),
+  fusion: memo(FusionNode),
+  heading: memo(HeadingNode),
 }
 
 // ---------------------------------------------------------------------------
@@ -956,36 +980,27 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     }, 500)
   }, [rfNodes, rfEdges, pathId])
 
-  /** Strzałki z tego samego źródła w efektywnej kolejności:
-   *  jawny priorytet, a bez niego pozycja celu na mapie (y, potem x). */
-  const siblingsSorted = (source: string, edges: Edge[], nodes: Node[]) => {
-    const pos = (id: string) => nodes.find((n) => n.id === id)?.position ?? { x: 0, y: 0 }
-    return edges
-      .filter((e) => e.source === source)
-      .sort((a, b) => {
-        const pa = (a.data?.priority as number | undefined) ?? Infinity
-        const pb = (b.data?.priority as number | undefined) ?? Infinity
-        if (pa !== pb) return pa - pb
-        const ta = pos(a.target)
-        const tb = pos(b.target)
-        return ta.y - tb.y || ta.x - tb.x
-      })
-  }
+  /** Zestaw akcji dla kafelków. MUSI mieć stałą tożsamość — inaczej każdy
+   *  render mapy (a przy przeciąganiu jest ich kilkadziesiąt na sekundę)
+   *  przerysowuje wszystkie kafelki, bo to wartość kontekstu. Stan czytamy
+   *  przez referencje, żeby nie trzeba go było wpisywać w zależności. */
+  const edgesRef = useRef(rfEdges)
+  edgesRef.current = rfEdges
 
-  const api: CanvasApi = {
+  const api: CanvasApi = useMemo(() => ({
     updateData: (id, patch) =>
       setRfNodes((ns) =>
         ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
       ),
     edgeOrderInfo: (edgeId, source) => {
-      const sibs = siblingsSorted(source, rfEdges, rfNodes)
+      const sibs = siblingsSorted(source, edgesRef.current, nodesRef.current)
       return { index: sibs.findIndex((e) => e.id === edgeId) + 1, count: sibs.length }
     },
     cycleEdgePriority: (edgeId) =>
       setRfEdges((es) => {
         const edge = es.find((e) => e.id === edgeId)
         if (!edge) return es
-        const sibs = siblingsSorted(edge.source, es, rfNodes)
+        const sibs = siblingsSorted(edge.source, es, nodesRef.current)
         const idx = sibs.findIndex((e) => e.id === edgeId)
         const reordered = [...sibs]
         reordered.splice(idx, 1)
@@ -1001,21 +1016,20 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             : e,
         )
       }),
-    unfuse: (id) =>
-      setRfNodes((ns) => {
-        const f = ns.find((n) => n.id === id)
-        if (!f) return ns
-        const parts =
-          (f.data.parts as { conceptId: string; versionId: string | null }[]) ?? []
-        const blocks: Node[] = parts.map((p, i) => ({
-          id: crypto.randomUUID(),
-          type: 'block',
-          position: { x: f.position.x + i * 30, y: f.position.y + i * 60 },
-          data: { conceptId: p.conceptId, versionId: p.versionId },
-        }))
-        setRfEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
-        return [...ns.filter((n) => n.id !== id), ...blocks]
-      }),
+    unfuse: (id) => {
+      const f = nodesRef.current.find((n) => n.id === id)
+      if (!f) return
+      const parts =
+        (f.data.parts as { conceptId: string; versionId: string | null }[]) ?? []
+      const blocks: Node[] = parts.map((p, i) => ({
+        id: crypto.randomUUID(),
+        type: 'block',
+        position: { x: f.position.x + i * 30, y: f.position.y + i * 220 },
+        data: { conceptId: p.conceptId, versionId: p.versionId },
+      }))
+      setRfNodes((ns) => [...ns.filter((n) => n.id !== id), ...blocks])
+      setRfEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
+    },
     renameFusion: (id) => setEditingGroup(id),
     addFusionPart: (id) => setFusionTarget(id),
     setPartVersion: (id, index, versionId) =>
@@ -1041,7 +1055,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         }),
       ),
     openConcept: onOpenConcept,
-  }
+  }), [onOpenConcept])
 
   /** Części klocka albo grupy — do składania grup z jednego i drugiego. */
   const partsOf = (n: Node): { conceptId: string; versionId: string | null }[] =>
