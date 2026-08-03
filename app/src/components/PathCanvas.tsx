@@ -47,6 +47,7 @@ import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Outline, outlineId, type OutlineItem } from './Outline'
 import { ConceptPicker } from './ConceptPicker'
+import { GroupEditor } from './GroupEditor'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
@@ -870,6 +871,8 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
   const [editingNote, setEditingNote] = useState<string | null>(null)
   /** Fuzja, do której dokładamy klocek (otwiera okno wyboru). */
   const [fusionTarget, setFusionTarget] = useState<string | null>(null)
+  /** Edytowana grupa (nazwa + czym ma być). */
+  const [editingGroup, setEditingGroup] = useState<string | null>(null)
   // tryb pisania w oknie notatki — jak w edytorze klocka
   const [noteView, setNoteView] = useState<'wizualny' | 'kod' | 'podzial'>(() => {
     const v = localStorage.getItem('ui.noteView')
@@ -1013,14 +1016,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         setRfEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
         return [...ns.filter((n) => n.id !== id), ...blocks]
       }),
-    renameFusion: (id) => {
-      const n = rfNodes.find((x) => x.id === id)
-      const name = window.prompt(
-        'Nazwa scalonego bloku w tej ścieżce:',
-        (n?.data.name as string) ?? '',
-      )
-      if (name?.trim()) api.updateData(id, { name: name.trim() })
-    },
+    renameFusion: (id) => setEditingGroup(id),
     addFusionPart: (id) => setFusionTarget(id),
     setPartVersion: (id, index, versionId) =>
       setRfNodes((ns) =>
@@ -1363,6 +1359,8 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       onOpenConcept(node.data.conceptId as string)
     } else if (node.type === 'text' || node.type === 'comment') {
       setEditingNote(node.id)
+    } else if (node.type === 'fusion') {
+      setEditingGroup(node.id)
     } else if (node.type === 'heading') {
       const text = window.prompt('Nazwa rozdziału:', (node.data.text as string) ?? '')
       if (text?.trim()) api.updateData(node.id, { text: text.trim() })
@@ -1606,6 +1604,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           onEdit={(n) => {
             if (n.kind === 'block') onOpenConcept(n.conceptId)
             else if (n.kind === 'text' || n.kind === 'comment') setEditingNote(n.id)
+            else if (n.kind === 'fusion') setEditingGroup(n.id)
             else if (n.kind === 'heading') {
               const text = window.prompt('Nazwa rozdziału:', n.text)
               if (text?.trim()) api.updateData(n.id, { text: text.trim() })
@@ -1796,6 +1795,21 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           </div>
         )}
       </div>
+      {editingGroup &&
+        (() => {
+          const g = rfNodes.find((n) => n.id === editingGroup)
+          if (!g) return null
+          return (
+            <GroupEditor
+              name={(g.data.name as string) ?? ''}
+              type={(g.data.type as BlockType | undefined) ?? undefined}
+              onChangeName={(name) => api.updateData(g.id, { name })}
+              onChangeType={(type) => api.updateData(g.id, { type })}
+              onClose={() => setEditingGroup(null)}
+            />
+          )
+        })()}
+
       {fusionTarget && (
         <ConceptPicker
           title="⧉ Dołóż klocek do scalonego bloku"

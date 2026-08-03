@@ -2986,6 +2986,31 @@ button.version-pill.new {
   margin-top: 1.2em;
 }
 
+/* okno edycji grupy */
+.group-editor .settings-body {
+  padding: 12px 14px 16px;
+}
+
+.group-type-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.group-type-btn {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-left-width: 3px;
+}
+
+.type-border-definicja { border-left-color: var(--c-definicja); }
+.type-border-twierdzenie { border-left-color: var(--c-twierdzenie); }
+.type-border-lemat { border-left-color: var(--c-lemat); }
+.type-border-dowod { border-left-color: var(--c-dowod); }
+.type-border-przyklad { border-left-color: var(--c-przyklad); }
+.type-border-uwaga { border-left-color: var(--c-uwaga); }
+.type-border-intuicja { border-left-color: var(--c-intuicja); }
+
 /* ---- grupa na mapie: jeden duży pseudo-kafelek ---- */
 
 .path-node-group {

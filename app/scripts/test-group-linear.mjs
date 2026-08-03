@@ -113,7 +113,29 @@ check('nazwa grupy bez zmian po dołączeniu', st.grupy[0]?.nazwa === 'Kresy zbi
 check('w ścieżce został jeden segment', st.wezly.filter((k) => k === 'block').length === 0,
   `węzły: ${st.wezly.join(',')}`)
 
-// 5. rozgrupowanie w Linii
+// 5. edycja grupy: ✏ otwiera okno z nazwą i wyborem, czym grupa ma być
+await page.hover('.linear-seg:first-child')
+await page.click('.linear-seg:first-child .folder-action[title="Edytuj"]')
+await page.waitForSelector('.group-editor')
+check('✏ przy grupie otwiera okno edycji', true)
+await page.fill('.group-editor input.input', 'Kresy i supremum')
+await page.click('.group-editor .group-type-btn:has-text("Twierdzenie")')
+await page.waitForTimeout(400)
+await page.click('.group-editor .btn-close')
+await settle()
+st = await readGroups()
+check('zmiana nazwy grupy z okna edycji', st.grupy[0]?.nazwa === 'Kresy i supremum',
+  `nazwa: ${st.grupy[0]?.nazwa}`)
+check('zmiana typu grupy z okna edycji', st.grupy[0]?.typ === 'twierdzenie',
+  `typ: ${st.grupy[0]?.typ}`)
+const naglowek = await page.evaluate(
+  () => document.querySelector('.script-group-block .script-block-title')?.textContent?.trim(),
+)
+check('nagłówek grupy odzwierciedla nowy typ i nazwę',
+  naglowek?.startsWith('Twierdzenie:') && naglowek.includes('Kresy i supremum'),
+  naglowek)
+
+// 6. rozgrupowanie w Linii
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Rozdziel"]')
 await settle()
