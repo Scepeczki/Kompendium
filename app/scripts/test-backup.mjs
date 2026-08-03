@@ -36,7 +36,8 @@ await page.click('.path-canvas .btn-close[title*="Zamknij ścieżkę"]')
 
 // eksport
 await page.click('button[title="Ustawienia"]')
-await page.waitForSelector('.settings-modal')
+await page.waitForSelector('.settings-page')
+await page.click('.settings-nav-item:has-text("Dane")')
 const [download] = await Promise.all([
   page.waitForEvent('download'),
   page.click('button:has-text("Eksportuj kopię")'),
@@ -49,7 +50,7 @@ await page.waitForSelector('text=Kopia zapasowa pobrana.')
 
 // wyczyść bazę (symulacja "świeżej przeglądarki")
 await page.evaluate(() => indexedDB.deleteDatabase('kompendium'))
-await page.click('.settings-modal .btn-close')
+await page.click('.settings-page-head button:has-text("Wróć")')
 await page.reload()
 await page.waitForSelector('text=Kompendium')
 const emptyBefore = await page.locator('.concept-item').count()
@@ -57,12 +58,13 @@ console.log(`✓ baza wyczyszczona (klocków widocznych: ${emptyBefore})`)
 
 // import
 await page.click('button[title="Ustawienia"]')
-await page.waitForSelector('.settings-modal')
-await page.setInputFiles('.settings-modal input[type=file]', backupPath)
+await page.waitForSelector('.settings-page')
+await page.click('.settings-nav-item:has-text("Dane")')
+await page.setInputFiles('.settings-page input[type=file]', backupPath)
 await page.waitForSelector('text=/Wczytano:/', { timeout: 10000 })
 const summary = await page.textContent('.settings-status')
 console.log(`✓ import: ${summary.trim()}`)
-await page.click('.settings-modal .btn-close')
+await page.click('.settings-page-head button:has-text("Wróć")')
 
 // weryfikacja: klocek, ścieżka i PDF wróciły
 await page.waitForSelector('.concept-item:has-text("Do kopii zapasowej")')

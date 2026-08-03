@@ -7,7 +7,7 @@ import { BlockEditor } from './components/BlockEditor'
 import { GraphView } from './components/GraphView'
 import { PathCanvas } from './components/PathCanvas'
 import { PdfPanel, type PdfTarget } from './components/PdfPanel'
-import { SettingsModal } from './components/SettingsModal'
+import { SettingsPage } from './components/SettingsPage'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
 
@@ -165,10 +165,11 @@ export default function App() {
         onOpenPath={openPath}
         onOpenSettings={() => setShowSettings(true)}
       />
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       <Splitter onDrag={(dx) => setSidebarW((w) => clamp(w + dx, 200, 480))} />
 
-      {showGraph ? (
+      {showSettings ? (
+        <SettingsPage onClose={() => setShowSettings(false)} />
+      ) : showGraph ? (
         <GraphView onOpen={selectConcept} />
       ) : openPathId ? (
         <PathCanvas

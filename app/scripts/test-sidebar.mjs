@@ -1,4 +1,4 @@
-// Test paska bocznego: szukanie i filtr typu schowane pod ikonami,
+﻿// Test paska bocznego: szukanie i filtr typu schowane pod ikonami,
 // rząd tworzenia nad drzewem, dolny pasek z grafem i ustawieniami.
 import { chromium } from 'playwright'
 
@@ -99,8 +99,8 @@ check('dolny pasek: graf, licznik, ustawienia',
 
 // 8. przyciski na dole działają
 await page.click('.sidebar-foot-btn[title="Ustawienia"]')
-await page.waitForSelector('.settings-modal')
-await page.click('.settings-modal .btn-close')
+await page.waitForSelector('.settings-page')
+await page.click('.settings-page-head button:has-text("Wróć")')
 await page.click('.sidebar-foot-btn[title*="Graf"]')
 await page.waitForSelector('.graph-view, svg')
 check('graf otwiera się z dolnego paska', true)

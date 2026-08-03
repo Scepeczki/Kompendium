@@ -64,10 +64,10 @@ console.log('✓ powrót do wizualnego: formatowanie zachowane')
 // 6. ustawienia: motyw ciemny + szerokość strony
 const bgLight = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
 await page.click('button[title="Ustawienia"]')
-await page.waitForSelector('.settings-modal')
-await page.click('.settings-modal button:has-text("Ciemny")')
-await page.fill('.settings-slider', '1200')
-await page.click('.settings-modal .btn-close')
+await page.waitForSelector('.settings-page')
+await page.click('.settings-page button:has-text("Ciemny")')
+await page.fill('.settings-row:has-text("Szerokość strony tekstu") .settings-slider', '1200')
+await page.click('.settings-page-head button:has-text("Wróć")')
 await page.waitForTimeout(300)
 const pageWidth = await page.evaluate(() =>
   document.documentElement.style.getPropertyValue('--page-width'),

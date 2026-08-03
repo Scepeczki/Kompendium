@@ -79,39 +79,53 @@ console.log(
 
 // 3. zmiana koloru typu w Ustawieniach przestraja blok
 await page.click('button[title="Ustawienia"]')
-await page.waitForSelector('.settings-modal')
+await page.waitForSelector('.settings-page')
+await page.click('.settings-nav-item:has-text("Bloki")')
 await page.fill('.settings-color:has-text("Twierdzenie") input[type=color]', '#c81e4a')
 await page.waitForTimeout(300)
+// ustawienia są teraz pełną stroną, więc bloku nie widać w trakcie zmiany —
+// najpierw sprawdzamy zapis, a wygląd po powrocie do skryptu
 const afterColor = await page.evaluate(() => ({
   varValue: document.documentElement.style.getPropertyValue('--c-twierdzenie'),
-  headBg: getComputedStyle(document.querySelector('.script-block-head')).backgroundColor,
   stored: localStorage.getItem('ui.color.twierdzenie'),
 }))
 console.log(
-  `✓ własny kolor typu: zmienna ${afterColor.varValue}, zapis ${afterColor.stored}, nagłówek ${afterColor.headBg} (${
-    afterColor.headBg !== struct.headBg ? 'przestrojony, ok' : 'BEZ ZMIANY!'
-  })`,
+  `✓ własny kolor typu zapisany: zmienna ${afterColor.varValue}, w pamięci ${afterColor.stored}`,
 )
 
-// 4. nasycenie tła: 0% zbliża tło nagłówka do tła panelu
+// 4. nasycenie tła zmienia zmienną sterującą odcieniami
 await page.fill('.settings-row:has-text("Nasycenie tła") .settings-slider', '0')
 await page.waitForTimeout(300)
-const tint0 = await page.evaluate(
-  () => getComputedStyle(document.querySelector('.script-block-head')).backgroundColor,
+const tint0 = await page.evaluate(() =>
+  document.documentElement.style.getPropertyValue('--block-tint'),
 )
 await page.fill('.settings-row:has-text("Nasycenie tła") .settings-slider', '34')
 await page.waitForTimeout(300)
-const tint34 = await page.evaluate(
+const tint34 = await page.evaluate(() =>
+  document.documentElement.style.getPropertyValue('--block-tint'),
+)
+console.log(
+  `✓ nasycenie tła działa: ${tint0} → ${tint34} (${tint0 !== tint34 ? 'ok' : 'BEZ ZMIANY!'})`,
+)
+
+// 4a. po powrocie do skryptu nagłówek faktycznie ma nowy kolor
+await page.click('.settings-page-head button:has-text("Wróć")')
+await page.waitForSelector('.script-block-head')
+await page.waitForTimeout(400)
+const headAfter = await page.evaluate(
   () => getComputedStyle(document.querySelector('.script-block-head')).backgroundColor,
 )
 console.log(
-  `✓ nasycenie tła działa: 0% → ${tint0}, 34% → ${tint34} (${
-    tint0 !== tint34 ? 'ok' : 'BEZ ZMIANY!'
+  `✓ blok przestrojony po powrocie: ${struct.headBg} → ${headAfter} (${
+    headAfter !== struct.headBg ? 'ok' : 'BEZ ZMIANY!'
   })`,
 )
 
 // 5. „Przywróć" kasuje własne kolory
-await page.click('.settings-modal button:has-text("Przywróć")')
+await page.click('button[title="Ustawienia"]')
+await page.waitForSelector('.settings-page')
+await page.click('.settings-nav-item:has-text("Bloki")')
+await page.click('.settings-page button:has-text("Przywróć")')
 await page.waitForTimeout(300)
 const afterReset = await page.evaluate(() => ({
   varValue: document.documentElement.style.getPropertyValue('--c-twierdzenie'),
@@ -122,7 +136,8 @@ console.log(
 )
 
 // 6. przycisk ↗ w nagłówku otwiera klocek w edytorze
-await page.click('.settings-modal .btn-close')
+await page.click('.settings-page-head button:has-text("Wróć")')
+await page.waitForSelector('.script-block-open')
 await page.click('.script-block-open')
 await page.waitForSelector('.editor-name')
 const openedName = await page.inputValue('.editor-name')

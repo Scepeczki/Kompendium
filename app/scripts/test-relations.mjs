@@ -95,13 +95,14 @@ for (const r of shape) {
 
 // 1. kopia zapasowa obejmuje powiązania
 await page.click('button[title="Ustawienia"]')
-await page.waitForSelector('.settings-modal')
+await page.waitForSelector('.settings-page')
+await page.click('.settings-nav-item:has-text("Dane")')
 const dl = page.waitForEvent('download')
 await page.click('button:has-text("Eksportuj kopię")')
 const file = await dl
 const zipPath = 'scripts/relations-backup.zip'
 await file.saveAs(zipPath)
-await page.click('.settings-modal .btn-close')
+await page.click('.settings-page-head button:has-text("Wróć")')
 const { readFileSync } = await import('node:fs')
 const zip = readFileSync(zipPath)
 // dane.json leży w archiwum nieskompresowany na tyle, że wystarczy sprawdzić

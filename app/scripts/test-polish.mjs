@@ -72,9 +72,9 @@ console.log(`✓ licznik: "${footer.trim()}"`)
 
 // 6. Escape zamyka ustawienia
 await page.click('button[title="Ustawienia"]')
-await page.waitForSelector('.settings-modal')
+await page.waitForSelector('.settings-page')
 await page.keyboard.press('Escape')
-await page.waitForFunction(() => !document.querySelector('.settings-modal'))
+await page.waitForFunction(() => !document.querySelector('.settings-page'))
 console.log('✓ Escape zamyka ustawienia')
 
 // 7. usuwanie z listy

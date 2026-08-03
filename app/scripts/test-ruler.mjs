@@ -266,14 +266,16 @@ console.log(
 
 // 10. suwak w Ustawieniach pokazuje wartość z linijki
 await page.click('button[title="Ustawienia"]')
-await page.waitForSelector('.settings-modal')
-const slider = await page.inputValue('.settings-slider')
+await page.waitForSelector('.settings-page')
+const slider = await page.inputValue(
+  '.settings-row:has-text("Szerokość strony tekstu") .settings-slider',
+)
 console.log(`✓ suwak w Ustawieniach zsynchronizowany: ${slider} (oczekiwane 1000)`)
 
 // 11. nowe ustawienia: bazowa szerokość strony i odsunięcie znaczników wcięć
 await page.fill('.settings-row:has-text("Bazowa szerokość") .settings-slider', '900')
 await page.fill('.settings-row:has-text("Odsunięcie") .settings-slider', '30')
-await page.click('.settings-modal .btn-close')
+await page.click('.settings-page-head button:has-text("Wróć")')
 await page.click('.concept-item')
 await page.waitForSelector('.page-ruler .ruler-handle')
 await page.locator('.ruler-handle').nth(1).dblclick()

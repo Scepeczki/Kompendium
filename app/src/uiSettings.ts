@@ -30,6 +30,13 @@ export const IND_OFFSET_DEFAULT = 14
 export const IND_OFFSET_MIN = 0
 export const IND_OFFSET_MAX = 40
 
+/** Rozmiar tekstu w liście klocków i folderów (pasek boczny).
+ *  Domyślnie tyle, ile dziedziczy z reszty interfejsu, żeby włączenie
+ *  ustawienia niczego nie zmieniało bez wyraźnej decyzji. */
+export const TREE_SIZE_DEFAULT = 15
+export const TREE_SIZE_MIN = 12
+export const TREE_SIZE_MAX = 20
+
 export const LINE_SPACING_DEFAULT = 1.65
 export const LINE_SPACING_OPTIONS = [1.0, 1.15, 1.3, 1.5, 1.65, 2.0]
 
@@ -193,6 +200,21 @@ export function hasCustomBlockColors(): boolean {
   )
 }
 
+export function getTreeSize(): number {
+  return readNum(
+    'ui.treeSize',
+    (v) => v >= TREE_SIZE_MIN && v <= TREE_SIZE_MAX,
+    TREE_SIZE_DEFAULT,
+  )
+}
+
+export function setTreeSize(v: number): void {
+  const val = clamp(Math.round(v), TREE_SIZE_MIN, TREE_SIZE_MAX)
+  document.documentElement.style.setProperty('--tree-size', `${val}px`)
+  localStorage.setItem('ui.treeSize', String(val))
+  notify()
+}
+
 export function getBlockTint(): number {
   return readNum(
     'ui.blockTint',
@@ -217,6 +239,7 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--math-scale', String(getMathScale()))
   document.documentElement.style.setProperty('--math-gap', `${getMathGap()}em`)
   document.documentElement.style.setProperty('--block-tint', String(getBlockTint()))
+  document.documentElement.style.setProperty('--tree-size', `${getTreeSize()}px`)
   for (const t of Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]) {
     const v = localStorage.getItem(colorKey(t))
     if (v) document.documentElement.style.setProperty(`--c-${t}`, v)
