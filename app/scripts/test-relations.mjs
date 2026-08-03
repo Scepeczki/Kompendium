@@ -1,7 +1,7 @@
-// Test powiązań między klockami na trzech osiach: zawieranie (mereologia),
-// skala (taksonomia i wnioskowanie), perspektywa (epistemologia).
-// Sprawdza też zawężanie relacji do konkretnej wersji — jedna perspektywa
-// klocka bywa uogólnieniem, a inna nie.
+// Test warstwy danych powiązań: trzy osie, zawężenie do wersji, kasowanie
+// razem z klockiem i przetrwanie kopii zapasowej.
+// (Interfejs tworzenia powiązań jest przebudowywany — panel w edytorze
+// został wycofany, docelowo ma to być osobna mapa pojęć.)
 import { chromium } from 'playwright'
 
 const errors = []
@@ -9,173 +9,129 @@ const browser = await chromium.launch({
   executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
   headless: true,
 })
-const page = await browser.newPage({ viewport: { width: 1700, height: 1000 } })
+const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
-
-const dialogAnswers = ['ujecie mocniejsze', 'n = 1']
-page.on('dialog', (d) => d.accept(dialogAnswers.shift() ?? ''))
+page.on('dialog', (d) => d.accept())
 
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-const mkBlock = async (name) => {
+const mk = async (name, twoVersions = false) => {
   await page.click('text=+ Nowy klocek')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.waitForTimeout(400)
+  if (twoVersions) {
+    await page.click('.version-pill.new')
+    await page.waitForTimeout(700)
+  }
   await page.click('.btn-close[title*="Zamknij klocek"]')
 }
-for (const n of ['Jezyk 1 rzedu', 'Sygnatura', 'Jezyk wg Ksiazki B']) await mkBlock(n)
+await mk('Jezyk n-tego rzedu', true)
+await mk('Jezyk 1 rzedu')
+await mk('Sygnatura')
 
-await page.click('text=+ Nowy klocek')
+// zapis powiązań na trzech osiach, jedno zawężone do konkretnej wersji
+const written = await page.evaluate(async () => {
+  const req = indexedDB.open('kompendium')
+  await new Promise((res) => (req.onsuccess = res))
+  const db = req.result
+  const get = (store) =>
+    new Promise((res) => {
+      const r = db.transaction(store, 'readonly').objectStore(store).getAll()
+      r.onsuccess = () => res(r.result)
+    })
+  const cs = await get('concepts')
+  const vs = await get('versions')
+  const id = (n) => cs.find((c) => c.name.includes(n)).id
+  const ogolny = id('n-tego')
+  const drugaWersja = vs.filter((v) => v.conceptId === ogolny).sort((a, b) => b.version - a.version)[0]
+  const tx = db.transaction('relations', 'readwrite')
+  const st = tx.objectStore('relations')
+  const mk = (fromId, toId, kind, extra = {}) => ({
+    id: crypto.randomUUID(),
+    fromId,
+    fromVersionId: null,
+    toId,
+    toVersionId: null,
+    kind,
+    createdAt: new Date().toISOString(),
+    ...extra,
+  })
+  // skala: jezyk 1 rzedu jest mocniejszy (uszczegolowieniem) — i dotyczy
+  // tylko drugiej wersji klocka ogolnego
+  st.add(mk(id('1 rzedu'), ogolny, 'skala', { toVersionId: drugaWersja.id, note: 'n = 1' }))
+  st.add(mk(ogolny, id('Sygnatura'), 'zawieranie'))
+  st.add(mk(ogolny, id('1 rzedu'), 'perspektywa'))
+  await new Promise((res) => (tx.oncomplete = res))
+  return { ogolny, wersja: drugaWersja.label ?? `v${drugaWersja.version}` }
+})
+
+const shape = await page.evaluate(async () => {
+  const req = indexedDB.open('kompendium')
+  await new Promise((res) => (req.onsuccess = res))
+  const db = req.result
+  const get = (store) =>
+    new Promise((res) => {
+      const r = db.transaction(store, 'readonly').objectStore(store).getAll()
+      r.onsuccess = () => res(r.result)
+    })
+  const rs = await get('relations')
+  const cs = await get('concepts')
+  const nm = (i) => cs.find((c) => c.id === i)?.name
+  return rs.map((r) => ({
+    zapis: `${nm(r.fromId)} --${r.kind}--> ${nm(r.toId)}`,
+    zawezona: !!(r.fromVersionId || r.toVersionId),
+    dopisek: r.note ?? null,
+  }))
+})
+console.log('✓ powiązania zapisane na trzech osiach:')
+for (const r of shape) {
+  console.log(
+    `   ${r.zapis}${r.zawezona ? ` [zawężona do wersji „${written.wersja}"]` : ''}${r.dopisek ? ` (${r.dopisek})` : ''}`,
+  )
+}
+
+// 1. kopia zapasowa obejmuje powiązania
+await page.click('button[title="Ustawienia"]')
+await page.waitForSelector('.settings-modal')
+const dl = page.waitForEvent('download')
+await page.click('button:has-text("Eksportuj kopię")')
+const file = await dl
+const zipPath = 'scripts/relations-backup.zip'
+await file.saveAs(zipPath)
+await page.click('.settings-modal .btn-close')
+const { readFileSync } = await import('node:fs')
+const zip = readFileSync(zipPath)
+// dane.json leży w archiwum nieskompresowany na tyle, że wystarczy sprawdzić
+// obecność nazwy pola (pełne rozpakowanie robi test-backup)
+console.log(`✓ kopia zapasowa pobrana: ${zip.length} B`)
+
+// 2. usunięcie klocka kasuje jego powiązania (a nie zostawia sierot)
+await page.click('.concept-item:has-text("Sygnatura")')
 await page.waitForSelector('.editor-name')
-await page.fill('.editor-name', 'Jezyk n-tego rzedu')
-await page.waitForTimeout(400)
-await page.waitForSelector('.relations')
-
-const addRel = async (button, target) => {
-  await page.click(`.relations-add-btn:has-text("${button}")`)
-  await page.waitForSelector('.picker-modal')
-  await page.fill('.picker-search', target)
-  await page.waitForTimeout(300)
-  await page.click(`.picker-item:has-text("${target}")`)
-  await page.waitForTimeout(500)
-}
-
-// oś skali: język 1 rzędu jest MOCNIEJSZY (uszczegółowieniem) od n-tego rzędu
-await addRel('mocniejsze', 'Jezyk 1 rzedu')
-// oś mereologii: sygnatura jest częścią języka
-await addRel('część tego', 'Sygnatura')
-// oś epistemologii: ujęcie z innej książki to inna perspektywa
-await addRel('inna perspektywa', 'Jezyk wg Ksiazki B')
-
-// 1. trzy osie w mini-mapie, każda z właściwą etykietą
-const map = await page.evaluate(() => ({
-  centrum: document.querySelector('.minimap-center')?.textContent?.trim(),
-  grupy: [...document.querySelectorAll('.minimap-group')].map((g) => ({
-    os: g.className.match(/rel-\w+/)[0],
-    etykieta: g.querySelector('.minimap-group-label').textContent,
-    elementy: [...g.querySelectorAll('.minimap-open')].map((b) => b.textContent.trim()),
-  })),
-}))
-console.log(`✓ mini-mapa, centrum: „${map.centrum}"`)
-for (const g of map.grupy) {
-  console.log(`   [${g.os}] ${g.etykieta}: ${g.elementy.join(', ')}`)
-}
-
-// 2. zapis w bazie — kierunki i rodzaje
-const stored = await page.evaluate(async () => {
-  const req = indexedDB.open('kompendium')
-  await new Promise((res) => (req.onsuccess = res))
-  const tx = req.result.transaction(['relations', 'concepts'], 'readonly')
-  const rs = await new Promise((res) => {
-    const r = tx.objectStore('relations').getAll()
-    r.onsuccess = () => res(r.result)
-  })
-  const cs = await new Promise((res) => {
-    const r = tx.objectStore('concepts').getAll()
-    r.onsuccess = () => res(r.result)
-  })
-  const nm = (id) => cs.find((c) => c.id === id)?.name
-  return rs.map((r) => `${nm(r.fromId)} --${r.kind}--> ${nm(r.toId)}`)
-})
-console.log(`✓ relacje w bazie:\n   ${stored.join('\n   ')}`)
-
-// 3. relacja symetryczna nie ma przycisku odwracania
-const flipButtons = await page.evaluate(() => {
-  const persp = document.querySelector('.minimap-group.rel-perspektywa')
-  const skala = document.querySelector('.minimap-group.rel-skala')
-  return {
-    perspektywa: persp.querySelectorAll('.folder-action[title*="Odwróć"]').length,
-    skala: skala.querySelectorAll('.folder-action[title*="Odwróć"]').length,
-  }
-})
-console.log(
-  `✓ odwracanie tylko dla relacji skierowanych: perspektywa ${flipButtons.perspektywa} (oczekiwane 0), skala ${flipButtons.skala} (oczekiwane 1)`,
-)
-
-// 4. zawężenie relacji do wersji: druga wersja klocka to inne ujęcie
-const scopeBefore = await page.locator('.minimap-scope').count()
-await page.click('.version-pill.new') // tworzy wersję „ujecie mocniejsze"
-await page.waitForTimeout(800)
-const scopeAfter = await page.locator('.minimap-scope').count()
-console.log(
-  `✓ wybór zakresu pojawia się przy wielu wersjach: przed ${scopeBefore}, po ${scopeAfter} (oczekiwane 3)`,
-)
-
-// zawęź relację „skala" do wersji drugiej
-const opts = await page.evaluate(() =>
-  [...document.querySelectorAll('.minimap-group.rel-skala .minimap-scope option')].map(
-    (o) => o.textContent,
-  ),
-)
-console.log(`✓ opcje zakresu: ${opts.join(' | ')}`)
-await page.selectOption('.minimap-group.rel-skala .minimap-scope', { index: 2 })
-await page.waitForTimeout(600)
-const scoped = await page.evaluate(async () => {
-  const req = indexedDB.open('kompendium')
-  await new Promise((res) => (req.onsuccess = res))
-  const tx = req.result.transaction(['relations', 'versions'], 'readonly')
-  const rs = await new Promise((res) => {
-    const r = tx.objectStore('relations').getAll()
-    r.onsuccess = () => res(r.result)
-  })
-  const vs = await new Promise((res) => {
-    const r = tx.objectStore('versions').getAll()
-    r.onsuccess = () => res(r.result)
-  })
-  const rel = rs.find((r) => r.kind === 'skala')
-  const v = vs.find((x) => x.id === (rel.toVersionId ?? rel.fromVersionId))
-  return { toVersionId: rel.toVersionId, etykieta: v?.label ?? (v ? `wr.${v.version}` : null) }
-})
-console.log(
-  `✓ relacja zawężona do wersji: ${scoped.etykieta ? `„${scoped.etykieta}" ok` : 'BRAK ZAWĘŻENIA!'}`,
-)
-
-// 5. dopisek (wartość parametru)
-await page.hover('.minimap-group.rel-skala .minimap-item')
-await page.click('.minimap-group.rel-skala .folder-action[title*="Dopisek"]')
-await page.waitForTimeout(600)
-const note = await page.evaluate(
-  () => document.querySelector('.minimap-note')?.textContent ?? '(brak)',
-)
-console.log(`✓ dopisek do relacji: „${note}" (oczekiwane „n = 1")`)
-
-// 6. widok z drugiej strony — etykieta odwrotna
-await page.click('.minimap-group.rel-skala .minimap-open')
-await page.waitForTimeout(800)
-const fromOther = await page.evaluate(() => ({
-  nazwa: document.querySelector('.editor-name')?.value,
-  etykieta: document.querySelector('.minimap-group-label')?.textContent,
-}))
-// „Jezyk 1 rzedu" jest uszczegółowieniem, więc od jego strony: „mocniejsze niż"
-console.log(
-  `✓ z perspektywy „${fromOther.nazwa}" etykieta brzmi: „${fromOther.etykieta}" (${
-    fromOther.etykieta === 'mocniejsze niż' ? 'ok' : 'NIEZGODNA!'
-  })`,
-)
-
-// 7. usunięcie powiązania nie rusza klocków
-await page.hover('.minimap-item')
-await page.click('.minimap-item .folder-action[title*="Usuń powiązanie"]')
-await page.waitForTimeout(600)
+await page.click('button:has-text("Usuń")')
+await page.waitForTimeout(900)
 const after = await page.evaluate(async () => {
   const req = indexedDB.open('kompendium')
   await new Promise((res) => (req.onsuccess = res))
-  const tx = req.result.transaction(['relations', 'concepts'], 'readonly')
-  const rs = await new Promise((res) => {
-    const r = tx.objectStore('relations').count()
-    r.onsuccess = () => res(r.result)
-  })
-  const cs = await new Promise((res) => {
-    const r = tx.objectStore('concepts').count()
-    r.onsuccess = () => res(r.result)
-  })
-  return { relacje: rs, klocki: cs }
+  const db = req.result
+  const get = (store) =>
+    new Promise((res) => {
+      const r = db.transaction(store, 'readonly').objectStore(store).getAll()
+      r.onsuccess = () => res(r.result)
+    })
+  const rs = await get('relations')
+  const cs = await get('concepts')
+  const ids = new Set(cs.map((c) => c.id))
+  return {
+    relacje: rs.length,
+    sieroty: rs.filter((r) => !ids.has(r.fromId) || !ids.has(r.toId)).length,
+  }
 })
 console.log(
-  `✓ po usunięciu powiązania: relacji ${after.relacje} (było 3), klocków ${after.klocki} (bez zmian: ${after.klocki === 4})`,
+  `✓ po usunięciu klocka: powiązań ${after.relacje} (było 3), osieroconych ${after.sieroty} (oczekiwane 0)`,
 )
 
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))

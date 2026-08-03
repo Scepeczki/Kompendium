@@ -49,7 +49,6 @@ import { ConceptPicker } from './ConceptPicker'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
-  BLOCK_TYPES,
   RELATION_LABELS,
   isSymmetricRelation,
   type BlockType,
@@ -68,6 +67,7 @@ interface CanvasApi {
   renameFusion: (id: string) => void
   addFusionPart: (id: string) => void
   removeFusionPart: (id: string, index: number) => void
+  setPartVersion: (id: string, index: number, versionId: string | null) => void
   openConcept: (id: string) => void
   /** Numer i liczba strzałek wychodzących z tego samego źródła. */
   edgeOrderInfo: (edgeId: string, source: string) => { index: number; count: number }
@@ -341,6 +341,8 @@ interface LinearViewProps {
   onToggleSide: (id: string) => void
   onSetSubpage: (segId: string, subpageId: string | null) => void
   onSetVersion: (segId: string, versionId: string | null) => void
+  /** Wersja pojedynczego klocka w grupie. */
+  onSetPartVersion: (segId: string, index: number, versionId: string | null) => void
   onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
@@ -357,6 +359,7 @@ function LinearView({
   onToggleSide,
   onSetSubpage,
   onSetVersion,
+  onSetPartVersion,
   onAddHeading,
   onJumpToSource,
   onOpenConcept,
@@ -482,24 +485,30 @@ function LinearView({
         </aside>
       )
     }
+    // grupa: ramka z nazwą, a w środku pełne klocki jeden pod drugim
     return (
-      <section
-        className={`script-block script-fusion ${n.type ? `script-${n.type}` : ''}`}
-      >
-        <header className="script-block-head">
-          <h3 className="script-block-title">
-            <span className="script-block-type">
-              {n.type ? BLOCK_TYPE_LABELS[n.type] : 'Blok'}:
-            </span>{' '}
-            {n.name}
-          </h3>
+      <section className="script-group">
+        <header className="script-group-head">
+          <h3 className="script-group-name">{n.name}</h3>
         </header>
-        <div className="script-block-body">
-          <ul className="fusion-parts">
-            {n.parts.map((p, i) => (
-              <li key={i}>{conceptById(p.conceptId)?.name ?? '(usunięte)'}</li>
-            ))}
-          </ul>
+        <div className="script-group-body">
+          {n.parts.map((p, i) => {
+            const c = conceptById(p.conceptId)
+            if (!c) return <div key={i} className="script-block">(usunięty klocek)</div>
+            return (
+              <BlockShell
+                key={`${n.id}:${i}`}
+                concept={c}
+                versions={versions.filter((v) => v.conceptId === c.id)}
+                versionId={p.versionId}
+                onVersionChange={(id: string | null) => onSetPartVersion(n.id, i, id)}
+                subpageId={null}
+                onOpenConcept={onOpenConcept}
+                onJumpToSource={onJumpToSource}
+                pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
+              />
+            )
+          })}
         </div>
       </section>
     )
@@ -619,69 +628,108 @@ function LinearView({
   )
 }
 
-function FusionNode({ id, data, selected }: NodeProps) {
+/** Pojedynczy klocek w grupie — z własnym wyborem wersji i treścią. */
+function GroupMember({
+  groupId,
+  index,
+  conceptId,
+  versionId,
+}: {
+  groupId: string
+  index: number
+  conceptId: string
+  versionId: string | null
+}) {
   const ctx = useContext(CanvasCtx)
-  const parts = (data.parts as { conceptId: string; versionId: string | null }[]) ?? []
-  const type = (data.type as BlockType | undefined) ?? ''
-  const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
-  const nameOf = (cid: string) => concepts.find((c) => c.id === cid)?.name ?? '(usunięte)'
+  const concept = useLiveQuery(() => db.concepts.get(conceptId), [conceptId])
+  const versions =
+    useLiveQuery(
+      () => db.versions.where('conceptId').equals(conceptId).toArray(),
+      [conceptId],
+    ) ?? []
+  if (!concept) return <div className="group-member">(usunięty klocek)</div>
+  const sorted = [...versions].sort((a, b) => a.version - b.version)
+  const version =
+    sorted.find((v) => v.id === versionId) ??
+    sorted.find((v) => v.id === concept.currentVersionId)
   return (
-    <div
-      className={`path-node path-node-fusion ${type ? `fusion-typed type-border-${type}` : ''} ${
-        selected ? 'selected' : ''
-      }`}
-    >
-      <Handle type="target" position={Position.Top} />
-      <header className="path-node-head">
+    <div className="group-member">
+      <div className="group-member-head">
+        <span className={`type-mini type-${concept.type}`}>
+          {BLOCK_TYPE_SHORT[concept.type]}
+        </span>
+        <span className="group-member-name">{concept.name}</span>
         <select
-          className={`fusion-type nodrag ${type ? `type-${type}` : ''}`}
-          value={type}
-          title="Czym jest scalona całość (np. jedno twierdzenie z dwóch)"
-          onChange={(e) => ctx.updateData(id, { type: e.target.value || undefined })}
+          className="path-node-version nodrag group-member-version"
+          value={versionId ?? ''}
+          title="Wersja użyta w tej ścieżce"
+          onChange={(e) => ctx.setPartVersion(groupId, index, e.target.value || null)}
         >
-          <option value="">BLOK</option>
-          {BLOCK_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {BLOCK_TYPE_SHORT[t]}
+          <option value="">zawsze bieżąca</option>
+          {sorted.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.label ?? `v${v.version}`}
             </option>
           ))}
         </select>
+        <button
+          className="folder-action nodrag"
+          title="Wyjmij ten klocek z grupy"
+          onClick={() => ctx.removeFusionPart(groupId, index)}
+        >
+          ×
+        </button>
+      </div>
+      <div
+        className="path-node-body markdown-body"
+        dangerouslySetInnerHTML={{ __html: renderMarkdown(version?.content ?? '') }}
+      />
+    </div>
+  )
+}
+
+/** Grupa: kilka klocków pokazanych razem pod wspólną nazwą nadaną w tej
+ *  ścieżce. W bazie to nadal osobne klocki — grupa jest tylko formą pokazania. */
+function FusionNode({ id, data, selected }: NodeProps) {
+  const ctx = useContext(CanvasCtx)
+  const parts = (data.parts as { conceptId: string; versionId: string | null }[]) ?? []
+  return (
+    <div className={`path-node path-node-group ${selected ? 'selected' : ''}`}>
+      <Handle type="target" position={Position.Top} />
+      <header className="path-node-head group-head">
         <span
-          className="path-node-name nodrag"
-          title="Kliknij dwukrotnie, aby zmienić nazwę"
+          className="group-name nodrag"
+          title="Kliknij dwukrotnie, aby zmienić nazwę grupy"
           onDoubleClick={() => ctx.renameFusion(id)}
         >
-          {(data.name as string) || 'Bez nazwy'}
+          {(data.name as string) || 'Grupa bez nazwy'}
         </span>
         <button
           className="path-node-open nodrag"
-          title="Dodaj klocek do tego bloku"
+          title="Dodaj klocek do grupy"
           onClick={() => ctx.addFusionPart(id)}
         >
           +
         </button>
         <button
           className="path-node-open nodrag"
-          title="Rozdziel z powrotem na osobne klocki"
+          title="Rozgrupuj z powrotem na osobne kafelki"
           onClick={() => ctx.unfuse(id)}
         >
           ⇱
         </button>
       </header>
-      <ul className="fusion-parts">
+      <div className="group-members">
         {parts.map((p, i) => (
-          <li key={i}>
-            <span className="fusion-part-name">{nameOf(p.conceptId)}</span>
-            <button
-              className="folder-action nodrag"
-              title="Wyjmij ten klocek z bloku"
-              onClick={() => ctx.removeFusionPart(id, i)}
-            >
-              ×
-            </button>
-          </li>
+          <GroupMember
+            key={`${p.conceptId}-${i}`}
+            groupId={id}
+            index={i}
+            conceptId={p.conceptId}
+            versionId={p.versionId}
+          />
         ))}
-      </ul>
+      </div>
       <Handle type="source" position={Position.Bottom} />
     </div>
   )
@@ -938,6 +986,17 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       if (name?.trim()) api.updateData(id, { name: name.trim() })
     },
     addFusionPart: (id) => setFusionTarget(id),
+    setPartVersion: (id, index, versionId) =>
+      setRfNodes((ns) =>
+        ns.map((n) => {
+          if (n.id !== id) return n
+          const parts = [
+            ...((n.data.parts as { conceptId: string; versionId: string | null }[]) ?? []),
+          ]
+          parts[index] = { ...parts[index], versionId }
+          return { ...n, data: { ...n.data, parts } }
+        }),
+      ),
     removeFusionPart: (id, index) =>
       setRfNodes((ns) =>
         ns.map((n) => {
@@ -1491,6 +1550,21 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           }}
           onSetSubpage={(segId, subpageId) => api.updateData(segId, { subpageId })}
           onSetVersion={(segId, versionId) => api.updateData(segId, { versionId })}
+          onSetPartVersion={(segId, index, versionId) =>
+            setRfNodes((ns) =>
+              ns.map((n) => {
+                if (n.id !== segId) return n
+                const parts = [
+                  ...((n.data.parts as {
+                    conceptId: string
+                    versionId: string | null
+                  }[]) ?? []),
+                ]
+                parts[index] = { ...parts[index], versionId }
+                return { ...n, data: { ...n.data, parts } }
+              }),
+            )
+          }
           onAddHeading={linearAddHeading}
           onJumpToSource={onJumpToSource}
           onOpenConcept={onOpenConcept}

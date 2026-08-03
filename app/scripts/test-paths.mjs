@@ -85,19 +85,19 @@ await page.click('.note-modal .btn-close')
 await page.waitForSelector('.path-node-text:has-text("Intuicja")')
 console.log('✓ tkanka łączna dodana i wypełniona (okno edycji)')
 
-// fuzja: zaznacz oba kafelki klocków (klik + shift-klik) i scal
-await page.click('.path-node:has-text("Metryka")')
+// grupowanie: zaznacz oba kafelki klocków (Ctrl+klik) i scal w grupę
+await page.click('.react-flow__node:has-text("Metryka")')
 await page.keyboard.down('Control')
-await page.click('.path-node:has-text("Przestrzeń")')
+await page.click('.react-flow__node:has-text("Przestrzeń")')
 await page.keyboard.up('Control')
 await page.click('button[title*="Scal zaznaczone"]')
-await page.waitForSelector('.path-node-fusion')
-console.log('✓ fuzja utworzona')
+await page.waitForSelector('.path-node-group')
+console.log('✓ grupa utworzona')
 
-// rozdziel z powrotem
-await page.click('.path-node-open[title*="Rozdziel"]')
-await page.waitForSelector('.path-node:has-text("Metryka")')
-console.log('✓ rozdzielenie fuzji działa')
+// rozgrupuj z powrotem
+await page.click('.path-node-open[title*="Rozgrupuj"]')
+await page.waitForSelector('.react-flow__node-block:has-text("Metryka")')
+console.log('✓ rozgrupowanie działa')
 
 await page.screenshot({ path: 'scripts/shot-11-sciezka.png' })
 

@@ -2,7 +2,6 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, mainPageName } from '../db'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
-import { RelatedStrip } from './RelatedStrip'
 import {
   BLOCK_TYPE_LABELS,
   type BlockVersion,
@@ -124,7 +123,6 @@ export function BlockShell({
             className="markdown-body"
             dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
           />
-          <RelatedStrip concept={concept} onOpenConcept={onOpenConcept} />
         </div>
 
         <SourceList refs={version?.sourceRefs ?? []} onJump={onJumpToSource} />

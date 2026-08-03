@@ -31,3 +31,4 @@ public/pdfjs
 *.sln
 *.sw?
 scripts/test-multi.pdf
+scripts/relations-backup.zip

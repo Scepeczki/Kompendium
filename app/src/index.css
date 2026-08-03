@@ -2974,6 +2974,110 @@ button.version-pill.new {
   border-left: 2px solid var(--line-strong);
 }
 
+/* --------------------------------------------------------------------------
+   Grupa klocków — estetyczne zebranie kilku klocków pod jedną nazwą
+   w obrębie ścieżki. W bazie to nadal osobne klocki.
+   -------------------------------------------------------------------------- */
+
+/* w Linii i Skrypcie: ramka z nazwą, w środku pełne bloki jeden pod drugim */
+.script-group {
+  margin: 24px 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--panel-alt);
+}
+
+.script-group-head {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.script-group-name {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.script-group-body {
+  padding: 4px 12px 12px;
+}
+
+/* lekka przerwa między klockami w grupie */
+.script-group-body > .script-block {
+  margin: 12px 0;
+}
+
+/* ---- grupa na mapie: jeden duży pseudo-kafelek ---- */
+
+.path-node-group {
+  min-width: 280px;
+  max-width: 380px;
+  background: var(--panel-alt);
+  border-color: var(--line-strong);
+}
+
+.group-head {
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.group-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: Georgia, serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: text;
+}
+
+.group-members {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.group-member {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 6px 8px;
+}
+
+.group-member-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.group-member-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.group-member-version {
+  max-width: 110px;
+  font-size: 10px;
+}
+
+.group-member .folder-action {
+  opacity: 0;
+}
+
+.group-member:hover .folder-action {
+  opacity: 1;
+}
+
 /* ---- scalony blok na mapie ---- */
 
 .fusion-type {

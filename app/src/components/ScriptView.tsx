@@ -5,11 +5,7 @@ import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { BlockShell } from './BlockShell'
 import { Outline, outlineId, type OutlineItem } from './Outline'
-import {
-  BLOCK_TYPE_LABELS,
-  type BlockVersion,
-  type SourceRef,
-} from '../types'
+import type { SourceRef } from '../types'
 
 interface Props {
   pathId: string
@@ -33,16 +29,6 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
   if (!path) return null
 
   const conceptById = new Map(concepts.map((c) => [c.id, c]))
-  const versionById = new Map(versions.map((v) => [v.id, v]))
-
-  const resolve = (conceptId: string, versionId: string | null) => {
-    const c = conceptById.get(conceptId)
-    if (!c) return null
-    const v: BlockVersion | undefined = versionId
-      ? versionById.get(versionId)
-      : versionById.get(c.currentVersionId)
-    return { concept: c, version: v }
-  }
 
   const blockSection = (
     conceptId: string,
@@ -107,39 +93,17 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
           if (n.kind === 'block') {
             return blockSection(n.conceptId, n.id, n.versionId, n.subpageId ?? null)
           }
-          // fuzja: wspólna ramka z częściami w środku; typ (np. twierdzenie
-          // złożone z dwóch twierdzeń) barwi ją tak samo jak zwykły blok
+          // grupa: ramka z nazwą nadaną w tej ścieżce, a w środku pełne klocki
+          // jeden pod drugim — to nadal osobne klocki, tylko pokazane razem
           return (
-            <section
-              key={n.id}
-              className={`script-block script-fusion ${n.type ? `script-${n.type}` : ''}`}
-            >
-              <header className="script-block-head">
-                <h3 className="script-block-title">
-                  <span className="script-block-type">
-                    {n.type ? BLOCK_TYPE_LABELS[n.type] : 'Blok'}:
-                  </span>{' '}
-                  {n.name}
-                </h3>
+            <section key={n.id} className="script-group">
+              <header className="script-group-head">
+                <h3 className="script-group-name">{n.name}</h3>
               </header>
-              <div className="script-block-body">
-                {n.parts.map((p, i) => {
-                  const r = resolve(p.conceptId, p.versionId)
-                  if (!r) return null
-                  return (
-                    <div key={i} className="script-fusion-part">
-                      <h4 className="script-fusion-part-title">
-                        {BLOCK_TYPE_LABELS[r.concept.type]}: {r.concept.name}
-                      </h4>
-                      <div
-                        className="markdown-body"
-                        dangerouslySetInnerHTML={{
-                          __html: renderMarkdown(r.version?.content ?? ''),
-                        }}
-                      />
-                    </div>
-                  )
-                })}
+              <div className="script-group-body">
+                {n.parts.map((p, i) =>
+                  blockSection(p.conceptId, `${n.id}:${i}`, p.versionId, null),
+                )}
               </div>
             </section>
           )
