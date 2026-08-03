@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   createConcept,
@@ -83,6 +83,19 @@ export function Sidebar({
 }: Props) {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<BlockType | 'wszystkie'>('wszystkie')
+  /** Szukanie i filtr chowają się pod ikonami — rozwijane na żądanie. */
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
+  // klik poza listą typów ją zamyka
+  useEffect(() => {
+    if (!filterOpen) return
+    const close = (e: MouseEvent) => {
+      if (!(e.target as Element).closest('.sidebar-tool-wrap')) setFilterOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [filterOpen])
+
   const [expanded, setExpanded] = useState<Set<string>>(loadExpanded)
   const [dropHint, setDropHint] = useState<DropHint>(null)
   const [rootHint, setRootHint] = useState(false)
@@ -488,29 +501,83 @@ export function Sidebar({
     <aside className="sidebar">
       <header className="sidebar-header">
         <h1 className="app-title">Kompendium</h1>
+        <div className="sidebar-tools">
+          <button
+            className={`sidebar-tool ${searchOpen || search ? 'active' : ''}`}
+            title="Szukaj po nazwie lub tagu"
+            onClick={() => {
+              if (searchOpen && !search) setSearchOpen(false)
+              else if (searchOpen && search) {
+                setSearch('')
+                setSearchOpen(false)
+              } else setSearchOpen(true)
+            }}
+          >
+            🔍
+          </button>
+          <div className="sidebar-tool-wrap">
+            <button
+              className={`sidebar-tool ${typeFilter !== 'wszystkie' ? 'active' : ''}`}
+              title={
+                typeFilter === 'wszystkie'
+                  ? 'Pokaż tylko wybrany typ'
+                  : `Pokazywane tylko: ${BLOCK_TYPE_LABELS[typeFilter]}`
+              }
+              onClick={() => setFilterOpen((o) => !o)}
+            >
+              ⛁
+              {typeFilter !== 'wszystkie' && (
+                <span className="sidebar-tool-tag">{BLOCK_TYPE_SHORT[typeFilter]}</span>
+              )}
+            </button>
+            {filterOpen && (
+              <div className="sidebar-filter-pop">
+                <button
+                  className={`sidebar-filter-item ${typeFilter === 'wszystkie' ? 'active' : ''}`}
+                  onClick={() => {
+                    setTypeFilter('wszystkie')
+                    setFilterOpen(false)
+                  }}
+                >
+                  Wszystkie typy
+                </button>
+                {BLOCK_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    className={`sidebar-filter-item ${typeFilter === t ? 'active' : ''}`}
+                    onClick={() => {
+                      setTypeFilter(t)
+                      setFilterOpen(false)
+                    }}
+                  >
+                    <span className={`type-mini type-${t}`}>{BLOCK_TYPE_SHORT[t]}</span>
+                    {BLOCK_TYPE_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
-      <div className="sidebar-filters">
-        <input
-          className="input"
-          type="search"
-          placeholder="Szukaj po nazwie lub tagu…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          className="input"
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as BlockType | 'wszystkie')}
-        >
-          <option value="wszystkie">Wszystkie typy</option>
-          {BLOCK_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {BLOCK_TYPE_LABELS[t]}
-            </option>
-          ))}
-        </select>
-      </div>
+      {searchOpen && (
+        <div className="sidebar-filters">
+          <input
+            className="input"
+            type="search"
+            autoFocus
+            placeholder="Szukaj po nazwie lub tagu…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSearch('')
+                setSearchOpen(false)
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* tworzenie — tuż nad drzewem, bo dotyczy jego zawartości */}
       <div className="sidebar-create">

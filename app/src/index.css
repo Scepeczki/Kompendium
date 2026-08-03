@@ -303,10 +303,93 @@ select.type-select {
 }
 
 .sidebar-header {
-  padding: 16px 14px 10px;
+  padding: 14px 12px 8px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+}
+
+/* szukanie i filtr jako ikony — rozwijają się dopiero po kliknięciu */
+.sidebar-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.sidebar-tool-wrap {
+  position: relative;
+}
+
+.sidebar-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.sidebar-tool:hover {
+  background: var(--panel);
+  border-color: var(--line-strong);
+}
+
+.sidebar-tool.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* skrót wybranego typu przy ikonie filtra */
+.sidebar-tool-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.sidebar-filter-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 5px);
+  z-index: 40;
+  min-width: 170px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+}
+
+.sidebar-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.sidebar-filter-item:hover {
+  background: var(--panel-alt);
+}
+
+.sidebar-filter-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 /* rząd tworzenia — tuż nad drzewem, bo dotyczy jego zawartości */
@@ -352,8 +435,7 @@ select.type-select {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 0 14px 10px;
-  border-bottom: 1px solid var(--line);
+  padding: 0 12px 8px;
 }
 
 .concept-list {
