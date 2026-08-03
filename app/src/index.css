@@ -2979,34 +2979,11 @@ button.version-pill.new {
    w obrębie ścieżki. W bazie to nadal osobne klocki.
    -------------------------------------------------------------------------- */
 
-/* w Linii i Skrypcie: ramka z nazwą, w środku pełne bloki jeden pod drugim */
-.script-group {
-  margin: 24px 0;
-  border: 1px solid var(--line-strong);
-  border-radius: 3px;
-  background: var(--panel-alt);
-}
-
-.script-group-head {
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--line);
-}
-
-.script-group-name {
-  margin: 0;
-  font-family: Georgia, serif;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.script-group-body {
-  padding: 4px 12px 12px;
-}
-
-/* lekka przerwa między klockami w grupie */
-.script-group-body > .script-block {
-  margin: 12px 0;
+/* Grupa czyta się jak jeden blok: cała oprawa jest ta sama co przy zwykłym
+   klocku (.script-block), a w środku same treści — klocki tracą swoje ramki
+   i tytuły, zostaje tekst oddzielony przerwą podobną do odstępu akapitów. */
+.group-part + .group-part {
+  margin-top: 1.2em;
 }
 
 /* ---- grupa na mapie: jeden duży pseudo-kafelek ---- */

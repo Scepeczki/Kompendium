@@ -100,31 +100,35 @@ console.log(
   `✓ wybór wersji zapisany w ścieżce: część 1 → „${savedVer.wersja}", części w grupie: ${savedVer.liczbaCzesci}`,
 )
 
-// 3. w Skrypcie: ramka z nazwą, w środku PEŁNE bloki (nagłówek typu + wersja)
+// 3. grupa jako blok danego typu (jak DEFINICJA), a w środku sam tekst
+await page.click('.view-switch button:has-text("Mapa")')
+await page.waitForSelector('.path-node-group')
+await page.selectOption('.path-node-group .fusion-type', 'definicja')
+await page.waitForTimeout(500)
 await page.click('.view-switch button:has-text("Skrypt")')
-await page.waitForSelector('.script-group')
+await page.waitForSelector('.script-group-block')
 await page.waitForTimeout(600)
 const inScript = await page.evaluate(() => {
-  const g = document.querySelector('.script-group')
+  const g = document.querySelector('.script-group-block')
   return {
-    nazwa: g.querySelector('.script-group-name')?.textContent,
-    bloki: [...g.querySelectorAll('.script-block')].map((b) => ({
-      naglowek: b.querySelector('.script-block-title')?.textContent?.trim(),
-      wersja: b.querySelector('.block-pick')?.textContent?.trim(),
-      tresc: b.querySelector('.block-content .markdown-body')?.textContent?.trim(),
+    naglowek: g.querySelector('.script-block-title')?.textContent?.trim(),
+    typBloku: g.className.includes('script-definicja'),
+    czesci: [...g.querySelectorAll('.group-part')].map((p) => ({
+      wersja: p.querySelector('.block-pick')?.textContent?.trim(),
+      tresc: p.querySelector('.markdown-body')?.textContent?.trim(),
     })),
+    // wewnątrz nie ma już osobnych bloków ani ich tytułów
+    zagniezdzoneBloki: g.querySelectorAll('.script-block').length,
+    zrodlaRazem: g.querySelectorAll('.source-list').length,
   }
 })
-console.log(`✓ w Skrypcie ramka: „${inScript.nazwa}"`)
-for (const b of inScript.bloki) {
-  console.log(`   • ${b.naglowek} [${b.wersja}] — „${b.tresc}"`)
-}
+console.log(`✓ grupa jako blok: „${inScript.naglowek}" (barwiona jak definicja: ${inScript.typBloku})`)
+for (const c of inScript.czesci) console.log(`   • [${c.wersja}] „${c.tresc}"`)
 console.log(
-  `✓ członkowie to pełne bloki (nie podpunkty): ${
-    inScript.bloki.length === 2 && inScript.bloki.every((b) => b.naglowek && b.wersja)
-      ? 'ok'
-      : 'BŁĄD'
-  }`,
+  `✓ klocki w środku bez własnych ramek i tytułów: zagnieżdżonych bloków ${inScript.zagniezdzoneBloki} (oczekiwane 0)`,
+)
+console.log(
+  `✓ jedna wspólna stopka źródeł: ${inScript.zrodlaRazem} (oczekiwane 0 przy braku źródeł)`,
 )
 
 // 4. klocki w bazie pozostają osobne
@@ -142,6 +146,7 @@ console.log(`✓ w bazie nadal osobne klocki: ${base.join(', ')}`)
 // 5. rozgrupowanie przywraca osobne kafelki
 await page.click('.view-switch button:has-text("Mapa")')
 await page.waitForSelector('.path-node-group')
+await page.waitForTimeout(400)
 await page.click('.path-node-group button[title*="Rozgrupuj"]')
 await page.waitForTimeout(700)
 const afterUngroup = await page.evaluate(() => ({

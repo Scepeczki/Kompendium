@@ -44,11 +44,13 @@ import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
+import { GroupShell } from './GroupShell'
 import { Outline, outlineId, type OutlineItem } from './Outline'
 import { ConceptPicker } from './ConceptPicker'
 import {
   BLOCK_TYPE_LABELS,
   BLOCK_TYPE_SHORT,
+  BLOCK_TYPES,
   RELATION_LABELS,
   isSymmetricRelation,
   type BlockType,
@@ -485,32 +487,16 @@ function LinearView({
         </aside>
       )
     }
-    // grupa: ramka z nazwą, a w środku pełne klocki jeden pod drugim
+    // grupa czyta się jak jeden blok danego typu
     return (
-      <section className="script-group">
-        <header className="script-group-head">
-          <h3 className="script-group-name">{n.name}</h3>
-        </header>
-        <div className="script-group-body">
-          {n.parts.map((p, i) => {
-            const c = conceptById(p.conceptId)
-            if (!c) return <div key={i} className="script-block">(usunięty klocek)</div>
-            return (
-              <BlockShell
-                key={`${n.id}:${i}`}
-                concept={c}
-                versions={versions.filter((v) => v.conceptId === c.id)}
-                versionId={p.versionId}
-                onVersionChange={(id: string | null) => onSetPartVersion(n.id, i, id)}
-                subpageId={null}
-                onOpenConcept={onOpenConcept}
-                onJumpToSource={onJumpToSource}
-                pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
-              />
-            )
-          })}
-        </div>
-      </section>
+      <GroupShell
+        name={n.name}
+        type={n.type}
+        parts={n.parts}
+        onVersionChange={(i, id) => onSetPartVersion(n.id, i, id)}
+        onJumpToSource={onJumpToSource}
+        pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
+      />
     )
   }
 
@@ -693,10 +679,24 @@ function GroupMember({
 function FusionNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
   const parts = (data.parts as { conceptId: string; versionId: string | null }[]) ?? []
+  const type = (data.type as BlockType | undefined) ?? ''
   return (
     <div className={`path-node path-node-group ${selected ? 'selected' : ''}`}>
       <Handle type="target" position={Position.Top} />
       <header className="path-node-head group-head">
+        <select
+          className={`fusion-type nodrag ${type ? `type-${type}` : ''}`}
+          value={type}
+          title="Czym jest grupa jako całość — wygląda wtedy jak zwykły blok tego typu"
+          onChange={(e) => ctx.updateData(id, { type: e.target.value || undefined })}
+        >
+          <option value="">GRUPA</option>
+          {BLOCK_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {BLOCK_TYPE_SHORT[t]}
+            </option>
+          ))}
+        </select>
         <span
           className="group-name nodrag"
           title="Kliknij dwukrotnie, aby zmienić nazwę grupy"

@@ -4,6 +4,7 @@ import { db } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { BlockShell } from './BlockShell'
+import { GroupShell } from './GroupShell'
 import { Outline, outlineId, type OutlineItem } from './Outline'
 import type { SourceRef } from '../types'
 
@@ -93,19 +94,26 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
           if (n.kind === 'block') {
             return blockSection(n.conceptId, n.id, n.versionId, n.subpageId ?? null)
           }
-          // grupa: ramka z nazwą nadaną w tej ścieżce, a w środku pełne klocki
-          // jeden pod drugim — to nadal osobne klocki, tylko pokazane razem
+          // grupa czyta się jak jeden blok danego typu: pasek nagłówka
+          // z nazwą nadaną w ścieżce, a w środku same treści klocków
           return (
-            <section key={n.id} className="script-group">
-              <header className="script-group-head">
-                <h3 className="script-group-name">{n.name}</h3>
-              </header>
-              <div className="script-group-body">
-                {n.parts.map((p, i) =>
-                  blockSection(p.conceptId, `${n.id}:${i}`, p.versionId, null),
-                )}
-              </div>
-            </section>
+            <GroupShell
+              key={n.id}
+              name={n.name}
+              type={n.type}
+              parts={n.parts.map((p, i) => ({
+                conceptId: p.conceptId,
+                versionId:
+                  `${n.id}:${i}` in verOverride
+                    ? verOverride[`${n.id}:${i}`]
+                    : p.versionId,
+              }))}
+              onVersionChange={(i, id) =>
+                setVerOverride((o) => ({ ...o, [`${n.id}:${i}`]: id }))
+              }
+              onJumpToSource={onJumpToSource}
+              pickHint="Przełącz przy czytaniu — nie zmienia ustawień ścieżki"
+            />
           )
         })}
       </article>
