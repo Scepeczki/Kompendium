@@ -757,6 +757,7 @@ select.type-select {
   position: fixed;
   z-index: 60;
   min-width: 180px;
+  max-width: 260px;
   padding: 4px;
   background: var(--panel);
   border: 1px solid var(--line-strong);
@@ -771,6 +772,10 @@ select.type-select {
   color: var(--muted);
   border-bottom: 1px solid var(--line);
   margin-bottom: 4px;
+  /* długie nazwy nie mogą rozpychać menu ani z niego wychodzić */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tree-menu-item {
@@ -792,6 +797,21 @@ select.type-select {
 .tree-menu-item:hover {
   background: var(--accent-soft);
   color: var(--accent-ink);
+}
+
+.tree-menu-item.grozne {
+  color: var(--danger);
+}
+
+.tree-menu-item.grozne:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.tree-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
 }
 
 /* ---- podpowiedzi przeciągania ---- */

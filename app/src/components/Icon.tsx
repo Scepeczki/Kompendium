@@ -9,13 +9,16 @@
 
 import {
   ChevronRight,
+  Copy,
   FilePlus2,
   FolderPlus,
   Folder,
   ListFilter,
+  Pencil,
   Route,
   Search,
   Settings2,
+  Trash2,
   Waypoints,
   type LucideIcon,
 } from 'lucide-react'
@@ -30,12 +33,15 @@ const ICONS = {
   graf: Waypoints,
   ustawienia: Settings2,
   rozwin: ChevronRight,
+  edycja: Pencil,
+  kopia: Copy,
+  usun: Trash2,
 } satisfies Record<string, LucideIcon>
 
-type Name = keyof typeof ICONS
+export type IconName = keyof typeof ICONS
 
 interface Props {
-  name: Name
+  name: IconName
   /** Rozmiar w em — domyślnie odrobinę więcej niż wysokość wersalika. */
   size?: number
 }

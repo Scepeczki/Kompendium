@@ -8,6 +8,9 @@ import {
   deleteConcept,
   deleteFolder,
   deletePath,
+  duplicateConcept,
+  duplicateFolder,
+  duplicatePath,
   moveConcept,
   moveFolder,
   movePath,
@@ -24,7 +27,7 @@ import {
   type Folder,
   type LearningPath,
 } from '../types'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
 
 interface Props {
   selectedId: string | null
@@ -47,6 +50,13 @@ type TreeNode =
 
 /** Podpowiedź wizualna miejsca upuszczenia. */
 type DropHint = { id: string; pos: 'into' | 'before' | 'after' } | null
+
+/** Na czym stanął prawy przycisk: na pustym tle czy na konkretnej rzeczy. */
+type MenuTarget =
+  | { kind: 'tlo'; parentId: string | null }
+  | { kind: 'concept'; concept: Concept }
+  | { kind: 'folder'; folder: Folder }
+  | { kind: 'path'; path: LearningPath }
 
 const MIME = 'text/x-kompendium'
 const EXP_KEY = 'ui.expandedFolders'
@@ -101,14 +111,12 @@ export function Sidebar({
   const [dropHint, setDropHint] = useState<DropHint>(null)
   const [rootHint, setRootHint] = useState(false)
 
-  /** Menu tworzenia wywołane prawym przyciskiem na pustym miejscu listy.
-   *  `parentId` bierze się z tego, gdzie kliknięto: wnętrze folderu tworzy
-   *  w tym folderze, puste tło listy — na poziomie głównym. */
-  const [menu, setMenu] = useState<{
-    x: number
-    y: number
-    parentId: string | null
-  } | null>(null)
+  /** Menu spod prawego przycisku. Na pustym tle proponuje tworzenie
+   *  (a `parentId` mówi gdzie: wnętrze folderu czy poziom główny),
+   *  na konkretnej rzeczy — co można z nią zrobić. */
+  const [menu, setMenu] = useState<{ x: number; y: number; cel: MenuTarget } | null>(
+    null,
+  )
 
   // menu znika przy kliknięciu gdzie indziej, Escape i przewijaniu listy
   useEffect(() => {
@@ -140,7 +148,82 @@ export function Sidebar({
     if (el.closest('.concept-item, .folder-row')) return
     e.preventDefault()
     const inside = el.closest('.folder-children') as HTMLElement | null
-    setMenu({ x: e.clientX, y: e.clientY, parentId: inside?.dataset.folder ?? null })
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      cel: { kind: 'tlo', parentId: inside?.dataset.folder ?? null },
+    })
+  }
+
+  /** Prawy przycisk na konkretnej rzeczy w drzewie. */
+  const openItemMenu = (e: React.MouseEvent, cel: MenuTarget) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, cel })
+  }
+
+  /** Pozycja menu — zamyka je, zanim zrobi swoje (żeby okienko z nazwą
+   *  nie wyskakiwało zza wciąż otwartego menu). */
+  const menuItem = (
+    ikona: IconName,
+    label: string,
+    onClick: () => void,
+    grozne = false,
+  ) => (
+    <button
+      className={`tree-menu-item ${grozne ? 'grozne' : ''}`}
+      onClick={() => {
+        setMenu(null)
+        onClick()
+      }}
+    >
+      <Icon name={ikona} size={1} />
+      {label}
+    </button>
+  )
+
+  const menuParent = menu?.cel.kind === 'tlo' ? menu.cel.parentId : null
+
+  /** Nagłówek menu: co to za rzecz i jak się nazywa. */
+  const menuTitle = !menu
+    ? ''
+    : menu.cel.kind === 'concept'
+      ? `Klocek „${menu.cel.concept.name}"`
+      : menu.cel.kind === 'folder'
+        ? `Folder „${menu.cel.folder.name}"`
+        : menu.cel.kind === 'path'
+          ? `Ścieżka „${menu.cel.path.name}"`
+          : ''
+
+  const handleMenuRename = () => {
+    if (!menu) return
+    if (menu.cel.kind === 'concept') handleRenameConcept(menu.cel.concept)
+    else if (menu.cel.kind === 'folder') handleRenameFolder(menu.cel.folder)
+    else if (menu.cel.kind === 'path') handleRenamePath(menu.cel.path)
+  }
+
+  const handleMenuDelete = () => {
+    if (!menu) return
+    if (menu.cel.kind === 'concept') handleDeleteConcept(menu.cel.concept)
+    else if (menu.cel.kind === 'folder') handleDeleteFolder(menu.cel.folder)
+    else if (menu.cel.kind === 'path') handleDeletePath(menu.cel.path)
+  }
+
+  /** Powielenie. Kopia klocka od razu się otwiera — zwykle powiela się po to,
+   *  żeby coś w kopii zmienić. Folder tylko się rozwija, bo w środku może
+   *  być tego dużo i nie wiadomo, co miałoby się otworzyć. */
+  const handleMenuDuplicate = async () => {
+    if (!menu) return
+    if (menu.cel.kind === 'concept') {
+      const id = await duplicateConcept(menu.cel.concept.id)
+      if (id) onSelect(id)
+    } else if (menu.cel.kind === 'path') {
+      const id = await duplicatePath(menu.cel.path.id)
+      if (id) onOpenPath(id)
+    } else if (menu.cel.kind === 'folder') {
+      const id = await duplicateFolder(menu.cel.folder.id)
+      if (id) setExpanded((prev) => persistExpanded(new Set(prev).add(id)))
+    }
   }
 
   const folders =
@@ -335,6 +418,7 @@ export function Sidebar({
             hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
           }`}
           onClick={() => onSelect(c.id)}
+          onContextMenu={(e) => openItemMenu(e, { kind: 'concept', concept: c })}
           onDragStart={(e) => setDragData(e, { kind: 'concept', id: c.id })}
           onDragOver={(e) => {
             e.preventDefault()
@@ -400,6 +484,7 @@ export function Sidebar({
             hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
           }`}
           onClick={() => toggleExpanded(f.id)}
+          onContextMenu={(e) => openItemMenu(e, { kind: 'folder', folder: f })}
           onDragStart={(e) => setDragData(e, { kind: 'folder', id: f.id })}
           onDragOver={(e) => {
             e.preventDefault()
@@ -472,6 +557,7 @@ export function Sidebar({
             hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
           }`}
           onClick={() => onOpenPath(p.id)}
+          onContextMenu={(e) => openItemMenu(e, { kind: 'path', path: p })}
           onDragStart={(e) => setDragData(e, { kind: 'path', id: p.id })}
           onDragOver={(e) => {
             e.preventDefault()
@@ -706,7 +792,7 @@ export function Sidebar({
         </ul>
       )}
 
-      {/* prawy przycisk na pustym miejscu listy — tworzenie tam, gdzie kliknięto */}
+      {/* menu spod prawego przycisku — tworzenie albo działania na rzeczy */}
       {menu && (
         <div
           ref={menuRef}
@@ -714,41 +800,32 @@ export function Sidebar({
           style={{ left: menu.x, top: menu.y }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="tree-menu-where">
-            {menu.parentId
-              ? `w folderze „${folders.find((f) => f.id === menu.parentId)?.name ?? ''}"`
-              : 'na poziomie głównym'}
-          </div>
-          <button
-            className="tree-menu-item"
-            onClick={() => {
-              setMenu(null)
-              handleNew(menu.parentId)
-            }}
-          >
-            <Icon name="klocek" size={1} />
-            Nowy klocek
-          </button>
-          <button
-            className="tree-menu-item"
-            onClick={() => {
-              setMenu(null)
-              handleNewFolder(menu.parentId)
-            }}
-          >
-            <Icon name="folder" size={1} />
-            Nowy folder
-          </button>
-          <button
-            className="tree-menu-item"
-            onClick={() => {
-              setMenu(null)
-              handleNewPath(menu.parentId)
-            }}
-          >
-            <Icon name="sciezka" size={1} />
-            Nowa ścieżka
-          </button>
+          {menu.cel.kind === 'tlo' ? (
+            <>
+              <div className="tree-menu-where">
+                {menu.cel.parentId
+                  ? `w folderze „${
+                      folders.find((f) => f.id === menuParent)?.name ?? ''
+                    }"`
+                  : 'na poziomie głównym'}
+              </div>
+              {menuItem('klocek', 'Nowy klocek', () => handleNew(menuParent))}
+              {menuItem('folder', 'Nowy folder', () => handleNewFolder(menuParent))}
+              {menuItem('sciezka', 'Nowa ścieżka', () => handleNewPath(menuParent))}
+            </>
+          ) : (
+            <>
+              <div className="tree-menu-where">{menuTitle}</div>
+              {menuItem('edycja', 'Zmień nazwę', handleMenuRename)}
+              {menuItem(
+                'kopia',
+                menu.cel.kind === 'folder' ? 'Powiel z zawartością' : 'Powiel',
+                handleMenuDuplicate,
+              )}
+              <div className="tree-menu-sep" />
+              {menuItem('usun', 'Usuń', handleMenuDelete, true)}
+            </>
+          )}
         </div>
       )}
       {/* dół: rzeczy dotyczące całej aplikacji, nie zawartości drzewa */}

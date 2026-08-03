@@ -266,6 +266,140 @@ export async function deleteConcept(id: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Powielanie
+// ---------------------------------------------------------------------------
+
+/** Nazwa kopii: „Funkcja" → „Funkcja (kopia)" → „Funkcja (kopia 2)" …
+ *  Numerujemy dopiero od drugiej kopii, bo tak się mówi po polsku. */
+function copyName(base: string, taken: string[]): string {
+  const first = `${base} (kopia)`
+  if (!taken.includes(first)) return first
+  for (let i = 2; ; i++) {
+    const next = `${base} (kopia ${i})`
+    if (!taken.includes(next)) return next
+  }
+}
+
+/** Powiela klocek z całą historią: wszystkie wersje, wszystkie strony.
+ *  Kopia ląduje tuż obok pierwowzoru, w tym samym folderze.
+ *
+ *  Powiązań (relacji) celowo nie kopiujemy: mówią o konkretnym klocku,
+ *  a nie o jego treści — świeża kopia zaczyna bez cudzych zobowiązań. */
+export async function duplicateConcept(id: string): Promise<string | null> {
+  const src = await db.concepts.get(id)
+  if (!src) return null
+  const versions = await db.versions.where('conceptId').equals(id).toArray()
+  const pages = await db.subpages.where('conceptId').equals(id).toArray()
+  const siblings = await db.concepts.toArray()
+  const newId = uid()
+  const t = now()
+  // mapowanie stare id wersji → nowe, żeby wskazanie bieżącej wersji przeżyło
+  const verMap = new Map(versions.map((v) => [v.id, uid()]))
+
+  await db.transaction('rw', [db.concepts, db.versions, db.subpages], async () => {
+    await db.versions.bulkAdd(
+      versions.map((v) => ({
+        ...v,
+        id: verMap.get(v.id)!,
+        conceptId: newId,
+        // źródła kopiujemy w głąb — inaczej obie wersje trzymałyby tę samą tablicę
+        sourceRefs: v.sourceRefs.map((r) => ({ ...r })),
+        sourceGroups: v.sourceGroups ? [...v.sourceGroups] : undefined,
+        createdAt: t,
+        updatedAt: t,
+      })),
+    )
+    await db.subpages.bulkAdd(
+      pages.map((p) => ({ ...p, id: uid(), conceptId: newId, createdAt: t, updatedAt: t })),
+    )
+    await db.concepts.add({
+      ...src,
+      id: newId,
+      name: copyName(
+        src.name,
+        siblings
+          .filter((c) => (c.folderId ?? null) === (src.folderId ?? null))
+          .map((c) => c.name),
+      ),
+      tags: [...src.tags],
+      // ułamkowa kolejność: kopia siada zaraz za pierwowzorem
+      order: (src.order ?? 0) + 0.5,
+      currentVersionId: verMap.get(src.currentVersionId) ?? verMap.values().next().value!,
+      createdAt: t,
+      updatedAt: t,
+    })
+  })
+  return newId
+}
+
+/** Powiela ścieżkę razem z układem kafelków. Klocki zostają te same —
+ *  ścieżka jest tylko sposobem ich ułożenia, a nie ich właścicielem. */
+export async function duplicatePath(id: string): Promise<string | null> {
+  const src = await db.paths.get(id)
+  if (!src) return null
+  const siblings = await db.paths.toArray()
+  const newId = uid()
+  const t = now()
+  await db.paths.add({
+    ...src,
+    id: newId,
+    name: copyName(
+      src.name,
+      siblings
+        .filter((p) => (p.folderId ?? null) === (src.folderId ?? null))
+        .map((p) => p.name),
+    ),
+    nodes: src.nodes.map((n) => ({ ...n })),
+    edges: src.edges.map((e) => ({ ...e })),
+    order: (src.order ?? 0) + 0.5,
+    createdAt: t,
+    updatedAt: t,
+  })
+  return newId
+}
+
+/** Powiela folder z całą zawartością: podfolderami, klockami i ścieżkami.
+ *  Kopie klocków powstają przez duplicateConcept, więc mają własne wersje
+ *  i strony — zmiana w kopii nie rusza pierwowzoru. */
+export async function duplicateFolder(id: string): Promise<string | null> {
+  const src = await db.folders.get(id)
+  if (!src) return null
+  const allFolders = await db.folders.where('kind').equals('concepts').toArray()
+  const newId = uid()
+  await db.folders.add({
+    ...src,
+    id: newId,
+    name: copyName(
+      src.name,
+      allFolders.filter((f) => (f.parentId ?? null) === (src.parentId ?? null)).map((f) => f.name),
+    ),
+    order: (src.order ?? 0) + 0.5,
+    createdAt: now(),
+  })
+
+  /** Przepisuje zawartość folderu `from` do folderu `to` (rekurencyjnie). */
+  const copyInto = async (from: string, to: string) => {
+    const concepts = await db.concepts.where('folderId').equals(from).toArray()
+    for (const c of concepts) {
+      const copy = await duplicateConcept(c.id)
+      if (copy) await db.concepts.update(copy, { folderId: to, name: c.name, order: c.order })
+    }
+    const paths = await db.paths.where('folderId').equals(from).toArray()
+    for (const p of paths) {
+      const copy = await duplicatePath(p.id)
+      if (copy) await db.paths.update(copy, { folderId: to, name: p.name, order: p.order })
+    }
+    for (const sub of allFolders.filter((f) => f.parentId === from)) {
+      const subId = uid()
+      await db.folders.add({ ...sub, id: subId, parentId: to, createdAt: now() })
+      await copyInto(sub.id, subId)
+    }
+  }
+  await copyInto(id, newId)
+  return newId
+}
+
+// ---------------------------------------------------------------------------
 // Relacje między klockami
 // ---------------------------------------------------------------------------
 

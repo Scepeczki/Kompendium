@@ -76,11 +76,14 @@ const inFolder = await page.evaluate(() => {
 check('klocek powstał wewnątrz folderu', inFolder.includes('W folderze'),
   inFolder.join(' | '))
 
-// 6. prawy przycisk na samym klocku nie otwiera menu tworzenia
+// 6. prawy przycisk na klocku daje inne menu niż na pustym tle
 await page.click('.concept-item:has-text("Z menu")', { button: 'right' })
-await page.waitForTimeout(300)
-check('prawy przycisk na klocku nie otwiera menu tworzenia',
-  (await page.locator('.tree-menu').count()) === 0)
+await page.waitForSelector('.tree-menu')
+const naRzeczy = await page.locator('.tree-menu-item').allTextContents()
+check('prawy przycisk na klocku nie proponuje tworzenia',
+  !naRzeczy.join('|').includes('Nowy'),
+  naRzeczy.map((s) => s.trim()).join(' · '))
+await page.keyboard.press('Escape')
 
 // 7. menu mieści się w oknie także przy dolnej krawędzi
 await page.click('.concept-list', { button: 'right', position: { x: 100, y: 700 } })
@@ -90,6 +93,83 @@ const fits = await page.evaluate(() => {
   return r.bottom <= window.innerHeight && r.right <= window.innerWidth
 })
 check('menu nie wychodzi poza okno', fits)
+
+// -- menu na konkretnej rzeczy: zmiana nazwy, powielenie, usunięcie --
+
+// 8. na klocku menu pokazuje działania, nie tworzenie
+await page.click('.concept-item:has-text("Z menu")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+const naKlocku = await page.locator('.tree-menu-item').allTextContents()
+check('menu klocka: nazwa, powielenie, usunięcie',
+  naKlocku.length === 3 && naKlocku.join('|').includes('Powiel'),
+  naKlocku.map((s) => s.trim()).join(' · '))
+check('menu mówi, o który klocek chodzi',
+  (await page.locator('.tree-menu-where').textContent()).includes('Z menu'))
+
+// 9. zmiana nazwy z menu
+page.once('dialog', (d) => d.accept('Przezwany'))
+await page.click('.tree-menu-item:has-text("Zmień nazwę")')
+await page.waitForTimeout(500)
+check('zmiana nazwy z menu działa',
+  (await page.locator('.concept-item:has-text("Przezwany")').count()) === 1)
+
+// 10. powielenie klocka: kopia obok pierwowzoru, z treścią, i od razu otwarta
+await page.click('.concept-item:has-text("Przezwany")')
+await page.waitForSelector('.view-switch')
+await page.click('.view-switch button:has-text("Kod")')
+await page.click('.editor-code .cm-content')
+await page.keyboard.type('Treść pierwowzoru $a^2$.')
+await page.waitForTimeout(600)
+await page.click('.btn-close[title*="Zamknij klocek"]')
+
+await page.click('.concept-item:has-text("Przezwany")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Powiel")')
+await page.waitForSelector('.editor-name')
+const kopiaNazwa = await page.inputValue('.editor-name')
+check('kopia nazywa się „… (kopia)"', kopiaNazwa === 'Przezwany (kopia)', kopiaNazwa)
+const kopiaTresc = await page.textContent('.editor-code .cm-content')
+check('kopia ma treść pierwowzoru', kopiaTresc.includes('Treść pierwowzoru'), kopiaTresc)
+
+// 11. zmiana w kopii nie rusza pierwowzoru
+await page.click('.editor-code .cm-content')
+await page.keyboard.press('Control+End')
+await page.keyboard.type(' DOPISEK-W-KOPII')
+await page.waitForTimeout(600)
+await page.click('.concept-item:has-text("Przezwany"):not(:has-text("kopia"))')
+await page.waitForTimeout(600)
+const oryginal = await page.textContent('.editor-code .cm-content')
+check('pierwowzór nietknięty przez zmianę w kopii',
+  !oryginal.includes('DOPISEK-W-KOPII'), oryginal)
+await page.click('.btn-close[title*="Zamknij klocek"]')
+
+// 12. powielenie folderu bierze zawartość
+await page.click('.folder-row:has-text("Algebra")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Powiel")')
+await page.waitForTimeout(900)
+check('powstał folder „Algebra (kopia)"',
+  (await page.locator('.folder-row:has-text("Algebra (kopia)")').count()) === 1)
+const wKopii = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.folder-row')].find((r) =>
+    r.textContent.includes('Algebra (kopia)'),
+  )
+  const ul = row.parentElement.querySelector('.folder-children')
+  return ul ? [...ul.querySelectorAll('.concept-name')].map((n) => n.textContent) : []
+})
+check('kopia folderu ma zawartość pierwowzoru', wKopii.includes('W folderze'),
+  wKopii.join(' | '))
+
+// 13. na ścieżce menu też działa
+page.once('dialog', (d) => d.accept('Kurs'))
+await page.click('.sidebar-create-btn[title*="Nowa ścieżka"]')
+await page.waitForSelector('.path-canvas')
+await page.click('.concept-item:has-text("Kurs")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Powiel")')
+await page.waitForTimeout(700)
+check('ścieżka daje się powielić',
+  (await page.locator('.concept-item:has-text("Kurs (kopia)")').count()) === 1)
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
