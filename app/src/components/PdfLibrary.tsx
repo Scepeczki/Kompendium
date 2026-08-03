@@ -10,6 +10,7 @@ import {
   renamePdf,
 } from '../db'
 import { isPdfSource, type Folder, type PdfDoc } from '../types'
+import { Icon } from './Icon'
 
 interface Props {
   currentId: string | null
@@ -153,7 +154,7 @@ export function PdfLibrary({ currentId, onOpen, onDeleted }: Props) {
       <div className="pdflib-header">
         <span className="source-label">Biblioteka</span>
         <button className="btn" title="Nowy folder" onClick={handleNewFolder}>
-          + 🗀
+          <Icon name="folder" size={1} />
         </button>
       </div>
 

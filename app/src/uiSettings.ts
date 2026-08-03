@@ -55,6 +55,25 @@ export const MATH_GAP_OPTIONS: { value: number; label: string }[] = [
   { value: 1.6, label: 'Bardzo duży' },
 ]
 
+/** Deseń tła — cichy rysunek na marginesach, wokół kartki i pod Skryptem. */
+export type BgPattern = 'gladkie' | 'kratka' | 'kropki' | 'ukosne'
+export const BG_PATTERN_DEFAULT: BgPattern = 'gladkie'
+export const BG_PATTERN_OPTIONS: { value: BgPattern; label: string }[] = [
+  { value: 'gladkie', label: 'Gładkie' },
+  { value: 'kratka', label: 'Kratka' },
+  { value: 'kropki', label: 'Kropki' },
+  { value: 'ukosne', label: 'Ukośne' },
+]
+
+/** Krój pisma treści klocków. Interfejs zostaje bezszeryfowy zawsze —
+ *  wybór dotyczy tylko powierzchni do czytania (edytor, Skrypt, Linia). */
+export type ContentFont = 'bez' | 'szeryf'
+export const CONTENT_FONT_DEFAULT: ContentFont = 'bez'
+export const CONTENT_FONT_OPTIONS: { value: ContentFont; label: string }[] = [
+  { value: 'bez', label: 'Bezszeryfowy' },
+  { value: 'szeryf', label: 'Szeryfowy' },
+]
+
 export const PARA_SPACING_DEFAULT = 1
 export const PARA_SPACING_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: 'Brak' },
@@ -171,6 +190,43 @@ export function setParaSpacing(v: number): void {
   notify()
 }
 
+export function getContentFont(): ContentFont {
+  const v = localStorage.getItem('ui.contentFont')
+  return v === 'bez' || v === 'szeryf' ? v : CONTENT_FONT_DEFAULT
+}
+
+const setContentFontVar = (v: ContentFont) =>
+  document.documentElement.style.setProperty(
+    '--font-content',
+    v === 'szeryf' ? 'var(--font-read)' : 'var(--font-ui)',
+  )
+
+export function setContentFont(v: ContentFont): void {
+  setContentFontVar(v)
+  localStorage.setItem('ui.contentFont', v)
+  notify()
+}
+
+export function getBgPattern(): BgPattern {
+  const v = localStorage.getItem('ui.bgPattern')
+  return BG_PATTERN_OPTIONS.some((o) => o.value === v)
+    ? (v as BgPattern)
+    : BG_PATTERN_DEFAULT
+}
+
+export function setBgPattern(v: BgPattern): void {
+  setBgPatternAttr(v)
+  localStorage.setItem('ui.bgPattern', v)
+  notify()
+}
+
+/** Deseń jedzie atrybutem na <html>, bo to zwykły przełącznik wariantu,
+ *  a nie liczba — arkusz stylów trzyma wtedy całą definicję u siebie. */
+const setBgPatternAttr = (v: BgPattern) => {
+  if (v === 'gladkie') delete document.documentElement.dataset.bg
+  else document.documentElement.dataset.bg = v
+}
+
 const colorKey = (t: BlockType) => `ui.color.${t}`
 
 export function getBlockColor(t: BlockType): string {
@@ -240,6 +296,8 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--math-gap', `${getMathGap()}em`)
   document.documentElement.style.setProperty('--block-tint', String(getBlockTint()))
   document.documentElement.style.setProperty('--tree-size', `${getTreeSize()}px`)
+  setContentFontVar(getContentFont())
+  setBgPatternAttr(getBgPattern())
   for (const t of Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]) {
     const v = localStorage.getItem(colorKey(t))
     if (v) document.documentElement.style.setProperty(`--c-${t}`, v)

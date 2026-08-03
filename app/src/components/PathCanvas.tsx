@@ -1591,21 +1591,21 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             title="Mapa: kafelki i strzałki na nieskończonej tablicy"
             onClick={() => setMode('map')}
           >
-            🗺 Mapa
+            Mapa
           </button>
           <button
             className={`btn ${mode === 'linear' ? 'btn-active' : ''}`}
             title="Linia: doklejanie segmentów skryptu jeden pod drugim"
             onClick={() => setMode('linear')}
           >
-            ≡ Linia
+            Linia
           </button>
           <button
             className={`btn ${mode === 'script' ? 'btn-active' : ''}`}
             title="Skrypt: gotowy ciągły dokument (tylko odczyt)"
             onClick={() => setMode('script')}
           >
-            📜 Skrypt
+            Skrypt
           </button>
         </div>
         {mode === 'script' && (
@@ -1614,7 +1614,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             onClick={() => window.print()}
             title="Wydrukuj skrypt albo zapisz go jako PDF"
           >
-            🖶 Drukuj / PDF
+            Drukuj / PDF
           </button>
         )}
         <button className="btn btn-close" title="Zamknij ścieżkę" onClick={onClose}>

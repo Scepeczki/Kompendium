@@ -556,7 +556,7 @@ export function BlockEditor({
             disabled={!isCurrent}
             title="Zaznacz fragment PDF i podepnij go jako źródło (wspólne dla wszystkich stron tej wersji)"
           >
-            📌 Podepnij źródło
+            Podepnij źródło
           </button>
           <button
             className="btn"
@@ -564,7 +564,7 @@ export function BlockEditor({
             disabled={!isCurrent}
             title="Wskaż inny klocek jako źródło tego klocka (np. przy podsumowaniu)"
           >
-            🧱 Klocek jako źródło
+            Klocek jako źródło
           </button>
           <button
             className="btn"

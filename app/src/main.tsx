@@ -1,5 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+// kroje pisma dowożone z paczką — działają bez internetu i wyglądają
+// tak samo na każdym komputerze (Inter = interfejs, Source Serif = treść)
+import '@fontsource-variable/inter'
+import '@fontsource-variable/source-serif-4'
 // katex przed naszymi stylami — inaczej jego `.katex { font: 1.21em }`
 // wygrywa z naszym ustawieniem wielkości wzorów (ta sama specyficzność)
 import 'katex/dist/katex.min.css'

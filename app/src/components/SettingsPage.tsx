@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { exportBackup, importBackup } from '../backup'
 import {
+  BG_PATTERN_OPTIONS,
   BLOCK_COLOR_DEFAULTS,
   BLOCK_TINT_MAX,
   BLOCK_TINT_MIN,
+  CONTENT_FONT_OPTIONS,
+  type BgPattern,
+  type ContentFont,
   IND_OFFSET_MAX,
   IND_OFFSET_MIN,
   LINE_SPACING_OPTIONS,
@@ -14,8 +18,10 @@ import {
   PARA_SPACING_OPTIONS,
   TREE_SIZE_MAX,
   TREE_SIZE_MIN,
+  getBgPattern,
   getBlockColor,
   getBlockTint,
+  getContentFont,
   getIndOffset,
   getLineSpacing,
   getMathGap,
@@ -26,8 +32,10 @@ import {
   getTreeSize,
   hasCustomBlockColors,
   resetBlockColors,
+  setBgPattern,
   setBlockColor,
   setBlockTint,
+  setContentFont,
   setIndOffset,
   setLineSpacing,
   setMathGap,
@@ -75,6 +83,8 @@ export function SettingsPage({ onClose }: Props) {
   const [para, setPara] = useState(getParaSpacing)
   const [mScale, setMScale] = useState(getMathScale)
   const [mGap, setMGap] = useState(getMathGap)
+  const [font, setFont] = useState(getContentFont)
+  const [bg, setBg] = useState(getBgPattern)
   const [colorTick, setColorTick] = useState(0)
 
   // linijka nad edytorem zmienia te same ustawienia — trzymaj suwaki w zgodzie
@@ -89,6 +99,8 @@ export function SettingsPage({ onClose }: Props) {
       setPara(getParaSpacing())
       setMScale(getMathScale())
       setMGap(getMathGap())
+      setFont(getContentFont())
+      setBg(getBgPattern())
     }
     window.addEventListener('komp:ui', h)
     return () => window.removeEventListener('komp:ui', h)
@@ -167,7 +179,7 @@ export function SettingsPage({ onClose }: Props) {
   return (
     <section className="settings-page">
       <header className="settings-page-head">
-        <h2>⚙ Ustawienia</h2>
+        <h2>Ustawienia</h2>
         <button className="btn" onClick={onClose}>
           ← Wróć
         </button>
@@ -206,6 +218,27 @@ export function SettingsPage({ onClose }: Props) {
                     ☾ Ciemny
                   </button>
                 </div>
+              </div>
+
+              <div className="settings-row">
+                <span className="settings-label">Deseń tła</span>
+                <div className="settings-bg-choice">
+                  {BG_PATTERN_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      className={`settings-bg-btn ${bg === o.value ? 'active' : ''}`}
+                      data-bg-preview={o.value}
+                      onClick={() => setBgPattern(o.value as BgPattern)}
+                    >
+                      <span className="settings-bg-swatch" />
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="settings-hint">
+                  Rysuje się tylko na marginesach wokół kartki, w tle Skryptu i
+                  biblioteki PDF — nigdy pod samym tekstem.
+                </p>
               </div>
 
               <div className="settings-row">
@@ -290,6 +323,23 @@ export function SettingsPage({ onClose }: Props) {
 
           {section === 'tekst' && (
             <>
+              <div className="settings-row">
+                <span className="settings-label">Krój pisma treści</span>
+                {/* każdy przycisk pisany swoim krojem — widać wybór, zanim się kliknie */}
+                <div className="settings-fonts">
+                  {choice(
+                    CONTENT_FONT_OPTIONS.map((o) => o.value),
+                    font,
+                    (v: ContentFont) => setContentFont(v),
+                    (v) => CONTENT_FONT_OPTIONS.find((o) => o.value === v)?.label ?? '',
+                  )}
+                </div>
+                <p className="settings-hint">
+                  Dotyczy tylko treści klocków — edytora, Linii i Skryptu. Interfejs
+                  zostaje bezszeryfowy. Szeryfowy krój lepiej trzyma towarzystwo wzorom,
+                  bo KaTeX też jest szeryfowy.
+                </p>
+              </div>
               <div className="settings-row">
                 <span className="settings-label">Interlinia</span>
                 {choice(LINE_SPACING_OPTIONS, line, setLineSpacing, (v) =>

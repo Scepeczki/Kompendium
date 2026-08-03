@@ -27,10 +27,35 @@
   --c-uwaga: #a9742c;
   --c-intuicja: #b05575;
 
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Kroje pisma. Inter — interfejs (czytelny w małych rozmiarach, neutralny),
+     Source Serif — powierzchnia do czytania. Oba jadą razem z programem,
+     więc wyglądają tak samo bez internetu i na każdym komputerze. */
+  --font-ui: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-read: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;
+  --font-mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  /* krój treści klocków — przełączany w Ustawieniach → Tekst */
+  --font-content: var(--font-ui);
+
+  /* Skala rozmiarów: osiem stopni zamiast trzydziestu przypadkowych liczb.
+     Nic poniżej 11px — mniejsze napisy tylko udają, że coś mówią. */
+  --fs-1: 11px; /* wersaliki, metryczki */
+  --fs-2: 12px; /* drugi plan */
+  --fs-3: 13px; /* przyciski, listy pomocnicze */
+  --fs-4: 14px; /* podstawa interfejsu */
+  --fs-5: 15px; /* treść */
+  --fs-6: 17px; /* podrozdziały */
+  --fs-7: 20px; /* rozdziały, tytuły paneli */
+  --fs-8: 26px; /* tytuł strony */
+
+  font-family: var(--font-ui);
   color: var(--ink);
-  font-size: 15px;
+  font-size: var(--fs-5);
   line-height: 1.55;
+  /* Inter ma ładne cyfry nautyczne i ligatury — włączamy to, co pomaga
+     w tekście matematycznym, wyłączamy to, co przeszkadza w interfejsie */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* motyw ciemny: papier gaśnie, atrament jaśnieje — te same relacje kontrastu */
@@ -131,6 +156,53 @@ body {
 }
 
 /* --------------------------------------------------------------------------
+   Deseń tła — cichy rysunek pod treścią
+   --------------------------------------------------------------------------
+   Kratka albo kropki jak w zeszycie: widać je kątem oka, a przy czytaniu
+   znikają. Rysują się tylko na „papierze" (marginesy wokół kartki, tło
+   Skryptu, tło biblioteki PDF) — nigdy pod samym tekstem, bo tam mają nie
+   przeszkadzać. Wybór siedzi w Ustawieniach → Wygląd. */
+
+:root {
+  --bg-pattern: none;
+  --bg-size: auto;
+  --grid-ink: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+:root[data-theme='dark'] {
+  --grid-ink: color-mix(in srgb, var(--ink) 11%, transparent);
+}
+
+:root[data-bg='kratka'] {
+  --bg-pattern: linear-gradient(var(--grid-ink) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-ink) 1px, transparent 1px);
+  --bg-size: 26px 26px;
+}
+
+:root[data-bg='kropki'] {
+  --bg-pattern: radial-gradient(var(--grid-ink) 1.3px, transparent 1.4px);
+  --bg-size: 20px 20px;
+}
+
+:root[data-bg='ukosne'] {
+  --bg-pattern: repeating-linear-gradient(
+    -45deg,
+    var(--grid-ink) 0 1px,
+    transparent 1px 13px
+  );
+  --bg-size: auto;
+}
+
+body,
+.script-embed,
+.rich-content,
+.pdf-scroll,
+.editor-welcome {
+  background-image: var(--bg-pattern);
+  background-size: var(--bg-size);
+}
+
+/* --------------------------------------------------------------------------
    Układ główny: pasek boczny | edytor | PDF
    -------------------------------------------------------------------------- */
 
@@ -187,7 +259,7 @@ body.resizing canvas {
 .pdf-reopen span {
   display: inline-block;
   writing-mode: vertical-rl;
-  font-size: 13px;
+  font-size: var(--fs-3);
   letter-spacing: 0.06em;
   padding: 14px 0;
 }
@@ -203,7 +275,7 @@ body.resizing canvas {
 
 .btn {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   padding: 5px 12px;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
@@ -252,7 +324,7 @@ body.resizing canvas {
 
 .input {
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-4);
   padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -268,7 +340,7 @@ body.resizing canvas {
 
 /* etykiety typów klocków */
 .type-badge {
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -277,13 +349,15 @@ body.resizing canvas {
   color: #fff;
 }
 
-.type-definicja { background: var(--c-definicja); }
-.type-twierdzenie { background: var(--c-twierdzenie); }
-.type-lemat { background: var(--c-lemat); }
-.type-dowod { background: var(--c-dowod); }
-.type-przyklad { background: var(--c-przyklad); }
-.type-uwaga { background: var(--c-uwaga); }
-.type-intuicja { background: var(--c-intuicja); }
+/* każdy typ niesie swój kolor także jako zmienną — korzystają z niej
+   elementy, które nie chcą pełnego nasycenia (np. plakietki w drzewie) */
+.type-definicja { background: var(--c-definicja); --block-color: var(--c-definicja); }
+.type-twierdzenie { background: var(--c-twierdzenie); --block-color: var(--c-twierdzenie); }
+.type-lemat { background: var(--c-lemat); --block-color: var(--c-lemat); }
+.type-dowod { background: var(--c-dowod); --block-color: var(--c-dowod); }
+.type-przyklad { background: var(--c-przyklad); --block-color: var(--c-przyklad); }
+.type-uwaga { background: var(--c-uwaga); --block-color: var(--c-uwaga); }
+.type-intuicja { background: var(--c-intuicja); --block-color: var(--c-intuicja); }
 
 select.type-select {
   color: var(--ink);
@@ -310,6 +384,13 @@ select.type-select {
 }
 
 /* szukanie i filtr jako ikony — rozwijają się dopiero po kliknięciu */
+/* znaczki rysowane kreską — dziedziczą kolor i rozmiar tekstu obok */
+.ico {
+  flex: none;
+  display: block;
+  overflow: visible;
+}
+
 .sidebar-tools {
   display: flex;
   align-items: center;
@@ -326,7 +407,7 @@ select.type-select {
   align-items: center;
   gap: 4px;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-4);
   line-height: 1;
   padding: 5px 7px;
   border: 1px solid transparent;
@@ -349,7 +430,7 @@ select.type-select {
 
 /* skrót wybranego typu przy ikonie filtra */
 .sidebar-tool-tag {
-  font-size: 10px;
+  font-size: var(--fs-1);
   font-weight: 700;
   letter-spacing: 0.03em;
 }
@@ -373,7 +454,7 @@ select.type-select {
   gap: 7px;
   width: 100%;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   text-align: left;
   padding: 5px 8px;
   border: none;
@@ -392,41 +473,44 @@ select.type-select {
   color: var(--accent-ink);
 }
 
-/* rząd tworzenia — tuż nad drzewem, bo dotyczy jego zawartości */
+/* Rząd tworzenia — tuż nad drzewem, bo dotyczy jego zawartości.
+   Same znaczki: co robią, mówi dymek systemowy. */
 .sidebar-create {
   display: flex;
   justify-content: center;
-  gap: 2px;
-  padding: 7px 10px;
+  gap: 6px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--line);
 }
 
 .sidebar-create-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
   font: inherit;
-  font-size: 12px;
-  padding: 4px 9px;
+  font-size: var(--fs-5);
+  line-height: 1;
+  padding: 7px 11px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   background: none;
   color: var(--ink-soft);
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 
-.sidebar-create-btn:hover {
+.sidebar-create-btn:hover,
+.sidebar-create-btn:focus-visible {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent-ink);
 }
 
 .app-title {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 22px;
+  font-family: var(--font-read);
+  font-size: var(--fs-7);
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   margin: 0;
   color: var(--ink);
 }
@@ -449,21 +533,22 @@ select.type-select {
 .concept-empty {
   padding: 18px 10px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-3);
   text-align: center;
 }
 
 .concept-item {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
   text-align: left;
-  font: inherit;
+  font-family: var(--font-ui);
   font-size: var(--tree-size, 15px);
-  padding: 4px 10px;
+  line-height: 1.45;
+  padding: 3px 8px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 6px;
   background: none;
   cursor: pointer;
   color: var(--ink);
@@ -473,30 +558,49 @@ select.type-select {
   background: var(--panel);
 }
 
+/* zaznaczenie: miękka plama koloru zamiast ramki — spokojniejsze w długiej liście */
 .concept-item.selected {
-  background: var(--panel);
-  border-color: var(--line-strong);
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-ink);
 }
 
-/* skrótowe oznaczenie typu (DEF / TW / DOW …) */
+.concept-item.selected:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+}
+
+/* Skrótowe oznaczenie typu (DEF / TW / DOW …). Nie krzyczy pełnym
+   nasyceniem — kolor niesie sam napis, tło jest tylko jego echem.
+   Dzięki temu długa lista czyta się spokojnie, a typ dalej widać z daleka. */
 .type-mini {
   flex-shrink: 0;
-  font-size: 9.5px;
+  font-size: max(10.5px, 0.75em);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 1px 4px;
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+  padding: 0 5px;
   border-radius: 4px;
-  color: #fff;
-  min-width: 27px;
+  background: color-mix(in srgb, var(--block-color, var(--muted)) 15%, var(--panel));
+  color: color-mix(in srgb, var(--block-color, var(--muted)) 78%, var(--ink));
+  min-width: 2.6em;
   text-align: center;
 }
 
+.concept-item.selected .type-mini {
+  background: color-mix(in srgb, var(--block-color, var(--muted)) 24%, var(--panel));
+}
+
 .concept-name {
-  font-size: 13.5px;
-  font-weight: 500;
+  font-size: 1em;
+  font-weight: 450;
+  letter-spacing: -0.006em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.concept-item.selected .concept-name {
+  font-weight: 550;
 }
 
 .concept-item .folder-actions {
@@ -515,17 +619,17 @@ select.type-select {
   gap: 8px;
   padding: 5px 10px;
   border-top: 1px solid var(--line);
-  font-size: 11.5px;
+  font-size: var(--fs-1);
   color: var(--muted);
 }
 
 .sidebar-foot-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font: inherit;
-  font-size: 12px;
-  padding: 3px 8px;
+  font-size: var(--fs-2);
+  padding: 4px 8px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: none;
@@ -560,10 +664,12 @@ select.type-select {
 .folder-row {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  font-family: var(--font-ui);
   font-size: var(--tree-size, 15px);
-  padding: 5px 8px;
-  border-radius: 7px;
+  line-height: 1.45;
+  padding: 4px 8px;
+  border-radius: 6px;
   border: 1px solid transparent;
   cursor: pointer;
   color: var(--ink-soft);
@@ -575,20 +681,22 @@ select.type-select {
 }
 
 .folder-chevron {
-  display: inline-block;
-  width: 14px;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
   color: var(--muted);
-  transition: transform 0.12s;
+  transition: transform 0.14s ease;
 }
 
 .folder-chevron.open {
   transform: rotate(90deg);
 }
 
+/* nazwa folderu — nieco cięższa niż klocki, bo to poziom wyżej */
 .folder-name {
-  font-size: 14px;
+  font-size: 1em;
   font-weight: 600;
+  letter-spacing: -0.008em;
+  color: var(--ink);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -596,7 +704,7 @@ select.type-select {
 }
 
 .folder-count {
-  font-size: 11px;
+  font-size: 0.75em;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -612,7 +720,7 @@ select.type-select {
 
 .folder-action {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   border: none;
   background: none;
   color: var(--muted);
@@ -637,7 +745,7 @@ select.type-select {
 }
 
 .folder-empty {
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--muted);
   font-style: italic;
   padding: 3px 10px;
@@ -687,14 +795,14 @@ select.type-select {
 }
 
 .editor-welcome h2 {
-  font-family: Georgia, serif;
+  font-family: var(--font-read);
   font-weight: 600;
   color: var(--ink);
 }
 
 .editor-welcome .hint {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-3);
 }
 
 .editor-header {
@@ -711,11 +819,14 @@ select.type-select {
   align-items: center;
 }
 
+/* nazwa klocka — to element interfejsu, nie treść: bezszeryfowa,
+   półgruba, lekko ściągnięta, żeby długie nazwy nie rozjeżdżały paska */
 .editor-name {
   flex: 1;
-  font-family: Georgia, serif;
-  font-size: 19px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-6);
   font-weight: 600;
+  letter-spacing: -0.011em;
   border-color: transparent;
   background: transparent;
 }
@@ -734,7 +845,7 @@ select.type-select {
 .editor-tags {
   flex: 1;
   min-width: 140px;
-  font-size: 13px;
+  font-size: var(--fs-3);
   color: var(--muted);
   border-color: transparent;
   background: transparent;
@@ -754,7 +865,7 @@ select.type-select {
 .version-pill {
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--fs-2);
   border-radius: 99px;
   border: 1px solid var(--line-strong);
   background: var(--panel);
@@ -779,7 +890,7 @@ select.type-select {
 
 .version-action {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   border: none;
   background: none;
   color: inherit;
@@ -800,7 +911,7 @@ select.type-select {
 
 button.version-pill.new {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   padding: 2px 9px;
   border-style: dashed;
   color: var(--muted);
@@ -823,7 +934,7 @@ button.version-pill.new {
   padding: 6px 14px;
   background: #f6ecd9;
   color: #7a5c1e;
-  font-size: 13px;
+  font-size: var(--fs-3);
   border-bottom: 1px solid #eadfc4;
 }
 
@@ -869,7 +980,7 @@ button.version-pill.new {
 }
 
 .source-label {
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--muted);
   font-weight: 600;
   text-transform: uppercase;
@@ -901,7 +1012,7 @@ button.version-pill.new {
   align-items: center;
   gap: 4px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   font-weight: 600;
   color: var(--ink-soft);
   border: 1px solid transparent;
@@ -940,7 +1051,7 @@ button.version-pill.new {
 
 .source-jump {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   padding: 3px 4px 3px 10px;
   border: none;
   background: none;
@@ -954,7 +1065,7 @@ button.version-pill.new {
 
 .source-remove {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   padding: 3px 8px 3px 4px;
   border: none;
   background: none;
@@ -997,7 +1108,7 @@ button.version-pill.new {
   color: var(--ink-soft);
   border-radius: 6px;
   padding: 3px 9px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   text-align: left;
   cursor: pointer;
   opacity: 0.9;
@@ -1034,7 +1145,7 @@ button.version-pill.new {
   color: var(--muted);
   border-radius: 6px;
   padding: 3px 9px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   text-align: left;
   cursor: pointer;
 }
@@ -1054,7 +1165,7 @@ button.version-pill.new {
 
 .page-chip {
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-1);
   padding: 1px 8px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -1102,13 +1213,13 @@ button.version-pill.new {
 .rich-btn {
   min-width: 30px;
   padding: 3px 8px;
-  font-size: 13px;
+  font-size: var(--fs-3);
 }
 
 /* rozmiar zaznaczonego tekstu — jak w Google Docs */
 .rich-size {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   padding: 3px 4px;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
@@ -1120,8 +1231,9 @@ button.version-pill.new {
 .rich-content {
   flex: 1;
   overflow-y: auto;
-  /* marginesy poza kolumną tekstu — tło odrobinę inne niż sama strona */
-  background: var(--panel-alt);
+  /* marginesy poza kolumną tekstu — tło odrobinę inne niż sama strona.
+     Sam kolor, nie skrót `background`: skrót skasowałby deseń tła. */
+  background-color: var(--panel-alt);
   /* lekki odstęp między linijką a stroną, jak w Google Docs */
   padding-top: 10px;
 }
@@ -1137,7 +1249,8 @@ button.version-pill.new {
      dokładnie tam, gdzie na linijce stoją niebieskie znaczniki */
   padding: 22px var(--text-pad, 14px) 60px;
   outline: none;
-  font-size: 15px;
+  font-family: var(--font-content);
+  font-size: var(--fs-5);
   line-height: var(--content-line, 1.65);
   background: var(--panel);
   border-radius: 6px 6px 0 0;
@@ -1279,7 +1392,7 @@ button.version-pill.new {
   position: absolute;
   top: 1px;
   transform: translateX(-50%);
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--muted);
   pointer-events: none;
 }
@@ -1309,7 +1422,7 @@ button.version-pill.new {
 
 .spacing-title {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--ink-soft);
   margin-bottom: 4px;
 }
@@ -1322,12 +1435,12 @@ button.version-pill.new {
 
 .spacing-opt {
   padding: 3px 8px;
-  font-size: 12px;
+  font-size: var(--fs-2);
 }
 
 .spacing-hint {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--muted);
 }
 
@@ -1348,7 +1461,7 @@ button.version-pill.new {
 .rich-content .math-src {
   background: var(--panel-alt);
   border-bottom: 1px dashed var(--line-strong);
-  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.92em;
   color: var(--accent-ink);
 }
@@ -1374,7 +1487,7 @@ button.version-pill.new {
 .editor-code {
   overflow: auto;
   border-right: 1px solid var(--line);
-  font-size: 14px;
+  font-size: var(--fs-4);
 }
 
 .view-kod .editor-code {
@@ -1391,7 +1504,7 @@ button.version-pill.new {
 }
 
 .editor-code .cm-content {
-  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-family: var(--font-mono);
   padding: 14px 4px;
 }
 
@@ -1403,7 +1516,8 @@ button.version-pill.new {
 
 /* typografia podglądu */
 .markdown-body {
-  font-size: 15px;
+  font-family: var(--font-content);
+  font-size: var(--fs-5);
   line-height: var(--content-line, 1.65);
 }
 
@@ -1415,9 +1529,44 @@ button.version-pill.new {
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3 {
-  font-family: Georgia, serif;
+  font-family: var(--font-content);
   font-weight: 600;
+  letter-spacing: -0.012em;
   line-height: 1.3;
+}
+
+.markdown-body h1 {
+  font-size: var(--fs-7);
+}
+
+.markdown-body h2 {
+  font-size: var(--fs-6);
+}
+
+.markdown-body h3 {
+  font-size: var(--fs-5);
+}
+
+/* ta sama skala nagłówków w edytorze wizualnym — to, co widać przy pisaniu,
+   ma wyglądać jak to, co wyjdzie w Skrypcie */
+.rich-content .tiptap h1,
+.rich-content .tiptap h2,
+.rich-content .tiptap h3 {
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}
+
+.rich-content .tiptap h1 {
+  font-size: var(--fs-7);
+}
+
+.rich-content .tiptap h2 {
+  font-size: var(--fs-6);
+}
+
+.rich-content .tiptap h3 {
+  font-size: var(--fs-5);
 }
 
 .markdown-body blockquote {
@@ -1432,7 +1581,7 @@ button.version-pill.new {
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 0.1em 0.35em;
-  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.9em;
 }
 
@@ -1492,7 +1641,7 @@ button.version-pill.new {
   align-items: center;
   gap: 6px;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   padding: 3px 10px;
   border: 1px solid var(--line-strong);
   border-radius: 99px;
@@ -1548,7 +1697,7 @@ button.version-pill.new {
 }
 
 .graph-label {
-  font-size: 11px;
+  font-size: var(--fs-1);
   fill: var(--ink-soft);
   text-anchor: middle;
   pointer-events: none;
@@ -1571,7 +1720,7 @@ button.version-pill.new {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 11.5px;
+  font-size: var(--fs-1);
   color: var(--ink-soft);
   background: color-mix(in srgb, var(--panel) 82%, transparent);
   padding: 5px 9px;
@@ -1643,7 +1792,7 @@ button.version-pill.new {
 
 .pdflib-empty {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-3);
   margin: 6px 2px;
 }
 
@@ -1654,7 +1803,7 @@ button.version-pill.new {
   width: 100%;
   text-align: left;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   padding: 5px 10px;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -1700,7 +1849,7 @@ button.version-pill.new {
 }
 
 .pdf-page-info {
-  font-size: 13px;
+  font-size: var(--fs-3);
   color: var(--ink-soft);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1708,7 +1857,7 @@ button.version-pill.new {
 
 .pdf-banner {
   padding: 7px 12px;
-  font-size: 13px;
+  font-size: var(--fs-3);
   background: var(--accent-soft);
   color: var(--accent-ink);
   border-bottom: 1px solid var(--line);
@@ -1723,7 +1872,7 @@ button.version-pill.new {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  background: var(--paper);
+  background-color: var(--paper);
   scroll-behavior: smooth;
 }
 
@@ -1756,7 +1905,7 @@ button.version-pill.new {
   position: absolute;
   right: 6px;
   bottom: 4px;
-  font-size: 10px;
+  font-size: var(--fs-1);
   color: #9a9384;
   background: rgba(255, 255, 255, 0.8);
   border-radius: 3px;
@@ -1767,7 +1916,7 @@ button.version-pill.new {
 .pdf-page-input {
   width: 56px;
   padding: 3px 6px;
-  font-size: 13px;
+  font-size: var(--fs-3);
   text-align: right;
 }
 
@@ -1801,7 +1950,7 @@ button.version-pill.new {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 10px;
+  font-size: var(--fs-1);
   line-height: 1.5;
   padding: 0 5px;
   background: rgba(49, 97, 158, 0.9);
@@ -1843,10 +1992,15 @@ button.version-pill.new {
    Ścieżki: canvas
    -------------------------------------------------------------------------- */
 
+/* ścieżka nosi znaczek mapy, więc kolor bierze z akcentu, nie z typu klocka */
 .type-path {
-  background: var(--accent);
-  font-size: 11px;
-  padding: 1px 3px;
+  --block-color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  letter-spacing: 0;
+  padding: 2px 3px;
 }
 
 .path-item .folder-actions {
@@ -1877,9 +2031,10 @@ button.version-pill.new {
 .path-name {
   flex: 1;
   min-width: 0;
-  font-family: Georgia, serif;
-  font-size: 17px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-6);
   font-weight: 600;
+  letter-spacing: -0.011em;
   border-color: transparent;
   background: transparent;
 }
@@ -1900,7 +2055,7 @@ button.version-pill.new {
 
 .path-hint {
   padding: 5px 12px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--muted);
   border-bottom: 1px solid var(--line);
   background: var(--panel-alt);
@@ -1922,7 +2077,7 @@ button.version-pill.new {
   border: 1px solid var(--line-strong);
   border-radius: 9px;
   box-shadow: 0 1px 4px rgba(60, 50, 30, 0.1);
-  font-size: 13px;
+  font-size: var(--fs-3);
 }
 
 .path-node.selected {
@@ -1961,7 +2116,7 @@ button.version-pill.new {
 
 .path-node-version {
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-1);
   margin: 5px 9px 0;
   border: 1px solid var(--line);
   border-radius: 5px;
@@ -1973,7 +2128,7 @@ button.version-pill.new {
 
 .path-node-body {
   padding: 6px 10px 9px;
-  font-size: 12.5px;
+  font-size: var(--fs-2);
   line-height: 1.5;
   max-height: 130px;
   overflow: hidden;
@@ -1998,7 +2153,7 @@ button.version-pill.new {
 }
 
 .path-node-grip {
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--muted);
   padding: 4px 10px 2px;
   cursor: grab;
@@ -2014,7 +2169,7 @@ button.version-pill.new {
 .edge-order {
   position: absolute;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 700;
   width: 20px;
   height: 20px;
@@ -2047,7 +2202,7 @@ button.version-pill.new {
 
 .path-ctxmenu-item {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   text-align: left;
   padding: 7px 11px;
   border: none;
@@ -2063,7 +2218,7 @@ button.version-pill.new {
 
 .path-node-notebody {
   padding: 7px 11px 9px;
-  font-size: 12.5px;
+  font-size: var(--fs-2);
   line-height: 1.5;
   min-height: 34px;
   max-height: 170px;
@@ -2126,8 +2281,9 @@ button.version-pill.new {
 
 .note-modal-head h3 {
   margin: 0;
-  font-family: Georgia, serif;
-  font-size: 15px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-4);
+  font-weight: 600;
 }
 
 .note-modal-body {
@@ -2198,9 +2354,10 @@ button.version-pill.new {
 .settings-page-head h2 {
   flex: 1;
   margin: 0;
-  font-family: Georgia, serif;
-  font-size: 19px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-6);
   font-weight: 600;
+  letter-spacing: -0.011em;
 }
 
 .settings-page-body {
@@ -2243,13 +2400,13 @@ button.version-pill.new {
 }
 
 .settings-nav-label {
-  font-size: 13.5px;
+  font-size: var(--fs-3);
   font-weight: 600;
   color: var(--ink);
 }
 
 .settings-nav-hint {
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--muted);
 }
 
@@ -2270,8 +2427,86 @@ button.version-pill.new {
 }
 
 .settings-choice-btn {
-  font-size: 12px;
+  font-size: var(--fs-2);
   padding: 3px 10px;
+}
+
+/* wybór deseniu: każdy przycisk pokazuje próbkę tego, co włącza */
+.settings-bg-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-bg-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-1);
+  color: var(--ink-soft);
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+
+.settings-bg-btn:hover {
+  border-color: var(--line-strong);
+}
+
+.settings-bg-btn.active {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+
+.settings-bg-swatch {
+  /* w miniaturce deseń musi być wyraźniejszy niż na całej stronie,
+     inaczej cztery próbki wyglądają identycznie */
+  --grid-ink: color-mix(in srgb, var(--ink) 24%, transparent);
+  display: block;
+  width: 58px;
+  height: 38px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background-color: var(--paper);
+  background-size: 13px 13px;
+}
+
+[data-bg-preview='kratka'] .settings-bg-swatch {
+  background-image: linear-gradient(var(--grid-ink) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-ink) 1px, transparent 1px);
+}
+
+[data-bg-preview='kropki'] .settings-bg-swatch {
+  background-image: radial-gradient(var(--grid-ink) 1.3px, transparent 1.4px);
+  background-size: 10px 10px;
+}
+
+[data-bg-preview='ukosne'] .settings-bg-swatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--grid-ink) 0 1px,
+    transparent 1px 9px
+  );
+  background-size: auto;
+}
+
+/* wybór kroju: każdy przycisk pisany tym krojem, który włącza */
+.settings-fonts .settings-choice-btn {
+  font-size: var(--fs-3);
+  padding: 4px 14px;
+}
+
+.settings-fonts .settings-choice-btn:first-child {
+  font-family: var(--font-ui);
+}
+
+.settings-fonts .settings-choice-btn:last-child {
+  font-family: var(--font-read);
 }
 
 /* okno ustawień */
@@ -2294,7 +2529,7 @@ button.version-pill.new {
 }
 
 .settings-label {
-  font-size: 13px;
+  font-size: var(--fs-3);
   font-weight: 600;
   color: var(--ink-soft);
   display: flex;
@@ -2313,7 +2548,7 @@ button.version-pill.new {
 
 .settings-hint {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--muted);
 }
 
@@ -2328,7 +2563,7 @@ button.version-pill.new {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--ink-soft);
   cursor: pointer;
 }
@@ -2350,7 +2585,7 @@ button.version-pill.new {
 
 .settings-reset {
   padding: 1px 8px;
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 400;
 }
 
@@ -2370,7 +2605,7 @@ button.version-pill.new {
 }
 
 .fusion-badge {
-  font-size: 9px;
+  font-size: var(--fs-1);
   font-weight: 700;
   letter-spacing: 0.06em;
   background: var(--ink-soft);
@@ -2382,7 +2617,7 @@ button.version-pill.new {
 .fusion-parts {
   margin: 6px 0 8px;
   padding: 0 12px 0 26px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--ink-soft);
 }
 
@@ -2463,7 +2698,7 @@ button.version-pill.new {
 
 .linear-grip {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   border: none;
   background: none;
   color: var(--muted);
@@ -2489,7 +2724,7 @@ button.version-pill.new {
 }
 
 .linear-comment-badge {
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 600;
   color: #4a6d96;
 }
@@ -2507,7 +2742,7 @@ button.version-pill.new {
   background: #edf3fa;
   border: 1px solid #c9d9ec;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   line-height: 1.45;
   cursor: grab;
 }
@@ -2573,7 +2808,7 @@ button.version-pill.new {
 .script-embed {
   flex: 1;
   overflow-y: auto;
-  background: var(--paper);
+  background-color: var(--paper);
   display: flex;
   align-items: flex-start;
 }
@@ -2587,8 +2822,10 @@ button.version-pill.new {
 }
 
 .script-heading {
-  font-family: Georgia, serif;
-  font-size: 30px;
+  font-family: var(--font-content);
+  font-size: var(--fs-8);
+  font-weight: 600;
+  letter-spacing: -0.015em;
   margin: 0 0 24px;
 }
 
@@ -2615,7 +2852,7 @@ button.version-pill.new {
 
 .outline-title {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -2632,7 +2869,7 @@ button.version-pill.new {
   display: block;
   width: 100%;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   text-align: left;
   padding: 3px 6px 3px 8px;
   border: none;
@@ -2657,12 +2894,12 @@ button.version-pill.new {
 
 .outline-item.level-2 {
   padding-left: 20px;
-  font-size: 12.5px;
+  font-size: var(--fs-2);
 }
 
 .outline-item.level-3 {
   padding-left: 32px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   font-style: italic;
 }
 
@@ -2674,7 +2911,7 @@ button.version-pill.new {
   flex: none;
   margin: 12px 0 0 8px;
   padding: 4px 8px;
-  font-size: 13px;
+  font-size: var(--fs-3);
   border: 1px solid var(--line);
   border-radius: 3px;
   background: var(--panel);
@@ -2689,28 +2926,31 @@ button.version-pill.new {
 
 /* rozdziały i podrozdziały w Linii i Skrypcie */
 .script-heading-node {
-  font-family: Georgia, serif;
+  font-family: var(--font-content);
   margin: 30px 0 10px;
   color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.012em;
   line-height: 1.25;
   scroll-margin-top: 14px;
 }
 
 .script-heading-node.level-1 {
-  font-size: 24px;
+  font-size: var(--fs-7);
   border-bottom: 2px solid var(--line-strong);
   padding-bottom: 6px;
 }
 
 .script-heading-node.level-2 {
-  font-size: 19px;
+  font-size: var(--fs-6);
   color: var(--ink-soft);
 }
 
 .script-heading-node.level-3 {
-  font-size: 16px;
+  font-size: var(--fs-5);
   color: var(--ink-soft);
   font-style: italic;
+  font-weight: 500;
 }
 
 /* kafelek rozdziału na mapie */
@@ -2725,21 +2965,22 @@ button.version-pill.new {
   border: 1px solid var(--line-strong);
   border-left: 4px solid var(--ink-soft);
   border-radius: 8px;
-  font-family: Georgia, serif;
+  font-family: var(--font-content);
+  letter-spacing: -0.011em;
 }
 
 .path-node-heading.level-1 {
-  font-size: 16px;
+  font-size: var(--fs-5);
   font-weight: 600;
 }
 
 .path-node-heading.level-2 {
-  font-size: 14px;
+  font-size: var(--fs-4);
   border-left-color: var(--muted);
 }
 
 .path-node-heading.level-3 {
-  font-size: 13px;
+  font-size: var(--fs-3);
   font-style: italic;
   border-left-color: var(--line-strong);
 }
@@ -2754,7 +2995,7 @@ button.version-pill.new {
 
 .heading-level button {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   letter-spacing: -0.05em;
   padding: 1px 6px;
   border: 1px solid var(--line-strong);
@@ -2806,7 +3047,7 @@ button.version-pill.new {
 
 .script-block-title {
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--fs-4);
   font-weight: 600;
   letter-spacing: 0.01em;
   margin: 0;
@@ -2824,14 +3065,14 @@ button.version-pill.new {
 .script-block-version {
   color: color-mix(in srgb, var(--block-color) 45%, var(--ink-soft));
   font-weight: 400;
-  font-size: 12px;
+  font-size: var(--fs-2);
   white-space: nowrap;
 }
 
 /* przycisk otwarcia klocka — dyskretny, wyraźniejszy po najechaniu */
 .script-block-open {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   line-height: 1;
   padding: 3px 6px;
   border: none;
@@ -2857,7 +3098,7 @@ button.version-pill.new {
 
 /* wybór wersji — mała etykieta w kolorze typu, nad treścią */
 .block-pick {
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -2905,7 +3146,7 @@ button.version-pill.new {
 
 .block-page {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   font-weight: 600;
   padding: 0;
   border: none;
@@ -2945,7 +3186,7 @@ button.version-pill.new {
 }
 
 .related-label {
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 600;
   letter-spacing: 0.03em;
   color: var(--muted);
@@ -2962,7 +3203,7 @@ button.version-pill.new {
   align-items: center;
   gap: 5px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-2);
   padding: 1px 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -2987,7 +3228,7 @@ button.version-pill.new {
 }
 
 .related-note {
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--muted);
 }
 
@@ -3009,13 +3250,13 @@ button.version-pill.new {
 
 .related-expanded-name {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--fs-3);
   font-weight: 600;
   color: var(--ink-soft);
 }
 
 .related-expanded .markdown-body {
-  font-size: 13.5px;
+  font-size: var(--fs-3);
 }
 
 /* ---- źródła pod treścią bloku ---- */
@@ -3028,7 +3269,7 @@ button.version-pill.new {
 
 .source-list-toggle {
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -3055,7 +3296,7 @@ button.version-pill.new {
 /* znak +/− dosunięty do prawej krawędzi bloku */
 .source-list-sign {
   margin-left: auto;
-  font-size: 13px;
+  font-size: var(--fs-3);
   font-weight: 400;
   line-height: 1;
 }
@@ -3110,14 +3351,14 @@ button.version-pill.new {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   font-weight: 600;
   color: var(--ink-soft);
   margin-bottom: 6px;
 }
 
 .source-preview-block .markdown-body {
-  font-size: 12.5px;
+  font-size: var(--fs-2);
 }
 
 /* --------------------------------------------------------------------------
@@ -3148,7 +3389,7 @@ button.version-pill.new {
 
 .relations-toggle {
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -3174,7 +3415,7 @@ button.version-pill.new {
 }
 
 .relations-add-btn {
-  font-size: 11px;
+  font-size: var(--fs-1);
   padding: 2px 7px;
 }
 
@@ -3185,7 +3426,7 @@ button.version-pill.new {
 
 .relations-empty {
   margin: 2px 0 6px;
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--muted);
 }
 
@@ -3194,7 +3435,7 @@ button.version-pill.new {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--fs-3);
   font-weight: 600;
   padding: 4px 10px;
   border: 1px solid var(--accent);
@@ -3237,7 +3478,7 @@ button.version-pill.new {
 }
 
 .group-type-btn {
-  font-size: 12px;
+  font-size: var(--fs-2);
   padding: 3px 10px;
   border-left-width: 3px;
 }
@@ -3269,8 +3510,8 @@ button.version-pill.new {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: Georgia, serif;
-  font-size: 14px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-4);
   font-weight: 600;
   cursor: text;
 }
@@ -3302,13 +3543,13 @@ button.version-pill.new {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12.5px;
+  font-size: var(--fs-2);
   font-weight: 600;
 }
 
 .group-member-version {
   max-width: 110px;
-  font-size: 10px;
+  font-size: var(--fs-1);
 }
 
 .group-member .folder-action {
@@ -3323,7 +3564,7 @@ button.version-pill.new {
 
 .fusion-type {
   font: inherit;
-  font-size: 10px;
+  font-size: var(--fs-1);
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 1px 3px;
@@ -3371,7 +3612,7 @@ button.version-pill.new {
 }
 
 .relation-edge .react-flow__edge-text {
-  font-size: 9px;
+  font-size: var(--fs-1);
   fill: var(--muted);
 }
 
@@ -3395,7 +3636,7 @@ button.version-pill.new {
 /* zakres relacji po stronie tego klocka (cały klocek / konkretna wersja) */
 .minimap-scope {
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-1);
   padding: 1px 2px;
   border: none;
   border-left: 1px solid var(--line);
@@ -3412,7 +3653,7 @@ button.version-pill.new {
   flex: none;
   width: 130px;
   padding-top: 4px;
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 600;
   letter-spacing: 0.03em;
   color: var(--muted);
@@ -3442,7 +3683,7 @@ button.version-pill.new {
   align-items: center;
   gap: 5px;
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-2);
   padding: 3px 8px;
   border: none;
   background: none;
@@ -3451,7 +3692,7 @@ button.version-pill.new {
 }
 
 .minimap-note {
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--muted);
   border-left: 1px solid var(--line);
   padding-left: 6px;
@@ -3498,7 +3739,7 @@ button.version-pill.new {
   gap: 8px;
   width: 100%;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-3);
   text-align: left;
   padding: 6px 8px;
   border: none;
@@ -3521,7 +3762,7 @@ button.version-pill.new {
 .source-preview-status {
   display: block;
   max-width: 240px;
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--muted);
   padding: 4px 6px;
 }
@@ -3537,7 +3778,7 @@ button.version-pill.new {
 }
 
 .script-fusion-part-title {
-  font-size: 14px;
+  font-size: var(--fs-4);
   margin: 0 0 6px;
   color: var(--ink-soft);
 }

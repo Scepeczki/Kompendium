@@ -294,7 +294,7 @@ export function PdfPanel({
           title="Biblioteka PDF-ów"
           onClick={() => setLibOpen((o) => !o)}
         >
-          🕮 {pdfs.find((p) => p.id === pdfId)?.title ?? 'Biblioteka'}
+          {pdfs.find((p) => p.id === pdfId)?.title ?? 'Biblioteka'}
         </button>
         <button className="btn" onClick={() => fileInputRef.current?.click()}>
           + Wrzuć PDF

@@ -24,6 +24,7 @@ import {
   type Folder,
   type LearningPath,
 } from '../types'
+import { Icon } from './Icon'
 
 interface Props {
   selectedId: string | null
@@ -371,7 +372,9 @@ export function Sidebar({
             else dropRelative(p, node, parentId, pos)
           }}
         >
-          <span className={`folder-chevron ${isOpen ? 'open' : ''}`}>▸</span>
+          <span className={`folder-chevron ${isOpen ? 'open' : ''}`}>
+            <Icon name="rozwin" size={0.95} />
+          </span>
           <span className="folder-name">{f.name}</span>
           <span className="folder-count">{kids.length}</span>
           <span className="folder-actions">
@@ -438,7 +441,7 @@ export function Sidebar({
           }}
         >
           <span className="type-mini type-path" title="Ścieżka nauki">
-            🗺
+            <Icon name="sciezka" size={0.95} />
           </span>
           <span className="concept-name">{p.name}</span>
           <span className="folder-actions">
@@ -513,7 +516,7 @@ export function Sidebar({
               } else setSearchOpen(true)
             }}
           >
-            🔍
+            <Icon name="szukaj" />
           </button>
           <div className="sidebar-tool-wrap">
             <button
@@ -525,7 +528,7 @@ export function Sidebar({
               }
               onClick={() => setFilterOpen((o) => !o)}
             >
-              ⛁
+              <Icon name="filtr" />
               {typeFilter !== 'wszystkie' && (
                 <span className="sidebar-tool-tag">{BLOCK_TYPE_SHORT[typeFilter]}</span>
               )}
@@ -579,24 +582,25 @@ export function Sidebar({
         </div>
       )}
 
-      {/* tworzenie — tuż nad drzewem, bo dotyczy jego zawartości */}
+      {/* tworzenie — tuż nad drzewem, bo dotyczy jego zawartości.
+          Same znaczki; co robią, mówi dymek systemowy przy dłuższym najechaniu. */}
       <div className="sidebar-create">
         <button className="sidebar-create-btn" title="Nowy klocek" onClick={handleNew}>
-          ✎ <span>klocek</span>
+          <Icon name="klocek" />
         </button>
         <button
           className="sidebar-create-btn"
           title="Nowy folder"
           onClick={handleNewFolder}
         >
-          🗀 <span>folder</span>
+          <Icon name="folder" />
         </button>
         <button
           className="sidebar-create-btn"
           title="Nowa ścieżka (materiał do nauki)"
           onClick={handleNewPath}
         >
-          🗺 <span>ścieżka</span>
+          <Icon name="sciezka" />
         </button>
       </div>
 
@@ -651,7 +655,8 @@ export function Sidebar({
           title="Graf powiązań"
           onClick={onToggleGraph}
         >
-          🕸 <span>Graf</span>
+          <Icon name="graf" />
+          <span>Graf</span>
         </button>
         <span className="sidebar-counts" title="Liczba klocków i ścieżek">
           {concepts.length} · {paths.length}
@@ -661,7 +666,7 @@ export function Sidebar({
           title="Ustawienia"
           onClick={onOpenSettings}
         >
-          ⚙
+          <Icon name="ustawienia" />
         </button>
       </footer>
     </aside>
