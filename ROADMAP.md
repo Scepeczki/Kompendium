@@ -109,6 +109,23 @@ wyłącznie w systemie.
 
 ## Do przemyślenia
 
+- **Synteza wielu źródeł** — ROZSTRZYGNIĘTE (2026-08-02/03), po zderzeniu
+  z praktyką (dwie książki + ścieżka podsumowująca). Szczegóły w
+  [VISION.md](VISION.md) §2. W skrócie:
+  - **źródłem może być klocek**, nie tylko wycinek PDF → genealogia wiedzy
+    aż do strony w książce;
+  - **jeden klocek = jeden byt** zostaje; autor definiujący 3 rzeczy naraz →
+    3 klocki i ten sam wycinek pod każdym;
+  - **scalanie** w ścieżce pokazuje kilka klocków jako jeden blok danego typu
+    (np. twierdzenie z dwóch twierdzeń), bez naruszania atomowości;
+  - **powiązania na trzech osiach** (zawieranie / skala / perspektywa),
+    z możliwością zawężenia do konkretnej wersji, bo jedna perspektywa bywa
+    uogólnieniem, a inna nie;
+  - **przykrywanie**: klocek ogólny w skrypcie wypisuje swoje przypadki
+    szczególne i pozwala rozwinąć ich treść w miejscu.
+  - Otwarte drobiazgi: częściowe **przecinanie się** zakresów przy mereologii
+    (dziś tylko pochłanianie + dopisek) oraz oś dydaktyczna „wymaga".
+
 - **Dowody** — ROZSTRZYGNIĘTE (2026-07-31): każdy klocek może mieć dowolnie
   wiele „stron" o dowolnych nazwach (najczęściej „Dowód") — dodatkowe treści
   obok głównej, przełączane listwą z lewej strony edytora. W kafelku ścieżki

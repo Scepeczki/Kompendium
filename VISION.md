@@ -76,6 +76,51 @@ Klocki są surowcem; z nich buduje się **Ścieżki** (skrypty nauki).
 > **Klocek w bazie jest niezmienny przez ścieżki.** Ścieżka to widok/kompozycja,
 > nie edytor treści. Edycja klocka = nowa wersja klocka.
 
+### Trzy warstwy (doprecyzowanie po zderzeniu z praktyką)
+
+Przy budowaniu podsumowania z dwóch książek okazało się, że dwie warstwy to
+za mało. Naprawdę są trzy i mylenie ich jest źródłem problemów:
+
+| Warstwa | Co to jest | Atomowa? |
+|---|---|---|
+| **Źródło** | co autor napisał w jednym miejscu | **nie** — jeden akapit może definiować 3 byty |
+| **Wiedza** | klocek = jeden byt | **tak** |
+| **Kompozycja** | jak to pokazujemy w ścieżce | **nie** — tu się scala i grupuje |
+
+Konsekwencje:
+
+- **Źródłem może być klocek**, nie tylko wycinek PDF. Robiąc podsumowanie,
+  źródłami są własne klocki z wcześniejszych etapów. Powstaje **genealogia
+  wiedzy**: podsumowanie → klocek z książki A → wycinek strony 214.
+- **Autor definiujący 3 byty naraz** → 3 klocki, ten sam wycinek PDF podpięty
+  pod każdy. Atomowość zostaje, źródło się nie dubluje.
+- **Brzydko wygląda osobno w ścieżce** → od tego jest **scalanie**: kilka
+  klocków pokazywanych jako jeden blok danego typu (np. jedno twierdzenie
+  z dwóch twierdzeń), bez naruszania atomowości w bazie.
+
+### Powiązania klocków — trzy osie
+
+Wersje mówią „to samo pojęcie, inne ujęcie". Nie wystarczają, gdy różne byty
+mają się do siebie w określony sposób (definicja ogólna a jej przypadki
+szczególne — to są **różne obiekty**, nie wersje jednego). Stąd trzecia
+konstrukcja obok wersji i wiki-linków — relacje na trzech osiach:
+
+1. **Zawieranie (mereologia)** — „to jest pojęciową częścią tamtego".
+2. **Skala (taksonomia i wnioskowanie)** — „to jest mocniejsze/szczegółowsze
+   od tamtego"; z mocniejszego wynika słabsze.
+3. **Perspektywa (epistemologia)** — „dwa spojrzenia na ten sam zbiór znaczeń";
+   to samo, czym wersje są wewnątrz jednego klocka.
+
+**Relacja może dotyczyć konkretnej wersji**, bo jedna perspektywa klocka bywa
+uogólnieniem, a inna nie. Relacje żyją w warstwie wiedzy — raz zapisane, widać
+je wszędzie: w mini-mapie przy klocku, jako przerywane strzałki na mapie ścieżki
+i pod treścią bloku przy czytaniu (klocek ogólny **przykrywa** swoje przypadki
+szczególne — są wypisane i rozwijalne w miejscu, bez wchodzenia w ścieżkę).
+
+*Świadomie poza modelem:* prerekwizyt („żeby to zrozumieć, znaj najpierw tamto")
+to oś **dydaktyczna**, nie ontologiczna — do rozważenia osobno przy porządkowaniu
+ścieżek.
+
 ---
 
 ## 3. Interfejs i wymagania techniczne

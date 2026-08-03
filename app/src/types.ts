@@ -170,6 +170,14 @@ export const RELATION_LABELS: Record<
 
 export const RELATION_KINDS = Object.keys(RELATION_LABELS) as RelationKind[]
 
+/** Nazwa grupy sąsiadów przy czytaniu: opisuje, czym są SĄSIEDZI względem
+ *  bieżącego klocka („przypadki szczególne"), a nie czym jest on sam. */
+export function neighborGroupLabel(kind: RelationKind, outgoing: boolean): string {
+  if (kind === 'perspektywa') return 'inne perspektywy'
+  if (kind === 'zawieranie') return outgoing ? 'części' : 'całości'
+  return outgoing ? 'ogólniejsze' : 'przypadki szczególne'
+}
+
 /** Relacje symetryczne nie mają wyróżnionego kierunku. */
 export const isSymmetricRelation = (k: RelationKind) => k === 'perspektywa'
 

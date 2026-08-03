@@ -2691,6 +2691,94 @@ button.version-pill.new {
   margin-bottom: 0;
 }
 
+/* ---- powiązania pod treścią bloku (uogólnienie przykrywa przypadki) ---- */
+
+.related-strip {
+  margin-top: 10px;
+}
+
+.related-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.related-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.related-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.related-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 12px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.related-chip:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.related-chip.rel-zawieranie { border-left: 3px solid var(--c-przyklad); }
+.related-chip.rel-skala { border-left: 3px solid var(--c-twierdzenie); }
+.related-chip.rel-perspektywa { border-left: 3px solid var(--c-definicja); }
+
+.related-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.related-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* rozwinięty sąsiad — treść czytana w miejscu, bez opuszczania skryptu */
+.related-expanded {
+  margin: 8px 0 2px;
+  padding: 8px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 3px;
+  background: var(--panel-alt);
+}
+
+.related-expanded-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.related-expanded-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.related-expanded .markdown-body {
+  font-size: 13.5px;
+}
+
 /* ---- źródła pod treścią bloku ---- */
 
 /* stopka bloku — ta sama typografia co etykieta wersji, tyle że wyciszona */
