@@ -19,7 +19,31 @@ export interface RenderOptions {
  * - Wiki-linki [[Nazwa]] i [[Nazwa|tekst]] stają się klikalnymi odnośnikami
  *   do innych klocków (obsługa kliknięć w komponencie podglądu).
  */
+/** Pamięć podręczna wyników — renderowanie (Markdown + KaTeX + sanityzacja)
+ *  jest kosztowne, a te same treści rysujemy wielokrotnie: na mapie, w linii,
+ *  w skrypcie i przy każdym przerysowaniu kafelka podczas przeciągania.
+ *  Cachujemy tylko wywołania bez `exists`, bo tamte zależą od stanu bazy. */
+const cache = new Map<string, string>()
+const CACHE_MAX = 400
+
 export function renderMarkdown(src: string, opts: RenderOptions = {}): string {
+  const cacheable = !opts.exists
+  if (cacheable) {
+    const hit = cache.get(src)
+    if (hit !== undefined) return hit
+  }
+  const html = renderMarkdownUncached(src, opts)
+  if (cacheable) {
+    if (cache.size >= CACHE_MAX) {
+      const oldest = cache.keys().next().value
+      if (oldest !== undefined) cache.delete(oldest)
+    }
+    cache.set(src, html)
+  }
+  return html
+}
+
+function renderMarkdownUncached(src: string, opts: RenderOptions): string {
   const stashed: string[] = []
   const stash = (html: string) => `%%STASH${stashed.push(html) - 1}%%`
 

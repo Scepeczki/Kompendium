@@ -820,7 +820,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
   const [selected, setSelected] = useState<string[]>([])
   const loadedRef = useRef(false)
   const saveTimer = useRef<number | undefined>(undefined)
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, fitView } = useReactFlow()
   const wrapRef = useRef<HTMLDivElement>(null)
 
   // siatka: widoczność (zapamiętywana) + przyciąganie przy wciśniętym Shift
@@ -1212,16 +1212,63 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
   })
 
-  /** Pozycja na mapie dla segmentu wstawianego między sąsiadów. */
+  /** Zmierzona wysokość kafelka (React Flow podaje ją po narysowaniu). */
+  const heightOf = (n: Node | undefined) => n?.measured?.height ?? 180
+
+  /** Pozycja na mapie dla segmentu wstawianego między sąsiadów — pod spodem
+   *  poprzednika, z zapasem na jego rzeczywistą wysokość. */
   const positionBetween = (afterId: string | null, beforeId: string | null) => {
-    const posOf = (id: string | null) =>
-      id ? rfNodes.find((n) => n.id === id)?.position : undefined
-    const a = posOf(afterId)
-    const b = posOf(beforeId)
-    if (a && b) return { x: a.x, y: (a.y + b.y) / 2 }
-    if (a) return { x: a.x, y: a.y + 240 }
-    if (b) return { x: b.x, y: b.y - 240 }
+    const nodeOf = (id: string | null) =>
+      id ? rfNodes.find((n) => n.id === id) : undefined
+    const a = nodeOf(afterId)
+    const b = nodeOf(beforeId)
+    if (a && b) {
+      return { x: a.position.x, y: (a.position.y + b.position.y) / 2 }
+    }
+    if (a) return { x: a.position.x, y: a.position.y + heightOf(a) + 60 }
+    if (b) return { x: b.position.x, y: b.position.y - heightOf(b) - 60 }
     return { x: 120, y: 80 }
+  }
+
+  /** Przesuwa pozycję w dół, dopóki nachodzi na istniejący kafelek —
+   *  nowe kafelki nie lądują wtedy jeden na drugim. */
+  const freeSpot = (x: number, y: number) => {
+    const collides = (px: number, py: number) =>
+      rfNodes.some((n) => {
+        const w = n.measured?.width ?? 300
+        const h = heightOf(n)
+        return (
+          px < n.position.x + w + 24 &&
+          px + 300 + 24 > n.position.x &&
+          py < n.position.y + h + 24 &&
+          py + 160 + 24 > n.position.y
+        )
+      })
+    let py = y
+    for (let i = 0; i < 40 && collides(x, py); i++) py += 60
+    return { x, y: py }
+  }
+
+  /** Układa wszystkie kafelki w jedną kolumnę w kolejności skryptu,
+   *  z odstępami wg ich rzeczywistej wysokości. Komentarze idą na margines. */
+  const autoArrange = () => {
+    const ordered = topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))
+    const byId = new Map(rfNodes.map((n) => [n.id, n]))
+    const next = new Map<string, { x: number; y: number }>()
+    let y = 40
+    for (const o of ordered) {
+      const n = byId.get(o.id)
+      if (!n) continue
+      if (n.type === 'comment') {
+        // notatka boczna obok bieżącego miejsca w kolumnie
+        next.set(n.id, { x: 560, y })
+        continue
+      }
+      next.set(n.id, { x: 80, y })
+      y += heightOf(n) + 50
+    }
+    setRfNodes((ns) => ns.map((n) => (next.has(n.id) ? { ...n, position: next.get(n.id)! } : n)))
+    window.setTimeout(() => fitView({ maxZoom: 1, padding: 0.15, duration: 300 }), 60)
   }
 
   /** Wstawia węzeł w łańcuch: after → nowy → before (rozcina strzałkę after→before). */
@@ -1377,7 +1424,8 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       payload = null
     }
     if (!payload || payload.kind !== 'concept') return
-    const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    const p = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    const pos = freeSpot(p.x, p.y)
     setRfNodes((ns) => [
       ...ns,
       {
@@ -1421,8 +1469,26 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
   )
   /** Powiązania z warstwy wiedzy jako dodatkowe, przerywane strzałki między
    *  kafelkami tej ścieżki. Nie należą do ścieżki — są tylko pokazywane. */
+  /** Odcisk „które kafelki pokazują które pojęcia" — bez pozycji, żeby
+   *  przeciąganie kafelka nie przeliczało strzałek przy każdej klatce. */
+  const nodeConceptSig = rfNodes
+    .map((n) =>
+      n.type === 'block'
+        ? `${n.id}:${n.data.conceptId as string}`
+        : n.type === 'fusion'
+          ? `${n.id}:${((n.data.parts as { conceptId: string }[]) ?? [])
+              .map((p) => p.conceptId)
+              .join('+')}`
+          : '',
+    )
+    .filter(Boolean)
+    .join('|')
+  const nodesRef = useRef(rfNodes)
+  nodesRef.current = rfNodes
+
   const relationEdges: Edge[] = useMemo(() => {
     if (!showRelations) return []
+    const rfNodes = nodesRef.current
     // kafelki (także klocki schowane w grupie) wskazujące na dane pojęcie
     const nodesByConcept = new Map<string, string[]>()
     for (const n of rfNodes) {
@@ -1458,7 +1524,8 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       }
     }
     return out
-  }, [showRelations, rfNodes, allRelations])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRelations, nodeConceptSig, allRelations])
 
   /** Stabilna tożsamość listy — inaczej React Flow przy każdym renderze
    *  wgrywa nową tablicę do swojego stanu i potrafi wpaść w pętlę. */
@@ -1555,6 +1622,13 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             title="Dodaj rozdział (dwuklik na kafelku zmienia nazwę, § zmienia poziom)"
           >
             + § Rozdział
+          </button>
+          <button
+            className="btn"
+            onClick={autoArrange}
+            title="Ułóż kafelki w jedną kolumnę w kolejności skryptu, bez nakładania"
+          >
+            ⇅ Ułóż
           </button>
           <button
             className={`btn ${showRelations ? 'btn-active' : ''}`}
