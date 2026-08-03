@@ -328,6 +328,19 @@ function OrderedEdge({
 
 const edgeTypes = { ordered: OrderedEdge }
 
+/** Przedrostek id strzałek powiązań — te są tylko pokazywane, nie zapisywane. */
+const REL_PREFIX = 'rel-'
+
+const isRelationChange = (c: EdgeChange): boolean => {
+  const id =
+    'id' in c
+      ? c.id
+      : 'item' in c
+        ? (c.item as { id?: string }).id
+        : undefined
+  return typeof id === 'string' && id.startsWith(REL_PREFIX)
+}
+
 // ---------------------------------------------------------------------------
 // Tryb liniowy: pionowe doklejanie segmentów skryptu
 // ---------------------------------------------------------------------------
@@ -1331,14 +1344,10 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     [],
   )
   const onEdgesChange = useCallback(
-    // strzałki powiązań są tylko pokazywane — nie należą do ścieżki
+    // strzałki powiązań są tylko pokazywane — nie należą do ścieżki,
+    // więc żadna ich zmiana nie może trafić do zapisu (id z przedrostkiem rel-)
     (chs: EdgeChange[]) =>
-      setRfEdges((es) =>
-        applyEdgeChanges(
-          chs.filter((c) => !('id' in c) || !c.id.startsWith('rel-')),
-          es,
-        ),
-      ),
+      setRfEdges((es) => applyEdgeChanges(chs.filter((c) => !isRelationChange(c)), es)),
     [],
   )
   const onConnect = useCallback(
@@ -1357,48 +1366,51 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
   )
   /** Powiązania z warstwy wiedzy jako dodatkowe, przerywane strzałki między
    *  kafelkami tej ścieżki. Nie należą do ścieżki — są tylko pokazywane. */
-  const relationEdges: Edge[] = showRelations
-    ? (() => {
-        // kafelki (także części fuzji) wskazujące na dany klocek
-        const nodesByConcept = new Map<string, string[]>()
-        for (const n of rfNodes) {
-          const ids =
-            n.type === 'block'
-              ? [n.data.conceptId as string]
-              : n.type === 'fusion'
-                ? ((n.data.parts as { conceptId: string }[]) ?? []).map(
-                    (p) => p.conceptId,
-                  )
-                : []
-          for (const cid of ids) {
-            nodesByConcept.set(cid, [...(nodesByConcept.get(cid) ?? []), n.id])
-          }
+  const relationEdges: Edge[] = useMemo(() => {
+    if (!showRelations) return []
+    // kafelki (także klocki schowane w grupie) wskazujące na dane pojęcie
+    const nodesByConcept = new Map<string, string[]>()
+    for (const n of rfNodes) {
+      const ids =
+        n.type === 'block'
+          ? [n.data.conceptId as string]
+          : n.type === 'fusion'
+            ? ((n.data.parts as { conceptId: string }[]) ?? []).map((p) => p.conceptId)
+            : []
+      for (const cid of ids) {
+        nodesByConcept.set(cid, [...(nodesByConcept.get(cid) ?? []), n.id])
+      }
+    }
+    const out: Edge[] = []
+    for (const r of allRelations) {
+      for (const source of nodesByConcept.get(r.fromId) ?? []) {
+        for (const target of nodesByConcept.get(r.toId) ?? []) {
+          if (source === target) continue
+          out.push({
+            id: `${REL_PREFIX}${r.id}-${source}-${target}`,
+            source,
+            target,
+            selectable: false,
+            deletable: false,
+            focusable: false,
+            className: `relation-edge rel-${r.kind}`,
+            label: RELATION_LABELS[r.kind].forward,
+            markerEnd: isSymmetricRelation(r.kind)
+              ? undefined
+              : { type: MarkerType.Arrow, width: 16, height: 16 },
+          })
         }
-        const out: Edge[] = []
-        for (const r of allRelations) {
-          for (const source of nodesByConcept.get(r.fromId) ?? []) {
-            for (const target of nodesByConcept.get(r.toId) ?? []) {
-              if (source === target) continue
-              out.push({
-                id: `rel-${r.id}-${source}-${target}`,
-                source,
-                target,
-                selectable: false,
-                deletable: false,
-                focusable: false,
-                className: `relation-edge rel-${r.kind}`,
-                label: RELATION_LABELS[r.kind].forward,
-                animated: false,
-                markerEnd: isSymmetricRelation(r.kind)
-                  ? undefined
-                  : { type: MarkerType.Arrow, width: 16, height: 16 },
-              })
-            }
-          }
-        }
-        return out
-      })()
-    : []
+      }
+    }
+    return out
+  }, [showRelations, rfNodes, allRelations])
+
+  /** Stabilna tożsamość listy — inaczej React Flow przy każdym renderze
+   *  wgrywa nową tablicę do swojego stanu i potrafi wpaść w pętlę. */
+  const allEdges = useMemo(
+    () => (relationEdges.length ? [...rfEdges, ...relationEdges] : rfEdges),
+    [rfEdges, relationEdges],
+  )
 
   const onSelectionChange = useCallback(
     ({ nodes }: { nodes: Node[] }) =>
@@ -1580,7 +1592,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         <CanvasCtx.Provider value={api}>
           <ReactFlow
             nodes={rfNodes}
-            edges={[...rfEdges, ...relationEdges]}
+            edges={allEdges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onNodesChange={onNodesChange}
