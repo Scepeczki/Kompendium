@@ -91,6 +91,8 @@ export interface Folder {
   name: string
   /** Własny znaczek zamiast domyślnego folderu (nazwa z zestawu Lucide). */
   icon?: string
+  /** Barwa znaczka (#rrggbb). Brak = zwykły kolor tekstu paska. */
+  iconColor?: string
   /** null = poziom główny. Dla kind='pdfs' zawsze null (bez zagnieżdżania). */
   parentId: string | null
   /** Wspólna kolejność z klockami w obrębie rodzica (foldery i klocki się przeplatają). */
@@ -111,6 +113,8 @@ export interface Concept {
   /** Własny znaczek w drzewie (nazwa z zestawu Lucide, np. „sigma").
    *  Brak = plakietka typu (DEF / TW …). */
   icon?: string
+  /** Barwa znaczka (#rrggbb). Brak = kolor typu klocka. */
+  iconColor?: string
   /** null = poziom główny drzewa. */
   folderId: string | null
   /** Ręczna kolejność w obrębie folderu (ułamkowa — wstawianie pomiędzy). */
@@ -302,6 +306,8 @@ export interface LearningPath {
   name: string
   /** Własny znaczek zamiast domyślnej mapki (nazwa z zestawu Lucide). */
   icon?: string
+  /** Barwa znaczka (#rrggbb). Brak = kolor akcentu. */
+  iconColor?: string
   folderId: string | null
   order: number
   nodes: PathNode[]

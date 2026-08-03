@@ -60,6 +60,9 @@ type MenuTarget =
   | { kind: 'path'; path: LearningPath }
 
 const MIME = 'text/x-kompendium'
+
+/** Własna barwa znaczka albo nic (wtedy decyduje arkusz stylów). */
+const barwa = (hex: string | undefined) => (hex ? { color: hex } : undefined)
 const EXP_KEY = 'ui.expandedFolders'
 
 const loadExpanded = (): Set<string> => {
@@ -117,9 +120,14 @@ export function Sidebar({
     title: string
     name: string
     icon?: string
+    iconColor?: string
     fallbackIcon: IconName
     placeholder?: string
-    onSave: (name: string, icon: string | undefined) => void | Promise<void>
+    onSave: (
+      name: string,
+      icon: string | undefined,
+      iconColor: string | undefined,
+    ) => void | Promise<void>
   } | null>(null)
 
   /** Menu spod prawego przycisku. Na pustym tle proponuje tworzenie
@@ -357,14 +365,14 @@ export function Sidebar({
       name: '',
       placeholder: 'Nazwa folderu…',
       fallbackIcon: 'folderZwykly',
-      onSave: async (name, icon) => {
+      onSave: async (name, icon, iconColor) => {
         await createFolder('concepts', name, parentId)
         // świeżo utworzony folder to ostatni o tej nazwie w tym rodzicu
         const swiezy = (await db.folders.where('kind').equals('concepts').toArray())
           .filter((f) => (f.parentId ?? null) === parentId && f.name === name)
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
           .at(-1)
-        if (swiezy && icon) await updateFolder(swiezy.id, { icon })
+        if (swiezy && (icon || iconColor)) await updateFolder(swiezy.id, { icon, iconColor })
         revealFolder(parentId)
       },
     })
@@ -375,9 +383,9 @@ export function Sidebar({
       name: '',
       placeholder: 'Nazwa ścieżki (skryptu nauki)…',
       fallbackIcon: 'sciezka',
-      onSave: async (name, icon) => {
+      onSave: async (name, icon, iconColor) => {
         const id = await createPath(name)
-        if (icon) await updatePath(id, { icon })
+        if (icon || iconColor) await updatePath(id, { icon, iconColor })
         if (parentId) await movePath(id, parentId)
         revealFolder(parentId)
         onOpenPath(id)
@@ -389,8 +397,9 @@ export function Sidebar({
       title: 'Ścieżka',
       name: p.name,
       icon: p.icon,
+      iconColor: p.iconColor,
       fallbackIcon: 'sciezka',
-      onSave: (name, icon) => updatePath(p.id, { name, icon }),
+      onSave: (name, icon, iconColor) => updatePath(p.id, { name, icon, iconColor }),
     })
 
   const handleDeletePath = async (p: LearningPath) => {
@@ -408,8 +417,9 @@ export function Sidebar({
       title: 'Folder',
       name: f.name,
       icon: f.icon,
+      iconColor: f.iconColor,
       fallbackIcon: 'folderZwykly',
-      onSave: (name, icon) => updateFolder(f.id, { name, icon }),
+      onSave: (name, icon, iconColor) => updateFolder(f.id, { name, icon, iconColor }),
     })
 
   const handleDeleteFolder = async (f: Folder) => {
@@ -431,10 +441,11 @@ export function Sidebar({
       title: 'Klocek',
       name: c.name,
       icon: c.icon,
+      iconColor: c.iconColor,
       // bez własnego znaczka klocek pokazuje plakietkę typu, więc w okienku
       // proponujemy neutralną kartkę — to podpowiedź, a nie stan faktyczny
       fallbackIcon: 'file-text',
-      onSave: (name, icon) => updateConcept(c.id, { name, icon }),
+      onSave: (name, icon, iconColor) => updateConcept(c.id, { name, icon, iconColor }),
     })
 
   const handleDeleteConcept = async (c: Concept) => {
@@ -478,7 +489,11 @@ export function Sidebar({
           }}
         >
           {isIconName(c.icon) ? (
-            <span className={`tree-icon type-${c.type}`} title={BLOCK_TYPE_LABELS[c.type]}>
+            <span
+              className={`tree-icon type-${c.type}`}
+              style={barwa(c.iconColor)}
+              title={BLOCK_TYPE_LABELS[c.type]}
+            >
               <Icon name={c.icon} size={1.05} />
             </span>
           ) : (
@@ -554,12 +569,16 @@ export function Sidebar({
             else dropRelative(p, node, parentId, pos)
           }}
         >
-          <span className={`folder-chevron ${isOpen ? 'open' : ''}`}>
-            <Icon name="rozwin" size={0.95} />
-          </span>
-          {isIconName(f.icon) && (
-            <span className="tree-icon folder-icon">
+          {/* Własny znaczek siada dokładnie tam, gdzie stoi strzałka — czyli
+              nad prowadnicą rozwiniętego folderu. Bez znaczka zostaje
+              strzałka, bo bez niej nie byłoby wiadomo, że to się rozwija. */}
+          {isIconName(f.icon) ? (
+            <span className="folder-chevron folder-icon" style={barwa(f.iconColor)}>
               <Icon name={f.icon} size={1.05} />
+            </span>
+          ) : (
+            <span className={`folder-chevron ${isOpen ? 'open' : ''}`}>
+              <Icon name="rozwin" size={0.95} />
             </span>
           )}
           <span className="folder-name">{f.name}</span>
@@ -628,8 +647,12 @@ export function Sidebar({
             if (pl) dropRelative(pl, node, parentId, pos)
           }}
         >
-          <span className="type-mini type-path" title="Ścieżka nauki">
-            <Icon name={isIconName(p.icon) ? p.icon : 'sciezka'} size={0.95} />
+          <span
+            className="tree-icon type-path"
+            style={barwa(p.iconColor)}
+            title="Ścieżka nauki"
+          >
+            <Icon name={isIconName(p.icon) ? p.icon : 'sciezka'} size={1.05} />
           </span>
           <span className="concept-name">{p.name}</span>
           <span className="folder-actions">

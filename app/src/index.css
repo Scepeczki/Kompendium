@@ -47,6 +47,12 @@
   --fs-7: 20px; /* rozdziały, tytuły paneli */
   --fs-8: 26px; /* tytuł strony */
 
+  /* geometria drzewa: gniazdo znaczka folderu i wcięcie wiersza. Z tych
+     dwóch liczb wypada położenie prowadnicy, więc trzymamy je w jednym
+     miejscu — inaczej linia i znaczek rozjeżdżają się przy każdej zmianie. */
+  --tree-slot: 16px;
+  --tree-row-pad: 8px;
+
   font-family: var(--font-ui);
   color: var(--ink);
   font-size: var(--fs-5);
@@ -590,24 +596,23 @@ select.type-select {
   background: color-mix(in srgb, var(--block-color, var(--muted)) 24%, var(--panel));
 }
 
-/* własny znaczek zamiast plakietki typu — kolor typu zostaje, bo dalej
-   niesie informację; tło znika, żeby znaczek nie siedział w pudełku */
+/* Zasada jest jedna: napis siedzi w pudełku, rysunek stoi na papierze.
+   Plakietka DEF/TW to napis — musi mieć tło, żeby się czytała jako etykieta.
+   Znaczek rysowany kreską tła nie dostaje, bo w ramce robi się z niego
+   przycisk, którym nie jest. Kolor typu zostaje w obu, bo niesie informację. */
 .tree-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
   min-width: 2.6em;
-  /* klasa typu niesie też pełne tło (używa go plakietka) — tu je zdejmujemy,
-     bo znaczek ma stać na papierze, a nie w kolorowym pudełku */
+  /* klasa typu niesie też pełne tło (bierze je plakietka) — tu je zdejmujemy */
   background: none;
   color: color-mix(in srgb, var(--block-color, var(--ink-soft)) 78%, var(--ink));
 }
 
-.folder-icon {
-  min-width: 0;
-  color: var(--ink-soft);
-}
+/* własną barwę znaczka wstawia komponent wprost w `style` — jest jedna na
+   rzecz, więc nie warto na to zmiennej */
 
 .concept-name {
   font-size: 1em;
@@ -687,7 +692,7 @@ select.type-select {
   font-family: var(--font-ui);
   font-size: var(--tree-size, 15px);
   line-height: 1.45;
-  padding: 4px 8px;
+  padding: 4px var(--tree-row-pad);
   border-radius: 6px;
   border: 1px solid transparent;
   cursor: pointer;
@@ -699,11 +704,20 @@ select.type-select {
   background: var(--panel);
 }
 
+/* Gniazdo znaczka folderu — stała szerokość, bo pod jego środkiem biegnie
+   prowadnica rozwiniętej zawartości (patrz --tree-guide niżej). */
 .folder-chevron {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--tree-slot);
   color: var(--muted);
   transition: transform 0.14s ease;
+}
+
+.folder-icon {
+  color: var(--ink-soft);
 }
 
 .folder-chevron.open {
@@ -751,11 +765,13 @@ select.type-select {
   color: var(--ink);
 }
 
-/* zasięg folderu: wcięcie + pionowa prowadnica (jak w Obsidianie) */
+/* Zasięg folderu: wcięcie + pionowa prowadnica (jak w Obsidianie).
+   Prowadnica biegnie dokładnie pod środkiem znaczka folderu, więc znaczek
+   wygląda jak jej początek: wcięcie wiersza + połowa gniazda znaczka. */
 .folder-children {
   list-style: none;
-  margin: 1px 0 1px 13px;
-  padding: 0 0 0 7px;
+  margin: 1px 0 1px calc(var(--tree-row-pad) + var(--tree-slot) / 2);
+  padding: 0 0 0 9px;
   border-left: 1px solid var(--line-strong);
 }
 
@@ -2450,6 +2466,40 @@ button.version-pill.new {
 
 .icon-picker-group {
   margin-bottom: 10px;
+}
+
+.icon-picker-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.icon-picker-color {
+  width: 24px;
+  height: 24px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
+  cursor: pointer;
+  padding: 0;
+}
+
+.icon-picker-color:hover {
+  border-color: var(--line-strong);
+}
+
+.icon-picker-color.active {
+  border-color: var(--ink);
+}
+
+/* domyślna barwa: przekreślone kółko, bo „brak koloru" nie ma koloru */
+.icon-picker-color.domyslna {
+  background: linear-gradient(
+    to bottom right,
+    transparent calc(50% - 1px),
+    var(--line-strong) calc(50% - 1px) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
 }
 
 .icon-picker-label {

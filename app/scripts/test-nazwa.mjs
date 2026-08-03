@@ -118,7 +118,66 @@ await page.waitForTimeout(400)
 check('nazwa i znaczek zapisują się razem',
   (await page.locator('.concept-item:has-text("Granica ciągu") .tree-icon svg').count()) === 1)
 
-// 9. kopia klocka niesie jego znaczek
+// 9. barwa znaczka
+await page.click('.concept-item:has-text("Granica ciągu")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Zmień nazwę")')
+await page.waitForSelector('.name-dialog')
+await page.click('.name-dialog-icon')
+await page.waitForSelector('.icon-picker-colors')
+check('paleta ma barwy plus domyślną',
+  (await page.locator('.icon-picker-color').count()) === 9,
+  `${await page.locator('.icon-picker-color').count()}`)
+await page.click('.icon-picker-color[title="Ceglany"]')
+await page.click('.icon-picker-btn[title="sigma"]')
+await page.click('.name-dialog button:has-text("Zapisz")')
+await page.waitForTimeout(400)
+const kolorZnaczka = await page.evaluate(
+  () => getComputedStyle(document.querySelector('.concept-item .tree-icon')).color,
+)
+check('znaczek przyjmuje wybraną barwę', kolorZnaczka === 'rgb(168, 69, 47)', kolorZnaczka)
+
+// 10. prowadnica rozwiniętego folderu biegnie pod środkiem znaczka folderu
+await page.click('.folder-row:has-text("Algebra")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Zmień nazwę")')
+await page.waitForSelector('.name-dialog')
+await page.click('.name-dialog-icon')
+await page.click('.icon-picker-btn[title="boxes"]')
+await page.click('.name-dialog button:has-text("Zapisz")')
+await page.waitForTimeout(400)
+// coś w środku, żeby prowadnica miała co obejmować
+await page.click('.folder-row:has-text("Algebra")')
+await page.waitForSelector('.folder-children')
+const wnetrze = await page.locator('.folder-children').boundingBox()
+await page.mouse.click(wnetrze.x + wnetrze.width / 2, wnetrze.y + wnetrze.height / 2, {
+  button: 'right',
+})
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Nowy klocek")')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'W środku')
+await page.waitForTimeout(400)
+await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.waitForSelector('.folder-children')
+const geometria = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.folder-row')].find((r) =>
+    r.textContent.includes('Algebra'),
+  )
+  const znaczek = row.querySelector('.folder-icon').getBoundingClientRect()
+  const linia = row.parentElement.querySelector('.folder-children').getBoundingClientRect()
+  return {
+    srodekZnaczka: znaczek.left + znaczek.width / 2,
+    linia: linia.left,
+    strzalka: !!row.querySelector('.folder-chevron:not(.folder-icon)'),
+  }
+})
+check('prowadnica pod środkiem znaczka folderu',
+  Math.abs(geometria.srodekZnaczka - geometria.linia) <= 1.5,
+  `znaczek ${geometria.srodekZnaczka.toFixed(1)} vs linia ${geometria.linia.toFixed(1)}`)
+check('znaczek stoi zamiast strzałki, nie obok', !geometria.strzalka)
+
+// 11. kopia klocka niesie jego znaczek
 await page.click('.concept-item:has-text("Granica ciągu")', { button: 'right' })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Powiel")')

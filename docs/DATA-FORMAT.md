@@ -92,8 +92,9 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
 6. **Ścieżka nigdy nie zmienia klocka** — jest widokiem, nie edytorem.
 7. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
 8. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
-   nazwę z zestawu Lucide, np. `"sigma"`. Nieznana nazwa jest po cichu ignorowana
-   i wraca domyślny wygląd, więc kopia zapasowa z przyszłej wersji nic nie psuje.
+   nazwę z zestawu Lucide, np. `"sigma"`, a `iconColor` barwę `#rrggbb`. Nieznana
+   nazwa jest po cichu ignorowana i wraca domyślny wygląd, więc kopia zapasowa
+   z przyszłej wersji nic nie psuje.
 
 ## Baza (IndexedDB przez Dexie, baza `kompendium`, schemat v6)
 
