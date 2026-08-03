@@ -359,6 +359,8 @@ interface LinearViewProps {
   /** Wersja pojedynczego klocka w grupie. */
   onSetPartVersion: (segId: string, index: number, versionId: string | null) => void
   onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
+  /** Scala segment z następnym (albo dokłada następny do grupy). */
+  onGroupWithNext: (segId: string) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 }
@@ -376,6 +378,7 @@ function LinearView({
   onSetVersion,
   onSetPartVersion,
   onAddHeading,
+  onGroupWithNext,
   onJumpToSource,
   onOpenConcept,
 }: LinearViewProps) {
@@ -562,6 +565,26 @@ function LinearView({
                 <button className="folder-action" title="Edytuj" onClick={() => onEdit(n)}>
                   ✏
                 </button>
+                {(n.kind === 'block' || n.kind === 'fusion') &&
+                  (() => {
+                    const next = ordered[i + 1]
+                    if (!next || (next.kind !== 'block' && next.kind !== 'fusion')) {
+                      return null
+                    }
+                    return (
+                      <button
+                        className="folder-action"
+                        title={
+                          n.kind === 'fusion'
+                            ? 'Dołącz następny klocek do tej grupy'
+                            : 'Scal z następnym klockiem w jedną grupę'
+                        }
+                        onClick={() => onGroupWithNext(n.id)}
+                      >
+                        ⧉
+                      </button>
+                    )
+                  })()}
                 {n.kind === 'fusion' && (
                   <button
                     className="folder-action"
@@ -1024,46 +1047,72 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     openConcept: onOpenConcept,
   }
 
-  const handleFuse = () => {
-    const sel = rfNodes.filter((n) => selected.includes(n.id) && n.type === 'block')
-    if (sel.length < 2) return
-    const nm = window.prompt('Nazwa scalonego bloku (np. „Przestrzeń metryczna"):')
-    if (!nm?.trim()) return
-    // typ całości bierzemy z części, gdy wszystkie są tego samego rodzaju
-    const partTypes = sel.map(
-      (n) => allConcepts.find((c) => c.id === (n.data.conceptId as string))?.type,
+  /** Części klocka albo grupy — do składania grup z jednego i drugiego. */
+  const partsOf = (n: Node): { conceptId: string; versionId: string | null }[] =>
+    n.type === 'fusion'
+      ? ((n.data.parts as { conceptId: string; versionId: string | null }[]) ?? [])
+      : n.type === 'block'
+        ? [
+            {
+              conceptId: n.data.conceptId as string,
+              versionId: (n.data.versionId as string | null) ?? null,
+            },
+          ]
+        : []
+
+  /** Scala wskazane kafelki (klocki i istniejące grupy) w jedną grupę,
+   *  zachowując podaną kolejność. Klocki w bazie zostają nietknięte. */
+  const groupNodes = (orderedIds: string[]) => {
+    const chosen = orderedIds
+      .map((id) => rfNodes.find((n) => n.id === id))
+      .filter((n): n is Node => !!n && (n.type === 'block' || n.type === 'fusion'))
+    if (chosen.length < 2) return
+
+    // dołączanie do istniejącej grupy zachowuje jej nazwę i typ
+    const existing = chosen.find((n) => n.type === 'fusion')
+    const name = existing
+      ? (existing.data.name as string)
+      : window.prompt('Nazwa grupy w tej ścieżce (np. „Kresy zbiorów"):')?.trim()
+    if (!name) return
+
+    const parts: { conceptId: string; versionId: string | null }[] = []
+    for (const n of chosen) {
+      for (const p of partsOf(n)) {
+        if (!parts.some((x) => x.conceptId === p.conceptId)) parts.push(p)
+      }
+    }
+
+    // typ całości: z grupy, a przy nowej — gdy wszystkie klocki są jednakowe
+    const partTypes = parts.map(
+      (p) => allConcepts.find((c) => c.id === p.conceptId)?.type,
     )
     const commonType =
       partTypes.length > 0 && partTypes.every((t) => t && t === partTypes[0])
         ? partTypes[0]
         : undefined
-    const fid = crypto.randomUUID()
-    const cx = sel.reduce((s, n) => s + n.position.x, 0) / sel.length
-    const cy = sel.reduce((s, n) => s + n.position.y, 0) / sel.length
-    const selIds = new Set(sel.map((n) => n.id))
-    const fusion: Node = {
-      id: fid,
-      type: 'fusion',
-      position: { x: cx, y: cy },
-      data: {
-        name: nm.trim(),
-        type: commonType,
-        parts: sel.map((n) => ({
-          conceptId: n.data.conceptId as string,
-          versionId: (n.data.versionId as string | null) ?? null,
-        })),
-      },
+    const type = existing ? (existing.data.type as BlockType | undefined) : commonType
+
+    const gid = existing?.id ?? crypto.randomUUID()
+    const position = existing?.position ?? {
+      x: chosen.reduce((s, n) => s + n.position.x, 0) / chosen.length,
+      y: chosen.reduce((s, n) => s + n.position.y, 0) / chosen.length,
     }
-    setRfNodes((ns) => [...ns.filter((n) => !selIds.has(n.id)), fusion])
+    const gone = new Set(chosen.map((n) => n.id))
+    const group: Node = {
+      id: gid,
+      type: 'fusion',
+      position,
+      data: { name, type, parts },
+    }
+    setRfNodes((ns) => [...ns.filter((n) => !gone.has(n.id)), group])
     setRfEdges((es) => {
       const rewired = es
         .map((e) => ({
           ...e,
-          source: selIds.has(e.source) ? fid : e.source,
-          target: selIds.has(e.target) ? fid : e.target,
+          source: gone.has(e.source) ? gid : e.source,
+          target: gone.has(e.target) ? gid : e.target,
         }))
         .filter((e) => e.source !== e.target)
-      // usuń duplikaty po przepięciu
       const seen = new Set<string>()
       return rewired.filter((e) => {
         const k = `${e.source}->${e.target}`
@@ -1072,6 +1121,14 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         return true
       })
     })
+  }
+
+  /** Mapa: scal zaznaczone kafelki (kolejność wg położenia). */
+  const handleFuse = () => {
+    const sel = rfNodes
+      .filter((n) => selected.includes(n.id) && (n.type === 'block' || n.type === 'fusion'))
+      .sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x)
+    groupNodes(sel.map((n) => n.id))
   }
 
   const addTextAt = (fx: number, fy: number) => {
@@ -1529,7 +1586,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         {mode === 'map'
           ? 'Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy klocek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
           : mode === 'linear'
-            ? 'Doklejaj segmenty jeden pod drugim: przeciągaj klocki z listy po lewej (także między segmenty), zmieniaj kolejność uchwytem ⣿, dodawaj notatki i komentarze'
+            ? 'Doklejaj segmenty jeden pod drugim: przeciągaj klocki z listy po lewej (także między segmenty), zmieniaj kolejność uchwytem ⣿, scalaj sąsiednie klocki w grupę przyciskiem ⧉, dodawaj notatki i komentarze'
             : 'Gotowy skrypt ścieżki (tylko odczyt) — edytuj na Mapie albo w Linii'}
       </div>
       {mode === 'script' && (
@@ -1578,6 +1635,12 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             )
           }
           onAddHeading={linearAddHeading}
+          onGroupWithNext={(segId) => {
+            const chain = topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))
+            const i = chain.findIndex((n) => n.id === segId)
+            const next = chain[i + 1]
+            if (next) groupNodes([segId, next.id])
+          }}
           onJumpToSource={onJumpToSource}
           onOpenConcept={onOpenConcept}
         />

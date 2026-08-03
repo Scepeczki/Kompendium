@@ -71,15 +71,14 @@ for (const c of onMap.czlonkowie) {
   console.log(`   • ${c.nazwa} (wybór wersji: ${c.maWyborWersji}) — „${c.tresc}"`)
 }
 
-// 2. wybór wersji członka działa niezależnie
-const opts = await page.evaluate(() =>
-  [...document.querySelectorAll('.group-member')[0].querySelectorAll('option')].map(
-    (o) => o.textContent,
-  ),
-)
-console.log(`✓ wersje pierwszego członka: ${opts.join(' | ')}`)
-await page.selectOption('.group-member:first-child .group-member-version', { index: 2 })
-await page.waitForTimeout(600)
+// 2. wybór wersji członka działa niezależnie (członkowie idą w kolejności
+// od góry mapy, więc szukamy po nazwie, a nie po pozycji na liście)
+// dopasowanie po samej nazwie klocka — treść drugiego zawiera słowo „zbioru"
+const zbiorMember = page.locator('.group-member:has(.group-member-name:text-is("Zbior"))')
+const opts = await zbiorMember.locator('option').allTextContents()
+console.log(`✓ wersje członka „Zbior": ${opts.join(' | ')}`)
+await zbiorMember.locator('.group-member-version').selectOption({ index: 2 })
+await page.waitForTimeout(900)
 const savedVer = await page.evaluate(async () => {
   const req = indexedDB.open('kompendium')
   await new Promise((res) => (req.onsuccess = res))
@@ -93,11 +92,12 @@ const savedVer = await page.evaluate(async () => {
     r.onsuccess = () => res(r.result)
   })
   const g = ps[0].nodes.find((n) => n.kind === 'fusion')
-  const v = vs.find((x) => x.id === g.parts[0].versionId)
+  const withVersion = g.parts.find((p) => p.versionId)
+  const v = vs.find((x) => x.id === withVersion?.versionId)
   return { liczbaCzesci: g.parts.length, wersja: v?.label ?? null }
 })
 console.log(
-  `✓ wybór wersji zapisany w ścieżce: część 1 → „${savedVer.wersja}", części w grupie: ${savedVer.liczbaCzesci}`,
+  `✓ wybór wersji zapisany w ścieżce: „${savedVer.wersja}", części w grupie: ${savedVer.liczbaCzesci}`,
 )
 
 // 3. grupa jako blok danego typu (jak DEFINICJA), a w środku sam tekst
