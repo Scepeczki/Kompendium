@@ -2,6 +2,7 @@
 // kolejność, grupowanie/rozgrupowanie, tryb liniowy, skrypt, trwałość
 // i odporność na usunięte klocki. Zgłasza każdą niezgodność jako BŁĄD.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -19,7 +20,6 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
 const answers = [
-  'Sciezka testowa', // nazwa ścieżki
   'Rozdzial I', // rozdział
   'Grupa pojec', // nazwa grupy
 ]
@@ -92,6 +92,7 @@ for (const [name, type] of [
 }
 
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Sciezka testowa")
 await page.waitForSelector('.path-canvas')
 
 // --- 1. przeciąganie klocków na mapę (rozstawione, żeby się nie nakładały) ---

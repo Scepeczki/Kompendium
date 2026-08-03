@@ -1,6 +1,7 @@
 ﻿// Test stylistyki bloków w Skrypcie (pasek nagłówka w kolorze typu, treść
 // z akcentem) oraz ustawień kolorów i nasycenia tła.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -27,6 +28,7 @@ await page.waitForTimeout(500)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka")
 await page.waitForSelector('.path-canvas')
 await page.dragAndDrop('.concept-item:has-text("Blok testowy")', '.path-flow', {
   targetPosition: { x: 300, y: 150 },

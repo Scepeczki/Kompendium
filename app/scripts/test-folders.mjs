@@ -2,6 +2,7 @@
 // kolejności przeciąganiem, foldery w bibliotece PDF.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
+import { nowyFolder } from './lib.mjs'
 
 // minimalny PDF (1 strona)
 function makePdf() {
@@ -37,8 +38,9 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
-// kolejka odpowiedzi na window.prompt
-const answers = ['Topologia', 'Zbiory']
+// kolejka odpowiedzi na window.prompt (biblioteka PDF nadal go używa;
+// folder klocków ma własne okienko nazwy — patrz nazwij())
+const answers = ['Zbiory']
 page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 
 await page.goto('http://localhost:5173')
@@ -54,7 +56,7 @@ for (const name of ['Klocek A', 'Klocek B', 'Klocek C']) {
 }
 
 // folder na klocki
-await page.click('button[title="Nowy folder"]')
+await nowyFolder(page, 'Topologia')
 await page.waitForSelector('.folder-row:has-text("Topologia")')
 console.log('✓ folder utworzony')
 

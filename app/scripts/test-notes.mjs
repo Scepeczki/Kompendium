@@ -1,6 +1,7 @@
 ﻿// Test okna notatek/komentarzy: zawijanie długich wierszy (brak przewijania
 // w bok), tryby Wizualny/Kod/Podział, pisanie ze wzorami, zapis treści.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -18,6 +19,7 @@ const LONG =
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka notatek")
 await page.waitForSelector('.path-canvas')
 
 // notatka na mapie + otwarcie okna edycji

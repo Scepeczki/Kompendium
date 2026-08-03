@@ -1,6 +1,7 @@
 ﻿// Test scalania klocków w widoku Linia: przycisk ⧉ scala segment z następnym,
 // kolejne kliknięcia dokładają następne klocki do tej samej grupy.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -17,7 +18,7 @@ const page = await browser.newPage({ viewport: { width: 1700, height: 1000 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
-const answers = ['Sciezka', 'Kresy zbiorow']
+const answers = ['Kresy zbiorow']
 page.on('dialog', (d) => d.accept(answers.shift() ?? 'X'))
 
 const settle = () => page.waitForTimeout(900)
@@ -59,6 +60,7 @@ for (const n of ['Kres gorny', 'Kres dolny', 'Supremum ciagu']) {
 }
 
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Sciezka")
 await page.waitForSelector('.path-canvas')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')

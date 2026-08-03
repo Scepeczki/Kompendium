@@ -1,5 +1,6 @@
 ﻿// Test Etapu 3: ścieżka na canvasie — kafelki, strzałki, tekst, fuzja, skrypt.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -10,7 +11,7 @@ const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
-const answers = ['Analiza — wykład 1', 'Przestrzeń metryczna (pełna)']
+const answers = ['Przestrzeń metryczna (pełna)']
 page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 
 await page.goto('http://localhost:5173')
@@ -33,6 +34,7 @@ for (const [name, content] of [
 
 // nowa ścieżka
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Analiza — wykład 1")
 await page.waitForSelector('.path-canvas')
 console.log('✓ ścieżka utworzona, canvas otwarty')
 
@@ -102,7 +104,7 @@ console.log('✓ rozgrupowanie działa')
 await page.screenshot({ path: 'scripts/shot-11-sciezka.png' })
 
 // skrypt (trzeci tryb widoku — panel PDF i pasek boczny zostają)
-await page.click('text=📜 Skrypt')
+await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-embed')
 await page.waitForSelector('.script-block')
 const sidebarVisible = await page.locator('.sidebar').isVisible()
@@ -114,7 +116,7 @@ console.log(
 await page.screenshot({ path: 'scripts/shot-12-skrypt.png' })
 
 // trwałość: przeładuj i wróć do ścieżki
-await page.click('button:has-text("🗺 Mapa")')
+await page.click('.view-switch button:has-text("Mapa")')
 await page.reload()
 await page.waitForSelector('text=Kompendium')
 await page.click('.path-item:has-text("Analiza")')

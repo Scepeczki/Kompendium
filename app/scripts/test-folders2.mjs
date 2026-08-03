@@ -1,6 +1,7 @@
 ﻿// Test: wspólna kolejność folderów i klocków, prowadnice, grupy źródeł.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
+import { nowyFolder } from './lib.mjs'
 
 function makePdf() {
   const objs = []
@@ -35,7 +36,8 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
-const answers = ['Folder X', 'Wewnętrzny', 'Rysunki']
+// window.prompt zostaje przy grupach źródeł; folder klocków ma własne okienko
+const answers = ['Rysunki']
 page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 
 await page.goto('http://localhost:5173')
@@ -51,7 +53,7 @@ for (const name of ['Klocek A', 'Klocek B']) {
 }
 
 // folder X (ląduje na końcu: A, B, X)
-await page.click('button[title="Nowy folder"]')
+await nowyFolder(page, 'Folder X')
 await page.waitForSelector('.folder-row:has-text("Folder X")')
 
 // 1. WSPÓLNA KOLEJNOŚĆ: przeciągnij Folder X nad Klocek B (górna połowa = przed)
@@ -82,7 +84,7 @@ await page.click('.folder-children .concept-item:has-text("Klocek A")')
 await page.waitForSelector('.editor-name')
 await page.setInputFiles('input[type=file]', 'scripts/test.pdf')
 await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })
-await page.click('text=📌 Podepnij źródło')
+await page.click('button:has-text("Podepnij źródło")')
 const canvas = await page.locator('.pdf-page-wrap canvas').boundingBox()
 await page.mouse.move(canvas.x + 40, canvas.y + 40)
 await page.mouse.down()

@@ -1,6 +1,7 @@
 ﻿// Test ulepszeń canvasu: przesuwalny tekst, siatka + Shift-snap,
 // menu prawego przycisku, kolejność gałęzi (numerki na strzałkach).
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -15,6 +16,7 @@ page.on('dialog', (d) => d.accept('Ścieżka testowa'))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka testowa")
 await page.waitForSelector('.path-canvas')
 
 // 1. MENU PRAWEGO PRZYCISKU: nowy klocek i nowy tekst w miejscu kliknięcia
@@ -129,17 +131,17 @@ console.log(`✓ numerki kolejności na strzałkach: ${labels}`)
 // sprawdź porządek w skrypcie (bazowo wg pozycji: PIERWSZY jest wyżej? oba y=500;
 // x: 700 vs 1000 → PIERWSZY przed DRUGIM)
 await page.waitForTimeout(800) // autozapis
-await page.click('text=📜 Skrypt')
+await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-embed')
 let texts = await page.$$eval('.script-text', (els) => els.map((e) => e.textContent.trim()))
 const baseFirst = texts[0]
 console.log('kolejność bazowa w skrypcie:', texts.join(' | '))
-await page.click('button:has-text("🗺 Mapa")')
+await page.click('.view-switch button:has-text("Mapa")')
 
 // kliknij numerek „2" → ta gałąź przechodzi na pozycję 1 (zawinięcie)
 await page.locator('.edge-order:has-text("2")').click()
 await page.waitForTimeout(800) // autozapis
-await page.click('text=📜 Skrypt')
+await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-embed')
 texts = await page.$$eval('.script-text', (els) => els.map((e) => e.textContent.trim()))
 console.log('kolejność po przestawieniu:', texts.join(' | '))

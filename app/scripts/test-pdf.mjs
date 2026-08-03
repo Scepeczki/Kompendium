@@ -56,7 +56,7 @@ await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })
 await page.waitForTimeout(500)
 
 // tryb podpinania + zaznaczenie prostokątem
-await page.click('text=📌 Podepnij źródło')
+await page.click('button:has-text("Podepnij źródło")')
 await page.waitForSelector('.pdf-banner')
 // widok ciągły: wszystkie strony pod sobą — bierzemy pierwszą
 const canvas = await page.locator('.pdf-page-wrap canvas').first().boundingBox()

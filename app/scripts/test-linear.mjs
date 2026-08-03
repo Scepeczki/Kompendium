@@ -1,6 +1,7 @@
 ﻿// Test trybu liniowego: doklejanie klocków, notatka między segmentami,
 // zmiana kolejności uchwytem, spójność ze skryptem i mapą.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -10,7 +11,7 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
-const answers = ['Ścieżka L']
+const answers = []
 page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 
 await page.goto('http://localhost:5173')
@@ -33,8 +34,9 @@ for (const [name, content] of [
 
 // nowa ścieżka → tryb Linia
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka L")
 await page.waitForSelector('.path-canvas')
-await page.click('button:has-text("≡ Linia")')
+await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 console.log('✓ tryb liniowy otwarty')
 
@@ -73,7 +75,7 @@ console.log('✓ kolejność po przeciągnięciu (oczekiwana Beta | Alfa):', ord
 
 // skrypt widzi tę samą kolejność
 await page.waitForTimeout(700)
-await page.click('text=📜 Skrypt')
+await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-embed .script-block')
 const scriptOrder = await page.$$eval('.script-embed .script-block-title', (els) =>
   els.map((e) => e.textContent.trim()),
@@ -81,14 +83,14 @@ const scriptOrder = await page.$$eval('.script-embed .script-block-title', (els)
 console.log('✓ skrypt w tej samej kolejności:', scriptOrder.join(' | '))
 
 // mapa pokazuje łańcuch (3 kafelki + 2 strzałki)
-await page.click('button:has-text("🗺 Mapa")')
+await page.click('.view-switch button:has-text("Mapa")')
 await page.waitForSelector('.react-flow__node')
 const nodes = await page.locator('.react-flow__node').count()
 const edges = await page.locator('.react-flow__edge').count()
 console.log(`✓ mapa spójna z linią: kafelki=${nodes}, strzałki=${edges}`)
 
 // usuń segment w linii → łańcuch się zszywa
-await page.click('button:has-text("≡ Linia")')
+await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-seg')
 const alfaSeg = page.locator('.linear-seg:has-text("Treść alfa")')
 await alfaSeg.hover()

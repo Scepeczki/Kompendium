@@ -14,8 +14,8 @@ import {
   moveConcept,
   moveFolder,
   movePath,
-  renameFolder,
   updateConcept,
+  updateFolder,
   updatePath,
 } from '../db'
 import {
@@ -27,7 +27,8 @@ import {
   type Folder,
   type LearningPath,
 } from '../types'
-import { Icon, type IconName } from './Icon'
+import { Icon, isIconName, type IconName } from './Icon'
+import { NameDialog } from './NameDialog'
 
 interface Props {
   selectedId: string | null
@@ -110,6 +111,16 @@ export function Sidebar({
   const [expanded, setExpanded] = useState<Set<string>>(loadExpanded)
   const [dropHint, setDropHint] = useState<DropHint>(null)
   const [rootHint, setRootHint] = useState(false)
+
+  /** Otwarte okienko nazwy (nowa rzecz albo zmiana istniejącej). */
+  const [dialog, setDialog] = useState<{
+    title: string
+    name: string
+    icon?: string
+    fallbackIcon: IconName
+    placeholder?: string
+    onSave: (name: string, icon: string | undefined) => void | Promise<void>
+  } | null>(null)
 
   /** Menu spod prawego przycisku. Na pustym tle proponuje tworzenie
    *  (a `parentId` mówi gdzie: wnętrze folderu czy poziom główny),
@@ -340,27 +351,47 @@ export function Sidebar({
     onSelect(id)
   }
 
-  const handleNewFolder = async (parentId: string | null = null) => {
-    const name = window.prompt('Nazwa folderu:')
-    if (!name?.trim()) return
-    await createFolder('concepts', name.trim(), parentId)
-    revealFolder(parentId)
-  }
+  const handleNewFolder = (parentId: string | null = null) =>
+    setDialog({
+      title: 'Nowy folder',
+      name: '',
+      placeholder: 'Nazwa folderu…',
+      fallbackIcon: 'folderZwykly',
+      onSave: async (name, icon) => {
+        await createFolder('concepts', name, parentId)
+        // świeżo utworzony folder to ostatni o tej nazwie w tym rodzicu
+        const swiezy = (await db.folders.where('kind').equals('concepts').toArray())
+          .filter((f) => (f.parentId ?? null) === parentId && f.name === name)
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+          .at(-1)
+        if (swiezy && icon) await updateFolder(swiezy.id, { icon })
+        revealFolder(parentId)
+      },
+    })
 
-  const handleNewPath = async (parentId: string | null = null) => {
-    const name = window.prompt('Nazwa ścieżki (skryptu nauki):')
-    if (!name?.trim()) return
-    const id = await createPath(name.trim())
-    if (parentId) await movePath(id, parentId)
-    revealFolder(parentId)
-    onOpenPath(id)
-  }
+  const handleNewPath = (parentId: string | null = null) =>
+    setDialog({
+      title: 'Nowa ścieżka',
+      name: '',
+      placeholder: 'Nazwa ścieżki (skryptu nauki)…',
+      fallbackIcon: 'sciezka',
+      onSave: async (name, icon) => {
+        const id = await createPath(name)
+        if (icon) await updatePath(id, { icon })
+        if (parentId) await movePath(id, parentId)
+        revealFolder(parentId)
+        onOpenPath(id)
+      },
+    })
 
-  const handleRenamePath = async (p: LearningPath) => {
-    const name = window.prompt('Nowa nazwa ścieżki:', p.name)
-    if (!name?.trim()) return
-    await updatePath(p.id, { name: name.trim() })
-  }
+  const handleRenamePath = (p: LearningPath) =>
+    setDialog({
+      title: 'Ścieżka',
+      name: p.name,
+      icon: p.icon,
+      fallbackIcon: 'sciezka',
+      onSave: (name, icon) => updatePath(p.id, { name, icon }),
+    })
 
   const handleDeletePath = async (p: LearningPath) => {
     if (
@@ -372,11 +403,14 @@ export function Sidebar({
     }
   }
 
-  const handleRenameFolder = async (f: Folder) => {
-    const name = window.prompt('Nowa nazwa folderu:', f.name)
-    if (!name?.trim()) return
-    await renameFolder(f.id, name.trim())
-  }
+  const handleRenameFolder = (f: Folder) =>
+    setDialog({
+      title: 'Folder',
+      name: f.name,
+      icon: f.icon,
+      fallbackIcon: 'folderZwykly',
+      onSave: (name, icon) => updateFolder(f.id, { name, icon }),
+    })
 
   const handleDeleteFolder = async (f: Folder) => {
     if (
@@ -392,11 +426,16 @@ export function Sidebar({
   // Wiersze drzewa
   // -------------------------------------------------------------------------
 
-  const handleRenameConcept = async (c: Concept) => {
-    const name = window.prompt('Nowa nazwa pojęcia:', c.name)
-    if (!name?.trim()) return
-    await updateConcept(c.id, { name: name.trim() })
-  }
+  const handleRenameConcept = (c: Concept) =>
+    setDialog({
+      title: 'Klocek',
+      name: c.name,
+      icon: c.icon,
+      // bez własnego znaczka klocek pokazuje plakietkę typu, więc w okienku
+      // proponujemy neutralną kartkę — to podpowiedź, a nie stan faktyczny
+      fallbackIcon: 'file-text',
+      onSave: (name, icon) => updateConcept(c.id, { name, icon }),
+    })
 
   const handleDeleteConcept = async (c: Concept) => {
     if (
@@ -438,12 +477,18 @@ export function Sidebar({
             if (p) dropRelative(p, node, parentId, pos)
           }}
         >
-          <span
-            className={`type-mini type-${c.type}`}
-            title={BLOCK_TYPE_LABELS[c.type]}
-          >
-            {BLOCK_TYPE_SHORT[c.type]}
-          </span>
+          {isIconName(c.icon) ? (
+            <span className={`tree-icon type-${c.type}`} title={BLOCK_TYPE_LABELS[c.type]}>
+              <Icon name={c.icon} size={1.05} />
+            </span>
+          ) : (
+            <span
+              className={`type-mini type-${c.type}`}
+              title={BLOCK_TYPE_LABELS[c.type]}
+            >
+              {BLOCK_TYPE_SHORT[c.type]}
+            </span>
+          )}
           <span className="concept-name">{c.name}</span>
           <span className="folder-actions">
             <button
@@ -512,6 +557,11 @@ export function Sidebar({
           <span className={`folder-chevron ${isOpen ? 'open' : ''}`}>
             <Icon name="rozwin" size={0.95} />
           </span>
+          {isIconName(f.icon) && (
+            <span className="tree-icon folder-icon">
+              <Icon name={f.icon} size={1.05} />
+            </span>
+          )}
           <span className="folder-name">{f.name}</span>
           <span className="folder-count">{kids.length}</span>
           <span className="folder-actions">
@@ -579,7 +629,7 @@ export function Sidebar({
           }}
         >
           <span className="type-mini type-path" title="Ścieżka nauki">
-            <Icon name="sciezka" size={0.95} />
+            <Icon name={isIconName(p.icon) ? p.icon : 'sciezka'} size={0.95} />
           </span>
           <span className="concept-name">{p.name}</span>
           <span className="folder-actions">
@@ -790,6 +840,18 @@ export function Sidebar({
           )}
           {children(null).map((n) => renderNode(n, null))}
         </ul>
+      )}
+
+      {dialog && (
+        <NameDialog
+          title={dialog.title}
+          name={dialog.name}
+          icon={dialog.icon}
+          fallbackIcon={dialog.fallbackIcon}
+          placeholder={dialog.placeholder}
+          onSave={dialog.onSave}
+          onClose={() => setDialog(null)}
+        />
       )}
 
       {/* menu spod prawego przycisku — tworzenie albo działania na rzeczy */}

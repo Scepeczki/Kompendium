@@ -1,6 +1,7 @@
 ﻿// Test płynności mapy i układania kafelków: mierzy czas przerysowania przy
 // przeciąganiu, sprawdza brak nakładania po dodaniu i po „Ułóż".
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -37,6 +38,7 @@ for (let i = 1; i <= N; i++) {
 }
 
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Sciezka")
 await page.waitForSelector('.path-canvas')
 
 // wszystkie klocki w to samo miejsce — sprawdzamy, czy się rozsuwają

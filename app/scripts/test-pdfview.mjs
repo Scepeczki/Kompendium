@@ -2,6 +2,7 @@
 // z biblioteki oraz rozdziałów/podrozdziałów w ścieżce.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 // --- wielostronicowy PDF do testu przewijania ---
 function makePdf(pages = 6) {
@@ -137,9 +138,10 @@ const gone = await page.evaluate(async () => {
 console.log(`✓ PDF usunięty z bazy: pozostało ${gone} (oczekiwane 0)`)
 
 // ---------- rozdziały w ścieżce ----------
-const answers = ['Ścieżka z rozdziałami', 'Rozdział I: Podstawy', 'Podrozdział 1.1']
+const answers = ['Rozdział I: Podstawy', 'Podrozdział 1.1']
 page.on('dialog', (d) => d.accept(answers.shift() ?? 'X'))
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka z rozdziałami")
 await page.waitForSelector('.path-canvas')
 
 await page.click('button:has-text("+ § Rozdział")')

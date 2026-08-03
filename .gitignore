@@ -1,2 +1,5 @@
 # Osobiste ustawienia Claude Code (nie do współdzielenia w repo)
 .claude/settings.local.json
+
+# Logi z run-all.mjs (tylko lokalne)
+app/.test-logs/

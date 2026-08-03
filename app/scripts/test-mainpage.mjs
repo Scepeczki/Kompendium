@@ -1,6 +1,7 @@
 ﻿// Test nazwy strony głównej klocka oraz źródeł wspólnych dla wszystkich stron:
 // źródło można podpiąć z dowolnej strony i nie zmienia się przy ich przełączaniu.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -11,7 +12,7 @@ const page = await browser.newPage({ viewport: { width: 1700, height: 1000 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
-const answers = ['Sformułowanie', 'Dowód', 'Ścieżka']
+const answers = ['Sformułowanie', 'Dowód']
 page.on('dialog', (d) => d.accept(answers.shift() ?? 'X'))
 
 await page.goto('http://localhost:5173')
@@ -107,6 +108,7 @@ console.log(
 // 6. własna nazwa strony głównej widoczna w ścieżce (Skrypt)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka")
 await page.waitForSelector('.path-canvas')
 await page.dragAndDrop('.concept-item:has-text("Twierdzenie o stronach")', '.path-flow', {
   targetPosition: { x: 400, y: 200 },

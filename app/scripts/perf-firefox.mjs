@@ -6,6 +6,7 @@
 // Mierzy długość klatek podczas ciągłego przeciągania kafelka oraz liczbę
 // przebudów treści kafelków (przy dobrej memoizacji powinno być 0).
 import { firefox } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const browser = await firefox.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1700, height: 1000 } })
@@ -27,6 +28,7 @@ for (let i = 1; i <= N; i++) {
   await page.click('.btn-close[title*="Zamknij klocek"]')
 }
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Sciezka")
 await page.waitForSelector('.path-canvas')
 for (let i = 1; i <= N; i++) {
   await page.dragAndDrop(`.concept-item:has-text("Klocek ${i}")`, '.path-flow', {

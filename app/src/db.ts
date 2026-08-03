@@ -164,7 +164,7 @@ export async function createConcept(type: BlockType = 'definicja'): Promise<stri
 
 export async function updateConcept(
   id: string,
-  patch: Partial<Pick<Concept, 'name' | 'type' | 'tags' | 'mainPageName'>>,
+  patch: Partial<Pick<Concept, 'name' | 'type' | 'tags' | 'mainPageName' | 'icon'>>,
 ) {
   await db.concepts.update(id, { ...patch, updatedAt: now() })
 }
@@ -530,6 +530,14 @@ export async function renameFolder(id: string, name: string) {
   await db.folders.update(id, { name })
 }
 
+/** Nazwa i/lub własny znaczek folderu. */
+export async function updateFolder(
+  id: string,
+  patch: Partial<Pick<Folder, 'name' | 'icon'>>,
+) {
+  await db.folders.update(id, patch)
+}
+
 /** Usuwa folder; jego zawartość (podfoldery, klocki, ścieżki, PDF-y) przechodzi do rodzica. */
 export async function deleteFolder(id: string) {
   await db.transaction('rw', db.folders, db.concepts, db.pdfs, db.paths, async () => {
@@ -581,7 +589,7 @@ export async function createPath(name: string): Promise<string> {
 
 export async function updatePath(
   id: string,
-  patch: Partial<Pick<LearningPath, 'name' | 'nodes' | 'edges'>>,
+  patch: Partial<Pick<LearningPath, 'name' | 'nodes' | 'edges' | 'icon'>>,
 ) {
   await db.paths.update(id, { ...patch, updatedAt: now() })
 }

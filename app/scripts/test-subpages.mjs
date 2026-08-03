@@ -1,6 +1,7 @@
 ﻿// Test stron klocka (dowodów): dodawanie/nazywanie/edycja w edytorze,
 // zakładki w kafelku ścieżki (wybór bazowej strony), przełączanie w Skrypcie.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -12,7 +13,7 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
 // odpowiedzi na kolejne window.prompt
-const answers = ['Dowód', 'Szkic dowodu', 'Ścieżka stron']
+const answers = ['Dowód', 'Szkic dowodu']
 page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 
 const readDb = (store) =>
@@ -71,6 +72,7 @@ console.log('✓ druga strona z dowolną nazwą („Szkic dowodu")')
 
 // 6. nowa ścieżka z tym klockiem
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka stron")
 await page.waitForSelector('.path-canvas')
 await page.dragAndDrop('.concept-item:has-text("Twierdzenie testowe")', '.path-flow', {
   targetPosition: { x: 420, y: 220 },

@@ -1,6 +1,7 @@
 ﻿// Test spisu treści ścieżki: lista rozdziałów, skok po kliknięciu,
 // podświetlenie bieżącego rozdziału i chowanie panelu.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -12,7 +13,6 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
 const answers = [
-  'Skrypt z rozdziałami',
   'Rozdział I: Liczby',
   'Podrozdział 1.1: Kresy',
   'Rozdział II: Ciągi',
@@ -35,6 +35,7 @@ for (const n of ['Alfa', 'Beta', 'Gamma']) {
 }
 
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Skrypt z rozdziałami")
 await page.waitForSelector('.path-canvas')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')

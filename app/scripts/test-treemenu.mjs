@@ -1,6 +1,7 @@
 // Test menu tworzenia pod prawym przyciskiem na pustym miejscu listy:
 // pozycja, kontekst folderu, tworzenie w nim, zamykanie.
 import { chromium } from 'playwright'
+import { nazwij, nowaSciezka, nowyFolder } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -53,8 +54,7 @@ check('klocek z menu powstał i otworzył się',
   (await page.locator('.concept-item:has-text("Z menu")').count()) === 1)
 
 // 5. folder + prawy przycisk w jego wnętrzu → tworzy w tym folderze
-page.once('dialog', (d) => d.accept('Algebra'))
-await page.click('.sidebar-create-btn[title="Nowy folder"]')
+await nowyFolder(page, 'Algebra')
 await page.waitForSelector('.folder-row')
 await page.click('.folder-row:has-text("Algebra")')
 await page.waitForSelector('.folder-children')
@@ -106,10 +106,9 @@ check('menu klocka: nazwa, powielenie, usunięcie',
 check('menu mówi, o który klocek chodzi',
   (await page.locator('.tree-menu-where').textContent()).includes('Z menu'))
 
-// 9. zmiana nazwy z menu
-page.once('dialog', (d) => d.accept('Przezwany'))
+// 9. zmiana nazwy z menu (własne okienko, nie systemowy prompt)
 await page.click('.tree-menu-item:has-text("Zmień nazwę")')
-await page.waitForTimeout(500)
+await nazwij(page, 'Przezwany')
 check('zmiana nazwy z menu działa',
   (await page.locator('.concept-item:has-text("Przezwany")').count()) === 1)
 
@@ -161,8 +160,7 @@ check('kopia folderu ma zawartość pierwowzoru', wKopii.includes('W folderze'),
   wKopii.join(' | '))
 
 // 13. na ścieżce menu też działa
-page.once('dialog', (d) => d.accept('Kurs'))
-await page.click('.sidebar-create-btn[title*="Nowa ścieżka"]')
+await nowaSciezka(page, 'Kurs')
 await page.waitForSelector('.path-canvas')
 await page.click('.concept-item:has-text("Kurs")', { button: 'right' })
 await page.waitForSelector('.tree-menu')

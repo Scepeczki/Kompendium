@@ -2,6 +2,7 @@
 // klocków / ścieżek / PDF-a. Sprawdza też odporność na osierocony folderId.
 import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -31,6 +32,7 @@ await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })
 await page.click('.btn-close[title*="Zamknij klocek"]')
 
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Testowa ścieżka")
 await page.waitForSelector('.path-canvas')
 await page.click('.path-canvas .btn-close[title*="Zamknij ścieżkę"]')
 

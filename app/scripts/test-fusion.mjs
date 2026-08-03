@@ -1,6 +1,7 @@
 ﻿// Test pokazywania powiązań z warstwy wiedzy na mapie ścieżki.
 // (Grupowanie klocków ma własny test: test-group.mjs)
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -55,6 +56,7 @@ await page.evaluate(async () => {
 })
 
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Sciezka")
 await page.waitForSelector('.path-canvas')
 let y = 130
 for (const n of ['Istnienie rozkladu', 'Lemat Euklidesa']) {

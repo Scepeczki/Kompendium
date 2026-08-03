@@ -1,5 +1,6 @@
 ﻿// Test: komentarze do ścieżki, menu kafelka, zarządzanie wersjami klocka.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -70,6 +71,7 @@ await page.click('.btn-close[title*="Zamknij klocek"]')
 // --- KOMENTARZE I MENU KAFELKA NA ŚCIEŻCE ---
 answers.push('Ścieżka K')
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka")
 await page.waitForSelector('.path-canvas')
 const flow = await page.locator('.path-flow').boundingBox()
 
@@ -97,7 +99,7 @@ await page.waitForSelector('.path-ctxmenu')
 await page.click('text=🧱 Nowy klocek tutaj')
 await page.waitForSelector('.path-node-head')
 await page.waitForTimeout(800) // autozapis ścieżki
-await page.click('text=📜 Skrypt')
+await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-embed')
 await page.waitForSelector('.script-block')
 const blocks = await page.locator('.script-block').count()
@@ -105,7 +107,7 @@ const metaInScript = await page.locator('.script-embed :text("KOMENTARZ-META")')
 console.log(
   `✓ skrypt: bloki=${blocks}, komentarz w skrypcie: ${metaInScript === 0 ? 'nie (dobrze)' : 'TAK — BŁĄD'}`,
 )
-await page.click('button:has-text("🗺 Mapa")')
+await page.click('.view-switch button:has-text("Mapa")')
 
 // menu kafelka: prawy przycisk na komentarzu → Usuń ze ścieżki
 await page.click('.path-node-comment .path-node-grip', { button: 'right' })

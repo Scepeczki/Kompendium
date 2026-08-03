@@ -1,6 +1,7 @@
 ﻿// Test źródeł-klocków: klocek podsumowujący wskazuje inne klocki jako źródła,
 // powstaje genealogia (podsumowanie → klocek z książki → wycinek PDF).
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -30,7 +31,7 @@ await mkBlock('Funkcja wg Ksiazki A', 'Definicja funkcji wg pierwszego autora.')
 await page.setInputFiles('input[type=file][accept="application/pdf"]', 'scripts/test-multi.pdf')
 await page.waitForSelector('.pdf-page-wrap canvas')
 await page.waitForTimeout(1200)
-await page.click('text=📌 Podepnij źródło')
+await page.click('button:has-text("Podepnij źródło")')
 await page.waitForSelector('.pdf-banner')
 const c = await page.locator('.pdf-page-wrap canvas').first().boundingBox()
 await page.mouse.move(c.x + 40, c.y + 50)
@@ -107,6 +108,7 @@ console.log(`✓ genealogia: „Funkcja (moje ujecie)" → „Ksiazki A" → ${d
 // 5. lista źródeł w Skrypcie pokazuje oba rodzaje i podgląd klocka
 await page.click('.btn-close[title*="Zamknij klocek"]')
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Podsumowanie")
 await page.waitForSelector('.path-canvas')
 await page.dragAndDrop('.concept-item:has-text("moje ujecie")', '.path-flow', {
   targetPosition: { x: 400, y: 200 },

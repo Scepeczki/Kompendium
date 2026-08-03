@@ -16,6 +16,7 @@ Concept (klocek)                  BlockVersion (wersja treści)
 │                uwaga            ├─ sourceGroups?  string[]        do WERSJI
 ├─ tags          [„analiza"]      ├─ createdAt
 ├─ mainPageName? „Sformułowanie"  └─ updatedAt
+├─ icon?         „sigma"          ← własny znaczek zamiast plakietki typu
 ├─ folderId      | null
 ├─ order         (ułamkowa)       Subpage (strona klocka)
 ├─ createdAt     ← oś wiedzy      ├─ id
@@ -62,7 +63,8 @@ uogólnieniem, a inna nie. `perspektywa` jest symetryczna (bez kierunku).
 LearningPath                      PathNode — pięć rodzajów (pole `kind`)
 ├─ id                             ├─ block    conceptId, versionId, subpageId?
 ├─ name                           ├─ fusion   name, type?, parts[]   ← GRUPA
-├─ folderId | null                ├─ heading  text, level 1|2|3
+├─ icon?                          ├─ heading  text, level 1|2|3
+├─ folderId | null
 ├─ order                          ├─ text     text                   ← notatka
 ├─ nodes    PathNode[]            └─ comment  text, side?            ← poza skryptem
 ├─ edges    PathEdge[]                (wszystkie mają id, x, y)
@@ -89,6 +91,9 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
    renderuje się na żądanie; działa też na skanach bez warstwy tekstu.
 6. **Ścieżka nigdy nie zmienia klocka** — jest widokiem, nie edytorem.
 7. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
+8. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
+   nazwę z zestawu Lucide, np. `"sigma"`. Nieznana nazwa jest po cichu ignorowana
+   i wraca domyślny wygląd, więc kopia zapasowa z przyszłej wersji nic nie psuje.
 
 ## Baza (IndexedDB przez Dexie, baza `kompendium`, schemat v6)
 

@@ -1,6 +1,7 @@
 ﻿// Test drobnych ulepszeń: autofokus nazwy, akcje na liście, autouzupełnianie [[,
 // Escape, szukajka ze ścieżkami, licznik.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -27,10 +28,10 @@ const nameVal = await page.inputValue('.editor-name')
 console.log(`✓ autofokus i nadpisanie nazwy: "${nameVal}" ${nameVal === 'Granica ciągu' ? '' : '— BŁĄD'}`)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 
-// 2. akcje na liście: zmiana nazwy i usuwanie
-answers.push('Granica')
+// 2. akcje na liście: zmiana nazwy (własne okienko) i usuwanie
 await page.hover('.concept-item:has-text("Granica ciągu")')
 await page.click('.concept-item .folder-action[title*="Zmień nazwę"]')
+await nazwij(page, 'Granica')
 await page.waitForSelector('.concept-item:has-text("Granica"):not(:has-text("ciągu"))')
 console.log('✓ zmiana nazwy z listy działa')
 
@@ -54,8 +55,8 @@ console.log(
 await page.click('.btn-close[title*="Zamknij klocek"]')
 
 // 4. szukajka znajduje ścieżki
-answers.push('Ścieżka Granic')
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka Granic")
 await page.waitForSelector('.path-canvas')
 await page.click('.path-canvas .btn-close[title*="Zamknij ścieżkę"]')
 // szukanie chowa się pod ikoną 🔍 — najpierw ją otwieramy

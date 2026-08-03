@@ -1,6 +1,7 @@
 ﻿// Test źródeł pod treścią bloku (lista + podgląd fragmentu po najechaniu)
 // oraz pokazywania wszystkich wykorzystanych fragmentów w widoku PDF.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -29,7 +30,7 @@ await page.waitForSelector('.pdf-page-wrap canvas')
 await page.waitForTimeout(1200)
 
 const attach = async (dy) => {
-  await page.click('text=📌 Podepnij źródło')
+  await page.click('button:has-text("Podepnij źródło")')
   await page.waitForSelector('.pdf-banner')
   const c = await page.locator('.pdf-page-wrap canvas').first().boundingBox()
   await page.mouse.move(c.x + 40, c.y + dy)
@@ -71,6 +72,7 @@ console.log(
 
 // 4. lista źródeł w Skrypcie ścieżki
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Ścieżka ze źródłami")
 await page.waitForSelector('.path-canvas')
 await page.dragAndDrop('.concept-item:has-text("Definicja ze źródłem")', '.path-flow', {
   targetPosition: { x: 400, y: 200 },

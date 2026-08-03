@@ -1,6 +1,7 @@
 ﻿// Test grupowania klocków w ścieżce: kilka klocków pod jedną nazwą, ale nadal
 // jako osobne pełne klocki (własny wybór wersji), w jednej ramce.
 import { chromium } from 'playwright'
+import { nazwij } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -11,7 +12,7 @@ const page = await browser.newPage({ viewport: { width: 1700, height: 1000 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
-const answers = ['wg Ksiazki B', 'Sciezka', 'Poczatki teorii mnogosci']
+const answers = ['wg Ksiazki B', 'Poczatki teorii mnogosci']
 page.on('dialog', (d) => d.accept(answers.shift() ?? 'X'))
 
 await page.goto('http://localhost:5173')
@@ -35,6 +36,7 @@ await mk('Zbior', 'Kolekcja obiektow traktowana jako calosc.', true)
 await mk('Element', 'Obiekt nalezacy do zbioru.')
 
 await page.click('button[title*="Nowa ścieżka"]')
+await nazwij(page, "Sciezka")
 await page.waitForSelector('.path-canvas')
 let y = 130
 for (const n of ['Zbior', 'Element']) {

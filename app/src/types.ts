@@ -89,6 +89,8 @@ export interface Folder {
   id: string
   kind: FolderKind
   name: string
+  /** Własny znaczek zamiast domyślnego folderu (nazwa z zestawu Lucide). */
+  icon?: string
   /** null = poziom główny. Dla kind='pdfs' zawsze null (bez zagnieżdżania). */
   parentId: string | null
   /** Wspólna kolejność z klockami w obrębie rodzica (foldery i klocki się przeplatają). */
@@ -106,6 +108,9 @@ export interface Concept {
    *  są w tabeli subpages; źródła należą do wersji, więc są wspólne dla
    *  wszystkich stron. */
   mainPageName?: string
+  /** Własny znaczek w drzewie (nazwa z zestawu Lucide, np. „sigma").
+   *  Brak = plakietka typu (DEF / TW …). */
+  icon?: string
   /** null = poziom główny drzewa. */
   folderId: string | null
   /** Ręczna kolejność w obrębie folderu (ułamkowa — wstawianie pomiędzy). */
@@ -295,6 +300,8 @@ export interface PathEdge {
 export interface LearningPath {
   id: string
   name: string
+  /** Własny znaczek zamiast domyślnej mapki (nazwa z zestawu Lucide). */
+  icon?: string
   folderId: string | null
   order: number
   nodes: PathNode[]
