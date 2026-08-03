@@ -101,6 +101,48 @@ export function Sidebar({
   const [dropHint, setDropHint] = useState<DropHint>(null)
   const [rootHint, setRootHint] = useState(false)
 
+  /** Menu tworzenia wywołane prawym przyciskiem na pustym miejscu listy.
+   *  `parentId` bierze się z tego, gdzie kliknięto: wnętrze folderu tworzy
+   *  w tym folderze, puste tło listy — na poziomie głównym. */
+  const [menu, setMenu] = useState<{
+    x: number
+    y: number
+    parentId: string | null
+  } | null>(null)
+
+  // menu znika przy kliknięciu gdzie indziej, Escape i przewijaniu listy
+  useEffect(() => {
+    if (!menu) return
+    const close = () => setMenu(null)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null)
+    document.addEventListener('mousedown', close)
+    document.addEventListener('scroll', close, true)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('scroll', close, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [menu])
+
+  /** Menu nie może wyjść poza okno — inaczej ostatnia pozycja bywa nieklikalna. */
+  const menuRef = (el: HTMLDivElement | null) => {
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const dx = Math.min(0, window.innerWidth - 6 - r.right)
+    const dy = Math.min(0, window.innerHeight - 6 - r.bottom)
+    if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
+  }
+
+  /** Prawy przycisk na pustym miejscu listy (nie na klocku, folderze, ścieżce). */
+  const openMenu = (e: React.MouseEvent) => {
+    const el = e.target as Element
+    if (el.closest('.concept-item, .folder-row')) return
+    e.preventDefault()
+    const inside = el.closest('.folder-children') as HTMLElement | null
+    setMenu({ x: e.clientX, y: e.clientY, parentId: inside?.dataset.folder ?? null })
+  }
+
   const folders =
     useLiveQuery(() => db.folders.where('kind').equals('concepts').toArray(), []) ?? []
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
@@ -203,21 +245,31 @@ export function Sidebar({
     else await moveFolder(payload.id, null)
   }
 
-  const handleNew = async () => {
+  /** Rozwija folder, żeby świeżo utworzona rzecz była od razu widoczna. */
+  const revealFolder = (parentId: string | null) => {
+    if (parentId) setExpanded((prev) => persistExpanded(new Set(prev).add(parentId)))
+  }
+
+  const handleNew = async (parentId: string | null = null) => {
     const id = await createConcept()
+    if (parentId) await moveConcept(id, parentId)
+    revealFolder(parentId)
     onSelect(id)
   }
 
-  const handleNewFolder = async () => {
+  const handleNewFolder = async (parentId: string | null = null) => {
     const name = window.prompt('Nazwa folderu:')
     if (!name?.trim()) return
-    await createFolder('concepts', name.trim())
+    await createFolder('concepts', name.trim(), parentId)
+    revealFolder(parentId)
   }
 
-  const handleNewPath = async () => {
+  const handleNewPath = async (parentId: string | null = null) => {
     const name = window.prompt('Nazwa ścieżki (skryptu nauki):')
     if (!name?.trim()) return
     const id = await createPath(name.trim())
+    if (parentId) await movePath(id, parentId)
+    revealFolder(parentId)
     onOpenPath(id)
   }
 
@@ -401,7 +453,7 @@ export function Sidebar({
           </span>
         </div>
         {isOpen && (
-          <ul className="folder-children">
+          <ul className="folder-children" data-folder={f.id}>
             {kids.length === 0 && <li className="folder-empty">pusty</li>}
             {kids.map((n) => renderNode(n, f.id))}
           </ul>
@@ -585,27 +637,31 @@ export function Sidebar({
       {/* tworzenie — tuż nad drzewem, bo dotyczy jego zawartości.
           Same znaczki; co robią, mówi dymek systemowy przy dłuższym najechaniu. */}
       <div className="sidebar-create">
-        <button className="sidebar-create-btn" title="Nowy klocek" onClick={handleNew}>
+        <button
+          className="sidebar-create-btn"
+          title="Nowy klocek"
+          onClick={() => handleNew()}
+        >
           <Icon name="klocek" />
         </button>
         <button
           className="sidebar-create-btn"
           title="Nowy folder"
-          onClick={handleNewFolder}
+          onClick={() => handleNewFolder()}
         >
           <Icon name="folder" />
         </button>
         <button
           className="sidebar-create-btn"
           title="Nowa ścieżka (materiał do nauki)"
-          onClick={handleNewPath}
+          onClick={() => handleNewPath()}
         >
           <Icon name="sciezka" />
         </button>
       </div>
 
       {filtering ? (
-        <ul className="concept-list">
+        <ul className="concept-list" onContextMenu={openMenu}>
           {flatList.length === 0 && flatPaths.length === 0 && (
             <li className="concept-empty">Nic nie pasuje do filtra.</li>
           )}
@@ -629,6 +685,7 @@ export function Sidebar({
       ) : (
         <ul
           className={`concept-list ${rootHint ? 'drop-root' : ''}`}
+          onContextMenu={openMenu}
           onDragOver={(e) => {
             e.preventDefault()
             setDropHint(null)
@@ -647,6 +704,52 @@ export function Sidebar({
           )}
           {children(null).map((n) => renderNode(n, null))}
         </ul>
+      )}
+
+      {/* prawy przycisk na pustym miejscu listy — tworzenie tam, gdzie kliknięto */}
+      {menu && (
+        <div
+          ref={menuRef}
+          className="tree-menu"
+          style={{ left: menu.x, top: menu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="tree-menu-where">
+            {menu.parentId
+              ? `w folderze „${folders.find((f) => f.id === menu.parentId)?.name ?? ''}"`
+              : 'na poziomie głównym'}
+          </div>
+          <button
+            className="tree-menu-item"
+            onClick={() => {
+              setMenu(null)
+              handleNew(menu.parentId)
+            }}
+          >
+            <Icon name="klocek" size={1} />
+            Nowy klocek
+          </button>
+          <button
+            className="tree-menu-item"
+            onClick={() => {
+              setMenu(null)
+              handleNewFolder(menu.parentId)
+            }}
+          >
+            <Icon name="folder" size={1} />
+            Nowy folder
+          </button>
+          <button
+            className="tree-menu-item"
+            onClick={() => {
+              setMenu(null)
+              handleNewPath(menu.parentId)
+            }}
+          >
+            <Icon name="sciezka" size={1} />
+            Nowa ścieżka
+          </button>
+        </div>
       )}
       {/* dół: rzeczy dotyczące całej aplikacji, nie zawartości drzewa */}
       <footer className="sidebar-footer">
