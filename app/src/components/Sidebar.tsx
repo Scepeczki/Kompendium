@@ -19,15 +19,13 @@ import {
   updatePath,
 } from '../db'
 import {
-  BLOCK_TYPE_LABELS,
-  BLOCK_TYPE_SHORT,
-  BLOCK_TYPES,
   type BlockType,
   type Concept,
   type Folder,
   type LearningPath,
 } from '../types'
 import { Icon, isIconName, type IconName } from './Icon'
+import { useBlockTypes } from '../blockTypes'
 import { NameDialog } from './NameDialog'
 
 interface Props {
@@ -96,6 +94,7 @@ export function Sidebar({
   onOpenPath,
   onOpenSettings,
 }: Props) {
+  const typy = useBlockTypes()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<BlockType | 'wszystkie'>('wszystkie')
   /** Szukanie i filtr chowają się pod ikonami — rozwijane na żądanie. */
@@ -490,18 +489,21 @@ export function Sidebar({
         >
           {isIconName(c.icon) ? (
             <span
-              className={`tree-icon type-${c.type}`}
-              style={barwa(c.iconColor)}
-              title={BLOCK_TYPE_LABELS[c.type]}
+              className="tree-icon"
+              data-typ={c.type}
+              style={{ ...typy.style(c.type), ...barwa(c.iconColor) }}
+              title={typy.label(c.type)}
             >
               <Icon name={c.icon} size={1.05} />
             </span>
           ) : (
             <span
-              className={`type-mini type-${c.type}`}
-              title={BLOCK_TYPE_LABELS[c.type]}
+              className="type-mini"
+              data-typ={c.type}
+              style={typy.style(c.type)}
+              title={typy.label(c.type)}
             >
-              {BLOCK_TYPE_SHORT[c.type]}
+              {typy.short(c.type)}
             </span>
           )}
           <span className="concept-name">{c.name}</span>
@@ -735,13 +737,13 @@ export function Sidebar({
               title={
                 typeFilter === 'wszystkie'
                   ? 'Pokaż tylko wybrany typ'
-                  : `Pokazywane tylko: ${BLOCK_TYPE_LABELS[typeFilter]}`
+                  : `Pokazywane tylko: ${typy.label(typeFilter)}`
               }
               onClick={() => setFilterOpen((o) => !o)}
             >
               <Icon name="filtr" />
               {typeFilter !== 'wszystkie' && (
-                <span className="sidebar-tool-tag">{BLOCK_TYPE_SHORT[typeFilter]}</span>
+                <span className="sidebar-tool-tag">{typy.short(typeFilter)}</span>
               )}
             </button>
             {filterOpen && (
@@ -755,17 +757,19 @@ export function Sidebar({
                 >
                   Wszystkie typy
                 </button>
-                {BLOCK_TYPES.map((t) => (
+                {typy.choices.map((t) => (
                   <button
-                    key={t}
-                    className={`sidebar-filter-item ${typeFilter === t ? 'active' : ''}`}
+                    key={t.id}
+                    className={`sidebar-filter-item ${typeFilter === t.id ? 'active' : ''}`}
                     onClick={() => {
-                      setTypeFilter(t)
+                      setTypeFilter(t.id)
                       setFilterOpen(false)
                     }}
                   >
-                    <span className={`type-mini type-${t}`}>{BLOCK_TYPE_SHORT[t]}</span>
-                    {BLOCK_TYPE_LABELS[t]}
+                    <span className="type-mini" data-typ={t.id} style={typy.style(t.id)}>
+                      {t.short}
+                    </span>
+                    {t.label}
                   </button>
                 ))}
               </div>

@@ -4,12 +4,12 @@ import { db } from '../db'
 import { renderMarkdown } from '../markdown'
 import { renderRegion } from '../pdfDoc'
 import {
-  BLOCK_TYPE_SHORT,
   isPdfSource,
   type BlockSourceRef,
   type PdfSourceRef,
   type SourceRef,
 } from '../types'
+import { useBlockTypes } from '../blockTypes'
 
 interface Props {
   refs: SourceRef[]
@@ -49,6 +49,7 @@ function PdfPreview({ refItem }: { refItem: PdfSourceRef }) {
 
 /** Podgląd treści klocka będącego źródłem. */
 function BlockPreview({ refItem }: { refItem: BlockSourceRef }) {
+  const typy = useBlockTypes()
   const concept = useLiveQuery(
     () => db.concepts.get(refItem.conceptId),
     [refItem.conceptId],
@@ -71,8 +72,8 @@ function BlockPreview({ refItem }: { refItem: BlockSourceRef }) {
   return (
     <div className="source-preview source-preview-block">
       <span className="source-preview-head">
-        <span className={`type-mini type-${concept.type}`}>
-          {BLOCK_TYPE_SHORT[concept.type]}
+        <span className="type-mini" data-typ={concept.type} style={typy.style(concept.type)}>
+          {typy.short(concept.type)}
         </span>
         {concept.name}
         {v?.label && <span className="source-list-group"> · {v.label}</span>}

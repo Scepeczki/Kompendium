@@ -355,19 +355,17 @@ body.resizing canvas {
   color: #fff;
 }
 
-/* każdy typ niesie swój kolor także jako zmienną — korzystają z niej
-   elementy, które nie chcą pełnego nasycenia (np. plakietki w drzewie) */
-.type-definicja { background: var(--c-definicja); --block-color: var(--c-definicja); }
-.type-twierdzenie { background: var(--c-twierdzenie); --block-color: var(--c-twierdzenie); }
-.type-lemat { background: var(--c-lemat); --block-color: var(--c-lemat); }
-.type-dowod { background: var(--c-dowod); --block-color: var(--c-dowod); }
-.type-przyklad { background: var(--c-przyklad); --block-color: var(--c-przyklad); }
-.type-uwaga { background: var(--c-uwaga); --block-color: var(--c-uwaga); }
-.type-intuicja { background: var(--c-intuicja); --block-color: var(--c-intuicja); }
+/* barwy typów siedzą teraz w bazie; te zmienne zostają jako paleta,
+   z której biorą kolor rzeczy niezwiązane z typami (osie powiązań,
+   znaczniki na linijce) — patrz reguła [data-typ] na końcu pliku */
 
+/* wybór typu w edytorze — przygaszony kolorem typu, tak jak plakietki
+   w listach; pełne nasycenie krzyczało nad całym paskiem nagłówka */
 select.type-select {
-  color: var(--ink);
+  color: color-mix(in srgb, var(--block-color, var(--ink)) 72%, var(--ink));
   font-weight: 600;
+  background: color-mix(in srgb, var(--block-color, var(--muted)) 14%, var(--panel));
+  border-color: color-mix(in srgb, var(--block-color, var(--line-strong)) 40%, var(--line));
 }
 
 /* --------------------------------------------------------------------------
@@ -2722,6 +2720,97 @@ button.version-pill.new {
   padding: 3px 10px;
 }
 
+/* ---- edytor typów klocków ---- */
+
+.type-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.type-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-left: 3px solid var(--block-color, var(--line-strong));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--block-color, var(--muted)) 7%, transparent);
+}
+
+.type-row-color {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+}
+
+.type-row-short {
+  flex: none;
+}
+
+.type-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-3);
+  padding: 4px 8px;
+}
+
+.type-row-abbr {
+  flex: none;
+  width: 62px;
+  font-size: var(--fs-2);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
+  padding: 4px 4px;
+}
+
+.type-row-hide {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: var(--fs-1);
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.type-row-del {
+  flex: none;
+  font: inherit;
+  font-size: var(--fs-4);
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.type-row-del:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+.type-row-del:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.type-add {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
 /* wybór deseniu: każdy przycisk pokazuje próbkę tego, co włącza */
 .settings-bg-choice {
   display: flex;
@@ -3316,13 +3405,6 @@ button.version-pill.new {
   );
 }
 
-.script-definicja { --block-color: var(--c-definicja); }
-.script-twierdzenie { --block-color: var(--c-twierdzenie); }
-.script-lemat { --block-color: var(--c-lemat); }
-.script-dowod { --block-color: var(--c-dowod); }
-.script-przyklad { --block-color: var(--c-przyklad); }
-.script-uwaga { --block-color: var(--c-uwaga); }
-.script-intuicja { --block-color: var(--c-intuicja); }
 
 .script-block-head {
   display: flex;
@@ -3774,13 +3856,6 @@ button.version-pill.new {
   border-left-width: 3px;
 }
 
-.type-border-definicja { border-left-color: var(--c-definicja); }
-.type-border-twierdzenie { border-left-color: var(--c-twierdzenie); }
-.type-border-lemat { border-left-color: var(--c-lemat); }
-.type-border-dowod { border-left-color: var(--c-dowod); }
-.type-border-przyklad { border-left-color: var(--c-przyklad); }
-.type-border-uwaga { border-left-color: var(--c-uwaga); }
-.type-border-intuicja { border-left-color: var(--c-intuicja); }
 
 /* ---- grupa na mapie: jeden duży pseudo-kafelek ---- */
 
@@ -3866,11 +3941,6 @@ button.version-pill.new {
   cursor: pointer;
 }
 
-.fusion-type.type-definicja { color: var(--c-definicja); border-color: var(--c-definicja); }
-.fusion-type.type-twierdzenie { color: var(--c-twierdzenie); border-color: var(--c-twierdzenie); }
-.fusion-type.type-lemat { color: var(--c-lemat); border-color: var(--c-lemat); }
-.fusion-type.type-przyklad { color: var(--c-przyklad); border-color: var(--c-przyklad); }
-.fusion-type.type-uwaga { color: var(--c-uwaga); border-color: var(--c-uwaga); }
 
 .path-node-fusion .fusion-parts li {
   display: flex;
@@ -4137,4 +4207,23 @@ button.version-pill.new {
 
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ==========================================================================
+   Barwa typu klocka
+   ==========================================================================
+   Typy sa danymi, wiec arkusz nie zna ich z nazwy: barwe wstawia widok jako
+   --kolor w atrybucie style, a element dostaje data-typ. Tutaj jest jedyne
+   miejsce, gdzie --kolor staje sie --block-color — i jedyne, gdzie motyw
+   ciemny go rozjasnia, zeby granat nie ginal na ciemnym papierze.
+   Regula stoi na koncu pliku celowo: ma wygrywac z domyslnym --block-color
+   ustawianym przy blokach bez typu (grupy).
+   ========================================================================== */
+
+[data-typ] {
+  --block-color: var(--kolor, var(--muted));
+}
+
+:root[data-theme='dark'] [data-typ] {
+  --block-color: color-mix(in srgb, var(--kolor, var(--muted)) 62%, #f2ece0);
 }

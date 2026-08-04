@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { db } from './db'
 import type {
+  BlockTypeDef,
   BlockVersion,
   Concept,
   Folder,
@@ -25,6 +26,21 @@ interface BackupData {
   subpages?: Subpage[]
   /** Relacje między klockami — brak w starszych kopiach. */
   relations?: Relation[]
+  /** Typy klocków — brak w kopiach sprzed edytora typów. */
+  blockTypes?: BlockTypeDef[]
+  /** Ustawienia wyglądu (localStorage, klucze ui.*). Nie są danymi, ale
+   *  kopia zapasowa ma odtworzyć program takim, jakim się go zostawiło. */
+  ustawienia?: Record<string, string>
+}
+
+/** Zbiera ustawienia wyglądu z localStorage. */
+function zbierzUstawienia(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (k?.startsWith('ui.')) out[k] = localStorage.getItem(k) ?? ''
+  }
+  return out
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -48,6 +64,7 @@ export async function exportBackup(): Promise<void> {
       db.subpages.toArray(),
       db.relations.toArray(),
     ])
+  const blockTypes = await db.blockTypes.toArray()
 
   const zip = new JSZip()
   const data: BackupData = {
@@ -60,6 +77,8 @@ export async function exportBackup(): Promise<void> {
     pdfs: pdfs.map(({ data: _blob, ...meta }) => meta),
     subpages,
     relations,
+    blockTypes,
+    ustawienia: zbierzUstawienia(),
   }
   zip.file('dane.json', JSON.stringify(data, null, 1))
   const pdfFolder = zip.folder('pdfy')!
@@ -111,6 +130,7 @@ export async function importBackup(file: File): Promise<ImportSummary> {
       db.pdfs,
       db.subpages,
       db.relations,
+      db.blockTypes,
     ],
     async () => {
       await db.concepts.bulkPut(data.concepts)
@@ -120,8 +140,13 @@ export async function importBackup(file: File): Promise<ImportSummary> {
       await db.pdfs.bulkPut(pdfs)
       await db.subpages.bulkPut(data.subpages ?? [])
       await db.relations.bulkPut(data.relations ?? [])
+      await db.blockTypes.bulkPut(data.blockTypes ?? [])
     },
   )
+
+  // ustawienia wracają na końcu: to zmiana wyglądu, nie danych, więc nie
+  // ma po co blokować nią transakcji na bazie
+  for (const [k, v] of Object.entries(data.ustawienia ?? {})) localStorage.setItem(k, v)
 
   return {
     concepts: data.concepts.length,

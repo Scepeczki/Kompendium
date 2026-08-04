@@ -1,0 +1,140 @@
+// Test edytora typów klocków: dodawanie własnych, nazwa, skrót, barwa,
+// chowanie z listy wyboru, usuwanie z przepisaniem klocków, zapis w bazie
+// i w kopii zapasowej. Plus błąd: Ustawienia nie mogą blokować listy.
+import { chromium } from 'playwright'
+
+const problems = []
+const errors = []
+const check = (nazwa, ok, szczegol = '') => {
+  console.log(`${ok ? '✓' : '✗ BŁĄD:'} ${nazwa}${szczegol ? ` — ${szczegol}` : ''}`)
+  if (!ok) problems.push(nazwa)
+}
+
+const browser = await chromium.launch({
+  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  headless: true,
+})
+const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+page.on('pageerror', (e) => errors.push(String(e)))
+
+const doTypow = async () => {
+  await page.click('.sidebar-foot-btn[title="Ustawienia"]')
+  await page.waitForSelector('.settings-page')
+  await page.click('.settings-nav-item:has-text("Typy klocków")')
+  await page.waitForSelector('.type-row')
+}
+
+await page.goto('http://localhost:5173')
+await page.waitForSelector('text=Kompendium')
+
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'Klocek próbny')
+await page.waitForTimeout(400)
+
+// 1. BŁĄD Z ZGŁOSZENIA: klik w klocek przy otwartych Ustawieniach
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
+await page.waitForSelector('.settings-page')
+await page.click('.concept-item:has-text("Klocek próbny")')
+await page.waitForTimeout(400)
+check('klik w klocek zamyka Ustawienia i otwiera edytor',
+  (await page.locator('.settings-page').count()) === 0 &&
+    (await page.locator('.editor-name').count()) === 1)
+
+// 2. lista typów: pięć do wyboru, siedem wszystkich (dowód i intuicja schowane)
+await doTypow()
+const wiersze = await page.locator('.type-row').count()
+const doWyboru = await page.evaluate(
+  () =>
+    [...document.querySelectorAll('.type-row')].filter(
+      (r) => r.querySelector('input[type=checkbox]').checked,
+    ).length,
+)
+check('wszystkie typy fabryczne widoczne w edytorze', wiersze === 7, `${wiersze}`)
+check('pięć typów proponowanych przy klocku', doWyboru === 5, `${doWyboru}`)
+check('typów fabrycznych nie da się usunąć',
+  (await page.locator('.type-row-del:disabled').count()) === 7)
+
+// 3. zmiana nazwy typu przechodzi do całego programu
+await page.fill('.type-row:has(input[value="Definicja"]) .type-row-name', 'Określenie')
+await page.waitForTimeout(400)
+await page.click('.settings-page-head button:has-text("Wróć")')
+await page.waitForSelector('.type-select')
+const wybrane = await page.locator('.type-select option:checked').textContent()
+check('nowa nazwa typu widoczna w edytorze klocka', wybrane === 'Określenie', wybrane)
+
+// 4. własny typ
+await doTypow()
+await page.click('.type-add')
+await page.fill('.type-row-nowy .type-row-name', 'Aksjomat')
+await page.fill('.type-row-nowy .type-row-abbr', 'AKS')
+await page.click('.type-row-nowy button:has-text("Dodaj")')
+await page.waitForTimeout(400)
+check('własny typ dopisany', (await page.locator('.type-row').count()) === 8)
+check('własny typ da się usunąć',
+  (await page.locator('.type-row-del:not(:disabled)').count()) === 1)
+
+// 5. własny typ jest do wyboru przy klocku i barwi plakietkę
+await page.click('.settings-page-head button:has-text("Wróć")')
+await page.waitForSelector('.type-select')
+await page.selectOption('.type-select', { label: 'Aksjomat' })
+await page.waitForTimeout(500)
+const plakietka = await page.evaluate(() => {
+  const el = document.querySelector('.concept-item .type-mini')
+  return { txt: el.textContent, typ: el.dataset.typ, kolor: getComputedStyle(el).color }
+})
+check('plakietka pokazuje skrót własnego typu', plakietka.txt === 'AKS', plakietka.txt)
+check('plakietka niesie identyfikator typu', !!plakietka.typ)
+
+// 6. chowanie typu z listy wyboru
+await doTypow()
+// zwykły klik, nie uncheck(): pole jest sterowane danymi z bazy, więc stan
+// wraca dopiero po zapisie — uncheck() sprawdza je natychmiast i się myli
+await page.click('.type-row:has(input[value="Lemat"]) input[type=checkbox]')
+await page.waitForFunction(() => {
+  const r = [...document.querySelectorAll('.type-row')].find(
+    (x) => x.querySelector('.type-row-name')?.value === 'Lemat',
+  )
+  return r && !r.querySelector('input[type=checkbox]').checked
+})
+await page.click('.settings-page-head button:has-text("Wróć")')
+await page.waitForSelector('.type-select')
+const opcje = await page.locator('.type-select option').allTextContents()
+check('schowany typ znika z listy wyboru', !opcje.includes('Lemat'), opcje.join(' · '))
+
+// 7. usunięcie własnego typu przepisuje klocki na inny
+page.once('dialog', (d) => {
+  check('pytanie o usunięcie mówi, ile klocków zmieni typ', d.message().includes('1'),
+    d.message())
+  d.accept()
+})
+await doTypow()
+await page.click('.type-row:has(input[value="Aksjomat"]) .type-row-del')
+await page.waitForTimeout(600)
+check('typ usunięty', (await page.locator('.type-row').count()) === 7)
+await page.click('.settings-page-head button:has-text("Wróć")')
+await page.waitForTimeout(500)
+const poUsunieciu = await page.locator('.concept-item .type-mini').textContent()
+check('klocek dostał inny typ, nie zniknął', poUsunieciu !== 'AKS' && poUsunieciu.length > 0,
+  poUsunieciu)
+
+// 8. wszystko przeżywa przeładowanie
+await page.reload()
+await page.waitForSelector('.concept-item')
+await doTypow()
+const poReload = await page.evaluate(() =>
+  [...document.querySelectorAll('.type-row-name')].map((i) => i.value),
+)
+check('zmiany typów zapamiętane', poReload.includes('Określenie') && !poReload.includes('Aksjomat'),
+  poReload.join(' · '))
+
+console.log('')
+console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
+for (const e of errors.slice(0, 5)) console.log(`   ${e.slice(0, 200)}`)
+console.log(
+  problems.length === 0
+    ? '>>> WSZYSTKO POPRAWNE'
+    : `>>> NIEPOPRAWNE (${problems.length}): ${problems.join('; ')}`,
+)
+await browser.close()

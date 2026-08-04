@@ -9,11 +9,11 @@
 Concept (klocek)                  BlockVersion (wersja treści)
 ├─ id                             ├─ id
 ├─ name          „Kres górny"     ├─ conceptId ──► Concept
-├─ type          definicja /      ├─ version     1, 2, 3…
-│                twierdzenie /    ├─ label       „wg Rudina"
-│                lemat /          ├─ content     Markdown + LaTeX
-│                przykład /       ├─ sourceRefs  SourceRef[]      ← źródła należą
-│                uwaga            ├─ sourceGroups?  string[]        do WERSJI
+├─ type ─────► BlockTypeDef       ├─ version     1, 2, 3…
+│                                 ├─ label       „wg Rudina"
+│                                 ├─ content     Markdown + LaTeX
+│                                 ├─ sourceRefs  SourceRef[]      ← źródła należą
+│                                 ├─ sourceGroups?  string[]        do WERSJI
 ├─ tags          [„analiza"]      ├─ createdAt
 ├─ mainPageName? „Sformułowanie"  └─ updatedAt
 ├─ icon?         „sigma"          ← własny znaczek zamiast plakietki typu
@@ -25,6 +25,24 @@ Concept (klocek)                  BlockVersion (wersja treści)
                     BlockVersion  ├─ content     Markdown + LaTeX
                                   └─ order
 ```
+
+### Typ klocka — też dane, nie kod
+
+```
+BlockTypeDef
+├─ id        „definicja" / uuid   ← to trafia do Concept.type
+├─ label     „Definicja"
+├─ short     „DEF"                ← plakietka w listach i na kafelkach
+├─ color     „#31619e"
+├─ order
+├─ builtin?  true = fabryczny: można przemianować i przemalować,
+│                   ale nie usunąć (żeby nie zostać bez ani jednego)
+└─ hidden?   true = nie proponuj przy nowym klocku; istniejące działają
+```
+
+Fabryczne id (`definicja`, `twierdzenie`, `lemat`, `przyklad`, `uwaga`,
+`dowod`, `intuicja`) zostały te same, co przed edytorem typów — stare klocki
+działają bez migracji. `dowod` i `intuicja` startują jako `hidden`.
 
 ### Źródło — dwa rodzaje (unia)
 
@@ -96,7 +114,7 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
    nazwa jest po cichu ignorowana i wraca domyślny wygląd, więc kopia zapasowa
    z przyszłej wersji nic nie psuje.
 
-## Baza (IndexedDB przez Dexie, baza `kompendium`, schemat v6)
+## Baza (IndexedDB przez Dexie, baza `kompendium`, schemat v7)
 
 | Tabela | Indeksy | Zawiera |
 |---|---|---|
@@ -107,12 +125,18 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
 | `paths` | `id, name, folderId, createdAt, updatedAt` | ścieżki |
 | `folders` | `id, kind, parentId, name` | foldery (`concepts` / `pdfs`) |
 | `pdfs` | `id, title, addedAt, folderId` | pliki PDF jako `Blob` |
+| `blockTypes` | `id, order` | typy klocków |
 
 Historia schematu: v1 podstawy → v2 foldery i kolejność → v3 wspólna kolejność
-folderów z klockami → v4 ścieżki → v5 strony klocka → v6 powiązania.
+folderów z klockami → v4 ścieżki → v5 strony klocka → v6 powiązania →
+v7 typy klocków jako dane (migracja przenosi barwy z localStorage).
 
 ## Kopia zapasowa
 
 Jeden plik `.zip`: `dane.json` (wszystkie tabele poza plikami) + katalog `pdfy/`
 z prawdziwymi plikami `.pdf`. Import dopisuje zawartość do bieżącej bazy —
 rekordy o tym samym `id` nadpisują istniejące, reszta zostaje nietknięta.
+
+`dane.json` niesie też pole `ustawienia`: wszystkie klucze `ui.*`
+z localStorage (motyw, szerokość strony, deseń tła, krój treści…). Nie są
+danymi, ale kopia ma odtworzyć program takim, jakim się go zostawiło.

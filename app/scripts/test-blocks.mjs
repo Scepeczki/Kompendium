@@ -79,21 +79,26 @@ console.log(
   })`,
 )
 
-// 3. zmiana koloru typu w Ustawieniach przestraja blok
+// 3. zmiana barwy typu w edytorze typów przestraja blok.
+// Barwy siedzą w bazie (tabela blockTypes), nie w localStorage — sprawdzamy
+// więc zapis w bazie, a wygląd po powrocie do Skryptu.
 await page.click('button[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
-await page.click('.settings-nav-item:has-text("Bloki")')
-await page.fill('.settings-color:has-text("Twierdzenie") input[type=color]', '#c81e4a')
-await page.waitForTimeout(300)
-// ustawienia są teraz pełną stroną, więc bloku nie widać w trakcie zmiany —
-// najpierw sprawdzamy zapis, a wygląd po powrocie do skryptu
-const afterColor = await page.evaluate(() => ({
-  varValue: document.documentElement.style.getPropertyValue('--c-twierdzenie'),
-  stored: localStorage.getItem('ui.color.twierdzenie'),
-}))
-console.log(
-  `✓ własny kolor typu zapisany: zmienna ${afterColor.varValue}, w pamięci ${afterColor.stored}`,
+await page.click('.settings-nav-item:has-text("Typy klocków")')
+await page.waitForSelector('.type-row')
+await page.fill('.type-row:has(input[value="Twierdzenie"]) .type-row-color', '#c81e4a')
+await page.waitForTimeout(400)
+const afterColor = await page.evaluate(
+  () =>
+    new Promise((res) => {
+      const r = indexedDB.open('kompendium')
+      r.onsuccess = () => {
+        const tx = r.result.transaction('blockTypes').objectStore('blockTypes').get('twierdzenie')
+        tx.onsuccess = () => res(tx.result?.color ?? '(brak)')
+      }
+    }),
 )
+console.log(`✓ własna barwa typu zapisana w bazie: ${afterColor}`)
 
 // 4. nasycenie tła zmienia zmienną sterującą odcieniami
 await page.fill('.settings-row:has-text("Nasycenie tła") .settings-slider', '0')
@@ -123,22 +128,25 @@ console.log(
   })`,
 )
 
-// 5. „Przywróć" kasuje własne kolory
-await page.click('button[title="Ustawienia"]')
-await page.waitForSelector('.settings-page')
-await page.click('.settings-nav-item:has-text("Bloki")')
-await page.click('.settings-page button:has-text("Przywróć")')
-await page.waitForTimeout(300)
-const afterReset = await page.evaluate(() => ({
-  varValue: document.documentElement.style.getPropertyValue('--c-twierdzenie'),
-  stored: localStorage.getItem('ui.color.twierdzenie'),
-}))
+// 5. barwa przeżywa przeładowanie (siedzi w bazie, nie w pamięci ekranu)
+await page.reload()
+await page.waitForSelector('text=Kompendium')
+// widok nie jest zapamiętywany — wracamy do Skryptu tej samej ścieżki
+await page.click('.concept-item.path-item')
+await page.waitForSelector('.path-canvas')
+await page.click('.view-switch button:has-text("Skrypt")')
+await page.waitForSelector('.script-block-head')
+await page.waitForTimeout(500)
+const headAfterReload = await page.evaluate(
+  () => getComputedStyle(document.querySelector('.script-block-head')).backgroundColor,
+)
 console.log(
-  `✓ przywrócenie kolorów: zmienna „${afterReset.varValue}", zapis ${afterReset.stored} (oczekiwane puste/null)`,
+  `✓ barwa typu po przeładowaniu: ${headAfterReload} (${
+    headAfterReload === headAfter ? 'ok' : 'ZMIENIŁA SIĘ!'
+  })`,
 )
 
 // 6. przycisk ↗ w nagłówku otwiera klocek w edytorze
-await page.click('.settings-page-head button:has-text("Wróć")')
 await page.waitForSelector('.script-block-open')
 await page.click('.script-block-open')
 await page.waitForSelector('.editor-name')

@@ -1,42 +1,54 @@
 // Podstawowe typy danych Kompendium.
 // Pełny opis formatu: docs/DATA-FORMAT.md w katalogu głównym repo.
 
-export type BlockType =
-  | 'definicja'
-  | 'twierdzenie'
-  | 'lemat'
-  | 'dowod'
-  | 'przyklad'
-  | 'uwaga'
-  | 'intuicja'
+/** Identyfikator typu klocka. Kiedyś była to zamknięta lista siedmiu nazw;
+ *  teraz typy są danymi (tabela `blockTypes`), bo każdy uczy się czego innego
+ *  i „Aksjomat" albo „Kontrprzykład" nie mają prawa być przywilejem autora
+ *  programu. Wbudowane typy zachowały swoje dawne identyfikatory, więc stare
+ *  klocki działają bez migracji. */
+export type BlockType = string
 
-export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
-  definicja: 'Definicja',
-  twierdzenie: 'Twierdzenie',
-  lemat: 'Lemat',
-  dowod: 'Dowód',
-  przyklad: 'Przykład',
-  uwaga: 'Uwaga',
-  intuicja: 'Intuicja',
+/** Typ klocka: nazwa, skrót do plakietki, barwa. */
+export interface BlockTypeDef {
+  /** Trafia do `Concept.type` — nie zmienia się przy zmianie nazwy. */
+  id: string
+  /** „Definicja" — widoczna nazwa. */
+  label: string
+  /** „DEF" — plakietka w listach i na kafelkach. */
+  short: string
+  color: string
+  order: number
+  /** Wbudowany: można go przemianować i przemalować, ale nie usunąć —
+   *  inaczej łatwo o bazę bez ani jednego typu. */
+  builtin?: boolean
+  /** Schowany z listy wyboru. Istniejące klocki takiego typu działają
+   *  normalnie; po prostu nie proponujemy go przy nowych. */
+  hidden?: boolean
 }
 
-/** Typy do wyboru. Wycofane z wyboru (istniejące klocki nadal działają):
- *  - „intuicja" — jej rolę pełnią notatki na ścieżkach;
- *  - „dowód" — do przemyślenia, jak reprezentować dowody w twierdzeniach. */
-export const BLOCK_TYPES: BlockType[] = (
-  Object.keys(BLOCK_TYPE_LABELS) as BlockType[]
-).filter((t) => t !== 'intuicja' && t !== 'dowod')
+/** Fabryczne typy. Barwy te same, co dawniej w arkuszu stylów.
+ *  „dowód" i „intuicja" startują schowane — tak było przed edytorem typów
+ *  (dowody mają własne strony klocka, intuicję zastąpiły notatki na ścieżce),
+ *  ale teraz można je odsłonić jednym kliknięciem zamiast zmieniać kod. */
+export const BUILTIN_BLOCK_TYPES: BlockTypeDef[] = [
+  { id: 'definicja', label: 'Definicja', short: 'DEF', color: '#31619e', order: 1, builtin: true },
+  { id: 'twierdzenie', label: 'Twierdzenie', short: 'TW', color: '#6d4a9e', order: 2, builtin: true },
+  { id: 'lemat', label: 'Lemat', short: 'LEM', color: '#8a5fb0', order: 3, builtin: true },
+  { id: 'przyklad', label: 'Przykład', short: 'PRZ', color: '#3d7a52', order: 4, builtin: true },
+  { id: 'uwaga', label: 'Uwaga', short: 'UW', color: '#a9742c', order: 5, builtin: true },
+  { id: 'dowod', label: 'Dowód', short: 'DOW', color: '#6b6b66', order: 6, builtin: true, hidden: true },
+  { id: 'intuicja', label: 'Intuicja', short: 'INT', color: '#b05575', order: 7, builtin: true, hidden: true },
+]
 
-/** Krótkie oznaczenia typów do zwartych list. */
-export const BLOCK_TYPE_SHORT: Record<BlockType, string> = {
-  definicja: 'DEF',
-  twierdzenie: 'TW',
-  lemat: 'LEM',
-  dowod: 'DOW',
-  przyklad: 'PRZ',
-  uwaga: 'UW',
-  intuicja: 'INT',
-}
+/** Awaryjny opis typu, którego nie ma już w tabeli (np. po wczytaniu kopii
+ *  z innego zestawu typów). Klocek ma się pokazać, a nie zniknąć. */
+export const unknownType = (id: string): BlockTypeDef => ({
+  id,
+  label: id,
+  short: id.slice(0, 3).toUpperCase(),
+  color: '#8d8677',
+  order: 999,
+})
 
 /** Prostokąt na stronie PDF we współrzędnych strony przy skali 1
  *  (punkty PDF, początek w lewym górnym rogu strony). */

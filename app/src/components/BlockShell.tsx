@@ -2,12 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, mainPageName } from '../db'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
-import {
-  BLOCK_TYPE_LABELS,
-  type BlockVersion,
-  type Concept,
-  type SourceRef,
-} from '../types'
+import { type BlockVersion, type Concept, type SourceRef } from '../types'
+import { useBlockTypes } from '../blockTypes'
 
 interface Props {
   concept: Concept
@@ -45,6 +41,7 @@ export function BlockShell({
       [concept.id],
     ) ?? []
 
+  const typy = useBlockTypes()
   const sorted = [...versions].sort((a, b) => a.version - b.version)
   const version =
     sorted.find((v) => v.id === versionId) ??
@@ -54,10 +51,10 @@ export function BlockShell({
   const versionName = (v: BlockVersion) => v.label ?? `wr.${v.version}`
 
   return (
-    <section className={`script-block script-${concept.type}`}>
+    <section className="script-block" data-typ={concept.type} style={typy.style(concept.type)}>
       <header className="script-block-head">
         <h3 className="script-block-title">
-          <span className="script-block-type">{BLOCK_TYPE_LABELS[concept.type]}:</span>{' '}
+          <span className="script-block-type">{typy.label(concept.type)}:</span>{' '}
           {concept.name}
         </h3>
         {onOpenConcept && (

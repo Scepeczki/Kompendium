@@ -2,12 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
-import {
-  BLOCK_TYPE_LABELS,
-  type BlockType,
-  type BlockVersion,
-  type SourceRef,
-} from '../types'
+import { type BlockType, type BlockVersion, type SourceRef } from '../types'
+import { useBlockTypes } from '../blockTypes'
 
 export interface GroupPart {
   conceptId: string
@@ -50,15 +46,20 @@ export function GroupShell({
   })
 
   // źródła całej grupy razem — grupa czyta się jak jeden blok
+  const typy = useBlockTypes()
   const refs: SourceRef[] = resolved.flatMap((r) => r.version?.sourceRefs ?? [])
   const versionName = (v: BlockVersion) => v.label ?? `wr.${v.version}`
 
   return (
-    <section className={`script-block script-group-block ${type ? `script-${type}` : ''}`}>
+    <section
+      className="script-block script-group-block"
+      data-typ={type}
+      style={type ? typy.style(type) : undefined}
+    >
       <header className="script-block-head">
         <h3 className="script-block-title">
           <span className="script-block-type">
-            {type ? BLOCK_TYPE_LABELS[type] : 'Grupa'}:
+            {type ? typy.label(type) : 'Grupa'}:
           </span>{' '}
           {name}
         </h3>

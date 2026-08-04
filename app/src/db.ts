@@ -1,7 +1,8 @@
 import Dexie, { type Table } from 'dexie'
-import { isSymmetricRelation } from './types'
+import { BUILTIN_BLOCK_TYPES, isSymmetricRelation } from './types'
 import type {
   BlockType,
+  BlockTypeDef,
   BlockVersion,
   Concept,
   Folder,
@@ -21,6 +22,7 @@ class KompendiumDB extends Dexie {
   paths!: Table<LearningPath, string>
   subpages!: Table<Subpage, string>
   relations!: Table<Relation, string>
+  blockTypes!: Table<BlockTypeDef, string>
 
   constructor() {
     super('kompendium')
@@ -104,6 +106,28 @@ class KompendiumDB extends Dexie {
       subpages: 'id, conceptId',
       relations: 'id, fromId, toId, kind',
     })
+    // v7: typy klocków jako dane, a nie zamknięta lista w kodzie.
+    this.version(7)
+      .stores({
+        concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
+        versions: 'id, conceptId, [conceptId+version], createdAt',
+        pdfs: 'id, title, addedAt, folderId',
+        folders: 'id, kind, parentId, name',
+        paths: 'id, name, folderId, createdAt, updatedAt',
+        subpages: 'id, conceptId',
+        relations: 'id, fromId, toId, kind',
+        blockTypes: 'id, order',
+      })
+      .upgrade(async (tx) => {
+        // barwy typów mieszkały dotąd w localStorage jako nadpisania stylów —
+        // przenosimy je, żeby nikt nie stracił swoich kolorów przy aktualizacji
+        await tx.table('blockTypes').bulkAdd(
+          BUILTIN_BLOCK_TYPES.map((t) => {
+            const own = localStorage.getItem(`ui.color.${t.id}`)
+            return own && /^#[0-9a-f]{6}$/i.test(own) ? { ...t, color: own } : { ...t }
+          }),
+        )
+      })
   }
 }
 
@@ -111,6 +135,68 @@ export const db = new KompendiumDB()
 
 const now = () => new Date().toISOString()
 const uid = () => crypto.randomUUID()
+
+// ---------------------------------------------------------------------------
+// Typy klocków (dane, nie kod)
+// ---------------------------------------------------------------------------
+
+/** Wsypuje fabryczne typy do pustej tabeli. Świeża baza nie przechodzi przez
+ *  `upgrade`, więc bez tego startowałaby bez ani jednego typu. */
+export async function seedBlockTypes(): Promise<void> {
+  if ((await db.blockTypes.count()) === 0) {
+    await db.blockTypes.bulkAdd(BUILTIN_BLOCK_TYPES.map((t) => ({ ...t })))
+  }
+}
+
+/** Nowy własny typ — ląduje na końcu listy. */
+export async function addBlockType(
+  label: string,
+  short: string,
+  color: string,
+): Promise<string> {
+  const all = await db.blockTypes.toArray()
+  const id = uid()
+  await db.blockTypes.add({
+    id,
+    label,
+    short,
+    color,
+    order: all.length ? Math.max(...all.map((t) => t.order)) + 1 : 1,
+  })
+  return id
+}
+
+export async function updateBlockType(
+  id: string,
+  patch: Partial<Pick<BlockTypeDef, 'label' | 'short' | 'color' | 'hidden' | 'order'>>,
+) {
+  await db.blockTypes.update(id, patch)
+}
+
+/** Ile klocków używa danego typu — usuwanie musi o tym powiedzieć. */
+export async function countBlocksOfType(id: string): Promise<number> {
+  return db.concepts.where('type').equals(id).count()
+}
+
+/** Usuwa typ. Klocki, które go używały, dostają `zamiennik` — nigdy nie
+ *  zostają z typem, którego nie ma, bo wtedy plakietka pokazuje surowe id. */
+export async function deleteBlockType(id: string, zamiennik: string): Promise<void> {
+  const def = await db.blockTypes.get(id)
+  if (!def || def.builtin) return
+  await db.transaction('rw', [db.blockTypes, db.concepts], async () => {
+    await db.concepts.where('type').equals(id).modify({ type: zamiennik })
+    await db.blockTypes.delete(id)
+  })
+}
+
+/** Kolejność typów po przeciągnięciu na liście w Ustawieniach. */
+export async function reorderBlockTypes(orderedIds: string[]): Promise<void> {
+  await db.transaction('rw', db.blockTypes, async () => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db.blockTypes.update(orderedIds[i], { order: i + 1 })
+    }
+  })
+}
 
 /** Kolejność „na końcu" danego folderu — wspólna dla klocków, ścieżek i podfolderów. */
 export async function nextConceptOrder(folderId: string | null): Promise<number> {

@@ -36,9 +36,21 @@ await nazwij(page, "Testowa ścieżka")
 await page.waitForSelector('.path-canvas')
 await page.click('.path-canvas .btn-close[title*="Zamknij ścieżkę"]')
 
-// eksport
+// własny typ i zmienione ustawienie — mają wrócić razem z danymi
 await page.click('button[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
+await page.click('.settings-nav-item:has-text("Typy klocków")')
+await page.waitForSelector('.type-row')
+await page.click('.type-add')
+await page.fill('.type-row-nowy .type-row-name', 'Aksjomat')
+await page.fill('.type-row-nowy .type-row-abbr', 'AKS')
+await page.click('.type-row-nowy button:has-text("Dodaj")')
+await page.waitForTimeout(400)
+await page.click('.settings-nav-item:has-text("Wygląd")')
+await page.click('.settings-bg-btn[data-bg-preview="kratka"]')
+await page.waitForTimeout(300)
+
+// eksport
 await page.click('.settings-nav-item:has-text("Dane")')
 const [download] = await Promise.all([
   page.waitForEvent('download'),
@@ -50,8 +62,11 @@ const size = readFileSync(backupPath).length
 console.log(`✓ eksport pobrany, rozmiar pliku: ${size} B`)
 await page.waitForSelector('text=Kopia zapasowa pobrana.')
 
-// wyczyść bazę (symulacja "świeżej przeglądarki")
-await page.evaluate(() => indexedDB.deleteDatabase('kompendium'))
+// wyczyść bazę i ustawienia (symulacja „świeżej przeglądarki")
+await page.evaluate(() => {
+  indexedDB.deleteDatabase('kompendium')
+  for (const k of Object.keys(localStorage)) if (k.startsWith('ui.')) localStorage.removeItem(k)
+})
 await page.click('.settings-page-head button:has-text("Wróć")')
 await page.reload()
 await page.waitForSelector('text=Kompendium')
@@ -77,6 +92,28 @@ await page.click('.concept-item:has-text("Do kopii zapasowej")')
 await page.click('.pdf-lib-toggle')
 await page.waitForSelector('.pdflib-item:has-text("test")')
 console.log('✓ PDF odzyskany w bibliotece po imporcie')
+
+// własny typ i ustawienie wyglądu też wróciły
+await page.click('button[title="Ustawienia"]')
+await page.waitForSelector('.settings-page')
+await page.click('.settings-nav-item:has-text("Typy klocków")')
+await page.waitForSelector('.type-row')
+const typy = await page.evaluate(() =>
+  [...document.querySelectorAll('.type-row-name')].map((i) => i.value),
+)
+console.log(
+  `✓ typy odzyskane: ${typy.length} pozycji, własny „Aksjomat" ${
+    typy.includes('Aksjomat') ? 'jest' : 'BRAK!'
+  }`,
+)
+await page.reload()
+await page.waitForSelector('text=Kompendium')
+const deseń = await page.evaluate(() => document.documentElement.dataset.bg)
+console.log(
+  `✓ ustawienia wyglądu odzyskane: deseń tła = ${deseń} (${
+    deseń === 'kratka' ? 'ok' : 'BRAK!'
+  })`,
+)
 
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

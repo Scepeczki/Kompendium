@@ -15,7 +15,7 @@
 | Nazwa | Co to jest | Czym NIE jest |
 |---|---|---|
 | **Klocek** | Najmniejszy zbiór informacji uznany za jeden byt. Ma typ, nazwę, tagi i wersje. To podstawowa jednostka całego systemu. | Nie jest akapitem z książki ani „notatką" — jeden akapit autora może dać trzy klocki. |
-| **Typ klocka** | Definicja, Twierdzenie, Lemat, Przykład, Uwaga. Steruje kolorem i etykietą wszędzie w aplikacji. | Nie jest tagiem — tag opisuje dziedzinę, typ opisuje rolę logiczną. |
+| **Typ klocka** | Rola logiczna klocka: fabrycznie Definicja, Twierdzenie, Lemat, Przykład, Uwaga. Steruje barwą i etykietą wszędzie w aplikacji. **Lista typów jest danymi** — w Ustawieniach → Typy klocków można dodać własne (Aksjomat, Kontrprzykład…), przemianować, przemalować i schować. | Nie jest tagiem — tag opisuje dziedzinę, typ opisuje rolę logiczną. Nie jest „kafelkiem" ani „bloczkiem" — kafelek to klocek położony na mapie ścieżki. |
 | **Wersja** | Inne ujęcie **tego samego** klocka (np. „wg Rudina" obok „z wykładu"). Treść żyje wyłącznie w wersjach; stare są tylko do odczytu. | Nie służy do trzymania różnych bytów (język 1. i 2. rzędu to osobne klocki, nie wersje jednego). |
 | **Strona klocka** | Dodatkowa treść obok głównej — najczęściej „Dowód", ale nazwa jest dowolna. Strony są wspólne dla wszystkich wersji. | Nie jest osobnym klockiem ani wersją. |
 | **Strona główna** | Pierwsza strona klocka, domyślnie „Treść"; nazwę można zmienić (np. „Sformułowanie"). | — |
@@ -78,8 +78,9 @@ Te słowa padały wcześniej — zostawiamy je tu, żeby nie wracały jako zagad
 | **Tkanka łączna** | **Notatka** | Ta sama rzecz; w interfejsie od początku jest „Notatka". |
 | **Context-Lock** | **Źródło** (wycinek PDF) | Nazwa z pierwszej wizji; dziś źródłem bywa też klocek, więc szersze słowo pasuje lepiej. |
 | **Magazyn Atomowy / Poziom Przestrzenny** | **warstwa wiedzy / warstwa kompozycji** | Prościej i zgodnie z trójwarstwowym modelem z [VISION.md](VISION.md) §2. |
-| **Dowód** jako typ klocka | **Strona klocka** o nazwie „Dowód" | Dowód należy do twierdzenia, nie jest osobnym bytem obok niego. |
-| **Intuicja** jako typ klocka | **Notatka** w ścieżce | Intuicja jest sposobem opowiedzenia, nie osobnym bytem wiedzy. |
+| **Dowód** jako typ klocka | **Strona klocka** o nazwie „Dowód" | Dowód należy do twierdzenia, nie jest osobnym bytem obok niego. *Typ „Dowód" istnieje nadal, ale startuje schowany — można go odsłonić w Ustawieniach.* |
+| **Intuicja** jako typ klocka | **Notatka** w ścieżce | Intuicja jest sposobem opowiedzenia, nie osobnym bytem wiedzy. *Jak wyżej: typ zostaje, schowany.* |
+| **Bloczek**, „blok" o typie | **Typ klocka** | „Blok" mówi o wyglądzie w Skrypcie, a nie o roli logicznej. Kafelek to z kolei klocek położony na mapie ścieżki — trzy różne rzeczy. |
 
 ---
 

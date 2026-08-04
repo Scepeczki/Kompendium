@@ -10,6 +10,7 @@ import 'katex/dist/katex.min.css'
 import './index.css'
 import App from './App.tsx'
 import { initUiSettings } from './uiSettings'
+import { seedBlockTypes } from './db'
 
 // motyw: zapamiętany wybór albo preferencja systemowa
 const savedTheme = localStorage.getItem('ui.theme')
@@ -23,6 +24,10 @@ document.documentElement.dataset.theme =
 
 // zapamiętane ustawienia wyglądu tekstu (szerokość strony, interlinia, akapity)
 initUiSettings()
+
+// typy klocków są danymi — świeża baza musi dostać fabryczne, zanim
+// ktokolwiek o nie zapyta (widoki i tak czekają na dane z Dexie)
+seedBlockTypes()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

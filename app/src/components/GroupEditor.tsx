@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { BLOCK_TYPE_LABELS, BLOCK_TYPES, type BlockType } from '../types'
+import { type BlockType } from '../types'
+import { useBlockTypes } from '../blockTypes'
 
 interface Props {
   name: string
@@ -18,6 +19,7 @@ export function GroupEditor({
   onChangeType,
   onClose,
 }: Props) {
+  const typy = useBlockTypes()
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', h)
@@ -55,15 +57,14 @@ export function GroupEditor({
               >
                 Grupa
               </button>
-              {BLOCK_TYPES.map((t) => (
+              {typy.choices.map((t) => (
                 <button
-                  key={t}
-                  className={`btn group-type-btn type-border-${t} ${
-                    type === t ? 'btn-active' : ''
-                  }`}
-                  onClick={() => onChangeType(t)}
+                  key={t.id}
+                  className={`btn group-type-btn ${type === t.id ? 'btn-active' : ''}`}
+                  style={{ borderLeftColor: t.color }}
+                  onClick={() => onChangeType(t.id)}
                 >
-                  {BLOCK_TYPE_LABELS[t]}
+                  {t.label}
                 </button>
               ))}
             </div>

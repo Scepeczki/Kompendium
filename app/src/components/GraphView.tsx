@@ -12,7 +12,8 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { extractLinks } from '../markdown'
-import { BLOCK_TYPE_LABELS, type BlockType } from '../types'
+import { useBlockTypes } from '../blockTypes'
+import type { BlockType } from '../types'
 
 interface GraphNode extends SimulationNodeDatum {
   id: string
@@ -27,18 +28,9 @@ interface Props {
   onOpen: (id: string) => void
 }
 
-const TYPE_COLORS: Record<BlockType, string> = {
-  definicja: '#31619e',
-  twierdzenie: '#6d4a9e',
-  lemat: '#8a5fb0',
-  dowod: '#6b6b66',
-  przyklad: '#3d7a52',
-  uwaga: '#a9742c',
-  intuicja: '#b05575',
-}
-
 /** Graf powiązań: węzły = pojęcia, krawędzie = wiki-linki w bieżących wersjach. */
 export function GraphView({ onOpen }: Props) {
+  const typy = useBlockTypes()
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
 
@@ -219,10 +211,10 @@ export function GraphView({ onOpen }: Props) {
               >
                 <circle
                   r={7 + Math.min(6, n.degree * 1.5)}
-                  fill={TYPE_COLORS[n.type]}
+                  fill={typy.def(n.type).color}
                 >
                   <title>
-                    {BLOCK_TYPE_LABELS[n.type]}: {n.name}
+                    {typy.label(n.type)}: {n.name}
                   </title>
                 </circle>
                 <text className="graph-label" y={7 + Math.min(6, n.degree * 1.5) + 13}>
@@ -234,10 +226,10 @@ export function GraphView({ onOpen }: Props) {
         </svg>
       )}
       <div className="graph-legend">
-        {(Object.keys(TYPE_COLORS) as BlockType[]).map((t) => (
-          <span key={t} className="graph-legend-item">
-            <span className="graph-legend-dot" style={{ background: TYPE_COLORS[t] }} />
-            {BLOCK_TYPE_LABELS[t]}
+        {typy.choices.map((t) => (
+          <span key={t.id} className="graph-legend-item">
+            <span className="graph-legend-dot" style={{ background: t.color }} />
+            {t.label}
           </span>
         ))}
       </div>

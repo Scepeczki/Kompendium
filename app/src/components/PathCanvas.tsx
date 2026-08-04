@@ -50,9 +50,6 @@ import { Outline, outlineId, type OutlineItem } from './Outline'
 import { ConceptPicker } from './ConceptPicker'
 import { GroupEditor } from './GroupEditor'
 import {
-  BLOCK_TYPE_LABELS,
-  BLOCK_TYPE_SHORT,
-  BLOCK_TYPES,
   RELATION_LABELS,
   isSymmetricRelation,
   type BlockType,
@@ -60,6 +57,7 @@ import {
   type PathNode,
   type SourceRef,
 } from '../types'
+import { useBlockTypes } from '../blockTypes'
 
 const MIME = 'text/x-kompendium'
 /** Przeciąganie segmentów w trybie liniowym. */
@@ -196,6 +194,7 @@ const NodeBody = memo(function NodeBody({
 
 function BlockNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
+  const typy = useBlockTypes()
   const conceptId = data.conceptId as string
   const versionId = (data.versionId as string | null) ?? null
   const subpageId = (data.subpageId as string | null) ?? null
@@ -229,8 +228,13 @@ function BlockNode({ id, data, selected }: NodeProps) {
     <div className={`path-node ${selected ? 'selected' : ''}`}>
       <Handle type="target" position={Position.Top} />
       <header className="path-node-head">
-        <span className={`type-mini type-${concept.type}`} title={BLOCK_TYPE_LABELS[concept.type]}>
-          {BLOCK_TYPE_SHORT[concept.type]}
+        <span
+          className="type-mini"
+          data-typ={concept.type}
+          style={typy.style(concept.type)}
+          title={typy.label(concept.type)}
+        >
+          {typy.short(concept.type)}
         </span>
         <span className="path-node-name">{concept.name}</span>
         <button
@@ -703,6 +707,7 @@ function GroupMember({
   versionId: string | null
 }) {
   const ctx = useContext(CanvasCtx)
+  const typy = useBlockTypes()
   const concept = useLiveQuery(() => db.concepts.get(conceptId), [conceptId])
   const versions =
     useLiveQuery(
@@ -717,8 +722,8 @@ function GroupMember({
   return (
     <div className="group-member">
       <div className="group-member-head">
-        <span className={`type-mini type-${concept.type}`}>
-          {BLOCK_TYPE_SHORT[concept.type]}
+        <span className="type-mini" data-typ={concept.type} style={typy.style(concept.type)}>
+          {typy.short(concept.type)}
         </span>
         <span className="group-member-name">{concept.name}</span>
         <select
@@ -751,6 +756,7 @@ function GroupMember({
  *  ścieżce. W bazie to nadal osobne klocki — grupa jest tylko formą pokazania. */
 function FusionNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
+  const typy = useBlockTypes()
   const parts = (data.parts as { conceptId: string; versionId: string | null }[]) ?? []
   const type = (data.type as BlockType | undefined) ?? ''
   return (
@@ -758,15 +764,17 @@ function FusionNode({ id, data, selected }: NodeProps) {
       <Handle type="target" position={Position.Top} />
       <header className="path-node-head group-head">
         <select
-          className={`fusion-type nodrag ${type ? `type-${type}` : ''}`}
+          className="fusion-type nodrag"
+          data-typ={type || undefined}
+          style={type ? typy.style(type) : undefined}
           value={type}
           title="Czym jest grupa jako całość — wygląda wtedy jak zwykły blok tego typu"
           onChange={(e) => ctx.updateData(id, { type: e.target.value || undefined })}
         >
           <option value="">GRUPA</option>
-          {BLOCK_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {BLOCK_TYPE_SHORT[t]}
+          {typy.choices.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.short}
             </option>
           ))}
         </select>

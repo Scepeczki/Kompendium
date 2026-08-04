@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
-import { BLOCK_TYPE_SHORT, type Concept } from '../types'
+import { type Concept } from '../types'
+import { useBlockTypes } from '../blockTypes'
 
 interface Props {
   title: string
@@ -14,6 +15,7 @@ interface Props {
 /** Okno wyboru klocka — używane przy wskazywaniu źródła-klocka
  *  i przy dodawaniu relacji między pojęciami. */
 export function ConceptPicker({ title, excludeIds = [], onPick, onClose }: Props) {
+  const typy = useBlockTypes()
   const [q, setQ] = useState('')
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
 
@@ -53,8 +55,8 @@ export function ConceptPicker({ title, excludeIds = [], onPick, onClose }: Props
           {found.length === 0 && <p className="pdflib-empty">Nic nie pasuje.</p>}
           {found.map((c) => (
             <button key={c.id} className="picker-item" onClick={() => onPick(c)}>
-              <span className={`type-mini type-${c.type}`}>
-                {BLOCK_TYPE_SHORT[c.type]}
+              <span className="type-mini" data-typ={c.type} style={typy.style(c.type)}>
+                {typy.short(c.type)}
               </span>
               <span className="picker-item-name">{c.name}</span>
             </button>

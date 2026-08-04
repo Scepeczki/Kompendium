@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { exportBackup, importBackup } from '../backup'
 import {
   BG_PATTERN_OPTIONS,
-  BLOCK_COLOR_DEFAULTS,
   BLOCK_TINT_MAX,
   BLOCK_TINT_MIN,
   CONTENT_FONT_OPTIONS,
@@ -19,7 +18,6 @@ import {
   TREE_SIZE_MAX,
   TREE_SIZE_MIN,
   getBgPattern,
-  getBlockColor,
   getBlockTint,
   getContentFont,
   getIndOffset,
@@ -30,10 +28,7 @@ import {
   getPageWidthDefault,
   getParaSpacing,
   getTreeSize,
-  hasCustomBlockColors,
-  resetBlockColors,
   setBgPattern,
-  setBlockColor,
   setBlockTint,
   setContentFont,
   setIndOffset,
@@ -45,18 +40,18 @@ import {
   setParaSpacing,
   setTreeSize,
 } from '../uiSettings'
-import { BLOCK_TYPE_LABELS, type BlockType } from '../types'
+import { TypeEditor } from './TypeEditor'
 
 interface Props {
   onClose: () => void
 }
 
-type Section = 'wyglad' | 'tekst' | 'bloki' | 'dane'
+type Section = 'wyglad' | 'tekst' | 'typy' | 'dane'
 
 const SECTIONS: { id: Section; label: string; hint: string }[] = [
   { id: 'wyglad', label: 'Wygląd', hint: 'Motyw, wielkość list, szerokość strony' },
   { id: 'tekst', label: 'Tekst', hint: 'Odstępy, wzory, linijka' },
-  { id: 'bloki', label: 'Bloki', hint: 'Kolory typów i nasycenie tła' },
+  { id: 'typy', label: 'Typy klocków', hint: 'Nazwy, skróty, barwy, własne typy' },
   { id: 'dane', label: 'Dane', hint: 'Kopia zapasowa i gdzie to wszystko siedzi' },
 ]
 
@@ -85,7 +80,6 @@ export function SettingsPage({ onClose }: Props) {
   const [mGap, setMGap] = useState(getMathGap)
   const [font, setFont] = useState(getContentFont)
   const [bg, setBg] = useState(getBgPattern)
-  const [colorTick, setColorTick] = useState(0)
 
   // linijka nad edytorem zmienia te same ustawienia — trzymaj suwaki w zgodzie
   useEffect(() => {
@@ -380,39 +374,17 @@ export function SettingsPage({ onClose }: Props) {
             </>
           )}
 
-          {section === 'bloki' && (
+          {section === 'typy' && (
             <>
               <div className="settings-row">
-                <span className="settings-label">
-                  Kolory typów
-                  {hasCustomBlockColors() && (
-                    <button
-                      className="btn settings-reset"
-                      title="Przywróć fabryczne kolory typów"
-                      onClick={() => {
-                        resetBlockColors()
-                        setColorTick((t) => t + 1)
-                      }}
-                    >
-                      Przywróć
-                    </button>
-                  )}
-                </span>
-                <div className="settings-colors" key={colorTick}>
-                  {(Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]).map((t) => (
-                    <label key={t} className="settings-color">
-                      <input
-                        type="color"
-                        value={getBlockColor(t)}
-                        onChange={(e) => {
-                          setBlockColor(t, e.target.value)
-                          setColorTick((x) => x + 1)
-                        }}
-                      />
-                      <span>{BLOCK_TYPE_LABELS[t]}</span>
-                    </label>
-                  ))}
-                </div>
+                <span className="settings-label">Typy klocków</span>
+                <TypeEditor />
+                <p className="settings-hint">
+                  Typy są zapisane w bazie, więc jadą razem z kopią zapasową.
+                  Fabrycznych nie da się usunąć (żeby nie zostać bez ani jednego),
+                  ale można je przemianować, przemalować i schować z listy wyboru —
+                  klocki, które już ich używają, działają dalej.
+                </p>
               </div>
 
               <div className="settings-row">

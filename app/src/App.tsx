@@ -99,6 +99,9 @@ export default function App() {
     setSelecting(false)
     setShowGraph(false)
     setOpenPathId(null)
+    // Ustawienia zajmują cały środkowy panel, więc wybór czegokolwiek
+    // z listy musi je zamknąć — inaczej klik w klocek nic nie robi.
+    setShowSettings(false)
   }
 
   const openPath = (id: string) => {
@@ -106,6 +109,7 @@ export default function App() {
     setReturnPathId(null)
     setShowGraph(false)
     setSelecting(false)
+    setShowSettings(false)
   }
 
   const closeConcept = () => {
@@ -160,7 +164,10 @@ export default function App() {
         selectedId={selectedId}
         onSelect={selectConcept}
         graphActive={showGraph}
-        onToggleGraph={() => setShowGraph((g) => !g)}
+        onToggleGraph={() => {
+          setShowGraph((g) => !g)
+          setShowSettings(false)
+        }}
         openPathId={openPathId}
         onOpenPath={openPath}
         onOpenSettings={() => setShowSettings(true)}

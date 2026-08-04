@@ -2,21 +2,6 @@
  *  Każda zmiana wysyła zdarzenie 'komp:ui', dzięki czemu otwarte kontrolki
  *  (linijka nad edytorem, suwak w Ustawieniach) trzymają się w synchronizacji. */
 
-import type { BlockType } from './types'
-
-/** Kolory typów klocków — te same wartości co w index.css (motyw jasny).
- *  Własny kolor nadpisuje oba motywy; odcienie tła bloków liczone są z niego
- *  automatycznie, więc wystarczy jedna barwa na typ. */
-export const BLOCK_COLOR_DEFAULTS: Record<BlockType, string> = {
-  definicja: '#31619e',
-  twierdzenie: '#6d4a9e',
-  lemat: '#8a5fb0',
-  dowod: '#6b6b66',
-  przyklad: '#3d7a52',
-  uwaga: '#a9742c',
-  intuicja: '#b05575',
-}
-
 /** Nasycenie tła bloków (procenty koloru typu). */
 export const BLOCK_TINT_DEFAULT = 14
 export const BLOCK_TINT_MIN = 0
@@ -227,35 +212,6 @@ const setBgPatternAttr = (v: BgPattern) => {
   else document.documentElement.dataset.bg = v
 }
 
-const colorKey = (t: BlockType) => `ui.color.${t}`
-
-export function getBlockColor(t: BlockType): string {
-  const v = localStorage.getItem(colorKey(t))
-  return v && /^#[0-9a-f]{6}$/i.test(v) ? v : BLOCK_COLOR_DEFAULTS[t]
-}
-
-export function setBlockColor(t: BlockType, hex: string): void {
-  document.documentElement.style.setProperty(`--c-${t}`, hex)
-  localStorage.setItem(colorKey(t), hex)
-  notify()
-}
-
-/** Przywraca fabryczne kolory: usuwa nadpisania, więc wracają też wersje
- *  kolorów dla motywu ciemnego zdefiniowane w arkuszu stylów. */
-export function resetBlockColors(): void {
-  for (const t of Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]) {
-    document.documentElement.style.removeProperty(`--c-${t}`)
-    localStorage.removeItem(colorKey(t))
-  }
-  notify()
-}
-
-export function hasCustomBlockColors(): boolean {
-  return (Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]).some(
-    (t) => localStorage.getItem(colorKey(t)) !== null,
-  )
-}
-
 export function getTreeSize(): number {
   return readNum(
     'ui.treeSize',
@@ -298,8 +254,6 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--tree-size', `${getTreeSize()}px`)
   setContentFontVar(getContentFont())
   setBgPatternAttr(getBgPattern())
-  for (const t of Object.keys(BLOCK_COLOR_DEFAULTS) as BlockType[]) {
-    const v = localStorage.getItem(colorKey(t))
-    if (v) document.documentElement.style.setProperty(`--c-${t}`, v)
-  }
+  // barwy typów przeniosły się do bazy (tabela blockTypes) — nie ma tu już
+  // czego nakładać; dawne wpisy ui.color.* przepisała migracja do v7
 }

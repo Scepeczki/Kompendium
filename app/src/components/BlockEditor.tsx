@@ -24,15 +24,13 @@ import {
 } from '../db'
 import { extractLinks, renderMarkdown } from '../markdown'
 import {
-  BLOCK_TYPE_LABELS,
-  BLOCK_TYPE_SHORT,
-  BLOCK_TYPES,
   isPdfSource,
   type BlockType,
   type BlockVersion,
   type Concept,
   type SourceRef,
 } from '../types'
+import { useBlockTypes } from '../blockTypes'
 
 type ViewMode = 'wizualny' | 'kod' | 'podzial'
 
@@ -65,6 +63,7 @@ export function BlockEditor({
   onJumpToSource,
   onOpenConcept,
 }: Props) {
+  const typy = useBlockTypes()
   const [view, setView] = useState<ViewMode>(() => {
     const v = localStorage.getItem('ui.editorView')
     return v === 'kod' || v === 'podzial' ? v : 'wizualny'
@@ -426,19 +425,23 @@ export function BlockEditor({
       <header className="editor-header">
         <div className="editor-title-row">
           <select
-            className={`input type-select type-${concept.type}`}
+            className="input type-select"
+            data-typ={concept.type}
+            style={typy.style(concept.type)}
             value={concept.type}
             onChange={(e) =>
               updateConcept(concept.id, { type: e.target.value as BlockType })
             }
           >
-            {BLOCK_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {BLOCK_TYPE_LABELS[t]}
+            {typy.choices.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
               </option>
             ))}
-            {!BLOCK_TYPES.includes(concept.type) && (
-              <option value={concept.type}>{BLOCK_TYPE_LABELS[concept.type]}</option>
+            {/* typ schowany albo skasowany nadal musi dać się pokazać,
+                inaczej wybór skoczyłby na pierwszy z brzegu */}
+            {!typy.choices.some((t) => t.id === concept.type) && (
+              <option value={concept.type}>{typy.label(concept.type)}</option>
             )}
           </select>
           <input
@@ -786,8 +789,8 @@ export function BlockEditor({
               title={`Otwórz „${c.name}"`}
               onClick={() => onOpenConcept(c.id)}
             >
-              <span className={`type-mini type-${c.type}`}>
-                {BLOCK_TYPE_SHORT[c.type]}
+              <span className="type-mini" data-typ={c.type} style={typy.style(c.type)}>
+                {typy.short(c.type)}
               </span>
               {c.name}
             </button>
