@@ -381,9 +381,10 @@ export function SettingsPage({ onClose }: Props) {
                 <TypeEditor />
                 <p className="settings-hint">
                   Typy są zapisane w bazie, więc jadą razem z kopią zapasową.
-                  Fabrycznych nie da się usunąć (żeby nie zostać bez ani jednego),
-                  ale można je przemianować, przemalować i schować z listy wyboru —
-                  klocki, które już ich używają, działają dalej.
+                  Każdy da się przemianować, przemalować, schować z listy wyboru
+                  i usunąć — usunięcie pyta, ile klocków zmieni typ, i przepisuje
+                  je na inny, więc nic nie ginie. Musi zostać przynajmniej jeden
+                  typ; skasowane fabryczne wraca przyciskiem „Przywróć fabryczne".
                 </p>
               </div>
 

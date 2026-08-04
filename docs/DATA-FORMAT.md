@@ -35,8 +35,8 @@ BlockTypeDef
 ├─ short     „DEF"                ← plakietka w listach i na kafelkach
 ├─ color     „#31619e"
 ├─ order
-├─ builtin?  true = fabryczny: można przemianować i przemalować,
-│                   ale nie usunąć (żeby nie zostać bez ani jednego)
+├─ builtin?  true = fabryczny, czyli taki, który program potrafi
+│                   odtworzyć po skasowaniu („Przywróć fabryczne")
 └─ hidden?   true = nie proponuj przy nowym klocku; istniejące działają
 ```
 

@@ -2806,8 +2806,9 @@ button.version-pill.new {
   cursor: default;
 }
 
-.type-add {
-  align-self: flex-start;
+.type-actions {
+  display: flex;
+  gap: 8px;
   margin-top: 4px;
 }
 

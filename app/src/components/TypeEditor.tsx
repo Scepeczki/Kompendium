@@ -3,9 +3,11 @@ import {
   addBlockType,
   countBlocksOfType,
   deleteBlockType,
+  restoreBuiltinBlockTypes,
   updateBlockType,
 } from '../db'
 import { useBlockTypes } from '../blockTypes'
+import { BUILTIN_BLOCK_TYPES } from '../types'
 
 /** Edytor typów klocków.
  *
@@ -45,8 +47,14 @@ export function TypeEditor() {
             ile === 1 ? 'klocek zmieni typ' : 'klocków zmieni typ'
           } na „${zamiennik.label}". Treść i wersje zostają nietknięte.`
     if (!window.confirm(pytanie)) return
+    setBlad(null)
     await deleteBlockType(id, zamiennik.id)
   }
+
+  // które fabryczne typy zostały skasowane — tylko wtedy proponujemy powrót
+  const brakujeFabrycznych = BUILTIN_BLOCK_TYPES.filter(
+    (b) => !typy.all.some((t) => t.id === b.id),
+  ).length
 
   return (
     <div className="type-editor">
@@ -86,11 +94,11 @@ export function TypeEditor() {
           <button
             className="type-row-del"
             title={
-              t.builtin
-                ? 'Typ fabryczny — można go przemianować i schować, ale nie usunąć'
+              typy.all.length <= 1
+                ? 'To ostatni typ — musi zostać przynajmniej jeden'
                 : `Usuń typ „${t.label}"`
             }
-            disabled={t.builtin}
+            disabled={typy.all.length <= 1}
             onClick={() => usun(t.id, t.label)}
           >
             ×
@@ -132,9 +140,20 @@ export function TypeEditor() {
           </button>
         </div>
       ) : (
-        <button className="btn type-add" onClick={() => setNowy(true)}>
-          + Nowy typ
-        </button>
+        <div className="type-actions">
+          <button className="btn type-add" onClick={() => setNowy(true)}>
+            + Nowy typ
+          </button>
+          {brakujeFabrycznych > 0 && (
+            <button
+              className="btn"
+              title="Dopisuje z powrotem skasowane typy fabryczne — istniejących nie rusza"
+              onClick={() => restoreBuiltinBlockTypes()}
+            >
+              Przywróć fabryczne ({brakujeFabrycznych})
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

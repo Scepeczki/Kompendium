@@ -53,8 +53,8 @@ const doWyboru = await page.evaluate(
 )
 check('wszystkie typy fabryczne widoczne w edytorze', wiersze === 7, `${wiersze}`)
 check('pięć typów proponowanych przy klocku', doWyboru === 5, `${doWyboru}`)
-check('typów fabrycznych nie da się usunąć',
-  (await page.locator('.type-row-del:disabled').count()) === 7)
+check('każdy typ da się usunąć, także fabryczny',
+  (await page.locator('.type-row-del:disabled').count()) === 0)
 
 // 3. zmiana nazwy typu przechodzi do całego programu
 await page.fill('.type-row:has(input[value="Definicja"]) .type-row-name', 'Określenie')
@@ -72,8 +72,6 @@ await page.fill('.type-row-nowy .type-row-abbr', 'AKS')
 await page.click('.type-row-nowy button:has-text("Dodaj")')
 await page.waitForTimeout(400)
 check('własny typ dopisany', (await page.locator('.type-row').count()) === 8)
-check('własny typ da się usunąć',
-  (await page.locator('.type-row-del:not(:disabled)').count()) === 1)
 
 // 5. własny typ jest do wyboru przy klocku i barwi plakietkę
 await page.click('.settings-page-head button:has-text("Wróć")')
@@ -118,6 +116,27 @@ await page.waitForTimeout(500)
 const poUsunieciu = await page.locator('.concept-item .type-mini').textContent()
 check('klocek dostał inny typ, nie zniknął', poUsunieciu !== 'AKS' && poUsunieciu.length > 0,
   poUsunieciu)
+
+// 7a. typ fabryczny też da się usunąć — i wraca przyciskiem
+await doTypow()
+page.once('dialog', (d) => d.accept())
+await page.click('.type-row:has(input[value="Intuicja"]) .type-row-del')
+await page.waitForTimeout(600)
+const poKasacjiFabrycznego = await page.locator('.type-row').count()
+check('typ fabryczny daje się usunąć', poKasacjiFabrycznego === 6, `${poKasacjiFabrycznego}`)
+check('pojawia się „Przywróć fabryczne"',
+  (await page.locator('button:has-text("Przywróć fabryczne")').count()) === 1)
+await page.click('button:has-text("Przywróć fabryczne")')
+await page.waitForTimeout(600)
+const poPrzywroceniu = await page.evaluate(() =>
+  [...document.querySelectorAll('.type-row-name')].map((i) => i.value),
+)
+check('fabryczny wraca, a przemianowany zostaje przemianowany',
+  poPrzywroceniu.includes('Intuicja') &&
+    poPrzywroceniu.includes('Określenie') &&
+    !poPrzywroceniu.includes('Definicja'),
+  poPrzywroceniu.join(' · '))
+await page.click('.settings-page-head button:has-text("Wróć")')
 
 // 8. wszystko przeżywa przeładowanie
 await page.reload()

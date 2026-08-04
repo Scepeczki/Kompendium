@@ -18,8 +18,9 @@ export interface BlockTypeDef {
   short: string
   color: string
   order: number
-  /** Wbudowany: można go przemianować i przemalować, ale nie usunąć —
-   *  inaczej łatwo o bazę bez ani jednego typu. */
+  /** Fabryczny — czyli taki, który program potrafi odtworzyć po skasowaniu
+   *  („Przywróć fabryczne"). Nie chroni przed usunięciem: to typ użytkownika,
+   *  a nie własność programu. */
   builtin?: boolean
   /** Schowany z listy wyboru. Istniejące klocki takiego typu działają
    *  normalnie; po prostu nie proponujemy go przy nowych. */

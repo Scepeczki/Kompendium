@@ -178,15 +178,27 @@ export async function countBlocksOfType(id: string): Promise<number> {
   return db.concepts.where('type').equals(id).count()
 }
 
-/** Usuwa typ. Klocki, które go używały, dostają `zamiennik` — nigdy nie
- *  zostają z typem, którego nie ma, bo wtedy plakietka pokazuje surowe id. */
+/** Usuwa typ — także fabryczny. Klocki, które go używały, dostają `zamiennik`,
+ *  więc nigdy nie zostają z typem, którego nie ma (plakietka pokazywałaby
+ *  wtedy surowe id). Jedyna granica: musi zostać przynajmniej jeden typ.
+ *  Skasowane fabryczne wraca `restoreBuiltinBlockTypes()`. */
 export async function deleteBlockType(id: string, zamiennik: string): Promise<void> {
-  const def = await db.blockTypes.get(id)
-  if (!def || def.builtin) return
+  if (id === zamiennik) return
+  const zostanie = await db.blockTypes.count()
+  if (zostanie <= 1) return
   await db.transaction('rw', [db.blockTypes, db.concepts], async () => {
     await db.concepts.where('type').equals(id).modify({ type: zamiennik })
     await db.blockTypes.delete(id)
   })
+}
+
+/** Dopisuje z powrotem te fabryczne typy, których w tabeli nie ma.
+ *  Istniejących nie rusza — przemianowanej „Definicji" nikt nie cofa. */
+export async function restoreBuiltinBlockTypes(): Promise<number> {
+  const sa = new Set((await db.blockTypes.toArray()).map((t) => t.id))
+  const brakuje = BUILTIN_BLOCK_TYPES.filter((t) => !sa.has(t.id))
+  if (brakuje.length) await db.blockTypes.bulkAdd(brakuje.map((t) => ({ ...t })))
+  return brakuje.length
 }
 
 /** Kolejność typów po przeciągnięciu na liście w Ustawieniach. */
