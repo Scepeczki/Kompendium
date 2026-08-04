@@ -1,7 +1,7 @@
 ﻿// Test: wspólna kolejność folderów i klocków, prowadnice, grupy źródeł.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
-import { nowyFolder } from './lib.mjs'
+import { nowyFolder, podaj } from './lib.mjs'
 
 function makePdf() {
   const objs = []
@@ -95,6 +95,7 @@ await page.waitForSelector('.source-chip')
 answers.length = 0
 answers.push('Rysunki')
 await page.click('button[title="Nowa grupa źródeł"]')
+await podaj(page, 'Rysunki')
 await page.waitForSelector('.source-group-head:has-text("Rysunki")')
 // przeciągnij chip do grupy
 await page.dragAndDrop('.source-chip', '.source-group-head:has-text("Rysunki")')

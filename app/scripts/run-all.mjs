@@ -6,10 +6,13 @@
  *  i przez to milczała o zepsutych testach. */
 
 import { spawnSync } from 'node:child_process'
-import { readdirSync, writeFileSync, mkdirSync } from 'node:fs'
+import { readdirSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
 
 const dir = new URL('.', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
 const logi = `${dir}../.test-logs`
+// stare logi precz — inaczej po naprawie zostają ślady po poprzednim biegu
+// i człowiek czyta błąd, którego już nie ma
+rmSync(logi, { recursive: true, force: true })
 mkdirSync(logi, { recursive: true })
 
 const pliki = readdirSync(dir)

@@ -1,7 +1,7 @@
 ﻿// Test drobnych ulepszeń: autofokus nazwy, akcje na liście, autouzupełnianie [[,
 // Escape, szukajka ze ścieżkami, licznik.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, potwierdz } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -79,9 +79,9 @@ await page.waitForFunction(() => !document.querySelector('.settings-page'))
 console.log('✓ Escape zamyka ustawienia')
 
 // 7. usuwanie z listy
-answers.push('')
 await page.hover('.concept-item:has-text("Ciąg zbieżny")')
 await page.click('.concept-item:has-text("Ciąg zbieżny") .folder-action[title*="Usuń"]')
+await potwierdz(page)
 await page.waitForFunction(
   () => ![...document.querySelectorAll('.concept-name')].some((e) => e.textContent === 'Ciąg zbieżny'),
 )

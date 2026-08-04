@@ -1,7 +1,7 @@
 ﻿// Test grupowania klocków w ścieżce: kilka klocków pod jedną nazwą, ale nadal
 // jako osobne pełne klocki (własny wybór wersji), w jednej ramce.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -28,7 +28,8 @@ const mk = async (name, content, twoVersions = false) => {
   await page.waitForTimeout(400)
   if (twoVersions) {
     await page.click('.version-pill.new')
-    await page.waitForTimeout(700)
+    await podaj(page, 'wg Ksiazki B')
+    await page.waitForTimeout(500)
   }
   await page.click('.btn-close[title*="Zamknij klocek"]')
 }
@@ -53,6 +54,7 @@ await page.keyboard.down('Control')
 await page.click('.react-flow__node:has-text("Element")')
 await page.keyboard.up('Control')
 await page.click('button:has-text("⧉ Scal")')
+await podaj(page, 'Poczatki teorii mnogosci')
 await page.waitForSelector('.path-node-group')
 await page.waitForTimeout(600)
 

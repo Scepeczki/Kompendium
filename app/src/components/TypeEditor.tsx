@@ -8,6 +8,7 @@ import {
 } from '../db'
 import { useBlockTypes } from '../blockTypes'
 import { BUILTIN_BLOCK_TYPES } from '../types'
+import { useDialogs } from './Dialogs'
 
 /** Edytor typów klocków.
  *
@@ -17,6 +18,7 @@ import { BUILTIN_BLOCK_TYPES } from '../types'
  *  i chowa. Wszystko ląduje w bazie, więc jedzie też w kopii zapasowej. */
 export function TypeEditor() {
   const typy = useBlockTypes()
+  const dlg = useDialogs()
   const [nowy, setNowy] = useState(false)
   const [nazwa, setNazwa] = useState('')
   const [skrot, setSkrot] = useState('')
@@ -40,13 +42,17 @@ export function TypeEditor() {
       setBlad('To ostatni typ — musi zostać przynajmniej jeden.')
       return
     }
-    const pytanie =
-      ile === 0
-        ? `Usunąć typ „${label}"? Nie używa go żaden klocek.`
-        : `Usunąć typ „${label}"? ${ile} ${
-            ile === 1 ? 'klocek zmieni typ' : 'klocków zmieni typ'
-          } na „${zamiennik.label}". Treść i wersje zostają nietknięte.`
-    if (!window.confirm(pytanie)) return
+    const ok = await dlg.confirm({
+      title: `Usunąć typ „${label}"?`,
+      message:
+        ile === 0
+          ? 'Nie używa go żaden klocek.'
+          : `${ile} ${ile === 1 ? 'klocek dostanie typ' : 'klocków dostanie typ'} ` +
+            `„${zamiennik.label}". Treść i wersje zostają nietknięte.`,
+      confirmLabel: 'Usuń typ',
+      danger: true,
+    })
+    if (!ok) return
     setBlad(null)
     await deleteBlockType(id, zamiennik.id)
   }

@@ -1,7 +1,7 @@
 ﻿// Test spisu treści ścieżki: lista rozdziałów, skok po kliknięciu,
 // podświetlenie bieżącego rozdziału i chowanie panelu.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -42,15 +42,15 @@ await page.waitForSelector('.linear-append')
 
 // rozdział → klocek → podrozdział → klocek → rozdział → klocek
 await page.click('.linear-append button:has-text("+ § Rozdział")')
-await page.waitForTimeout(400)
+await podaj(page, 'Rozdział I: Liczby')
 await page.dragAndDrop('.concept-item:has-text("Alfa")', '.linear-append')
 await page.waitForTimeout(400)
 await page.click('.linear-append button:has-text("+ §§ Podrozdział")')
-await page.waitForTimeout(400)
+await podaj(page, 'Podrozdział 1.1: Kresy')
 await page.dragAndDrop('.concept-item:has-text("Beta")', '.linear-append')
 await page.waitForTimeout(400)
 await page.click('.linear-append button:has-text("+ § Rozdział")')
-await page.waitForTimeout(400)
+await podaj(page, 'Rozdział II: Ciągi')
 await page.dragAndDrop('.concept-item:has-text("Gamma")', '.linear-append')
 await page.waitForTimeout(600)
 

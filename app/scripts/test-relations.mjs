@@ -3,6 +3,7 @@
 // (Interfejs tworzenia powiązań jest przebudowywany — panel w edytorze
 // został wycofany, docelowo ma to być osobna mapa pojęć.)
 import { chromium } from 'playwright'
+import { podaj, potwierdz } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -24,7 +25,8 @@ const mk = async (name, twoVersions = false) => {
   await page.waitForTimeout(400)
   if (twoVersions) {
     await page.click('.version-pill.new')
-    await page.waitForTimeout(700)
+    await podaj(page, 'druga')
+    await page.waitForTimeout(400)
   }
   await page.click('.btn-close[title*="Zamknij klocek"]')
 }
@@ -112,7 +114,8 @@ console.log(`✓ kopia zapasowa pobrana: ${zip.length} B`)
 // 2. usunięcie klocka kasuje jego powiązania (a nie zostawia sierot)
 await page.click('.concept-item:has-text("Sygnatura")')
 await page.waitForSelector('.editor-name')
-await page.click('button:has-text("Usuń")')
+await page.click('.editor-header button:has-text("Usuń")')
+await potwierdz(page)
 await page.waitForTimeout(900)
 const after = await page.evaluate(async () => {
   const req = indexedDB.open('kompendium')

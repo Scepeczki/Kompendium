@@ -1,7 +1,7 @@
 ﻿// Test nazwy strony głównej klocka oraz źródeł wspólnych dla wszystkich stron:
 // źródło można podpiąć z dowolnej strony i nie zmienia się przy ich przełączaniu.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -27,7 +27,7 @@ await page.waitForTimeout(500)
 
 // 1. zmiana nazwy strony głównej
 await page.click('.subpage-item.active button[title*="Zmień nazwę strony głównej"]')
-await page.waitForTimeout(600)
+await podaj(page, 'Sformułowanie')
 const railName = await page.textContent('.subpage-item.active .subpage-name')
 console.log(`✓ nazwa strony głównej zmieniona: „${railName}" (oczekiwane „Sformułowanie")`)
 
@@ -45,6 +45,7 @@ console.log(`✓ nazwa zapisana w bazie: „${stored}"`)
 
 // 2. dodaj stronę „Dowód" i przełącz się na nią
 await page.click('.subpage-add')
+await podaj(page, 'Dowód')
 await page.waitForSelector('.subpage-item.active:has-text("Dowód")')
 await page.click('.rich-content .tiptap')
 await page.keyboard.type('Dowód indukcyjny.')

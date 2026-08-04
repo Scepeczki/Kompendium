@@ -2,7 +2,7 @@
 // z biblioteki oraz rozdziałów/podrozdziałów w ścieżce.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj, potwierdz } from './lib.mjs'
 
 // --- wielostronicowy PDF do testu przewijania ---
 function makePdf(pages = 6) {
@@ -119,7 +119,8 @@ const beforeCount = await page.locator('.pdflib-item').count()
 page.once('dialog', (d) => d.accept())
 await page.hover('.pdflib-item')
 await page.click('.pdflib-item button[title*="Usuń PDF"]')
-await page.waitForTimeout(700)
+await potwierdz(page)
+await page.waitForTimeout(500)
 const afterCount = await page.locator('.pdflib-item').count()
 console.log(
   `✓ usuwanie PDF-a z biblioteki: ${beforeCount} → ${afterCount} (${
@@ -138,13 +139,12 @@ const gone = await page.evaluate(async () => {
 console.log(`✓ PDF usunięty z bazy: pozostało ${gone} (oczekiwane 0)`)
 
 // ---------- rozdziały w ścieżce ----------
-const answers = ['Rozdział I: Podstawy', 'Podrozdział 1.1']
-page.on('dialog', (d) => d.accept(answers.shift() ?? 'X'))
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Ścieżka z rozdziałami")
 await page.waitForSelector('.path-canvas')
 
 await page.click('button:has-text("+ § Rozdział")')
+await podaj(page, 'Rozdział I: Podstawy')
 await page.waitForSelector('.path-node-heading')
 console.log('✓ rozdział dodany na mapie')
 
@@ -162,6 +162,7 @@ await page.click('.path-node-heading .heading-level button') // z powrotem na 1
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 await page.click('.linear-append button:has-text("+ §§ Podrozdział")')
+await podaj(page, 'Podrozdział 1.1')
 await page.waitForTimeout(700)
 const inLinear = await page.locator('.linear-content .script-heading-node').count()
 console.log(`✓ rozdziały w widoku Linia: ${inLinear} (oczekiwane 2)`)

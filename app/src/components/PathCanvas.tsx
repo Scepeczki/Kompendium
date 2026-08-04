@@ -58,6 +58,7 @@ import {
   type SourceRef,
 } from '../types'
 import { useBlockTypes } from '../blockTypes'
+import { useDialogs } from './Dialogs'
 
 const MIME = 'text/x-kompendium'
 /** Przeciąganie segmentów w trybie liniowym. */
@@ -860,6 +861,7 @@ interface Props {
 }
 
 function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) {
+  const dlg = useDialogs()
   const [name, setName] = useState('')
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
@@ -1094,7 +1096,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
 
   /** Scala wskazane kafelki (klocki i istniejące grupy) w jedną grupę,
    *  zachowując podaną kolejność. Klocki w bazie zostają nietknięte. */
-  const groupNodes = (orderedIds: string[]) => {
+  const groupNodes = async (orderedIds: string[]) => {
     const chosen = orderedIds
       .map((id) => rfNodes.find((n) => n.id === id))
       .filter((n): n is Node => !!n && (n.type === 'block' || n.type === 'fusion'))
@@ -1104,7 +1106,13 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     const existing = chosen.find((n) => n.type === 'fusion')
     const name = existing
       ? (existing.data.name as string)
-      : window.prompt('Nazwa grupy w tej ścieżce (np. „Kresy zbiorów"):')?.trim()
+      : await dlg.prompt({
+          title: 'Nazwa grupy',
+          message:
+            'Grupa istnieje tylko w tej ścieżce — klocki zostają osobnymi klockami.',
+          placeholder: 'np. Kresy zbiorów',
+          confirmLabel: 'Scal',
+        })
     if (!name) return
 
     const parts: { conceptId: string; versionId: string | null }[] = []
@@ -1194,10 +1202,10 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
   }
 
   /** Rozdział na mapie — nazwa od razu w oknie pytania (jak przy folderach). */
-  const addHeadingAt = (fx: number, fy: number, level: 1 | 2 | 3 = 1) => {
+  const addHeadingAt = async (fx: number, fy: number, level: 1 | 2 | 3 = 1) => {
     const label = level === 1 ? 'rozdziału' : level === 2 ? 'podrozdziału' : 'sekcji'
-    const text = window.prompt(`Nazwa ${label}:`)
-    if (!text?.trim()) return
+    const text = await dlg.prompt({ title: `Nazwa ${label}`, confirmLabel: 'Dodaj' })
+    if (!text) return
     setRfNodes((ns) => [
       ...ns,
       {
@@ -1383,14 +1391,14 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
   }
 
   /** Rozdział w widoku liniowym — wstawiany w łańcuch jak zwykły segment. */
-  const linearAddHeading = (
+  const linearAddHeading = async (
     level: 1 | 2 | 3,
     afterId: string | null,
     beforeId: string | null,
   ) => {
     const label = level === 1 ? 'rozdziału' : level === 2 ? 'podrozdziału' : 'sekcji'
-    const text = window.prompt(`Nazwa ${label}:`)
-    if (!text?.trim()) return
+    const text = await dlg.prompt({ title: `Nazwa ${label}`, confirmLabel: 'Dodaj' })
+    if (!text) return
     chainInsert(
       {
         id: crypto.randomUUID(),
@@ -1437,7 +1445,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     setNodeMenu({ sx: e.clientX, sy: e.clientY, nodeId: node.id, nodeType: node.type ?? '' })
   }
 
-  const handleNodeDoubleClick = (_: React.MouseEvent, node: Node) => {
+  const handleNodeDoubleClick = async (_: React.MouseEvent, node: Node) => {
     if (node.type === 'block') {
       onOpenConcept(node.data.conceptId as string)
     } else if (node.type === 'text' || node.type === 'comment') {
@@ -1445,8 +1453,11 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     } else if (node.type === 'fusion') {
       setEditingGroup(node.id)
     } else if (node.type === 'heading') {
-      const text = window.prompt('Nazwa rozdziału:', (node.data.text as string) ?? '')
-      if (text?.trim()) api.updateData(node.id, { text: text.trim() })
+      const text = await dlg.prompt({
+        title: 'Nazwa rozdziału',
+        value: (node.data.text as string) ?? '',
+      })
+      if (text) api.updateData(node.id, { text })
     }
   }
 
@@ -1711,13 +1722,13 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           onMoveSegment={moveSegment}
           onAddNote={linearAddNote}
           onRemove={removeSegmentHeal}
-          onEdit={(n) => {
+          onEdit={async (n) => {
             if (n.kind === 'block') onOpenConcept(n.conceptId)
             else if (n.kind === 'text' || n.kind === 'comment') setEditingNote(n.id)
             else if (n.kind === 'fusion') setEditingGroup(n.id)
             else if (n.kind === 'heading') {
-              const text = window.prompt('Nazwa rozdziału:', n.text)
-              if (text?.trim()) api.updateData(n.id, { text: text.trim() })
+              const text = await dlg.prompt({ title: 'Nazwa rozdziału', value: n.text })
+              if (text) api.updateData(n.id, { text })
             }
           }}
           onUnfuse={(id) => api.unfuse(id)}

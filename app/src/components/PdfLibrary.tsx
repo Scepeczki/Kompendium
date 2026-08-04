@@ -11,6 +11,7 @@ import {
 } from '../db'
 import { isPdfSource, type Folder, type PdfDoc } from '../types'
 import { Icon } from './Icon'
+import { useDialogs } from './Dialogs'
 
 interface Props {
   currentId: string | null
@@ -24,6 +25,7 @@ const MIME = 'text/x-kompendium-pdf'
 /** Biblioteka PDF-ów: prosta, jednopoziomowa struktura folderów.
  *  PDF-y przeciąga się na foldery; upuszczenie poza folderem = poziom główny. */
 export function PdfLibrary({ currentId, onOpen, onDeleted }: Props) {
+  const dlg = useDialogs()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [hintId, setHintId] = useState<string | null>(null)
   const [rootHint, setRootHint] = useState(false)
@@ -51,31 +53,36 @@ export function PdfLibrary({ currentId, onOpen, onDeleted }: Props) {
     })
 
   const handleNewFolder = async () => {
-    const name = window.prompt('Nazwa folderu:')
-    if (!name?.trim()) return
-    await createFolder('pdfs', name.trim())
+    const name = await dlg.prompt({
+      title: 'Nowy folder w bibliotece',
+      placeholder: 'np. Analiza',
+      confirmLabel: 'Utwórz folder',
+    })
+    if (name) await createFolder('pdfs', name)
   }
 
   const handleRename = async (f: Folder) => {
-    const name = window.prompt('Nowa nazwa folderu:', f.name)
-    if (!name?.trim()) return
-    await renameFolder(f.id, name.trim())
+    const name = await dlg.prompt({ title: 'Nazwa folderu', value: f.name })
+    if (name) await renameFolder(f.id, name)
   }
 
   const handleDelete = async (f: Folder) => {
-    if (
-      window.confirm(
-        `Usunąć folder „${f.name}"? PDF-y z niego wrócą na poziom główny.`,
-      )
-    ) {
-      await deleteFolder(f.id)
-    }
+    const ok = await dlg.confirm({
+      title: `Usunąć folder „${f.name}"?`,
+      message: 'PDF-y z niego wrócą na poziom główny — żaden plik nie ginie.',
+      confirmLabel: 'Usuń folder',
+      danger: true,
+    })
+    if (ok) await deleteFolder(f.id)
   }
 
   const handleRenamePdf = async (p: PdfDoc) => {
-    const name = window.prompt('Nazwa PDF-a w bibliotece:', p.title)
-    if (!name?.trim() || name.trim() === p.title) return
-    await renamePdf(p.id, name.trim())
+    const name = await dlg.prompt({
+      title: 'Nazwa PDF-a w bibliotece',
+      message: 'Dotyczy tylko podpisu w programie — plik zostaje ten sam.',
+      value: p.title,
+    })
+    if (name && name !== p.title) await renamePdf(p.id, name)
   }
 
   /** Usuwa PDF wraz z plikiem. Ostrzega, jeśli jakieś klocki mają w nim źródła —
@@ -85,15 +92,17 @@ export function PdfLibrary({ currentId, onOpen, onDeleted }: Props) {
     const used = versions.filter((v) =>
       v.sourceRefs.some((r) => isPdfSource(r) && r.pdfId === p.id),
     ).length
-    const warn = used
-      ? `\n\nUWAGA: ${used} wersji klocków ma podpięte źródła z tego PDF-a — te odnośniki przestaną działać.`
-      : ''
-    if (
-      !window.confirm(
-        `Usunąć „${p.title}" z biblioteki? Plik zniknie z aplikacji na stałe.${warn}`,
-      )
-    )
-      return
+    const ok = await dlg.confirm({
+      title: `Usunąć „${p.title}" z biblioteki?`,
+      message: used
+        ? `Plik zniknie z programu na stałe. UWAGA: ${used} ${
+            used === 1 ? 'wersja klocka ma' : 'wersji klocków ma'
+          } podpięte źródła z tego PDF-a — te odnośniki przestaną działać.`
+        : 'Plik zniknie z programu na stałe. Żaden klocek nie ma z niego źródeł.',
+      confirmLabel: 'Usuń PDF',
+      danger: true,
+    })
+    if (!ok) return
     await deletePdf(p.id)
     onDeleted?.(p.id)
   }

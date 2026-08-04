@@ -27,6 +27,7 @@ import {
 import { Icon, isIconName, type IconName } from './Icon'
 import { useBlockTypes } from '../blockTypes'
 import { NameDialog } from './NameDialog'
+import { useDialogs } from './Dialogs'
 
 interface Props {
   selectedId: string | null
@@ -95,6 +96,7 @@ export function Sidebar({
   onOpenSettings,
 }: Props) {
   const typy = useBlockTypes()
+  const dlg = useDialogs()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<BlockType | 'wszystkie'>('wszystkie')
   /** Szukanie i filtr chowają się pod ikonami — rozwijane na żądanie. */
@@ -402,13 +404,13 @@ export function Sidebar({
     })
 
   const handleDeletePath = async (p: LearningPath) => {
-    if (
-      window.confirm(
-        `Usunąć ścieżkę „${p.name}"? Klocki zostają w bazie — znika tylko mapa.`,
-      )
-    ) {
-      await deletePath(p.id)
-    }
+    const ok = await dlg.confirm({
+      title: `Usunąć ścieżkę „${p.name}"?`,
+      message: 'Klocki zostają w bazie — znika tylko sposób ich ułożenia.',
+      confirmLabel: 'Usuń ścieżkę',
+      danger: true,
+    })
+    if (ok) await deletePath(p.id)
   }
 
   const handleRenameFolder = (f: Folder) =>
@@ -422,13 +424,13 @@ export function Sidebar({
     })
 
   const handleDeleteFolder = async (f: Folder) => {
-    if (
-      window.confirm(
-        `Usunąć folder „${f.name}"? Jego zawartość przejdzie poziom wyżej (nic nie ginie).`,
-      )
-    ) {
-      await deleteFolder(f.id)
-    }
+    const ok = await dlg.confirm({
+      title: `Usunąć folder „${f.name}"?`,
+      message: 'Zawartość przejdzie poziom wyżej — nic z niej nie ginie.',
+      confirmLabel: 'Usuń folder',
+      danger: true,
+    })
+    if (ok) await deleteFolder(f.id)
   }
 
   // -------------------------------------------------------------------------
@@ -448,13 +450,14 @@ export function Sidebar({
     })
 
   const handleDeleteConcept = async (c: Concept) => {
-    if (
-      window.confirm(
-        `Usunąć pojęcie „${c.name}" ze wszystkimi wersjami? Tego nie da się cofnąć.`,
-      )
-    ) {
-      await deleteConcept(c.id)
-    }
+    const ok = await dlg.confirm({
+      title: `Usunąć klocek „${c.name}"?`,
+      message:
+        'Znikną wszystkie jego wersje, strony i powiązania. Tego nie da się cofnąć.',
+      confirmLabel: 'Usuń klocek',
+      danger: true,
+    })
+    if (ok) await deleteConcept(c.id)
   }
 
   const conceptRow = (c: Concept, parentId: string | null, node: TreeNode) => {

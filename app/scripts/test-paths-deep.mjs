@@ -2,7 +2,7 @@
 // kolejność, grupowanie/rozgrupowanie, tryb liniowy, skrypt, trwałość
 // i odporność na usunięte klocki. Zgłasza każdą niezgodność jako BŁĄD.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj, potwierdz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -136,6 +136,7 @@ await page.keyboard.down('Control')
 await clickNode('Beta')
 await page.keyboard.up('Control')
 await page.click('button:has-text("⧉ Scal")')
+await podaj(page, 'Grupa pojec')
 await page.waitForSelector('.path-node-group')
 await settle()
 st = await readPath()
@@ -167,6 +168,7 @@ check('wyjęcie klocka z grupy', st.grupy[0]?.czesci === 2, `części: ${st.grup
 
 // --- 5. rozdział i notatka (po grupowaniu, żeby nie zasłaniały kafelków) ---
 await page.click('button:has-text("+ § Rozdział")')
+await podaj(page, 'Rozdzial I')
 await page.waitForSelector('.path-node-heading')
 await page.click('button:has-text("+ Notatka")')
 await page.waitForSelector('.path-node-text')
@@ -254,9 +256,9 @@ check('rozgrupowanie przywraca oba klocki jako osobne kafelki',
 // --- 11. usunięcie klocka z bazy nie wywraca ścieżki ---
 await page.click('.concept-item:has-text("Gamma")')
 await page.waitForSelector('.editor-name')
-// potwierdzenie usunięcia obsługuje globalny handler dialogów
-await page.click('button:has-text("Usuń")')
-await page.waitForTimeout(800)
+await page.click('.editor-header button:has-text("Usuń")')
+await potwierdz(page)
+await page.waitForTimeout(600)
 await page.click('.concept-item:has-text("Sciezka testowa")')
 await page.waitForSelector('.path-canvas')
 await page.waitForTimeout(700)

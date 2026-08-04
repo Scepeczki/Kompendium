@@ -2,7 +2,7 @@
 // klocków / ścieżek / PDF-a. Sprawdza też odporność na osierocony folderId.
 import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, potwierdz } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -78,6 +78,7 @@ await page.click('button[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.click('.settings-nav-item:has-text("Dane")')
 await page.setInputFiles('.settings-page input[type=file]', backupPath)
+await potwierdz(page)
 await page.waitForSelector('text=/Wczytano:/', { timeout: 10000 })
 const summary = await page.textContent('.settings-status')
 console.log(`✓ import: ${summary.trim()}`)

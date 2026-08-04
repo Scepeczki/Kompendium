@@ -31,6 +31,7 @@ import {
   type SourceRef,
 } from '../types'
 import { useBlockTypes } from '../blockTypes'
+import { useDialogs } from './Dialogs'
 
 type ViewMode = 'wizualny' | 'kod' | 'podzial'
 
@@ -64,6 +65,7 @@ export function BlockEditor({
   onOpenConcept,
 }: Props) {
   const typy = useBlockTypes()
+  const dlg = useDialogs()
   const [view, setView] = useState<ViewMode>(() => {
     const v = localStorage.getItem('ui.editorView')
     return v === 'kod' || v === 'podzial' ? v : 'wizualny'
@@ -127,32 +129,45 @@ export function BlockEditor({
   const activeSub = subs.find((s) => s.id === subId) ?? null
 
   const handleAddSubpage = async () => {
-    const name = window.prompt('Nazwa nowej strony (np. „Dowód"):', 'Dowód')
-    if (!name?.trim()) return
-    const id = await createSubpage(concept.id, name.trim())
+    const name = await dlg.prompt({
+      title: 'Nowa strona klocka',
+      message: 'Najczęściej „Dowód", ale nazwa jest dowolna.',
+      value: 'Dowód',
+      confirmLabel: 'Utwórz stronę',
+    })
+    if (!name) return
+    const id = await createSubpage(concept.id, name)
     setSubId(id)
   }
 
   const handleRenameSubpage = async (id: string, current: string) => {
-    const name = window.prompt('Nazwa strony:', current)
-    if (!name?.trim() || name.trim() === current) return
-    await renameSubpage(id, name.trim())
+    const name = await dlg.prompt({ title: 'Nazwa strony', value: current })
+    if (!name || name === current) return
+    await renameSubpage(id, name)
   }
 
   const handleDeleteSubpage = async (id: string, name: string) => {
-    if (!window.confirm(`Usunąć stronę „${name}"? Jej treść przepadnie.`)) return
+    const ok = await dlg.confirm({
+      title: `Usunąć stronę „${name}"?`,
+      message: 'Jej treść przepadnie. Pozostałe strony klocka zostają.',
+      confirmLabel: 'Usuń stronę',
+      danger: true,
+    })
+    if (!ok) return
     await deleteSubpage(id)
     if (subId === id) setSubId(null)
   }
 
   /** Strona główna też ma nazwę — bywa, że „Treść" nie pasuje. */
   const handleRenameMainPage = async () => {
-    const name = window.prompt(
-      'Nazwa strony głównej klocka (puste = „Treść"):',
-      mainPageName(concept),
-    )
+    const name = await dlg.prompt({
+      title: 'Nazwa strony głównej',
+      message: 'Puste pole przywraca „Treść".',
+      value: mainPageName(concept),
+      allowEmpty: true,
+    })
     if (name === null) return
-    await updateConcept(concept.id, { mainPageName: name.trim() || undefined })
+    await updateConcept(concept.id, { mainPageName: name || undefined })
   }
   const pdfTitle = (id: string) => pdfs.find((p) => p.id === id)?.title ?? 'PDF'
 
@@ -206,7 +221,12 @@ export function BlockEditor({
       onOpenConcept(found.id)
       return
     }
-    if (window.confirm(`Pojęcie „${name}" nie istnieje. Utworzyć je?`)) {
+    const ok = await dlg.confirm({
+      title: `Nie ma jeszcze klocka „${name}"`,
+      message: 'Utworzyć go teraz i od razu otworzyć?',
+      confirmLabel: 'Utwórz klocek',
+    })
+    if (ok) {
       const id = await createConcept()
       await updateConcept(id, { name })
       onOpenConcept(id)
@@ -245,37 +265,51 @@ export function BlockEditor({
   )
 
   const handleNewVersion = async () => {
-    const label = window.prompt(
-      'Etykieta nowej wersji (np. „wg Rudina") — można zostawić puste:',
-    )
+    const label = await dlg.prompt({
+      title: 'Nowa wersja klocka',
+      message: 'Kopiuje bieżącą treść jako kolejną wersję. Etykieta jest opcjonalna.',
+      placeholder: 'np. wg Rudina',
+      allowEmpty: true,
+      confirmLabel: 'Utwórz wersję',
+    })
     if (label === null) return
-    const id = await saveAsNewVersion(concept.id, label.trim() || undefined)
+    const id = await saveAsNewVersion(concept.id, label || undefined)
     onShowVersion(id)
   }
 
   const handleRenameVersion = async (v: BlockVersion) => {
-    const label = window.prompt('Etykieta wersji (puste = brak):', v.label ?? '')
+    const label = await dlg.prompt({
+      title: `Etykieta wersji v${v.version}`,
+      message: 'Puste pole zostawia samą numerację.',
+      value: v.label ?? '',
+      allowEmpty: true,
+    })
     if (label === null) return
-    await renameVersion(v.id, label.trim() || undefined)
+    await renameVersion(v.id, label || undefined)
   }
 
   const handleDeleteVersion = async (v: BlockVersion) => {
-    if (
-      window.confirm(
-        `Usunąć wersję v${v.version}${v.label ? ` (${v.label})` : ''}? Jej treść przepadnie.`,
-      )
-    ) {
+    const ok = await dlg.confirm({
+      title: `Usunąć wersję v${v.version}${v.label ? ` (${v.label})` : ''}?`,
+      message: 'Jej treść przepadnie. Pozostałe wersje klocka zostają.',
+      confirmLabel: 'Usuń wersję',
+      danger: true,
+    })
+    if (ok) {
       await deleteVersion(v.id)
       onShowVersion(null)
     }
   }
 
   const handleDelete = async () => {
-    if (
-      window.confirm(
-        `Usunąć pojęcie „${concept.name}" ze wszystkimi wersjami? Tego nie da się cofnąć.`,
-      )
-    ) {
+    const ok = await dlg.confirm({
+      title: `Usunąć klocek „${concept.name}"?`,
+      message:
+        'Znikną wszystkie jego wersje, strony i powiązania. Tego nie da się cofnąć.',
+      confirmLabel: 'Usuń klocek',
+      danger: true,
+    })
+    if (ok) {
       await deleteConcept(concept.id)
       onDeleted()
     }
@@ -334,17 +368,19 @@ export function BlockEditor({
   }
 
   const handleNewGroup = async () => {
-    const name = window.prompt('Nazwa nowej grupy źródeł:')
-    if (!name?.trim()) return
-    const n = name.trim()
-    if (groupNames.includes(n)) return
+    const n = await dlg.prompt({
+      title: 'Nowa grupa źródeł',
+      message: 'Prosty sposób na uporządkowanie chipów przy dłuższej liście.',
+      placeholder: 'np. Rysunki',
+      confirmLabel: 'Utwórz grupę',
+    })
+    if (!n || groupNames.includes(n)) return
     await updateVersion(version.id, { sourceGroups: [...groupNames, n] })
   }
 
   const handleRenameGroup = async (group: string) => {
-    const name = window.prompt('Nowa nazwa grupy:', group)
-    if (!name?.trim() || name.trim() === group) return
-    const n = name.trim()
+    const n = await dlg.prompt({ title: 'Nazwa grupy źródeł', value: group })
+    if (!n || n === group) return
     await updateVersion(version.id, {
       sourceGroups: groupNames.map((g) => (g === group ? n : g)),
       sourceRefs: version.sourceRefs.map((r) =>
@@ -354,12 +390,13 @@ export function BlockEditor({
   }
 
   const handleDeleteGroup = async (group: string) => {
-    if (
-      !window.confirm(
-        `Usunąć grupę „${group}"? Źródła z niej wrócą do listy bez grupy.`,
-      )
-    )
-      return
+    const ok = await dlg.confirm({
+      title: `Usunąć grupę „${group}"?`,
+      message: 'Same źródła zostają — wrócą do listy bez grupy.',
+      confirmLabel: 'Usuń grupę',
+      danger: true,
+    })
+    if (!ok) return
     await updateVersion(version.id, {
       sourceGroups: groupNames.filter((g) => g !== group),
       sourceRefs: version.sourceRefs.map((r) =>

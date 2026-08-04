@@ -1,7 +1,7 @@
 ﻿// Test stron klocka (dowodów): dodawanie/nazywanie/edycja w edytorze,
 // zakładki w kafelku ścieżki (wybór bazowej strony), przełączanie w Skrypcie.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -41,6 +41,7 @@ await page.waitForTimeout(600)
 // 2. panel stron widoczny, dodanie strony „Dowód"
 await page.waitForSelector('.subpage-rail')
 await page.click('.subpage-add')
+await podaj(page, 'Dowód')
 await page.waitForSelector('.subpage-item.active:has-text("Dowód")')
 console.log('✓ dodana strona „Dowód" (aktywna po utworzeniu)')
 
@@ -64,6 +65,7 @@ console.log(
 
 // 5. druga strona o własnej nazwie
 await page.click('.subpage-add')
+await podaj(page, 'Szkic dowodu')
 await page.waitForSelector('.subpage-item.active:has-text("Szkic dowodu")')
 await page.click('.rich-content .tiptap')
 await page.keyboard.type('Krótki szkic.')

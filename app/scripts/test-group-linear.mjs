@@ -1,7 +1,7 @@
 ﻿// Test scalania klocków w widoku Linia: przycisk ⧉ scala segment z następnym,
 // kolejne kliknięcia dokładają następne klocki do tej samej grupy.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -83,6 +83,7 @@ check('przycisk ⧉ przy segmentach z następnikiem (ostatni bez)',
 // 2. scalenie pierwszego z drugim
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Scal z następnym"]')
+await podaj(page, 'Kresy zbiorow')
 await settle()
 let st = await readGroups()
 check('scalenie w Linii tworzy grupę z dwóch klocków',

@@ -1,6 +1,6 @@
 ﻿// Test Etapu 3: ścieżka na canvasie — kafelki, strzałki, tekst, fuzja, skrypt.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -93,6 +93,7 @@ await page.keyboard.down('Control')
 await page.click('.react-flow__node:has-text("Przestrzeń")')
 await page.keyboard.up('Control')
 await page.click('button[title*="Scal zaznaczone"]')
+await podaj(page, 'Przestrzeń metryczna (pełna)')
 await page.waitForSelector('.path-node-group')
 console.log('✓ grupa utworzona')
 

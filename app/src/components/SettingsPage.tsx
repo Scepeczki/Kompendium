@@ -41,6 +41,7 @@ import {
   setTreeSize,
 } from '../uiSettings'
 import { TypeEditor } from './TypeEditor'
+import { useDialogs } from './Dialogs'
 
 interface Props {
   onClose: () => void
@@ -58,6 +59,7 @@ const SECTIONS: { id: Section; label: string; hint: string }[] = [
 /** Ustawienia jako pełna strona w środkowym panelu — jest miejsce na sekcje
  *  i wyjaśnienia, a powrót do poprzedniego widoku odbywa się przyciskiem. */
 export function SettingsPage({ onClose }: Props) {
+  const dlg = useDialogs()
   const [section, setSection] = useState<Section>('wyglad')
 
   useEffect(() => {
@@ -125,12 +127,15 @@ export function SettingsPage({ onClose }: Props) {
 
   const handleImportFile = async (file: File | undefined) => {
     if (!file) return
-    if (
-      !window.confirm(
-        'Wczytać kopię zapasową? Klocki, wersje, foldery, ścieżki i PDF-y o tych ' +
-          'samych identyfikatorach co w kopii zostaną nadpisane. Reszta danych zostaje bez zmian.',
-      )
-    ) {
+    const ok = await dlg.confirm({
+      title: 'Wczytać kopię zapasową?',
+      message:
+        'Klocki, wersje, foldery, ścieżki, typy i PDF-y o tych samych ' +
+        'identyfikatorach co w kopii zostaną nadpisane. Reszta danych zostaje ' +
+        'bez zmian. Wrócą też ustawienia wyglądu zapisane w kopii.',
+      confirmLabel: 'Wczytaj kopię',
+    })
+    if (!ok) {
       if (fileRef.current) fileRef.current.value = ''
       return
     }

@@ -1,5 +1,6 @@
 ﻿// Test Etapu 2: wiki-linki, tworzenie brakującego pojęcia, odwołania zwrotne, graf.
 import { chromium } from 'playwright'
+import { potwierdz } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -58,6 +59,7 @@ await page.keyboard.type(' Zobacz też [[Kula otwarta]].')
 await page.waitForSelector('a.wikilink-missing')
 console.log('✓ brakujący link oznaczony')
 await page.click('a.wikilink-missing')
+await potwierdz(page)
 await page.waitForFunction(
   () => document.querySelector('.editor-name')?.value === 'Kula otwarta',
 )

@@ -2,7 +2,7 @@
 // kolejności przeciąganiem, foldery w bibliotece PDF.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
-import { nowyFolder } from './lib.mjs'
+import { nowyFolder, podaj } from './lib.mjs'
 
 // minimalny PDF (1 strona)
 function makePdf() {
@@ -86,6 +86,7 @@ await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })
 await page.click('.pdf-lib-toggle')
 await page.waitForSelector('.pdf-library')
 await page.click('.pdf-library button[title="Nowy folder"]')
+await podaj(page, 'Zbiory')
 await page.waitForSelector('.pdf-library .folder-row:has-text("Zbiory")')
 await page.dragAndDrop(
   '.pdflib-item:has-text("test")',

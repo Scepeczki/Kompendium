@@ -8,6 +8,7 @@ import { GraphView } from './components/GraphView'
 import { PathCanvas } from './components/PathCanvas'
 import { PdfPanel, type PdfTarget } from './components/PdfPanel'
 import { SettingsPage } from './components/SettingsPage'
+import { DialogProvider } from './components/Dialogs'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
 
@@ -33,6 +34,16 @@ function Splitter({ onDrag }: { onDrag: (dx: number) => void }) {
 }
 
 export default function App() {
+  return (
+    <DialogProvider>
+      <Widok />
+    </DialogProvider>
+  )
+}
+
+/** Cały układ programu. Osobno od App, żeby pytania (okienka potwierdzeń)
+ *  były dostępne dla wszystkiego, co jest w środku. */
+function Widok() {
   // Ctrl+S: zapis jest automatyczny — blokujemy tylko dialog przeglądarki
   useEffect(() => {
     const h = (e: KeyboardEvent) => {

@@ -1,6 +1,6 @@
 ﻿// Test: komentarze do ścieżki, menu kafelka, zarządzanie wersjami klocka.
 import { chromium } from 'playwright'
-import { nazwij } from './lib.mjs'
+import { nazwij, podaj, potwierdz } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -31,8 +31,8 @@ console.log(
 )
 
 // zmień etykietę v1 (pigułka pokazuje samą etykietę, bez przedrostka v1)
-answers.push('pierwotna')
 await page.click('.version-action[title*="etykietę"]')
+await podaj(page, 'pierwotna')
 await page.waitForSelector('.version-pill:has-text("pierwotna")')
 const pillText = await page.textContent('.version-pill:not(.new)')
 console.log(
@@ -40,8 +40,8 @@ console.log(
 )
 
 // nowa wersja z etykietą
-answers.push('druga')
 await page.click('button.version-pill.new')
+await podaj(page, 'druga')
 await page.waitForSelector('.version-pill.active:has-text("druga")')
 console.log('✓ nowa wersja „druga"')
 
@@ -58,8 +58,8 @@ await page.waitForFunction(() => {
 console.log('✓ kolejność wersji zmieniona przeciąganiem (druga jest teraz wersją 1)')
 
 // usuń pokazywaną wersję (aktywna = druga); zostaje pierwotna jako wersja 1
-answers.push('') // confirm
 await page.click('.version-action[title*="Usuń tę wersję"]')
+await potwierdz(page)
 await page.waitForFunction(() => {
   const pills = document.querySelectorAll('.version-pill:not(.new)')
   return pills.length === 1 && pills[0].title.startsWith('wersja 1 — pierwotna')
@@ -69,7 +69,6 @@ console.log(`✓ usuwanie wersji działa (zostało pigułek: ${pills})`)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 
 // --- KOMENTARZE I MENU KAFELKA NA ŚCIEŻCE ---
-answers.push('Ścieżka K')
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Ścieżka")
 await page.waitForSelector('.path-canvas')
