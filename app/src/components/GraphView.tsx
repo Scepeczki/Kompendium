@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  forceCenter,
   forceCollide,
   forceLink,
   forceManyBody,
   forceSimulation,
+  forceX,
+  forceY,
   type Simulation,
   type SimulationLinkDatum,
   type SimulationNodeDatum,
@@ -104,9 +105,22 @@ export function GraphView({ onOpen }: Props) {
           .distance(95),
       )
       .force('charge', forceManyBody().strength(-260))
-      .force('center', forceCenter(w / 2, h / 2))
+      // Przyciąganie do środka, a nie forceCenter. Ta druga, wbrew nazwie,
+      // niczego nie przyciąga — tylko przesuwa środek ciężkości tam, gdzie
+      // trzeba. Klocki bez odnośników odpychały się więc bez końca i graf
+      // pęczniał tak długo, jak długo symulacja żyła (czyli przy trzymaniu
+      // kropki — w nieskończoność). Tu siła rośnie z odległością, więc układ
+      // ma skończony rozmiar niezależnie od tego, jak długo się rusza.
+      .force('x', forceX<GraphNode>(w / 2).strength(0.055))
+      .force('y', forceY<GraphNode>(h / 2).strength(0.055))
       .force('collide', forceCollide(34))
       .on('tick', () => setTick((t) => t + 1))
+      // pierwsze dopasowanie widoku dopiero, gdy układ się uspokoi
+      .on('end', () => {
+        if (fittedRef.current) return
+        fittedRef.current = true
+        dopasujRef.current()
+      })
     simRef.current = sim
     return () => {
       sim.stop()
@@ -207,23 +221,16 @@ export function GraphView({ onOpen }: Props) {
     })
   }
 
-  // pierwsze dopasowanie po ułożeniu się grafu — potem widok należy do
-  // użytkownika i sam się już nie rusza
+  // Symulacja woła dopasowanie po ułożeniu się grafu, ale trzyma tę funkcję
+  // z pierwszego renderu — dlatego przez pudełko, żeby zawsze wołała aktualną.
+  const dopasujRef = useRef(dopasuj)
+  dopasujRef.current = dopasuj
+
+  // nowa struktura grafu = nowe pierwsze dopasowanie; potem widok należy
+  // do użytkownika i sam się już nie rusza
   useEffect(() => {
     fittedRef.current = false
   }, [dataKey])
-
-  useEffect(() => {
-    if (fittedRef.current) return
-    const sim = simRef.current
-    if (!sim) return
-    const t = setTimeout(() => {
-      if (fittedRef.current) return
-      fittedRef.current = true
-      dopasuj()
-    }, 900)
-    return () => clearTimeout(t)
-  }) // bez listy zależności: czekamy na pierwszy tick z pozycjami
 
   const onWheel = (e: React.WheelEvent) => {
     const rect = containerRef.current!.getBoundingClientRect()

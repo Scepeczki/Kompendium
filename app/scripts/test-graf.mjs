@@ -48,7 +48,37 @@ const polozenia = async () =>
     }),
   )
 
+/** Przesunięcie i skala widoku — samodzielne dopasowanie zmienia je raz,
+ *  chwilę po otwarciu grafu; bez tego mierzylibyśmy jego skutek. */
+const widok = async () =>
+  page.evaluate(() => document.querySelector('.graph-svg g').getAttribute('transform'))
+
+/** Czeka, aż uspokoi się i układ, i widok.
+ *
+ *  Najpierw na samodzielne dopasowanie: symulacja przestaje przesuwać węzły
+ *  o cały piksel na długo przed tym, jak formalnie się kończy, więc samo
+ *  „pozycje się nie zmieniają" wypuszcza nas za wcześnie — i dopasowanie
+ *  wypada potem w środku pomiaru. */
+const spokoj = async () => {
+  await page
+    .waitForFunction(
+      () =>
+        document.querySelector('.graph-svg g')?.getAttribute('transform') !==
+        'translate(0,0) scale(1)',
+      { timeout: 8000 },
+    )
+    .catch(() => {})
+  let poprzednie = null
+  for (let i = 0; i < 40; i++) {
+    const teraz = JSON.stringify([await polozenia(), await widok()])
+    if (teraz === poprzednie) return
+    poprzednie = teraz
+    await page.waitForTimeout(300)
+  }
+}
+
 // 1. samo naciśnięcie i puszczenie w miejscu nie rusza układu przed otwarciem
+await spokoj()
 const przed = await polozenia()
 const wezel = await page.locator('.graph-node circle').first().boundingBox()
 await page.mouse.move(wezel.x + wezel.width / 2, wezel.y + wezel.height / 2)
@@ -103,6 +133,52 @@ const miesci = await page.evaluate(() => {
   })
 })
 check('„Dopasuj" mieści cały graf w oknie', miesci)
+
+// 6. GŁÓWNY BŁĄD ZE ZGŁOSZENIA: trzymanie kropki nie może rozdmuchiwać grafu.
+// Klocki bez odnośników tylko się odpychają, więc dawniej graf pęczniał tak
+// długo, jak długo trwało trzymanie. Sprawdzamy to na rzadkim grafie, bo przy
+// pięciu połączonych klockach odnośniki same trzymają układ w ryzach.
+await page.click('.sidebar-foot-btn[title*="Graf"]') // zamknij graf
+for (let i = 1; i <= 18; i++) {
+  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.waitForSelector('.editor-name')
+  await page.fill('.editor-name', `Samotny ${i}`)
+  await page.waitForTimeout(120)
+  await page.click('.btn-close[title*="Zamknij klocek"]')
+}
+await page.click('.sidebar-foot-btn[title*="Graf"]')
+await page.waitForSelector('.graph-node')
+await page.waitForTimeout(2500)
+
+const rozpietosc = () =>
+  page.evaluate(() => {
+    const kola = [...document.querySelectorAll('.graph-node circle')].map((c) =>
+      c.getBoundingClientRect(),
+    )
+    const xs = kola.map((r) => r.x)
+    const ys = kola.map((r) => r.y)
+    return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))
+  })
+
+const r0 = await rozpietosc()
+const w3 = await page.locator('.graph-node circle').first().boundingBox()
+await page.mouse.move(w3.x + w3.width / 2, w3.y + w3.height / 2)
+await page.mouse.down()
+await page.mouse.move(w3.x + w3.width / 2 + 8, w3.y + w3.height / 2 + 8)
+await page.waitForTimeout(4000)
+const r1 = await rozpietosc()
+await page.mouse.up()
+check('trzymanie kropki nie rozdmuchuje grafu', r1 < r0 * 1.15,
+  `rozpiętość ${r0.toFixed(0)} → ${r1.toFixed(0)}px po 4 s trzymania`)
+
+check('graf mieści się w oknie po samodzielnym dopasowaniu',
+  await page.evaluate(() => {
+    const svg = document.querySelector('.graph-svg').getBoundingClientRect()
+    return [...document.querySelectorAll('.graph-node circle')].every((c) => {
+      const r = c.getBoundingClientRect()
+      return r.left >= svg.left - 2 && r.right <= svg.right + 2
+    })
+  }))
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
