@@ -44,6 +44,12 @@ export function GraphView({ onOpen }: Props) {
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
   const panRef = useRef<{ x0: number; y0: number; tx: number; ty: number } | null>(null)
   const dragRef = useRef<GraphNode | null>(null)
+  /** Naciśnięcie na węźle, zanim wiadomo, czy to klik czy przeciąganie. */
+  const pressRef = useRef<{ node: GraphNode; x: number; y: number; drag: boolean } | null>(
+    null,
+  )
+  /** Widok dopasowuje się sam raz na otwarcie grafu, nie przy każdym drgnięciu. */
+  const fittedRef = useRef(false)
 
   /** Klucz danych: przelicz graf tylko, gdy zmieniła się struktura linków. */
   const dataKey = useMemo(() => {
@@ -117,18 +123,33 @@ export function GraphView({ onOpen }: Props) {
     }
   }
 
+  /** Ile pikseli wolno drgnąć ręce, żeby to był jeszcze klik, a nie przeciąganie. */
+  const PROG = 4
+
   const onPointerDownNode = (e: React.PointerEvent, n: GraphNode) => {
     e.stopPropagation()
     ;(e.target as Element).setPointerCapture(e.pointerId)
-    dragRef.current = n
-    simRef.current?.alphaTarget(0.3).restart()
+    // Samo naciśnięcie niczego nie rusza. Wcześniej budziło tu symulację,
+    // przez co graf rozjeżdżał się od zwykłego kliknięcia w węzeł.
+    pressRef.current = { node: n, x: e.clientX, y: e.clientY, drag: false }
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (dragRef.current) {
+    const press = pressRef.current
+    if (press) {
+      if (!press.drag) {
+        const dx = e.clientX - press.x
+        const dy = e.clientY - press.y
+        if (dx * dx + dy * dy < PROG * PROG) return
+        // dopiero teraz to naprawdę przeciąganie — i dopiero teraz budzimy
+        // układ, delikatnie, żeby sąsiedzi ustąpili, a nie odskoczyli
+        press.drag = true
+        dragRef.current = press.node
+        simRef.current?.alphaTarget(0.12).restart()
+      }
       const p = toLocal(e)
-      dragRef.current.fx = p.x
-      dragRef.current.fy = p.y
+      press.node.fx = p.x
+      press.node.fy = p.y
       return
     }
     if (panRef.current) {
@@ -141,11 +162,18 @@ export function GraphView({ onOpen }: Props) {
   }
 
   const onPointerUp = () => {
-    if (dragRef.current) {
-      dragRef.current.fx = null
-      dragRef.current.fy = null
-      dragRef.current = null
-      simRef.current?.alphaTarget(0)
+    const press = pressRef.current
+    pressRef.current = null
+    if (press) {
+      if (press.drag) {
+        press.node.fx = null
+        press.node.fy = null
+        dragRef.current = null
+        simRef.current?.alphaTarget(0)
+      } else {
+        // ręka nie drgnęła — to był klik, więc otwieramy klocek
+        onOpen(press.node.id)
+      }
     }
     panRef.current = null
   }
@@ -153,6 +181,49 @@ export function GraphView({ onOpen }: Props) {
   const onPointerDownBg = (e: React.PointerEvent) => {
     panRef.current = { x0: e.clientX, y0: e.clientY, tx: transform.x, ty: transform.y }
   }
+
+  /** Ustawia widok tak, żeby cały graf mieścił się w oknie z zapasem. */
+  const dopasuj = () => {
+    const ns = nodesRef.current.filter((n) => n.x != null && n.y != null)
+    const el = containerRef.current
+    if (!ns.length || !el) return
+    const xs = ns.map((n) => n.x!)
+    const ys = ns.map((n) => n.y!)
+    // margines na etykiety pod kółkami i oddech przy krawędziach
+    const pad = 60
+    const minX = Math.min(...xs) - pad
+    const maxX = Math.max(...xs) + pad
+    const minY = Math.min(...ys) - pad
+    const maxY = Math.max(...ys) + pad
+    const w = el.clientWidth
+    const h = el.clientHeight
+    // nigdy nie powiększamy ponad 1: pojedynczy klocek ma zostać kropką,
+    // a nie balonem na pół ekranu
+    const k = Math.min(1, Math.max(0.25, Math.min(w / (maxX - minX), h / (maxY - minY))))
+    setTransform({
+      k,
+      x: (w - (maxX - minX) * k) / 2 - minX * k,
+      y: (h - (maxY - minY) * k) / 2 - minY * k,
+    })
+  }
+
+  // pierwsze dopasowanie po ułożeniu się grafu — potem widok należy do
+  // użytkownika i sam się już nie rusza
+  useEffect(() => {
+    fittedRef.current = false
+  }, [dataKey])
+
+  useEffect(() => {
+    if (fittedRef.current) return
+    const sim = simRef.current
+    if (!sim) return
+    const t = setTimeout(() => {
+      if (fittedRef.current) return
+      fittedRef.current = true
+      dopasuj()
+    }, 900)
+    return () => clearTimeout(t)
+  }) // bez listy zależności: czekamy na pierwszy tick z pozycjami
 
   const onWheel = (e: React.WheelEvent) => {
     const rect = containerRef.current!.getBoundingClientRect()
@@ -207,7 +278,6 @@ export function GraphView({ onOpen }: Props) {
                 className="graph-node"
                 transform={`translate(${n.x ?? 0},${n.y ?? 0})`}
                 onPointerDown={(e) => onPointerDownNode(e, n)}
-                onClick={() => onOpen(n.id)}
               >
                 <circle
                   r={7 + Math.min(6, n.degree * 1.5)}
@@ -224,6 +294,11 @@ export function GraphView({ onOpen }: Props) {
             ))}
           </g>
         </svg>
+      )}
+      {nodes.length > 0 && (
+        <button className="btn graph-fit" title="Dopasuj widok do całego grafu" onClick={dopasuj}>
+          Dopasuj
+        </button>
       )}
       <div className="graph-legend">
         {typy.choices.map((t) => (

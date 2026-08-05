@@ -1800,6 +1800,15 @@ button.version-pill.new {
   user-select: none;
 }
 
+.graph-fit {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: var(--fs-2);
+  padding: 4px 10px;
+  background: var(--panel);
+}
+
 .graph-empty {
   height: 100%;
   display: flex;
