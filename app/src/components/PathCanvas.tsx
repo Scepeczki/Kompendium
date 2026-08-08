@@ -396,6 +396,8 @@ interface LinearViewProps {
   ordered: PathNode[]
   onDropConcept: (conceptId: string, afterId: string | null, beforeId: string | null) => void
   onMoveSegment: (segId: string, afterId: string | null, beforeId: string | null) => void
+  /** Przenosi kilka zaznaczonych segmentów naraz, zachowując ich kolejność. */
+  onMoveSegments: (ids: string[], afterId: string | null, beforeId: string | null) => void
   onAddNote: (kind: 'text' | 'comment', afterId: string | null, beforeId: string | null) => void
   onRemove: (id: string) => void
   onEdit: (n: PathNode) => void
@@ -418,6 +420,7 @@ function LinearView({
   ordered,
   onDropConcept,
   onMoveSegment,
+  onMoveSegments,
   onAddNote,
   onRemove,
   onEdit,
@@ -434,6 +437,38 @@ function LinearView({
 }: LinearViewProps) {
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
+  /** Zaznaczone segmenty (Ctrl dokłada, Shift bierze zakres). Przeciągnięcie
+   *  uchwytu któregokolwiek z nich przenosi całą grupę. */
+  const [zazSeg, setZazSeg] = useState<Set<string>>(new Set())
+  const kotwicaRef = useRef<string | null>(null)
+
+  /** Zwraca true, jeśli klik był zaznaczaniem — wtedy nic innego się nie dzieje. */
+  const klikSegmentu = (e: React.MouseEvent, id: string): boolean => {
+    if (e.ctrlKey || e.metaKey) {
+      setZazSeg((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+      kotwicaRef.current = id
+      return true
+    }
+    if (e.shiftKey && kotwicaRef.current) {
+      const lista = ordered.map((n) => n.id)
+      const a = lista.indexOf(kotwicaRef.current)
+      const b = lista.indexOf(id)
+      if (a >= 0 && b >= 0) {
+        const [od, doo] = a <= b ? [a, b] : [b, a]
+        setZazSeg(new Set(lista.slice(od, doo + 1)))
+        return true
+      }
+    }
+    if (zazSeg.size > 0) setZazSeg(new Set())
+    kotwicaRef.current = id
+    return false
+  }
+
   /** Menu wstawiania spod prawego przycisku — wraz z miejscem w łańcuchu. */
   const [segMenu, setSegMenu] = useState<{
     x: number
@@ -476,7 +511,10 @@ function LinearView({
     setEndHint(false)
     const seg = e.dataTransfer.getData(SEG_MIME)
     if (seg) {
-      onMoveSegment(seg, afterId, beforeId)
+      // lista = przeciągnięto zaznaczenie wielu segmentów
+      if (seg.startsWith('[')) onMoveSegments(JSON.parse(seg) as string[], afterId, beforeId)
+      else onMoveSegment(seg, afterId, beforeId)
+      setZazSeg(new Set())
       return
     }
     try {
@@ -605,8 +643,16 @@ function LinearView({
             <div
               key={n.id}
               className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
-                h === 'before' ? 'drop-before' : h === 'after' ? 'drop-after' : ''
-              }`}
+                zazSeg.has(n.id) ? 'zaznaczony' : ''
+              } ${h === 'before' ? 'drop-before' : h === 'after' ? 'drop-after' : ''}`}
+              onClick={(e) => {
+                // zaznaczamy tylko z klawiszem — zwykły klik ma nadal trafiać
+                // w treść (odnośniki, przełączanie stron)
+                if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                  e.preventDefault()
+                  klikSegmentu(e, n.id)
+                }
+              }}
               onDragOver={(e) => {
                 if (!isOurs(e)) return
                 e.preventDefault()
@@ -640,7 +686,11 @@ function LinearView({
                   className="linear-grip"
                   title="Przeciągnij, aby zmienić kolejność"
                   onDragStart={(e) => {
-                    e.dataTransfer.setData(SEG_MIME, n.id)
+                    const grupa =
+                      zazSeg.has(n.id) && zazSeg.size > 1
+                        ? ordered.filter((x) => zazSeg.has(x.id)).map((x) => x.id)
+                        : null
+                    e.dataTransfer.setData(SEG_MIME, grupa ? JSON.stringify(grupa) : n.id)
                     e.dataTransfer.effectAllowed = 'move'
                   }}
                 >
@@ -1544,6 +1594,17 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     setRfNodes((ns) => ns.map((n) => (n.id === segId ? { ...n, position: pos } : n)))
   }
 
+  /** Przenosi kilka segmentów naraz — każdy ląduje za poprzednim, więc
+   *  wzajemna kolejność zaznaczenia zostaje zachowana. */
+  const moveSegments = (ids: string[], afterId: string | null, beforeId: string | null) => {
+    let po = afterId
+    for (const id of ids) {
+      if (id === beforeId) continue
+      moveSegment(id, po, beforeId)
+      po = id
+    }
+  }
+
   const linearDropConcept = (conceptId: string, afterId: string | null, beforeId: string | null) => {
     chainInsert(
       {
@@ -1887,6 +1948,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
           onDropConcept={linearDropConcept}
           onMoveSegment={moveSegment}
+          onMoveSegments={moveSegments}
           onAddNote={linearAddNote}
           onRemove={removeSegmentHeal}
           onEdit={async (n) => {

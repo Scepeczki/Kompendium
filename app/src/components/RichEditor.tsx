@@ -4,6 +4,7 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
+import Paragraph from '@tiptap/extension-paragraph'
 import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
 import { OBEJMUJACE } from '../cmShortcuts'
@@ -185,6 +186,61 @@ const SizeRender = Extension.create({
   },
 })
 
+/** Akapit, który przeżywa bycie pustym.
+ *
+ *  Markdown nie zna „pustej linijki" jako treści — dwa entery pod rząd znaczą
+ *  w nim tylko „koniec akapitu". Puste akapity, które ktoś świadomie zrobił,
+ *  ginęły więc przy zapisie i w ścieżce odstęp znikał. Zapisujemy je jako
+ *  akapit z twardą spacją: to zwykły Markdown, czytelny w każdym innym
+ *  programie, a przy wczytaniu wraca jako pusty akapit. */
+const PUSTA_LINIA = '&nbsp;'
+
+interface StanZapisu {
+  write: (s: string) => void
+  renderInline: (n: unknown) => void
+  closeBlock: (n: unknown) => void
+}
+interface WezelAkapitu {
+  content: { size: number }
+}
+interface Rodzic {
+  childCount: number
+  child: (i: number) => WezelAkapitu
+}
+
+const BlankParagraph = Paragraph.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(
+          state: StanZapisu,
+          node: WezelAkapitu,
+          parent: Rodzic | undefined,
+          index: number | undefined,
+        ) {
+          // Przerwą jest pusty akapit, który ma coś przed sobą i coś po sobie.
+          // Pusty klocek albo puste linie na końcu to nie „odstęp", tylko brak
+          // treści — inaczej każdy nowy klocek zaczynałby się od &nbsp;.
+          const pusty = node.content.size === 0
+          const wSrodku =
+            pusty && parent !== undefined && index !== undefined
+              ? [...Array(parent.childCount).keys()].some(
+                  (i) => i < index && parent.child(i).content.size > 0,
+                ) &&
+                [...Array(parent.childCount).keys()].some(
+                  (i) => i > index && parent.child(i).content.size > 0,
+                )
+              : false
+          if (wSrodku) state.write(PUSTA_LINIA)
+          else if (!pusty) state.renderInline(node)
+          state.closeBlock(node)
+        },
+        parse: {},
+      },
+    }
+  },
+})
+
 interface Props {
   /** Treść w Markdownie (źródło prawdy) — wczytywana raz przy montowaniu;
    *  komponent montuj z key={id wersji}, żeby zmiana klocka przeładowała treść. */
@@ -245,7 +301,8 @@ export function RichEditor({
 }: Props) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ paragraph: false }),
+      BlankParagraph,
       MathRender,
       IndentRender,
       SizeRender,
@@ -297,6 +354,9 @@ export function RichEditor({
 
   if (!editor) return null
 
+  /** Wstawia parę `$…$` (albo `$$…$$`). Z zaznaczeniem obejmuje je, bez —
+   *  wstawia samą parę i stawia kursor w środku, żeby od razu pisać wzór.
+   *  Dawniej wchodziło tu literalne „x", które trzeba było najpierw skasować. */
   const wrapMath = (block: boolean) => {
     const { from, to } = editor.state.selection
     const sel = editor.state.doc.textBetween(from, to, ' ')
@@ -304,7 +364,17 @@ export function RichEditor({
     editor
       .chain()
       .focus()
-      .insertContent(`${d}${sel || 'x'}${d}`)
+      .insertContent(`${d}${sel}${d}`)
+      // kursor między znacznikami: przy pustym zaznaczeniu tuż w środku,
+      // przy niepustym — obejmując wstawiony tekst
+      .command(({ tr, dispatch }) => {
+        const koniec = tr.selection.to
+        const wewn = koniec - d.length
+        if (dispatch) {
+          tr.setSelection(TextSelection.create(tr.doc, sel ? wewn - sel.length : wewn, wewn))
+        }
+        return true
+      })
       .run()
   }
 

@@ -562,6 +562,14 @@ select.type-select {
   background: var(--panel);
 }
 
+/* Zaznaczenie wielu rzeczy (Ctrl / Shift) — inny sygnał niż „otwarty klocek",
+   bo to dwie różne rzeczy: co czytam kontra co zaraz przeniosę. */
+.concept-item.zaznaczony,
+.folder-row.zaznaczony {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 /* zaznaczenie: miękka plama koloru zamiast ramki — spokojniejsze w długiej liście */
 .concept-item.selected {
   background: var(--accent-soft);
@@ -3956,6 +3964,13 @@ button.version-pill.new {
 /* menu wstawiania między kafelkami w Linii */
 .linear-menu {
   z-index: 65;
+}
+
+/* zaznaczony segment w Linii — ta sama kreska co w liście po lewej */
+.linear-seg.zaznaczony {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  border-radius: 6px;
 }
 
 /* strony składnika w grupie — jak zakładki stron w zwykłym bloku, tylko ciszej */

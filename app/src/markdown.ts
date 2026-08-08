@@ -43,11 +43,28 @@ export function renderMarkdown(src: string, opts: RenderOptions = {}): string {
   return html
 }
 
+/** Puste linijki wpisane świadomie mają być widoczne.
+ *
+ *  Markdown traktuje dowolny ciąg pustych linii jak jeden koniec akapitu, więc
+ *  odstęp zrobiony w klocku znikał przy czytaniu w ścieżce. Każdą nadmiarową
+ *  pustą linię zamieniamy na akapit z twardą spacją. Bloki kodu zostawiamy
+ *  w spokoju — tam puste linie znaczą dokładnie to, co jest napisane. */
+function zachowajPusteLinie(src: string): string {
+  return src
+    .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
+    .map((czesc, i) =>
+      i % 2 === 1
+        ? czesc
+        : czesc.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2)),
+    )
+    .join('')
+}
+
 function renderMarkdownUncached(src: string, opts: RenderOptions): string {
   const stashed: string[] = []
   const stash = (html: string) => `%%STASH${stashed.push(html) - 1}%%`
 
-  let text = src.replace(/\$\$([\s\S]+?)\$\$/g, (_, tex: string) =>
+  let text = zachowajPusteLinie(src).replace(/\$\$([\s\S]+?)\$\$/g, (_, tex: string) =>
     stash(katex.renderToString(tex, { displayMode: true, throwOnError: false })),
   )
   text = text.replace(/\$([^$\n]+?)\$/g, (_, tex: string) =>

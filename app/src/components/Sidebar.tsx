@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   createConcept,
@@ -39,8 +39,10 @@ interface Props {
   onOpenSettings: () => void
 }
 
-/** Ładunek przeciągania (klocek, folder albo ścieżka). */
-type DragPayload = { kind: 'concept' | 'folder' | 'path'; id: string }
+/** Ładunek przeciągania: pojedyncza rzecz albo całe zaznaczenie. */
+type DragPayload =
+  | { kind: 'concept' | 'folder' | 'path'; id: string }
+  | { kind: 'wiele'; items: { kind: 'concept' | 'folder' | 'path'; id: string }[] }
 
 /** Element wspólnej listy dzieci folderu (foldery, klocki i ścieżki przeplatają się). */
 type TreeNode =
@@ -115,6 +117,12 @@ export function Sidebar({
   const [expanded, setExpanded] = useState<Set<string>>(loadExpanded)
   const [dropHint, setDropHint] = useState<DropHint>(null)
   const [rootHint, setRootHint] = useState(false)
+
+  /** Zaznaczenie wielu rzeczy naraz: Ctrl dokłada pojedynczo, Shift bierze
+   *  zakres. Przeciągnięcie którejkolwiek z nich przenosi całą grupę. */
+  const [zaznaczone, setZaznaczone] = useState<Set<string>>(new Set())
+  /** Ostatnio kliknięty wiersz — punkt zaczepienia dla Shift. */
+  const kotwicaRef = useRef<string | null>(null)
 
   /** Otwarte okienko nazwy (nowa rzecz albo zmiana istniejącej). */
   const [dialog, setDialog] = useState<{
@@ -273,6 +281,55 @@ export function Sidebar({
     return [...fs, ...cs, ...ps].sort((a, b) => a.order - b.order)
   }
 
+  /** Wszystkie widoczne wiersze po kolei — po tej liście chodzi Shift. */
+  const widoczneWiersze = (): TreeNode[] => {
+    const out: TreeNode[] = []
+    const zejdz = (parentId: string | null) => {
+      for (const n of children(parentId)) {
+        out.push(n)
+        if (n.kind === 'folder' && expanded.has(n.id)) zejdz(n.id)
+      }
+    }
+    zejdz(null)
+    return out
+  }
+
+  /** Klik w wiersz z klawiszem: Ctrl dokłada, Shift bierze zakres.
+   *  Zwraca true, jeśli obsłużył klik — wtedy nie otwieramy klocka. */
+  const klikZaznaczeniem = (e: React.MouseEvent, id: string): boolean => {
+    if (e.ctrlKey || e.metaKey) {
+      setZaznaczone((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+      kotwicaRef.current = id
+      return true
+    }
+    if (e.shiftKey && kotwicaRef.current) {
+      const lista = widoczneWiersze().map((n) => n.id)
+      const a = lista.indexOf(kotwicaRef.current)
+      const b = lista.indexOf(id)
+      if (a >= 0 && b >= 0) {
+        const [od, doo] = a <= b ? [a, b] : [b, a]
+        setZaznaczone(new Set(lista.slice(od, doo + 1)))
+        return true
+      }
+    }
+    // zwykły klik czyści zaznaczenie i otwiera rzecz
+    kotwicaRef.current = id
+    setZaznaczone(new Set())
+    return false
+  }
+
+  /** Ładunek przeciągania: całe zaznaczenie, jeśli ciągniemy jego część. */
+  const ladunek = (kind: 'concept' | 'folder' | 'path', id: string): DragPayload => {
+    if (!zaznaczone.has(id) || zaznaczone.size < 2) return { kind, id }
+    const kolejnosc = widoczneWiersze().filter((n) => zaznaczone.has(n.id))
+    return { kind: 'wiele', items: kolejnosc.map((n) => ({ kind: n.kind, id: n.id })) }
+  }
+
   const persistExpanded = (next: Set<string>) => {
     localStorage.setItem(EXP_KEY, JSON.stringify([...next]))
     return next
@@ -302,50 +359,66 @@ export function Sidebar({
     setRootHint(false)
   }
 
+  /** Rozkłada ładunek na pojedyncze rzeczy — reszta kodu nie musi wiedzieć,
+   *  czy ciągnięto jedną, czy dziesięć. */
+  const pozycje = (p: DragPayload) => (p.kind === 'wiele' ? p.items : [p])
+
   /** Przenosi ładunek do wnętrza folderu (na koniec). */
   const dropInto = async (payload: DragPayload, folderId: string) => {
-    if (payload.kind === 'concept') {
-      await moveConcept(payload.id, folderId)
-    } else if (payload.kind === 'path') {
-      await movePath(payload.id, folderId)
-    } else {
-      if (payload.id === folderId || isInside(folderId, payload.id)) return
-      await moveFolder(payload.id, folderId)
+    for (const it of pozycje(payload)) {
+      if (it.kind === 'concept') await moveConcept(it.id, folderId)
+      else if (it.kind === 'path') await movePath(it.id, folderId)
+      else if (it.id !== folderId && !isInside(folderId, it.id)) {
+        await moveFolder(it.id, folderId)
+      }
     }
+    setZaznaczone(new Set())
     setExpanded((prev) => persistExpanded(new Set(prev).add(folderId)))
   }
 
-  /** Ustawia ładunek przed/po elemencie docelowym (wspólna kolejność). */
+  /** Ustawia ładunek przed/po elemencie docelowym (wspólna kolejność).
+   *  Przy wielu rzeczach zachowuje ich wzajemną kolejność — dlatego numery
+   *  porządkowe rozdzielamy równo w wolnej przerwie, a nie połówkami. */
   const dropRelative = async (
     payload: DragPayload,
     target: TreeNode,
     parentId: string | null,
     pos: 'before' | 'after',
   ) => {
-    if (payload.id === target.id) return
-    if (payload.kind === 'folder') {
-      // folder nie może wylądować we własnym wnętrzu
-      if (parentId !== null && isInside(parentId, payload.id)) return
+    const items = pozycje(payload).filter((it) => it.id !== target.id)
+    if (items.length === 0) return
+    if (items.some((it) => it.kind === 'folder' && parentId !== null && isInside(parentId, it.id))) {
+      return
     }
     const siblings = children(parentId)
     const i = siblings.findIndex((n) => n.id === target.id)
-    let order: number
+    let od: number
+    let doo: number
     if (pos === 'before') {
-      const prev = siblings[i - 1]
-      order = prev ? (prev.order + target.order) / 2 : target.order - 1
+      od = siblings[i - 1]?.order ?? target.order - 1
+      doo = target.order
     } else {
-      const next = siblings[i + 1]
-      order = next ? (next.order + target.order) / 2 : target.order + 1
+      od = target.order
+      doo = siblings[i + 1]?.order ?? target.order + 1
     }
-    if (payload.kind === 'concept') await moveConcept(payload.id, parentId, order)
-    else if (payload.kind === 'path') await movePath(payload.id, parentId, order)
-    else await moveFolder(payload.id, parentId, order)
+    const krok = (doo - od) / (items.length + 1)
+    let k = 1
+    for (const it of items) {
+      const order = od + krok * k++
+      if (it.kind === 'concept') await moveConcept(it.id, parentId, order)
+      else if (it.kind === 'path') await movePath(it.id, parentId, order)
+      else await moveFolder(it.id, parentId, order)
+    }
+    setZaznaczone(new Set())
   }
 
   const dropOnRoot = async (payload: DragPayload) => {
-    if (payload.kind === 'concept') await moveConcept(payload.id, null)
-    else if (payload.kind === 'path') await movePath(payload.id, null)
-    else await moveFolder(payload.id, null)
+    for (const it of pozycje(payload)) {
+      if (it.kind === 'concept') await moveConcept(it.id, null)
+      else if (it.kind === 'path') await movePath(it.id, null)
+      else await moveFolder(it.id, null)
+    }
+    setZaznaczone(new Set())
   }
 
   /** Rozwija folder, żeby świeżo utworzona rzecz była od razu widoczna. */
@@ -467,11 +540,13 @@ export function Sidebar({
         <div
           draggable
           className={`concept-item ${c.id === selectedId ? 'selected' : ''} ${
-            hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
-          }`}
-          onClick={() => onSelect(c.id)}
+            zaznaczone.has(c.id) ? 'zaznaczony' : ''
+          } ${hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''}`}
+          onClick={(e) => {
+            if (!klikZaznaczeniem(e, c.id)) onSelect(c.id)
+          }}
           onContextMenu={(e) => openItemMenu(e, { kind: 'concept', concept: c })}
-          onDragStart={(e) => setDragData(e, { kind: 'concept', id: c.id })}
+          onDragStart={(e) => setDragData(e, ladunek('concept', c.id))}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -545,12 +620,14 @@ export function Sidebar({
       <li key={f.id}>
         <div
           draggable
-          className={`folder-row ${hint === 'into' ? 'drop-into' : ''} ${
+          className={`folder-row ${zaznaczone.has(f.id) ? 'zaznaczony' : ''} ${hint === 'into' ? 'drop-into' : ''} ${
             hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
           }`}
-          onClick={() => toggleExpanded(f.id)}
+          onClick={(e) => {
+            if (!klikZaznaczeniem(e, f.id)) toggleExpanded(f.id)
+          }}
           onContextMenu={(e) => openItemMenu(e, { kind: 'folder', folder: f })}
-          onDragStart={(e) => setDragData(e, { kind: 'folder', id: f.id })}
+          onDragStart={(e) => setDragData(e, ladunek('folder', f.id))}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -627,12 +704,14 @@ export function Sidebar({
       <li key={p.id}>
         <div
           draggable
-          className={`concept-item path-item ${p.id === openPathId ? 'selected' : ''} ${
+          className={`concept-item path-item ${zaznaczone.has(p.id) ? 'zaznaczony' : ''} ${p.id === openPathId ? 'selected' : ''} ${
             hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
           }`}
-          onClick={() => onOpenPath(p.id)}
+          onClick={(e) => {
+            if (!klikZaznaczeniem(e, p.id)) onOpenPath(p.id)
+          }}
           onContextMenu={(e) => openItemMenu(e, { kind: 'path', path: p })}
-          onDragStart={(e) => setDragData(e, { kind: 'path', id: p.id })}
+          onDragStart={(e) => setDragData(e, ladunek('path', p.id))}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
