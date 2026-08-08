@@ -6,15 +6,25 @@ format danych: [../docs/DATA-FORMAT.md](../docs/DATA-FORMAT.md).
 
 ## Uruchamianie
 
-Na co dzień: **skrót „Kompendium" na pulpicie** — uruchamia serwer w tle
-i otwiera aplikację w Firefoksie (`start-kompendium.vbs`).
+Na co dzień: **skrót „Kompendium" na pulpicie** — buduje aplikację, podaje ją
+w tle i otwiera w Firefoksie (`start-kompendium.vbs`).
 
 Ręcznie:
 
 ```bash
 npm install      # tylko za pierwszym razem
-npm run dev      # http://localhost:5173
+npm start        # buduje i podaje — http://localhost:5173
+npm run dev      # tryb pracy nad kodem — też http://localhost:5173
 ```
+
+**Do pisania używa się `npm start`, nie `npm run dev`.** Tryb pracy odświeża
+kod w locie, ale za to sprawdza sam siebie przy każdym rysowaniu — przy
+ścieżce na kilkaset kafelków to różnica między najgorszą klatką 33 ms
+a 266 ms, czyli między pisaniem gładkim a szarpanym. `npm run dev` jest do
+zmieniania kodu, `npm start` do pracy z wiedzą.
+
+**Port musi zostać 5173.** Dane siedzą w IndexedDB przeglądarki i są
+przywiązane do adresu — aplikacja pod innym portem pokaże pustą bazę.
 
 Przy starcie Vite kopiuje dane pomocnicze PDF.js (czcionki standardowe, mapy
 znaków, moduły WASM, profile ICC) z `node_modules` do `public/pdfjs` — bez nich
