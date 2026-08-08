@@ -1144,6 +1144,15 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       position,
       data: { name, type, parts },
     }
+
+    // Miejsce grupy w łańcuchu: tam, gdzie stał najwcześniejszy z jej członków.
+    // Potrzebne, bo scalać wolno kafelki NIE po kolei — a wtedy zwykłe
+    // przepięcie strzałek na grupę robi z sąsiada pętlę (G → Gamma → G)
+    // i cały dalszy ciąg ścieżki wypada z porządku.
+    const kolejnosc = topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))
+    const miejsce = new Map(kolejnosc.map((n, i) => [n.id, i]))
+    const gPos = Math.min(...chosen.map((n) => miejsce.get(n.id) ?? 0))
+
     setRfNodes((ns) => [...ns.filter((n) => !gone.has(n.id)), group])
     setRfEdges((es) => {
       const rewired = es
@@ -1153,13 +1162,36 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           target: gone.has(e.target) ? gid : e.target,
         }))
         .filter((e) => e.source !== e.target)
+        // strzałki wstecz — to one robiły pętlę; kafelek, który był pomiędzy
+        // scalanymi, po prostu ląduje za grupą
+        .filter((e) => {
+          if (e.target === gid) return (miejsce.get(e.source) ?? 0) < gPos
+          if (e.source === gid) return (miejsce.get(e.target) ?? 0) > gPos
+          return true
+        })
       const seen = new Set<string>()
-      return rewired.filter((e) => {
+      const bezPowtorek = rewired.filter((e) => {
         const k = `${e.source}->${e.target}`
         if (seen.has(k)) return false
         seen.add(k)
         return true
       })
+
+      // Kafelek, który stracił wszystko, co go poprzedzało, doczepiamy z
+      // powrotem — inaczej wyglądałby na zgubiony.
+      const zostali = kolejnosc.filter((n) => !gone.has(n.id))
+      const maWejscie = new Set(bezPowtorek.map((e) => e.target))
+      const mialWejscie = new Set(es.map((e) => e.target))
+      const dodatkowe: Edge[] = []
+      let poprzedni: string = gPos === 0 ? gid : (zostali[0]?.id ?? gid)
+      for (const n of [...zostali.slice(gPos === 0 ? 0 : 1)]) {
+        if (mialWejscie.has(n.id) && !maWejscie.has(n.id) && n.id !== poprzedni) {
+          dodatkowe.push(mkEdge(poprzedni, n.id))
+          maWejscie.add(n.id)
+        }
+        poprzedni = n.id
+      }
+      return [...bezPowtorek, ...dodatkowe]
     })
   }
 

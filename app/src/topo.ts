@@ -55,8 +55,25 @@ export function topoOrder(nodes: PathNode[], edges: PathEdge[]): PathNode[] {
       }
     })
   }
-  // cykle / reszta
+  // Reszta: węzły uwięzione w cyklu. Dawniej lądowały hurtem na końcu, przez
+  // co po jednej wadliwej strzałce pół ścieżki zjeżdżało na dół i wyglądało
+  // na zgubione. Teraz przepuszczamy je przez to samo sito, tylko z rozcięciem
+  // cyklu: bierzemy ten węzeł, do którego prowadzi najmniej strzałek, i tak
+  // w kółko. Kolejność zostaje sensowna, a nic nie wypada z widoku.
   const rest = nodes.filter((n) => !done.has(n.id))
-  rest.sort((a, b) => a.y - b.y || a.x - b.x)
-  return [...result, ...rest]
+  while (rest.length) {
+    rest.sort((a, b) => {
+      const da = indeg.get(a.id) ?? 0
+      const db = indeg.get(b.id) ?? 0
+      if (da !== db) return da - db
+      return a.y - b.y || a.x - b.x
+    })
+    const n = rest.shift()!
+    done.add(n.id)
+    result.push(n)
+    for (const e of bySource.get(n.id) ?? []) {
+      indeg.set(e.to, (indeg.get(e.to) ?? 0) - 1)
+    }
+  }
+  return result
 }
