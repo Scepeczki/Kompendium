@@ -3740,17 +3740,11 @@ button.version-pill.new {
   color: color-mix(in srgb, var(--block-color, var(--ink-soft)) 60%, var(--ink-soft));
 }
 
+/* liczba źródeł dosunięta do prawej — sama mówi, że jest co rozwijać */
 .source-list-count {
+  margin-left: auto;
   font-weight: 400;
   letter-spacing: 0;
-}
-
-/* znak +/− dosunięty do prawej krawędzi bloku */
-.source-list-sign {
-  margin-left: auto;
-  font-size: var(--fs-3);
-  font-weight: 400;
-  line-height: 1;
 }
 
 .source-list-items {
@@ -3947,6 +3941,21 @@ button.version-pill.new {
 
 .group-head {
   border-bottom: 1px solid var(--line-strong);
+}
+
+/* nazwa strony, gdy jest tylko jedna — nie przycisk, bo nie ma na co przełączać,
+   ale nazwa ma być widoczna tak samo jak przy kilku stronach */
+.page-chip-static {
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--block-color, var(--muted)) 55%, var(--muted));
+}
+
+/* menu wstawiania między kafelkami w Linii */
+.linear-menu {
+  z-index: 65;
 }
 
 /* strony składnika w grupie — jak zakładki stron w zwykłym bloku, tylko ciszej */
@@ -4259,8 +4268,7 @@ button.version-pill.new {
   body.script-mode .path-hint,
   body.script-mode .outline,
   body.script-mode .outline-reopen,
-  body.script-mode .script-block-open,
-  body.script-mode .source-list-sign {
+  body.script-mode .script-block-open {
     display: none !important;
   }
 

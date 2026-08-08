@@ -19,8 +19,11 @@ export function SubpageTabs({ conceptId, active, onSelect, hint }: Props) {
       [conceptId],
     ) ?? []
   const concept = useLiveQuery(() => db.concepts.get(conceptId), [conceptId])
-  if (subs.length === 0) return null
   const activeSub = subs.find((s) => s.id === active) ?? null
+  // Na kafelku mapy przy jednej stronie nie pokazujemy nic: nazwa klocka jest
+  // tuż nad, a każdy dodatkowy wiersz podnosi kafelek i psuje rozstawienie.
+  // W Linii i Skrypcie nazwa strony jest widoczna zawsze (patrz BlockShell).
+  if (subs.length === 0) return null
   return (
     <div className="page-chips nodrag">
       <button

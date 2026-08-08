@@ -19,6 +19,9 @@ interface Props {
   onJumpToSource?: (ref: SourceRef) => void
   /** Dymki wyjaśniające, co oznacza wybór w danym widoku. */
   pickHint?: string
+  /** Strzałka „otwórz klocek" w nagłówku. W Linii zbędna — tam ołówek przy
+   *  segmencie robi to samo, a dwa przyciski do jednej rzeczy tylko mieszają. */
+  showOpen?: boolean
 }
 
 /** Blok klocka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
@@ -34,6 +37,7 @@ export function BlockShell({
   onOpenConcept,
   onJumpToSource,
   pickHint,
+  showOpen = true,
 }: Props) {
   const subs =
     useLiveQuery(
@@ -57,7 +61,7 @@ export function BlockShell({
           <span className="script-block-type">{typy.label(concept.type)}:</span>{' '}
           {concept.name}
         </h3>
-        {onOpenConcept && (
+        {onOpenConcept && showOpen && (
           <button
             className="script-block-open"
             title="Otwórz klocek w edytorze"
@@ -95,7 +99,12 @@ export function BlockShell({
         )}
 
         <div className="block-content">
-          {subs.length > 0 && (
+          {/* nazwa strony widoczna zawsze — także gdy klocek ma tylko jedną */}
+          {subs.length === 0 ? (
+            <div className="block-pages">
+              <span className="page-chip-static">{mainPageName(concept)}</span>
+            </div>
+          ) : (
             <div className="block-pages">
               <button
                 className={`block-page ${!sub ? 'active' : ''}`}

@@ -35,7 +35,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
-import { mdShortcuts, wrapLines } from '../cmShortcuts'
+import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import { RichEditor } from './RichEditor'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -434,6 +434,27 @@ function LinearView({
 }: LinearViewProps) {
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
+  /** Menu wstawiania spod prawego przycisku — wraz z miejscem w łańcuchu. */
+  const [segMenu, setSegMenu] = useState<{
+    x: number
+    y: number
+    index: number
+    pos: 'before' | 'after'
+  } | null>(null)
+
+  useEffect(() => {
+    if (!segMenu) return
+    const zamknij = () => setSegMenu(null)
+    const klawisz = (e: KeyboardEvent) => e.key === 'Escape' && setSegMenu(null)
+    document.addEventListener('mousedown', zamknij)
+    document.addEventListener('scroll', zamknij, true)
+    window.addEventListener('keydown', klawisz)
+    return () => {
+      document.removeEventListener('mousedown', zamknij)
+      document.removeEventListener('scroll', zamknij, true)
+      window.removeEventListener('keydown', klawisz)
+    }
+  }, [segMenu])
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
 
@@ -481,6 +502,7 @@ function LinearView({
           onSubpageChange={(id: string | null) => onSetSubpage(n.id, id)}
           onOpenConcept={onOpenConcept}
           onJumpToSource={onJumpToSource}
+          showOpen={false}
           pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
         />
       )
@@ -600,6 +622,16 @@ function LinearView({
                 const { afterId, beforeId } = neighbors(i, pos)
                 handleDrop(e, afterId, beforeId)
               }}
+              onContextMenu={(e) => {
+                // wstawianie tam, gdzie stoi kursor: górna połowa segmentu
+                // znaczy „przed nim", dolna „za nim". Bez tego rozdział na
+                // początku skryptu trzeba było dodać na końcu i przeciągać.
+                if ((e.target as Element).closest('.linear-menu')) return
+                e.preventDefault()
+                const r = e.currentTarget.getBoundingClientRect()
+                const pos = e.clientY - r.top < r.height / 2 ? 'before' : 'after'
+                setSegMenu({ x: e.clientX, y: e.clientY, index: i, pos })
+              }}
             >
               {n.kind !== 'comment' && (
               <div className="linear-side">
@@ -698,6 +730,71 @@ function LinearView({
           </div>
         </div>
       </div>
+
+      {segMenu &&
+        (() => {
+          const { afterId, beforeId } = neighbors(segMenu.index, segMenu.pos)
+          const sasiad = ordered[segMenu.index]
+          const opis = (n: PathNode | undefined) =>
+            !n
+              ? ''
+              : n.kind === 'heading'
+                ? n.text || 'rozdział'
+                : n.kind === 'block'
+                  ? (conceptById(n.conceptId)?.name ?? 'klocek')
+                  : n.kind === 'fusion'
+                    ? n.name
+                    : n.kind === 'comment'
+                      ? 'komentarzem'
+                      : 'notatką'
+          const wstaw = (fn: () => void) => () => {
+            setSegMenu(null)
+            fn()
+          }
+          return (
+            <div
+              className="tree-menu linear-menu"
+              style={{ left: segMenu.x, top: segMenu.y }}
+              onMouseDown={(e) => e.stopPropagation()}
+              ref={(el) => {
+                if (!el) return
+                const r = el.getBoundingClientRect()
+                const dx = Math.min(0, window.innerWidth - 6 - r.right)
+                const dy = Math.min(0, window.innerHeight - 6 - r.bottom)
+                if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
+              }}
+            >
+              <div className="tree-menu-where">
+                {segMenu.pos === 'before' ? 'przed' : 'po'} „{opis(sasiad)}"
+              </div>
+              <button
+                className="tree-menu-item"
+                onClick={wstaw(() => onAddHeading(1, afterId, beforeId))}
+              >
+                § Rozdział
+              </button>
+              <button
+                className="tree-menu-item"
+                onClick={wstaw(() => onAddHeading(2, afterId, beforeId))}
+              >
+                §§ Podrozdział
+              </button>
+              <div className="tree-menu-sep" />
+              <button
+                className="tree-menu-item"
+                onClick={wstaw(() => onAddNote('text', afterId, beforeId))}
+              >
+                ✎ Notatka
+              </button>
+              <button
+                className="tree-menu-item"
+                onClick={wstaw(() => onAddNote('comment', afterId, beforeId))}
+              >
+                💬 Komentarz
+              </button>
+            </div>
+          )
+        })()}
     </div>
   )
 }
@@ -951,6 +1048,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     () => [
       markdown(),
       mdShortcuts,
+      surroundSelection,
       wrapLines,
       wikiCompletion(() => conceptNamesRef.current),
     ],

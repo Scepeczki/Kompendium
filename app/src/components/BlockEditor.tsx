@@ -4,7 +4,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { RichEditor } from './RichEditor'
 import { ConceptPicker } from './ConceptPicker'
-import { mdShortcuts, wrapLines } from '../cmShortcuts'
+import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import {
   createConcept,
@@ -184,6 +184,7 @@ export function BlockEditor({
     () => [
       markdown(),
       mdShortcuts,
+      surroundSelection,
       wrapLines,
       wikiCompletion(() => conceptNamesRef.current),
     ],

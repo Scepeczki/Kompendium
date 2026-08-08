@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { Extension } from '@tiptap/core'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
+import { OBEJMUJACE } from '../cmShortcuts'
 import { PageRuler } from './PageRuler'
 import { SpacingMenu } from './SpacingMenu'
 import { INDENT_RE, INDENT_RE_ANY, indentStyle, parseIndents } from '../indent'
@@ -253,6 +254,27 @@ export function RichEditor({
     content: escapeMathForParse(value),
     editable,
     autofocus: autoFocus ? 'end' : false,
+    editorProps: {
+      /** Zaznaczasz wzór, wciskasz `$` — i tekst jest w `$…$`, a nie
+       *  skasowany. Zaznaczenie zostaje w środku, więc drugie naciśnięcie
+       *  daje `$$…$$`. To samo dla pozostałych par znaków. */
+      handleTextInput(view, from, to, text) {
+        const right = OBEJMUJACE[text]
+        if (!right || from === to) return false
+        const wybrane = view.state.doc.textBetween(from, to, '\n')
+        if (!wybrane) return false
+        const tr = view.state.tr.insertText(`${text}${wybrane}${right}`, from, to)
+        tr.setSelection(
+          TextSelection.create(
+            tr.doc,
+            from + text.length,
+            from + text.length + wybrane.length,
+          ),
+        )
+        view.dispatch(tr)
+        return true
+      },
+    },
     onUpdate: ({ editor }) => {
       onChange(unescapeMathAfterSerialize(editor.storage.markdown.getMarkdown()))
     },

@@ -87,6 +87,13 @@ export function GroupShell({
         <div className="block-content">
           {resolved.map((r, i) => (
             <div key={`${parts[i].conceptId}-${i}`} className="group-part">
+              {r.strony.length === 0 && (
+                <div className="block-pages group-part-pages">
+                  <span className="page-chip-static">
+                    {mainPageName(r.concept ?? {})}
+                  </span>
+                </div>
+              )}
               {r.strony.length > 0 && onSubpageChange && (
                 <div className="block-pages group-part-pages">
                   <button

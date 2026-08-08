@@ -26,3 +26,39 @@ export const mdShortcuts = Prec.high(
     { key: 'Mod-Shift-m', run: wrap('$$', '$$') },
   ]),
 )
+
+/** Znaki, które przy zaznaczonym tekście obejmują go, zamiast go zjadać.
+ *  Zaznaczenie zostaje w środku, więc drugie naciśnięcie tego samego znaku
+ *  daje podwójną parę: `$x$` → `$$x$$`. */
+export const OBEJMUJACE: Record<string, string> = {
+  $: '$',
+  '*': '*',
+  _: '_',
+  '`': '`',
+  '(': ')',
+  '[': ']',
+  '{': '}',
+  '"': '"',
+}
+
+/** Zaznaczasz wzór, wciskasz `$` — i tekst jest w `$…$`, a nie skasowany.
+ *  Domyślnie każdy wpisany znak zastępuje zaznaczenie, co przy pisaniu
+ *  matematyki jest wyłącznie stratą pracy. */
+export const surroundSelection = EditorView.inputHandler.of(
+  (view, from, to, text) => {
+    const right = OBEJMUJACE[text]
+    if (!right || from === to) return false
+    const { main } = view.state.selection
+    if (main.empty) return false
+    const sel = view.state.doc.sliceString(main.from, main.to)
+    view.dispatch({
+      changes: { from: main.from, to: main.to, insert: `${text}${sel}${right}` },
+      selection: {
+        anchor: main.from + text.length,
+        head: main.from + text.length + sel.length,
+      },
+      userEvent: 'input.type',
+    })
+    return true
+  },
+)

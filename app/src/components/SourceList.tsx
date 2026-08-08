@@ -120,9 +120,10 @@ export function SourceList({ refs, onJump }: Props) {
         title="Skąd to wiem: miejsca w PDF-ach i klocki, na których oparty jest ten klocek"
         onClick={() => setOpen((o) => !o)}
       >
+        {/* bez znaku +/− — sam napis „Źródła” jest przyciskiem, a dwa
+            sygnały do tej samej czynności tylko mieszają */}
         <span className="source-list-label">Źródła</span>
         <span className="source-list-count">{refs.length}</span>
-        <span className="source-list-sign">{open ? '−' : '+'}</span>
       </button>
       {open && (
         <div className="source-list-items">
