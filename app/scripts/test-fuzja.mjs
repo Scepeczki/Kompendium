@@ -108,6 +108,8 @@ await page.click('.group-editor button:has-text("Przepisz na jeden tekst")')
 await page.waitForTimeout(500)
 await page.keyboard.press('Escape')
 await page.waitForTimeout(700)
+await page.click('.script-group-block .markdown-body')
+await page.waitForSelector('.script-group-block .linear-pole')
 const zalazek = await page.textContent('.script-group-block .linear-pole')
 check('przepisywanie startuje od sklejonych treści składników',
   zalazek.includes('TRESC-DOWODU-KRESU') && zalazek.includes('Piszemy sup A'), zalazek)

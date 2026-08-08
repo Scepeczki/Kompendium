@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, mainPageName } from '../db'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
-import { type BlockVersion, type Concept, type SourceRef } from '../types'
+import { type BlockVersion, type Concept, type SourceRef, type Subpage } from '../types'
 import { useBlockTypes } from '../blockTypes'
 
 interface Props {
@@ -19,6 +19,8 @@ interface Props {
   onJumpToSource?: (ref: SourceRef) => void
   /** Dymki wyjaśniające, co oznacza wybór w danym widoku. */
   pickHint?: string
+  /** Strony klocka podane z zewnątrz — oszczędza osobne zapytanie na blok. */
+  subsZewn?: Subpage[]
   /** Strzałka „otwórz klocek" w nagłówku. W Linii zbędna — tam menu pod
    *  prawym przyciskiem robi to samo, a dwa wejścia mieszają. */
   showOpen?: boolean
@@ -48,17 +50,25 @@ export function BlockShell({
   onOpenConcept,
   onJumpToSource,
   pickHint,
+  subsZewn,
   showOpen = true,
   onRename,
   edytor,
   onStartEdit,
   blokada,
 }: Props) {
-  const subs =
+  // Strony bierzemy z zewnątrz, jeśli ktoś je już ma. W długiej ścieżce
+  // sześćdziesiąt bloków to było sześćdziesiąt osobnych zapytań do bazy,
+  // odpalanych przy każdym przerysowaniu — i stąd zacięcia przy przewijaniu.
+  const pobrane =
     useLiveQuery(
-      () => db.subpages.where('conceptId').equals(concept.id).sortBy('order'),
-      [concept.id],
+      () =>
+        subsZewn
+          ? Promise.resolve([])
+          : db.subpages.where('conceptId').equals(concept.id).sortBy('order'),
+      [concept.id, !!subsZewn],
     ) ?? []
+  const subs = subsZewn ?? pobrane
 
   const typy = useBlockTypes()
   const sorted = [...versions].sort((a, b) => a.version - b.version)

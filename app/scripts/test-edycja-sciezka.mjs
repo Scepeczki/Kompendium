@@ -82,10 +82,11 @@ check('nowa nazwa trafia do klocka w bazie',
 check('lista po lewej też pokazuje nową nazwę',
   (await page.locator('.concept-item:has-text("Kres górny zbioru")').count()) === 1)
 
-// 2. treść klocka: pisze się od razu, bez wchodzenia w żaden tryb
-check('treść kafelka jest polem do pisania od razu',
+// 2. treść klocka: jeden klik i piszesz — bez żadnego trybu edycji
+await page.click('.linear-seg:first-child .markdown-body')
+await page.waitForSelector('.linear-seg:first-child .linear-pole .tiptap')
+check('klik w treść daje pole do pisania',
   (await page.locator('.linear-seg:first-child .linear-pole .tiptap').count()) === 1)
-await page.click('.linear-seg:first-child .linear-pole .tiptap')
 await page.keyboard.press('End')
 await page.keyboard.type(' DOPISANE-W-SCIEZCE')
 await page.waitForTimeout(900)
@@ -127,6 +128,8 @@ check('nazwę rozdziału zmienia się wprost w ścieżce',
 await menuNad(0)
 await page.click('.linear-menu .tree-menu-item:has-text("Notatka")')
 await page.waitForTimeout(700)
+await page.click('.linear-note .markdown-body')
+await page.waitForSelector('.linear-note .tiptap')
 await page.click('.linear-note .tiptap')
 await page.keyboard.type('Notatka pisana na miejscu.')
 await page.waitForTimeout(900)
@@ -192,6 +195,8 @@ check('starsza wersja nie zaprasza do pisania',
   (await blok.locator('.markdown-body.do-pisania').count()) === 0)
 await blok.locator('.markdown-body').first().click()
 await page.waitForTimeout(400)
+await blok.locator('.markdown-body').first().click()
+await page.waitForTimeout(500)
 check('starsza wersja nie ma pola do pisania',
   (await blok.locator('.linear-pole').count()) === 0)
 

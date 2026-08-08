@@ -434,6 +434,17 @@ interface LinearViewProps {
   onEditFusion?: (nodeId: string, md: string) => void
 }
 
+/** Treść jednego segmentu, przerysowywana tylko wtedy, gdy naprawdę się zmieni.
+ *
+ *  Zapis treści klocka budzi żywe zapytania i cała Linia renderuje się od nowa.
+ *  Przy sześćdziesięciu kafelkach to było ~300 ms na jeden zapis — widoczne
+ *  jako zacięcie, także w środku przewijania. `sygnatura` zbiera wszystko, od
+ *  czego zależy wygląd segmentu; jeśli się nie zmieniła, React pomija poddrzewo. */
+const TrescSegmentu = memo(
+  ({ rysuj }: { sygnatura: string; rysuj: () => React.ReactNode }) => <>{rysuj()}</>,
+  (a, b) => a.sygnatura === b.sygnatura,
+)
+
 function LinearView({
   ordered,
   onDropConcept,
@@ -461,35 +472,22 @@ function LinearView({
 }: LinearViewProps) {
   /** Pole, w którym stoi kursor — na nim działa wspólny pasek narzędzi. */
   const [aktywny, setAktywny] = useState<Editor | null>(null)
-  /** Segmenty widoczne na ekranie — tylko one mają żywy edytor. */
+  /** Segmenty z żywym polem tekstowym. */
   const [widoczne, setWidoczne] = useState<Set<string>>(new Set())
-  const obserwatorRef = useRef<IntersectionObserver | null>(null)
+  /** Gdzie kliknięto — żeby kursor stanął dokładnie tam, a nie na początku. */
+  const punktRef = useRef<{ x: number; y: number } | null>(null)
 
-  // Cała ścieżka jest edytorem, ale edytory żyją tylko tam, gdzie widać.
-  // Bez tego pięćdziesiąt segmentów to pięćdziesiąt instancji ProseMirror
-  // i ścieżka zaczyna się kleić przy każdym uderzeniu w klawisz.
-  useEffect(() => {
-    const io = new IntersectionObserver(
-      (wpisy) => {
-        setWidoczne((prev) => {
-          const next = new Set(prev)
-          for (const w of wpisy) {
-            const id = (w.target as HTMLElement).dataset.seg
-            if (!id) continue
-            if (w.isIntersecting) next.add(id)
-            else next.delete(id)
-          }
-          return next
-        })
-      },
-      { rootMargin: '400px 0px' },
-    )
-    obserwatorRef.current = io
-    return () => io.disconnect()
-  }, [])
-
-  const patrz = useCallback((el: HTMLElement | null) => {
-    if (el) obserwatorRef.current?.observe(el)
+  /** Kliknięcie w tekst stawia w nim pole — z kursorem tam, gdzie klik.
+   *
+   *  Pola nie są wiązane z widocznością i to jest tu sedno. Postawienie
+   *  edytora (parsowanie Markdownu, rysowanie wzorów KaTeX-em) kosztuje
+   *  ~200 ms; robione w trakcie przewijania — a więc kilka razy, bo kafelki
+   *  wchodzą i schodzą z ekranu — dawało dokładnie te zacięcia, o których
+   *  było zgłoszenie. Przewijanie nie tworzy już żadnego pola, a kliknięcie
+   *  daje je natychmiast i nie widać różnicy między tekstem a polem. */
+  const obudzPole = useCallback((segId: string, e?: React.PointerEvent) => {
+    if (e) punktRef.current = { x: e.clientX, y: e.clientY }
+    setWidoczne((prev) => (prev.has(segId) ? prev : new Set(prev).add(segId)))
   }, [])
 
   /** Który segment ma kursor + wszystkie żywe edytory, żeby pasek mógł się
@@ -563,11 +561,77 @@ function LinearView({
       window.removeEventListener('keydown', klawisz)
     }
   }, [segMenu])
-  const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
-  const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
-  const subpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
+  // Tylko klocki użyte w tej ścieżce. Czytanie całych tabel oznaczało, że
+  // przy dużej bazie każdy zapis kopiował treść wszystkich klocków świata,
+  // żeby narysować kilkadziesiąt z nich.
+  const uzyte = useMemo(() => {
+    const s = new Set<string>()
+    for (const n of ordered) {
+      if (n.kind === 'block') s.add(n.conceptId)
+      else if (n.kind === 'fusion') for (const p of n.parts) s.add(p.conceptId)
+    }
+    return [...s].sort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordered.map((n) => n.id).join(',')])
+  const klucz = uzyte.join(',')
+  const zapytaneKlocki =
+    useLiveQuery(() => db.concepts.where('id').anyOf(uzyte).toArray(), [klucz]) ?? []
+  const zapytaneWersje =
+    useLiveQuery(() => db.versions.where('conceptId').anyOf(uzyte).toArray(), [klucz]) ?? []
+  const zapytaneStrony =
+    useLiveQuery(() => db.subpages.where('conceptId').anyOf(uzyte).toArray(), [klucz]) ?? []
 
-  const conceptById = (id: string) => concepts.find((c) => c.id === id)
+  /** W trakcie pisania lista nie odświeża się z bazy.
+   *
+   *  Każdy zapis treści każe bazie oddać wszystkie klocki tej ścieżki od nowa;
+   *  przy pięciuset to setki milisekund — a przecież to, co właśnie piszemy,
+   *  widać w polu, nie w odczycie z bazy. Zamrażamy więc dane na czas pisania
+   *  i odmrażamy sekundę po ostatnim klawiszu. */
+  const [pisze, setPisze] = useState(false)
+  const stopPisania = useRef<number | undefined>(undefined)
+  const mrozoneRef = useRef({
+    concepts: zapytaneKlocki,
+    versions: zapytaneWersje,
+    subpages: zapytaneStrony,
+  })
+  if (!pisze) {
+    mrozoneRef.current = {
+      concepts: zapytaneKlocki,
+      versions: zapytaneWersje,
+      subpages: zapytaneStrony,
+    }
+  }
+  const { concepts, versions, subpages } = mrozoneRef.current
+
+  const dotknijPisania = useCallback(() => {
+    setPisze(true)
+    window.clearTimeout(stopPisania.current)
+    stopPisania.current = window.setTimeout(() => setPisze(false), 1000)
+  }, [])
+  useEffect(() => () => window.clearTimeout(stopPisania.current), [])
+
+  // Podręczne mapy zamiast przeszukiwania tablic przy każdym kafelku.
+  // Przy 500 segmentach `find` w pętli to ćwierć miliona przebiegów na jedno
+  // przerysowanie — i stąd braly się zacięcia po ~900 ms przy pisaniu.
+  const mapy = useMemo(() => {
+    const klocki = new Map(concepts.map((c) => [c.id, c]))
+    const wersjeKlocka = new Map<string, typeof versions>()
+    for (const v of versions) {
+      const lista = wersjeKlocka.get(v.conceptId)
+      if (lista) lista.push(v)
+      else wersjeKlocka.set(v.conceptId, [v])
+    }
+    const stronyKlocka = new Map<string, typeof subpages>()
+    const strony = new Map(subpages.map((s) => [s.id, s]))
+    for (const s of subpages) {
+      const lista = stronyKlocka.get(s.conceptId)
+      if (lista) lista.push(s)
+      else stronyKlocka.set(s.conceptId, [s])
+    }
+    return { klocki, wersjeKlocka, stronyKlocka, strony }
+  }, [concepts, versions, subpages])
+
+  const conceptById = (id: string) => mapy.klocki.get(id)
 
   const isOurs = (e: React.DragEvent) =>
     e.dataTransfer.types.includes(MIME) || e.dataTransfer.types.includes(SEG_MIME)
@@ -617,31 +681,86 @@ function LinearView({
           editable
           bezPaska
           ruler={false}
-          onChange={zapisz}
+          onChange={(md) => {
+            dotknijPisania()
+            zapisz(md)
+          }}
           onFocus={() => setAktywnyId(segId)}
           onReady={(ed) => {
             if (ed) edytoryRef.current.set(segId, ed)
             else edytoryRef.current.delete(segId)
             setIleEdytorow(edytoryRef.current.size)
+            // kursor tam, gdzie padło kliknięcie — inaczej skakałby na początek
+            const p = punktRef.current
+            punktRef.current = null
+            if (!ed || !p) return
+            requestAnimationFrame(() => {
+              const trafiony = ed.view.posAtCoords({ left: p.x, top: p.y })
+              ed.chain().focus().setTextSelection(trafiony?.pos ?? 0).run()
+              setAktywnyId(segId)
+            })
           }}
         />
       </div>
     ) : (
       <div
-        className={`markdown-body ${klasa}`}
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(value) }}
+        className={`markdown-body do-pisania ${klasa}`}
+        onPointerDown={(e) => {
+          if ((e.target as Element).closest('a, button, select')) return
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return
+          obudzPole(segId, e)
+        }}
+        dangerouslySetInnerHTML={{
+          // pusty tekst musi mieć w co kliknąć — inaczej jest niewidzialny
+          __html: value
+            ? renderMarkdown(value)
+            : '<p class="note-empty">pusto — kliknij, aby pisać</p>',
+        }}
       />
     )
+
+  /** Wszystko, od czego zależy wygląd segmentu, w jednym napisie. */
+  const sygnatura = (n: PathNode): string => {
+    if (n.kind !== 'block') {
+      return `${n.kind}|${JSON.stringify(n)}|${widoczne.has(n.id)}`
+    }
+    const c = mapy.klocki.get(n.conceptId)
+    const wersje = mapy.wersjeKlocka.get(n.conceptId) ?? []
+    const w =
+      wersje.find((v) => v.id === n.versionId) ??
+      wersje.find((v) => v.id === c?.currentVersionId)
+    const s = n.subpageId ? mapy.strony.get(n.subpageId) : undefined
+    const strony = (mapy.stronyKlocka.get(n.conceptId) ?? [])
+      .map((x) => `${x.id}:${x.name}`)
+      .join(',')
+    return [
+      n.id,
+      c?.name,
+      c?.type,
+      c?.mainPageName,
+      c?.currentVersionId,
+      w?.id,
+      w?.content,
+      w?.label,
+      w?.sourceRefs?.length ?? 0,
+      w?.updatedAt,
+      wersje.length,
+      s?.id,
+      s?.content,
+      strony,
+      widoczne.has(n.id),
+    ].join('|')
+  }
 
   const segmentContent = (n: PathNode) => {
     if (n.kind === 'block') {
       const c = conceptById(n.conceptId)
       if (!c) return <div className="script-block">(usunięte pojęcie)</div>
-      const wersje = versions.filter((v) => v.conceptId === c.id)
+      const wersje = mapy.wersjeKlocka.get(c.id) ?? []
       const wersja =
         wersje.find((v) => v.id === n.versionId) ??
         wersje.find((v) => v.id === c.currentVersionId)
-      const strona = subpages.find((s) => s.id === n.subpageId) ?? null
+      const strona = (n.subpageId ? mapy.strony.get(n.subpageId) : null) ?? null
       // Historia ma zostać historią: po starszej wersji nie piszemy, tak samo
       // jak w edytorze klocka.
       const biezaca = !wersja || wersja.id === c.currentVersionId
@@ -658,6 +777,7 @@ function LinearView({
           onOpenConcept={onOpenConcept}
           onJumpToSource={onJumpToSource}
           showOpen={false}
+          subsZewn={mapy.stronyKlocka.get(c.id) ?? []}
           pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
           onRename={onRenameConcept ? (name) => onRenameConcept(c.id, name) : undefined}
           blokada={
@@ -799,7 +919,6 @@ function LinearView({
           return (
             <div
               key={n.id}
-              ref={patrz}
               data-seg={n.id}
               className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
                 zazSeg.has(n.id) ? 'zaznaczony' : ''
@@ -895,7 +1014,12 @@ function LinearView({
                 </button>
               </div>
               )}
-              <div className="linear-content">{segmentContent(n)}</div>
+              <div className="linear-content">
+                <TrescSegmentu
+                  sygnatura={sygnatura(n)}
+                  rysuj={() => segmentContent(n)}
+                />
+              </div>
             </div>
           )
         })}

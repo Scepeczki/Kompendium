@@ -50,6 +50,9 @@ console.log('✓ klocki doklejone do linii (forma jak w skrypcie)')
 // notatka na końcu (otwiera od razu okno edycji) — wpisz i zamknij
 await page.click('.linear-append button:has-text("+ Notatka")')
 await page.waitForTimeout(500)
+await page.locator('.linear-note').scrollIntoViewIfNeeded()
+await page.click('.linear-note .markdown-body')
+await page.waitForSelector('.linear-note .tiptap')
 await page.click('.linear-note .tiptap')
 await page.keyboard.type('NOTATKA-POD-BETĄ')
 await page.waitForTimeout(600)
@@ -101,7 +104,12 @@ console.log(`✓ usuwanie segmentu działa (zostało: ${segs})`)
 // komentarz boczny: dodaj, sprawdź stronę prawą, przełóż na lewą
 await page.click('.linear-append button:has-text("+ 💬 Komentarz")')
 await page.waitForTimeout(500)
-await page.click('.linear-sidenote .tiptap')
+// komentarz boczny siedzi na marginesie, przy tej szerokości okna pod panelem
+// PDF — klikamy na wprost, bo sprawdzamy pisanie, nie przykrycie paneli
+await page.locator('.linear-sidenote').scrollIntoViewIfNeeded()
+await page.locator('.linear-sidenote .markdown-body').dispatchEvent('pointerdown')
+await page.waitForSelector('.linear-sidenote .tiptap')
+await page.locator('.linear-sidenote .tiptap').evaluate((el) => el.focus())
 await page.keyboard.type('BOCZNY')
 await page.waitForTimeout(600)
 await page.waitForSelector('.linear-sidenote.side-right:has-text("BOCZNY")')

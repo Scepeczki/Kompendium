@@ -1,5 +1,6 @@
-// Pomiar płynności widoku Linia przy prawdziwym skrypcie (25 kafelków):
-// pisanie w kafelku i przeciąganie segmentu nie mogą kleić całej ścieżki.
+// Pomiar płynności widoku Linia przy długim skrypcie (domyślnie 25 kafelków,
+// można podać więcej argumentem). Pisanie, przewijanie i przeciąganie nie mogą
+// kleić ścieżki — a zapis treści nie może przerysowywać wszystkich kafelków.
 import { chromium } from 'playwright'
 import { nowaSciezka } from './lib.mjs'
 
@@ -17,17 +18,20 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-const ILE = 25
+const ILE = Number(process.argv[2] ?? 25)
 for (let i = 1; i <= ILE; i++) {
   await page.click('.sidebar-create-btn[title="Nowy klocek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', `Klocek ${i}`)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
+  // treść jak w prawdziwym skrypcie: kilka zdań i wzory, nie jedna linijka
   await page.keyboard.type(
-    `Tresc klocka ${i}. Zdanie drugie z odrobina dluzszym tekstem, zeby kafelek mial wysokosc.`,
+    `Tresc klocka ${i}. Niech $(a_n)$ bedzie ciagiem o wyrazach $a_n = ${i}/n$. ` +
+      `Wowczas $\\lim_{n \\to \\infty} a_n = 0$, co wynika z definicji granicy: ` +
+      `dla kazdego $\\varepsilon > 0$ istnieje $N$ takie, ze $|a_n| < \\varepsilon$ dla $n > N$.`,
   )
-  await page.waitForTimeout(150)
+  await page.waitForTimeout(80)
   await page.click('.btn-close[title*="Zamknij klocek"]')
 }
 await nowaSciezka(page, 'Duza')
@@ -35,13 +39,13 @@ await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 for (let i = 1; i <= ILE; i++) {
   await page.dragAndDrop(`.concept-item:has-text("Klocek ${i}")`, '.linear-append')
-  await page.waitForTimeout(200)
+  await page.waitForTimeout(120)
 }
 await page.waitForTimeout(1200)
 
 /** Ile edytorów żyje naraz — sedno sprawy przy długiej ścieżce. */
 const edytory = await page.locator('.linear-pole .tiptap').count()
-check('edytory tylko tam, gdzie widać', edytory > 0 && edytory <= 12,
+check('bez klikania nie ma ani jednego edytora', edytory === 0,
   `żywych edytorów: ${edytory} przy ${ILE} kafelkach`)
 
 /** Mierzy czas klatek w trakcie działania. */
@@ -72,7 +76,8 @@ const mierz = async (nazwa, akcja) => {
 }
 
 // 1. pisanie w kafelku
-await page.click('.linear-pole .tiptap')
+await page.click('.linear-seg .markdown-body')
+await page.waitForSelector('.linear-pole .tiptap')
 const pisanie = await mierz('pisanie w kafelku', async () => {
   await page.keyboard.press('End')
   await page.keyboard.type(' Dopisuje dluzsze zdanie, zeby zmierzyc plynnosc pisania.', {
@@ -82,6 +87,36 @@ const pisanie = await mierz('pisanie w kafelku', async () => {
 check('pisanie płynne (mediana poniżej 25 ms/klatkę)', pisanie.mediana < 25,
   `${pisanie.mediana.toFixed(1)} ms`)
 check('bez zacięć powyżej 50 ms przy pisaniu', pisanie.zle <= 2, `zacięć: ${pisanie.zle}`)
+
+// 1b. przewijanie długiej ścieżki — tu edytory wchodzą i schodzą z ekranu
+const przewijanie = await mierz('przewijanie ścieżki', async () => {
+  await page.mouse.move(800, 500)
+  for (let i = 0; i < 30; i++) {
+    await page.mouse.wheel(0, 400)
+    await page.waitForTimeout(30)
+  }
+  await page.waitForTimeout(400)
+})
+check('przewijanie płynne (mediana poniżej 25 ms/klatkę)', przewijanie.mediana < 25,
+  `${przewijanie.mediana.toFixed(1)} ms`)
+check('bez zacięć powyżej 50 ms przy przewijaniu', przewijanie.zle <= 4,
+  `zacięć: ${przewijanie.zle}`)
+
+// 1c. porównanie: ten sam skrypt w Skrypcie (bez edytorów w ogóle)
+await page.click('.view-switch button:has-text("Skrypt")')
+await page.waitForSelector('.script-body .script-block')
+await page.waitForTimeout(1200)
+await mierz('przewijanie Skryptu (bez edytorów)', async () => {
+  await page.mouse.move(800, 500)
+  for (let i = 0; i < 30; i++) {
+    await page.mouse.wheel(0, 400)
+    await page.waitForTimeout(30)
+  }
+  await page.waitForTimeout(400)
+})
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-seg')
+await page.waitForTimeout(1200)
 
 // 2. przeciąganie segmentu
 const uchwyt = await page.locator('.linear-seg .linear-grip').nth(3).boundingBox()
@@ -101,6 +136,8 @@ const ciagniecie = await mierz('przeciąganie segmentu', async () => {
 })
 check('przeciąganie płynne (mediana poniżej 25 ms/klatkę)', ciagniecie.mediana < 25,
   `${ciagniecie.mediana.toFixed(1)} ms`)
+check('bez zacięć powyżej 50 ms przy przeciąganiu', ciagniecie.zle <= 1,
+  `zacięć: ${ciagniecie.zle}`)
 
 console.log('')
 console.log(

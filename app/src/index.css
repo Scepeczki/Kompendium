@@ -4084,6 +4084,16 @@ button.version-pill.new {
   opacity: 1;
 }
 
+/* Kafelki poza ekranem: przeglądarka pomija ich układanie i rysowanie.
+   Przy ścieżce na kilkaset kafelków to różnica między płynnym przewijaniem
+   a szarpaniem — wysokość zastępcza trzyma pasek przewijania w ryzach. */
+   Komentarze boczne wystają poza swój segment na margines, a pomijanie
+   rysowania niesie ze sobą przycinanie — dlatego ich to nie dotyczy. */
+.linear-seg:not(.linear-seg-sidenote) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
+}
+
 /* zaznaczony segment w Linii — ta sama kreska co w liście po lewej */
 .linear-seg.zaznaczony {
   background: color-mix(in srgb, var(--accent) 8%, transparent);

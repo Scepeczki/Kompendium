@@ -4,7 +4,8 @@
  *  w kodzie. Ten hook robi z tego jedną rzecz do zaimportowania: lista do
  *  wyboru, opis pojedynczego typu i gotowy `style` z jego barwą. */
 
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useSyncExternalStore } from 'react'
+import { liveQuery } from 'dexie'
 import { db } from './db'
 import { unknownType, type BlockType, type BlockTypeDef } from './types'
 
@@ -29,8 +30,19 @@ export interface BlockTypes {
   ready: boolean
 }
 
-export function useBlockTypes(): BlockTypes {
-  const rows = useLiveQuery(() => db.blockTypes.toArray(), [])
+// ---------------------------------------------------------------------------
+// Jedna subskrypcja na cały program, nie jedna na kafelek.
+//
+// Wcześniej każde wywołanie hooka zakładało własne żywe zapytanie do bazy.
+// W ścieżce z sześćdziesięcioma blokami dawało to sześćdziesiąt subskrypcji
+// i sześćdziesiąt przebudów mapy typów przy każdym przerysowaniu — widoczne
+// jako zacięcia przy przewijaniu. Teraz zapytanie jest jedno, a gotowy obiekt
+// wyliczamy raz na zmianę danych i wszyscy dostają dokładnie ten sam.
+// ---------------------------------------------------------------------------
+
+const pusty: BlockTypes = zbuduj(undefined)
+
+function zbuduj(rows: BlockTypeDef[] | undefined): BlockTypes {
   const all = (rows ?? []).slice().sort((a, b) => a.order - b.order)
   const byId = new Map(all.map((t) => [t.id, t]))
   const def = (id: BlockType) => byId.get(id) ?? unknownType(id)
@@ -43,4 +55,31 @@ export function useBlockTypes(): BlockTypes {
     style: (id) => typeStyle(def(id)),
     ready: rows !== undefined,
   }
+}
+
+let migawka = pusty
+const sluchacze = new Set<() => void>()
+let subskrypcja: { unsubscribe: () => void } | null = null
+
+const zasubskrybuj = (fn: () => void) => {
+  sluchacze.add(fn)
+  if (!subskrypcja) {
+    subskrypcja = liveQuery(() => db.blockTypes.toArray()).subscribe((rows) => {
+      migawka = zbuduj(rows)
+      for (const s of sluchacze) s()
+    })
+  }
+  return () => {
+    sluchacze.delete(fn)
+    if (sluchacze.size === 0) {
+      subskrypcja?.unsubscribe()
+      subskrypcja = null
+      // następny odbiorca dostanie świeże dane, a do tego czasu puste
+      migawka = pusty
+    }
+  }
+}
+
+export function useBlockTypes(): BlockTypes {
+  return useSyncExternalStore(zasubskrybuj, () => migawka, () => migawka)
 }
