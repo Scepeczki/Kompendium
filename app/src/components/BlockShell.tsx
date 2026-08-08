@@ -64,7 +64,7 @@ export function BlockShell({
     useLiveQuery(
       () =>
         subsZewn
-          ? Promise.resolve([])
+          ? Promise.resolve([] as Subpage[])
           : db.subpages.where('conceptId').equals(concept.id).sortBy('order'),
       [concept.id, !!subsZewn],
     ) ?? []

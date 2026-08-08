@@ -4086,7 +4086,7 @@ button.version-pill.new {
 
 /* Kafelki poza ekranem: przeglądarka pomija ich układanie i rysowanie.
    Przy ścieżce na kilkaset kafelków to różnica między płynnym przewijaniem
-   a szarpaniem — wysokość zastępcza trzyma pasek przewijania w ryzach. */
+   a szarpaniem — wysokość zastępcza trzyma pasek przewijania w ryzach.
    Komentarze boczne wystają poza swój segment na margines, a pomijanie
    rysowania niesie ze sobą przycinanie — dlatego ich to nie dotyczy. */
 .linear-seg:not(.linear-seg-sidenote) {

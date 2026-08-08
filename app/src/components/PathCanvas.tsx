@@ -61,10 +61,13 @@ import {
   RELATION_LABELS,
   isSymmetricRelation,
   type BlockType,
+  type BlockVersion,
+  type Concept,
   type FusionPart,
   type PathEdge,
   type PathNode,
   type SourceRef,
+  type Subpage,
 } from '../types'
 import { useBlockTypes } from '../blockTypes'
 import { useDialogs } from './Dialogs'
@@ -490,6 +493,81 @@ function LinearView({
     setWidoczne((prev) => (prev.has(segId) ? prev : new Set(prev).add(segId)))
   }, [])
 
+  /** Okno: rysujemy tylko kafelki blisko ekranu, reszta to same puste miejsca.
+   *
+   *  Bez tego każde przerysowanie Linii tworzyło tyle elementów, ile ścieżka ma
+   *  kafelków — przy pięciuset to ćwierć sekundy na jedno naciśnięcie klawisza,
+   *  przy dwóch tysiącach byłoby cztery razy tyle. Z oknem koszt przerysowania
+   *  przestaje zależeć od długości ścieżki: liczy się tylko to, co widać.
+   *
+   *  Puste miejsce zachowuje ostatnią zmierzoną wysokość kafelka, więc pasek
+   *  przewijania i spis treści zostają tam, gdzie były. */
+  const ZAPAS = 3
+  const [okno, setOkno] = useState({ od: 0, do: 24 })
+  const oknoRef = useRef(okno)
+  const naEkranie = useRef(new Set<number>())
+  const wysokosci = useRef(new Map<string, number>())
+  const planRef = useRef(0)
+  const przeliczRef = useRef<() => void>(() => {})
+
+  const przelicz = useCallback(() => {
+    if (naEkranie.current.size === 0) return
+    let min = Infinity
+    let max = -Infinity
+    for (const i of naEkranie.current) {
+      if (i < min) min = i
+      if (i > max) max = i
+    }
+    const od = Math.max(0, min - ZAPAS)
+    const doo = max + ZAPAS
+    if (od === oknoRef.current.od && doo === oknoRef.current.do) return
+    oknoRef.current = { od, do: doo }
+    setOkno(oknoRef.current)
+  }, [])
+  przeliczRef.current = przelicz
+
+  const [obserwator] = useState(() =>
+    typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver(
+          (wpisy) => {
+            for (const w of wpisy) {
+              const el = w.target as HTMLElement
+              const i = Number(el.dataset.idx)
+              if (Number.isNaN(i)) continue
+              if (w.isIntersecting) naEkranie.current.add(i)
+              else naEkranie.current.delete(i)
+              // wysokość mierzymy tylko na narysowanym kafelku — pustego
+              // miejsca nie ma po co mierzyć, bo to nasza własna liczba
+              const h = w.boundingClientRect.height
+              if (h > 4 && el.dataset.pelny === '1' && el.dataset.seg) {
+                wysokosci.current.set(el.dataset.seg, h)
+              }
+            }
+            cancelAnimationFrame(planRef.current)
+            planRef.current = requestAnimationFrame(() => przeliczRef.current())
+          },
+          // zapas w pikselach: kafelki wchodzą do okna, zanim je widać
+          { rootMargin: '1200px 0px' },
+        ),
+  )
+  useEffect(
+    () => () => {
+      obserwator?.disconnect()
+      cancelAnimationFrame(planRef.current)
+    },
+    [obserwator],
+  )
+  /** React 19 sprząta po ref-callbacku sam, jeśli oddamy mu funkcję. */
+  const pilnuj = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (!el || !obserwator) return
+      obserwator.observe(el)
+      return () => obserwator.unobserve(el)
+    },
+    [obserwator],
+  )
+
   /** Który segment ma kursor + wszystkie żywe edytory, żeby pasek mógł się
    *  na właściwy przełączyć.
    *
@@ -573,21 +651,39 @@ function LinearView({
     return [...s].sort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordered.map((n) => n.id).join(',')])
+  /** W trakcie pisania lista w ogóle nie rusza bazy.
+   *
+   *  Każdy zapis treści kazałby bazie wydać wszystkie klocki tej ścieżki od
+   *  nowa; przy pięciuset to setki milisekund pracy na głównym wątku — a to,
+   *  co właśnie piszemy, widać w polu, nie w odczycie. Pytamy więc dopiero
+   *  sekundę po ostatnim klawiszu, a do tego czasu pokazujemy zamrożone dane. */
+  const [pisze, setPisze] = useState(false)
   const klucz = uzyte.join(',')
   const zapytaneKlocki =
-    useLiveQuery(() => db.concepts.where('id').anyOf(uzyte).toArray(), [klucz]) ?? []
+    useLiveQuery(
+      () =>
+        pisze
+          ? Promise.resolve([] as Concept[])
+          : db.concepts.where('id').anyOf(uzyte).toArray(),
+      [klucz, pisze],
+    ) ?? []
   const zapytaneWersje =
-    useLiveQuery(() => db.versions.where('conceptId').anyOf(uzyte).toArray(), [klucz]) ?? []
+    useLiveQuery(
+      () =>
+        pisze
+          ? Promise.resolve([] as BlockVersion[])
+          : db.versions.where('conceptId').anyOf(uzyte).toArray(),
+      [klucz, pisze],
+    ) ?? []
   const zapytaneStrony =
-    useLiveQuery(() => db.subpages.where('conceptId').anyOf(uzyte).toArray(), [klucz]) ?? []
+    useLiveQuery(
+      () =>
+        pisze
+          ? Promise.resolve([] as Subpage[])
+          : db.subpages.where('conceptId').anyOf(uzyte).toArray(),
+      [klucz, pisze],
+    ) ?? []
 
-  /** W trakcie pisania lista nie odświeża się z bazy.
-   *
-   *  Każdy zapis treści każe bazie oddać wszystkie klocki tej ścieżki od nowa;
-   *  przy pięciuset to setki milisekund — a przecież to, co właśnie piszemy,
-   *  widać w polu, nie w odczycie z bazy. Zamrażamy więc dane na czas pisania
-   *  i odmrażamy sekundę po ostatnim klawiszu. */
-  const [pisze, setPisze] = useState(false)
   const stopPisania = useRef<number | undefined>(undefined)
   const mrozoneRef = useRef({
     concepts: zapytaneKlocki,
@@ -916,10 +1012,29 @@ function LinearView({
       <div className="linear-column">
         {ordered.map((n, i) => {
           const h = hint?.id === n.id ? hint.pos : null
+          /** Rysujemy w całości to, co blisko ekranu — a poza tym zawsze
+           *  rozdziały (spis treści musi mieć do czego skakać), komentarze
+           *  boczne (są malutkie) i kafelek z żywym polem tekstowym. */
+          const pelny =
+            (i >= okno.od && i <= okno.do) ||
+            n.kind === 'heading' ||
+            n.kind === 'comment' ||
+            widoczne.has(n.id)
           return (
             <div
               key={n.id}
+              ref={pilnuj}
               data-seg={n.id}
+              data-idx={i}
+              data-pelny={pelny ? '1' : '0'}
+              style={
+                pelny
+                  ? undefined
+                  : {
+                      height: wysokosci.current.get(n.id) ?? 150,
+                      boxSizing: 'border-box',
+                    }
+              }
               className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
                 zazSeg.has(n.id) ? 'zaznaczony' : ''
               } ${h === 'before' ? 'drop-before' : h === 'after' ? 'drop-after' : ''}`}
@@ -957,7 +1072,7 @@ function LinearView({
                 setSegMenu({ x: e.clientX, y: e.clientY, index: i, pos })
               }}
             >
-              {n.kind !== 'comment' && (
+              {pelny && n.kind !== 'comment' && (
               <div className="linear-side">
                 <button
                   draggable
@@ -1014,12 +1129,14 @@ function LinearView({
                 </button>
               </div>
               )}
-              <div className="linear-content">
-                <TrescSegmentu
-                  sygnatura={sygnatura(n)}
-                  rysuj={() => segmentContent(n)}
-                />
-              </div>
+              {pelny && (
+                <div className="linear-content">
+                  <TrescSegmentu
+                    sygnatura={sygnatura(n)}
+                    rysuj={() => segmentContent(n)}
+                  />
+                </div>
+              )}
             </div>
           )
         })}
