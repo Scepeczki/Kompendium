@@ -272,6 +272,14 @@ export interface PathNodeComment {
 
 /** Fuzja: kilka klocków scalonych w jeden kafelek w obrębie tej ścieżki.
  *  Klocki w bazie zostają atomowe — to jest wyłącznie sposób pokazania. */
+/** Jeden klocek wewnątrz scalonej całości: która wersja i która strona. */
+export interface FusionPart {
+  conceptId: string
+  versionId: string | null
+  /** Strona klocka (null / brak = strona główna). */
+  subpageId?: string | null
+}
+
 export interface PathNodeFusion {
   id: string
   kind: 'fusion'
@@ -279,7 +287,12 @@ export interface PathNodeFusion {
   /** Czym jest scalona całość (np. jedno twierdzenie z dwóch twierdzeń).
    *  Brak = neutralny „Blok". */
   type?: BlockType
-  parts: { conceptId: string; versionId: string | null }[]
+  parts: FusionPart[]
+  /** Własna treść całości. Scalone definicje rzadko czytają się gładko jedna
+   *  po drugiej — tu można je przepisać na jeden tekst. Brak = pokazujemy
+   *  treści składników po kolei, jak dotąd. Klocki w bazie zostają nietknięte,
+   *  ten tekst żyje wyłącznie w tej ścieżce. */
+  content?: string
   x: number
   y: number
 }

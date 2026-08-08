@@ -107,7 +107,9 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
                   `${n.id}:${i}` in verOverride
                     ? verOverride[`${n.id}:${i}`]
                     : p.versionId,
+                subpageId: p.subpageId ?? null,
               }))}
+              content={n.content}
               onVersionChange={(i, id) =>
                 setVerOverride((o) => ({ ...o, [`${n.id}:${i}`]: id }))
               }

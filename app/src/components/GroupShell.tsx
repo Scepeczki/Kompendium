@@ -1,21 +1,21 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, mainPageName } from '../db'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
-import { type BlockType, type BlockVersion, type SourceRef } from '../types'
+import { type BlockType, type BlockVersion, type FusionPart, type SourceRef } from '../types'
 import { useBlockTypes } from '../blockTypes'
 
-export interface GroupPart {
-  conceptId: string
-  versionId: string | null
-}
+export type GroupPart = FusionPart
 
 interface Props {
   name: string
   /** Czym jest grupa jako całość — wygląda wtedy jak zwykły blok tego typu. */
   type?: BlockType
   parts: GroupPart[]
+  /** Przepisana treść całości. Gdy jest, zastępuje treści składników. */
+  content?: string
   onVersionChange?: (index: number, versionId: string | null) => void
+  onSubpageChange?: (index: number, subpageId: string | null) => void
   onJumpToSource?: (ref: SourceRef) => void
   pickHint?: string
 }
@@ -27,12 +27,15 @@ export function GroupShell({
   name,
   type,
   parts,
+  content,
   onVersionChange,
+  onSubpageChange,
   onJumpToSource,
   pickHint,
 }: Props) {
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+  const subpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
 
   const resolved = parts.map((p) => {
     const concept = concepts.find((c) => c.id === p.conceptId)
@@ -42,7 +45,13 @@ export function GroupShell({
     const version =
       own.find((v) => v.id === p.versionId) ??
       own.find((v) => v.id === concept?.currentVersionId)
-    return { concept, own, version }
+    const strony = subpages
+      .filter((s) => s.conceptId === p.conceptId)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const strona = strony.find((s) => s.id === p.subpageId) ?? null
+    // treść składnika: wybrana strona albo strona główna z wersji
+    const tresc = strona ? strona.content : (version?.content ?? '')
+    return { concept, own, version, strony, strona, tresc }
   })
 
   // źródła całej grupy razem — grupa czyta się jak jeden blok
@@ -66,9 +75,38 @@ export function GroupShell({
       </header>
 
       <div className="script-block-body">
+        {content !== undefined ? (
+          // przepisana całość — jeden tekst zamiast poskładanych kawałków
+          <div className="block-content">
+            <div
+              className="markdown-body"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+            />
+          </div>
+        ) : (
         <div className="block-content">
           {resolved.map((r, i) => (
             <div key={`${parts[i].conceptId}-${i}`} className="group-part">
+              {r.strony.length > 0 && onSubpageChange && (
+                <div className="block-pages group-part-pages">
+                  <button
+                    className={`page-chip ${r.strona ? '' : 'active'}`}
+                    title={`Strona główna klocka „${r.concept?.name ?? ''}"`}
+                    onClick={() => onSubpageChange(i, null)}
+                  >
+                    {mainPageName(r.concept ?? {})}
+                  </button>
+                  {r.strony.map((s) => (
+                    <button
+                      key={s.id}
+                      className={`page-chip ${r.strona?.id === s.id ? 'active' : ''}`}
+                      onClick={() => onSubpageChange(i, s.id)}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
               {r.version && (
                 <div className="block-pick block-pick-version">
                   {r.own.length > 1 && onVersionChange ? (
@@ -102,14 +140,13 @@ export function GroupShell({
               <div
                 className="markdown-body"
                 dangerouslySetInnerHTML={{
-                  __html: renderMarkdown(
-                    r.concept ? (r.version?.content ?? '') : '(usunięty klocek)',
-                  ),
+                  __html: renderMarkdown(r.concept ? r.tresc : '(usunięty klocek)'),
                 }}
               />
             </div>
           ))}
         </div>
+        )}
 
         <SourceList refs={refs} onJump={onJumpToSource} />
       </div>

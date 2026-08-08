@@ -53,6 +53,7 @@ import {
   RELATION_LABELS,
   isSymmetricRelation,
   type BlockType,
+  type FusionPart,
   type PathEdge,
   type PathNode,
   type SourceRef,
@@ -66,7 +67,7 @@ const SEG_MIME = 'text/x-komp-seg'
 
 interface CanvasApi {
   updateData: (id: string, patch: Record<string, unknown>) => void
-  unfuse: (id: string) => void
+  unfuse: (id: string) => void | Promise<void>
   renameFusion: (id: string) => void
   addFusionPart: (id: string) => void
   removeFusionPart: (id: string, index: number) => void
@@ -118,7 +119,7 @@ const toRfNode = (n: PathNode): Node => ({
           ? { text: n.text, side: n.side }
           : n.kind === 'heading'
             ? { text: n.text, level: n.level }
-            : { name: n.name, parts: n.parts, type: n.type },
+            : { name: n.name, parts: n.parts, type: n.type, content: n.content },
 })
 
 const fromRfNode = (n: Node): PathNode => {
@@ -156,7 +157,8 @@ const fromRfNode = (n: Node): PathNode => {
     kind: 'fusion',
     name: (n.data.name as string) ?? '',
     type: (n.data.type as BlockType | undefined) ?? undefined,
-    parts: (n.data.parts as { conceptId: string; versionId: string | null }[]) ?? [],
+    parts: (n.data.parts as FusionPart[]) ?? [],
+    content: (n.data.content as string | undefined) ?? undefined,
   }
 }
 
@@ -403,6 +405,8 @@ interface LinearViewProps {
   onSetVersion: (segId: string, versionId: string | null) => void
   /** Wersja pojedynczego klocka w grupie. */
   onSetPartVersion: (segId: string, index: number, versionId: string | null) => void
+  /** Strona pojedynczego klocka w grupie. */
+  onSetPartSubpage: (segId: string, index: number, subpageId: string | null) => void
   onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
   /** Scala segment z następnym (albo dokłada następny do grupy). */
   onGroupWithNext: (segId: string) => void
@@ -422,6 +426,7 @@ function LinearView({
   onSetSubpage,
   onSetVersion,
   onSetPartVersion,
+  onSetPartSubpage,
   onAddHeading,
   onGroupWithNext,
   onJumpToSource,
@@ -554,7 +559,9 @@ function LinearView({
         name={n.name}
         type={n.type}
         parts={n.parts}
+        content={n.content}
         onVersionChange={(i, id) => onSetPartVersion(n.id, i, id)}
+        onSubpageChange={(i, id) => onSetPartSubpage(n.id, i, id)}
         onJumpToSource={onJumpToSource}
         pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
       />
@@ -862,6 +869,10 @@ interface Props {
 
 function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) {
   const dlg = useDialogs()
+  // przez pudełko, żeby `api` mapy zachowało stałą tożsamość (od niej zależy
+  // płynność przeciągania kafelków — patrz komentarz przy useMemo niżej)
+  const dlgRef = useRef(dlg)
+  dlgRef.current = dlg
   const [name, setName] = useState('')
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
@@ -932,6 +943,8 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
 
   // nazwy pojęć do podpowiedzi wiki-linków w notatkach
   const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  const allVersions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+  const allSubpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
   const conceptNamesRef = useRef<string[]>([])
   conceptNamesRef.current = allConcepts.map((c) => c.name)
   const noteExtensions = useMemo(
@@ -1040,19 +1053,43 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             : e,
         )
       }),
-    unfuse: (id) => {
+    unfuse: async (id) => {
       const f = nodesRef.current.find((n) => n.id === id)
       if (!f) return
-      const parts =
-        (f.data.parts as { conceptId: string; versionId: string | null }[]) ?? []
+      // przepisana treść całości ginie przy rozdzieleniu — o to trzeba zapytać
+      if (typeof f.data.content === 'string') {
+        const ok = await dlgRef.current.confirm({
+          title: `Rozdzielić „${(f.data.name as string) ?? 'grupę'}"?`,
+          message:
+            'Ta grupa ma własną, przepisaną treść — przy rozdzieleniu przepadnie ' +
+            'i wrócą osobne klocki z ich własnymi tekstami. Same klocki są nietknięte.',
+          confirmLabel: 'Rozdziel i porzuć tekst',
+          danger: true,
+        })
+        if (!ok) return
+      }
+      const parts = (f.data.parts as FusionPart[]) ?? []
       const blocks: Node[] = parts.map((p, i) => ({
         id: crypto.randomUUID(),
         type: 'block',
         position: { x: f.position.x + i * 30, y: f.position.y + i * 220 },
-        data: { conceptId: p.conceptId, versionId: p.versionId },
+        data: { conceptId: p.conceptId, versionId: p.versionId, subpageId: p.subpageId ?? null },
       }))
       setRfNodes((ns) => [...ns.filter((n) => n.id !== id), ...blocks])
-      setRfEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
+      // Łańcuch trzeba zszyć: poprzednik → uwolnione po kolei → następnik.
+      // Bez tego uwolnione klocki zostawały bez strzałek i wypadały z kolejności.
+      setRfEdges((es) => {
+        const przed = es.filter((e) => e.target === id).map((e) => e.source)
+        const po = es.filter((e) => e.source === id).map((e) => e.target)
+        const rest = es.filter((e) => e.source !== id && e.target !== id)
+        const dodane: Edge[] = []
+        for (const p of przed) dodane.push(mkEdge(p, blocks[0].id))
+        for (let i = 0; i < blocks.length - 1; i++) {
+          dodane.push(mkEdge(blocks[i].id, blocks[i + 1].id))
+        }
+        for (const n of po) dodane.push(mkEdge(blocks[blocks.length - 1].id, n))
+        return [...rest, ...dodane]
+      })
     },
     renameFusion: (id) => setEditingGroup(id),
     addFusionPart: (id) => setFusionTarget(id),
@@ -1775,13 +1812,18 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             setRfNodes((ns) =>
               ns.map((n) => {
                 if (n.id !== segId) return n
-                const parts = [
-                  ...((n.data.parts as {
-                    conceptId: string
-                    versionId: string | null
-                  }[]) ?? []),
-                ]
+                const parts = [...((n.data.parts as FusionPart[]) ?? [])]
                 parts[index] = { ...parts[index], versionId }
+                return { ...n, data: { ...n.data, parts } }
+              }),
+            )
+          }
+          onSetPartSubpage={(segId, index, subpageId) =>
+            setRfNodes((ns) =>
+              ns.map((n) => {
+                if (n.id !== segId) return n
+                const parts = [...((n.data.parts as FusionPart[]) ?? [])]
+                parts[index] = { ...parts[index], subpageId }
                 return { ...n, data: { ...n.data, parts } }
               }),
             )
@@ -1954,12 +1996,28 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         (() => {
           const g = rfNodes.find((n) => n.id === editingGroup)
           if (!g) return null
+          const czesci = (g.data.parts as FusionPart[]) ?? []
+          // punkt wyjścia do przepisania: treści składników jedna pod drugą
+          const sklejone = czesci
+            .map((p) => {
+              const c = allConcepts.find((x) => x.id === p.conceptId)
+              const v =
+                allVersions.find((x) => x.id === p.versionId) ??
+                allVersions.find((x) => x.id === c?.currentVersionId)
+              const s = allSubpages.find((x) => x.id === p.subpageId)
+              return (s ? s.content : (v?.content ?? '')).trim()
+            })
+            .filter(Boolean)
+            .join('\n\n')
           return (
             <GroupEditor
               name={(g.data.name as string) ?? ''}
               type={(g.data.type as BlockType | undefined) ?? undefined}
+              content={(g.data.content as string | undefined) ?? undefined}
+              sklejone={sklejone}
               onChangeName={(name) => api.updateData(g.id, { name })}
               onChangeType={(type) => api.updateData(g.id, { type })}
+              onChangeContent={(content) => api.updateData(g.id, { content })}
               onClose={() => setEditingGroup(null)}
             />
           )

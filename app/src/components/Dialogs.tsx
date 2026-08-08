@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 /** Własne okienka pytań zamiast systemowych `confirm` i `prompt`.
  *
@@ -74,8 +82,12 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     else open.resolve(wynik as string | null)
   }
 
+  // stała tożsamość: inaczej każdy render dostawcy unieważniałby zapamiętane
+  // obiekty u odbiorców (m.in. api mapy, od którego zależy jej płynność)
+  const api = useMemo(() => ({ confirm, prompt }), [confirm, prompt])
+
   return (
-    <Ctx.Provider value={{ confirm, prompt }}>
+    <Ctx.Provider value={api}>
       {children}
       {open?.kind === 'confirm' && (
         <ConfirmBox opts={open.opts} onDone={(v) => zamknij(v)} />

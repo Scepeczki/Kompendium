@@ -1,12 +1,18 @@
 import { useEffect } from 'react'
 import { type BlockType } from '../types'
 import { useBlockTypes } from '../blockTypes'
+import { useDialogs } from './Dialogs'
 
 interface Props {
   name: string
   type?: BlockType
+  /** Przepisana treść całości; undefined = grupa pokazuje składniki po kolei. */
+  content?: string
+  /** Treści składników sklejone — punkt wyjścia do przepisania. */
+  sklejone: string
   onChangeName: (name: string) => void
   onChangeType: (type: BlockType | undefined) => void
+  onChangeContent: (content: string | undefined) => void
   onClose: () => void
 }
 
@@ -15,11 +21,15 @@ interface Props {
 export function GroupEditor({
   name,
   type,
+  content,
+  sklejone,
   onChangeName,
   onChangeType,
+  onChangeContent,
   onClose,
 }: Props) {
   const typy = useBlockTypes()
+  const dlg = useDialogs()
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', h)
@@ -72,6 +82,59 @@ export function GroupEditor({
               Grupa wygląda wtedy jak zwykły blok tego typu — z takim nagłówkiem
               i kolorem. Klocki w środku zostają osobnymi klockami w bazie.
             </p>
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-label">
+              Treść całości
+              {content !== undefined && (
+                <button
+                  className="btn settings-reset"
+                  title="Wróć do pokazywania treści składników po kolei"
+                  onClick={async () => {
+                    const ok = await dlg.confirm({
+                      title: 'Porzucić przepisaną treść?',
+                      message:
+                        'Grupa wróci do pokazywania treści składników jedna po drugiej. ' +
+                        'Tekst, który tu napisałeś, przepadnie. Same klocki są nietknięte.',
+                      confirmLabel: 'Porzuć tekst',
+                      danger: true,
+                    })
+                    if (ok) onChangeContent(undefined)
+                  }}
+                >
+                  Porzuć
+                </button>
+              )}
+            </span>
+            {content === undefined ? (
+              <>
+                <button className="btn" onClick={() => onChangeContent(sklejone)}>
+                  ✎ Przepisz na jeden tekst
+                </button>
+                <p className="settings-hint">
+                  Dwie definicje sklejone jedna po drugiej rzadko czytają się
+                  gładko — a bywa, że jedna ma wejść w środek drugiej. Tutaj
+                  dostajesz ich treści razem i piszesz z nich jedną całość.
+                  Klocki w bazie zostają nietknięte; ten tekst żyje tylko w tej
+                  ścieżce.
+                </p>
+              </>
+            ) : (
+              <>
+                <textarea
+                  className="input group-content"
+                  value={content}
+                  spellCheck={false}
+                  onChange={(e) => onChangeContent(e.target.value)}
+                  placeholder="Treść scalonego bloku (Markdown + LaTeX)…"
+                />
+                <p className="settings-hint">
+                  Markdown i wzory jak w klocku. Wybór wersji i stron składników
+                  chowa się, dopóki tekst jest przepisany — liczy się to, co tu stoi.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>

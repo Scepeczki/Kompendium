@@ -80,7 +80,7 @@ uogólnieniem, a inna nie. `perspektywa` jest symetryczna (bez kierunku).
 ```
 LearningPath                      PathNode — pięć rodzajów (pole `kind`)
 ├─ id                             ├─ block    conceptId, versionId, subpageId?
-├─ name                           ├─ fusion   name, type?, parts[]   ← GRUPA
+├─ name                           ├─ fusion   name, type?, parts[], content?  ← GRUPA
 ├─ icon?                          ├─ heading  text, level 1|2|3
 ├─ folderId | null
 ├─ order                          ├─ text     text                   ← notatka

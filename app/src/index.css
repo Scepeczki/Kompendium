@@ -3949,6 +3949,22 @@ button.version-pill.new {
   border-bottom: 1px solid var(--line-strong);
 }
 
+/* strony składnika w grupie — jak zakładki stron w zwykłym bloku, tylko ciszej */
+.group-part-pages {
+  margin-bottom: 4px;
+}
+
+/* pole przepisanej treści całości */
+.group-content {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--fs-3);
+  line-height: 1.55;
+  padding: 10px 12px;
+}
+
 .group-name {
   flex: 1;
   min-width: 0;
