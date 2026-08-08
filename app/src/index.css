@@ -3514,6 +3514,15 @@ button.version-pill.new {
   flex: 1;
   min-width: 0;
   color: color-mix(in srgb, var(--block-color) 70%, var(--ink));
+  /* rodzaj i nazwa w jednej linii — pole nazwy jest elastyczne, ale nie
+     spycha „DEFINICJA:" do własnego wiersza */
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.script-block-title > .script-block-type {
+  flex: none;
 }
 
 .script-block-type {
@@ -3978,10 +3987,11 @@ button.version-pill.new {
   border: 1px solid transparent;
   border-radius: 5px;
   padding: 1px 5px;
-  margin: -1px -5px;
+  margin: -1px 0 -1px -5px;
+  /* rośnie w wolnym miejscu wiersza, ale nigdy nie wypycha sąsiada */
+  flex: 1;
   min-width: 4em;
-  width: 100%;
-  max-width: 100%;
+  width: auto;
 }
 
 .inline-title:hover {
@@ -4037,13 +4047,26 @@ button.version-pill.new {
   background: var(--panel);
 }
 
+/* pasek + kolumna tekstu jako jedna kolumna układu, obok spisu treści */
+.linear-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
 /* wspólny pasek narzędzi całej ścieżki — jeden na wszystkie kafelki */
 .linear-toolbar {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--paper);
+  background: var(--panel-alt);
   border-bottom: 1px solid var(--line);
+}
+
+.linear-main > .linear-column {
+  width: 100%;
 }
 
 .linear-toolbar .rich-toolbar {

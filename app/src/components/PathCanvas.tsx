@@ -493,12 +493,21 @@ function LinearView({
   }, [])
 
   /** Który segment ma kursor + wszystkie żywe edytory, żeby pasek mógł się
-   *  na właściwy przełączyć. */
+   *  na właściwy przełączyć.
+   *
+   *  Pasek jest czynny od razu, bez klikania w tekst: dopóki nigdzie nie
+   *  postawiono kursora, działa na pierwszym polu w widoku. Wyjście z pola
+   *  niczego nie gasi — inaczej przyciski migałyby przy każdym kliknięciu obok. */
   const [aktywnyId, setAktywnyId] = useState<string | null>(null)
   const edytoryRef = useRef(new Map<string, Editor>())
+  const [ileEdytorow, setIleEdytorow] = useState(0)
   useEffect(() => {
-    setAktywny(aktywnyId ? (edytoryRef.current.get(aktywnyId) ?? null) : null)
-  }, [aktywnyId])
+    const wybrany =
+      (aktywnyId ? edytoryRef.current.get(aktywnyId) : null) ??
+      edytoryRef.current.values().next().value ??
+      null
+    setAktywny(wybrany)
+  }, [aktywnyId, ileEdytorow])
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
   /** Zaznaczone segmenty (Ctrl dokłada, Shift bierze zakres). Przeciągnięcie
@@ -613,7 +622,7 @@ function LinearView({
           onReady={(ed) => {
             if (ed) edytoryRef.current.set(segId, ed)
             else edytoryRef.current.delete(segId)
-            if (aktywnyId === segId) setAktywny(ed)
+            setIleEdytorow(edytoryRef.current.size)
           }}
         />
       </div>
@@ -774,13 +783,16 @@ function LinearView({
   return (
     <div className="linear-view">
       <Outline items={outline} />
-      {/* Jeden pasek na całą ścieżkę — działa na tym polu, w którym stoi
-          kursor. Ścieżka jest edytorem, a nie zbiorem okienek. */}
-      {onEditNote && (
-        <div className="linear-toolbar">
-          <RichToolbar editor={aktywny} />
-        </div>
-      )}
+      {/* Pasek i kolumna razem w jednej kolumnie układu — inaczej pasek
+          wchodziłby jako trzecia kolumna obok spisu treści i spychał tekst. */}
+      <div className="linear-main">
+        {/* Jeden pasek na całą ścieżkę — działa na tym polu, w którym stoi
+            kursor. Ścieżka jest edytorem, a nie zbiorem okienek. */}
+        {onEditNote && (
+          <div className="linear-toolbar">
+            <RichToolbar editor={aktywny} />
+          </div>
+        )}
       <div className="linear-column">
         {ordered.map((n, i) => {
           const h = hint?.id === n.id ? hint.pos : null
@@ -925,6 +937,7 @@ function LinearView({
             </button>
           </div>
         </div>
+      </div>
       </div>
 
       {segMenu &&
@@ -2151,13 +2164,15 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           </button>
         </div>
       )}
-      <div className="path-hint">
-        {mode === 'map'
-          ? 'Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy klocek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
-          : mode === 'linear'
-            ? 'Doklejaj segmenty jeden pod drugim: przeciągaj klocki z listy po lewej (także między segmenty), zmieniaj kolejność uchwytem ⣿, scalaj sąsiednie klocki w grupę przyciskiem ⧉, dodawaj notatki i komentarze'
+      {/* W Linii podpowiedzi nie ma: to warsztat pisania, a nie instrukcja —
+          pasek narzędzi zajmuje górę i drugi napis nad nim tylko przeszkadza. */}
+      {mode !== 'linear' && (
+        <div className="path-hint">
+          {mode === 'map'
+            ? 'Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy klocek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
             : 'Gotowy skrypt ścieżki (tylko odczyt) — edytuj na Mapie albo w Linii'}
-      </div>
+        </div>
+      )}
       {mode === 'script' && (
         <ScriptBody
           pathId={pathId}
