@@ -121,19 +121,11 @@ export function GroupEditor({
                 </p>
               </>
             ) : (
-              <>
-                <textarea
-                  className="input group-content"
-                  value={content}
-                  spellCheck={false}
-                  onChange={(e) => onChangeContent(e.target.value)}
-                  placeholder="Treść scalonego bloku (Markdown + LaTeX)…"
-                />
-                <p className="settings-hint">
-                  Markdown i wzory jak w klocku. Wybór wersji i stron składników
-                  chowa się, dopóki tekst jest przepisany — liczy się to, co tu stoi.
-                </p>
-              </>
+              <p className="settings-hint">
+                Ten blok ma już własny tekst — pisze się go wprost w ścieżce,
+                tak jak każdy inny. Wybór wersji i stron składników chowa się,
+                dopóki tekst jest przepisany: liczy się to, co w nim stoi.
+              </p>
             )}
           </div>
         </div>

@@ -41,6 +41,26 @@ for (const n of ['Kres gorny', 'Notacja']) {
   await page.waitForTimeout(450)
 }
 
+/** Prawy przycisk na górnej połowie segmentu, z ominięciem paska narzędzi —
+ *  przy przewiniętej liście pasek potrafi zasłonić górę pierwszego kafelka. */
+const menuNad = async (nr) => {
+  // kursor w polu tekstowym zabiera prawy przycisk sobie (menu przeglądarki)
+  await page.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur())
+  const seg = page.locator('.linear-seg').nth(nr)
+  // pasek narzędzi jest przyklejony u góry, więc segment ustawiamy tak, żeby
+  // jego górna krawędź na pewno spod niego wyszła
+  await seg.evaluate((el) => {
+    el.scrollIntoView({ block: 'start' })
+    let p = el.parentElement
+    while (p && p.scrollHeight <= p.clientHeight) p = p.parentElement
+    if (p) p.scrollTop -= 80
+  })
+  await page.waitForTimeout(400)
+  const b = await seg.boundingBox()
+  await page.mouse.click(b.x + b.width / 2, b.y + 6, { button: 'right' })
+  await page.waitForSelector('.linear-menu')
+}
+
 const zBazy = async (co) =>
   page.evaluate(async (tabela) => {
     const req = indexedDB.open('kompendium')
@@ -62,12 +82,10 @@ check('nowa nazwa trafia do klocka w bazie',
 check('lista po lewej też pokazuje nową nazwę',
   (await page.locator('.concept-item:has-text("Kres górny zbioru")').count()) === 1)
 
-// 2. treść klocka: klik otwiera edytor w tym segmencie
-await page.click('.linear-seg:first-child .markdown-body')
-await page.waitForSelector('.linear-seg:first-child .linear-edytor')
-check('klik w treść otwiera edytor w tym segmencie',
-  (await page.locator('.linear-edytor').count()) === 1)
-await page.click('.linear-edytor .tiptap')
+// 2. treść klocka: pisze się od razu, bez wchodzenia w żaden tryb
+check('treść kafelka jest polem do pisania od razu',
+  (await page.locator('.linear-seg:first-child .linear-pole .tiptap').count()) === 1)
+await page.click('.linear-seg:first-child .linear-pole .tiptap')
 await page.keyboard.press('End')
 await page.keyboard.type(' DOPISANE-W-SCIEZCE')
 await page.waitForTimeout(900)
@@ -75,15 +93,24 @@ const wersje = await zBazy('versions')
 check('dopisany tekst trafia do wersji klocka',
   wersje.some((v) => v.content.includes('DOPISANE-W-SCIEZCE')),
   wersje.map((v) => v.content).join(' | '))
-await page.click('.linear-gotowe')
-await page.waitForTimeout(400)
-check('„Gotowe" zamyka edytor',
-  (await page.locator('.linear-edytor').count()) === 0)
+// pasek narzędzi jest jeden na całą ścieżkę i działa na polu z kursorem
+check(
+  'ścieżka ma wspólny pasek narzędzi',
+  (await page.locator('.linear-toolbar .rich-btn').count()) >= 6,
+  `przycisków: ${await page.locator('.linear-toolbar .rich-btn').count()}`,
+)
+await page.keyboard.down('Shift')
+for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowLeft')
+await page.keyboard.up('Shift')
+await page.click('.linear-toolbar .rich-btn:has-text("B")')
+await page.waitForTimeout(900)
+const pogrubione = await zBazy('versions')
+check('pasek działa na kafelku, w którym stoi kursor',
+  pogrubione.some((v) => v.content.includes('**')),
+  pogrubione.map((v) => v.content).join(' | '))
 
 // 3. rozdział — nazwa wpisywana wprost
-const seg = await page.locator('.linear-seg').first().boundingBox()
-await page.mouse.click(seg.x + seg.width / 2, seg.y + 6, { button: 'right' })
-await page.waitForSelector('.linear-menu')
+await menuNad(0)
 await page.click('.linear-menu .tree-menu-item:has-text("Rozdział"):not(:has-text("Pod"))')
 await podaj(page, 'Rozdzial I')
 await page.waitForTimeout(700)
@@ -97,19 +124,12 @@ check('nazwę rozdziału zmienia się wprost w ścieżce',
   JSON.stringify(sciezki.flatMap((p) => p.nodes.filter((n) => n.kind === 'heading').map((n) => n.text))))
 
 // 4. notatka — klik i pisanie, bez okienka
-const ostatni = await page.locator('.linear-seg').last().boundingBox()
-await page.mouse.click(ostatni.x + ostatni.width / 2, ostatni.y + ostatni.height - 6, {
-  button: 'right',
-})
-await page.waitForSelector('.linear-menu')
+await menuNad(0)
 await page.click('.linear-menu .tree-menu-item:has-text("Notatka")')
 await page.waitForTimeout(700)
-await page.click('.linear-note')
-await page.waitForSelector('.linear-edytor')
-await page.click('.linear-edytor .tiptap')
+await page.click('.linear-note .tiptap')
 await page.keyboard.type('Notatka pisana na miejscu.')
 await page.waitForTimeout(900)
-await page.click('.linear-gotowe')
 await page.waitForTimeout(500)
 check('notatkę pisze się na miejscu, bez okienka',
   (await page.textContent('.linear-column')).includes('Notatka pisana na miejscu'))
@@ -119,8 +139,10 @@ check('pióro zniknęło z paska segmentu',
   (await page.locator('.linear-side .folder-action[title="Edytuj"]').count()) === 0)
 
 // 6. fuzja: nazwa wprost, rodzaj pod prawym przyciskiem
-await page.hover('.linear-seg:nth-child(2)')
-await page.click('.linear-seg:nth-child(2) .folder-action[title*="Scal z następnym"]')
+// pierwszy segment, który w ogóle ma co scalać z następnym
+const doScalenia = page.locator('.folder-action[title*="Scal z następnym"]').first()
+await doScalenia.scrollIntoViewIfNeeded()
+await doScalenia.click({ force: true })
 await podaj(page, 'Kres i notacja')
 await page.waitForSelector('.script-group-block')
 await page.waitForTimeout(700)
@@ -128,9 +150,12 @@ await page.fill('.script-group-block .inline-title', 'Kres górny i notacja')
 await page.waitForTimeout(700)
 check('nazwę scalonego bloku zmienia się wprost',
   (await page.inputValue('.script-group-block .inline-title')) === 'Kres górny i notacja')
-const fuzjaSeg = await page.locator('.linear-seg:has(.script-group-block)').boundingBox()
-await page.mouse.click(fuzjaSeg.x + fuzjaSeg.width / 2, fuzjaSeg.y + 6, { button: 'right' })
-await page.waitForSelector('.linear-menu')
+const nrFuzji = await page.evaluate(() =>
+  [...document.querySelectorAll('.linear-seg')].findIndex((s) =>
+    s.querySelector('.script-group-block'),
+  ),
+)
+await menuNad(nrFuzji)
 const pozycje = await page.locator('.linear-menu .tree-menu-item').allTextContents()
 check('menu scalonego bloku ma rodzaj i rozdzielenie',
   pozycje.join('|').includes('Czym to jest') && pozycje.join('|').includes('Rozdziel'),
@@ -167,8 +192,8 @@ check('starsza wersja nie zaprasza do pisania',
   (await blok.locator('.markdown-body.do-pisania').count()) === 0)
 await blok.locator('.markdown-body').first().click()
 await page.waitForTimeout(400)
-check('klik w starszą wersję nie otwiera edytora',
-  (await page.locator('.linear-edytor').count()) === 0)
+check('starsza wersja nie ma pola do pisania',
+  (await blok.locator('.linear-pole').count()) === 0)
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

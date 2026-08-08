@@ -37,7 +37,8 @@ import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
-import { RichEditor } from './RichEditor'
+import { RichEditor, RichToolbar } from './RichEditor'
+import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   createConcept,
@@ -458,8 +459,46 @@ function LinearView({
   onRenameFusion,
   onEditFusion,
 }: LinearViewProps) {
-  /** Segment, w którym właśnie piszemy (jeden naraz — edytor jest ciężki). */
-  const [pisze, setPisze] = useState<string | null>(null)
+  /** Pole, w którym stoi kursor — na nim działa wspólny pasek narzędzi. */
+  const [aktywny, setAktywny] = useState<Editor | null>(null)
+  /** Segmenty widoczne na ekranie — tylko one mają żywy edytor. */
+  const [widoczne, setWidoczne] = useState<Set<string>>(new Set())
+  const obserwatorRef = useRef<IntersectionObserver | null>(null)
+
+  // Cała ścieżka jest edytorem, ale edytory żyją tylko tam, gdzie widać.
+  // Bez tego pięćdziesiąt segmentów to pięćdziesiąt instancji ProseMirror
+  // i ścieżka zaczyna się kleić przy każdym uderzeniu w klawisz.
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (wpisy) => {
+        setWidoczne((prev) => {
+          const next = new Set(prev)
+          for (const w of wpisy) {
+            const id = (w.target as HTMLElement).dataset.seg
+            if (!id) continue
+            if (w.isIntersecting) next.add(id)
+            else next.delete(id)
+          }
+          return next
+        })
+      },
+      { rootMargin: '400px 0px' },
+    )
+    obserwatorRef.current = io
+    return () => io.disconnect()
+  }, [])
+
+  const patrz = useCallback((el: HTMLElement | null) => {
+    if (el) obserwatorRef.current?.observe(el)
+  }, [])
+
+  /** Który segment ma kursor + wszystkie żywe edytory, żeby pasek mógł się
+   *  na właściwy przełączyć. */
+  const [aktywnyId, setAktywnyId] = useState<string | null>(null)
+  const edytoryRef = useRef(new Map<string, Editor>())
+  useEffect(() => {
+    setAktywny(aktywnyId ? (edytoryRef.current.get(aktywnyId) ?? null) : null)
+  }, [aktywnyId])
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
   /** Zaznaczone segmenty (Ctrl dokłada, Shift bierze zakres). Przeciągnięcie
@@ -552,24 +591,38 @@ function LinearView({
     }
   }
 
-  /** Edytor treści dla jednego segmentu — mocowany dopiero po kliknięciu,
-   *  żeby w długim skrypcie nie żyło naraz pięćdziesiąt edytorów. */
-  const edytorTresci = (id: string, value: string, zapisz: (md: string) => void) => (
-    <div
-      className="linear-edytor"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.stopPropagation()
-          setPisze(null)
-        }
-      }}
-    >
-      <RichEditor key={id} value={value} editable onChange={zapisz} autoFocus />
-      <button className="btn linear-gotowe" onClick={() => setPisze(null)}>
-        Gotowe
-      </button>
-    </div>
-  )
+  /** Pole tekstowe segmentu. Pisze się w nim od razu — bez wchodzenia w
+   *  żaden „tryb edycji". Poza ekranem zostaje sam wyrenderowany tekst. */
+  const poleTresci = (
+    segId: string,
+    kluczTresci: string,
+    value: string,
+    zapisz: (md: string) => void,
+    klasa = '',
+  ) =>
+    widoczne.has(segId) ? (
+      <div className="linear-pole">
+        <RichEditor
+          key={kluczTresci}
+          value={value}
+          editable
+          bezPaska
+          ruler={false}
+          onChange={zapisz}
+          onFocus={() => setAktywnyId(segId)}
+          onReady={(ed) => {
+            if (ed) edytoryRef.current.set(segId, ed)
+            else edytoryRef.current.delete(segId)
+            if (aktywnyId === segId) setAktywny(ed)
+          }}
+        />
+      </div>
+    ) : (
+      <div
+        className={`markdown-body ${klasa}`}
+        dangerouslySetInnerHTML={{ __html: renderMarkdown(value) }}
+      />
+    )
 
   const segmentContent = (n: PathNode) => {
     if (n.kind === 'block') {
@@ -603,11 +656,13 @@ function LinearView({
               ? undefined
               : 'To starsza wersja — przełącz na bieżącą, żeby pisać'
           }
-          onStartEdit={wolno ? () => setPisze(n.id) : undefined}
           edytor={
-            pisze === n.id && wolno && wersja
-              ? edytorTresci(`${wersja.id}:${strona?.id ?? 'glowna'}`, tresc, (md) =>
-                  onEditBlock!(wersja.id, strona?.id ?? null, md),
+            wolno && wersja
+              ? poleTresci(
+                  n.id,
+                  `${wersja.id}:${strona?.id ?? 'glowna'}`,
+                  tresc,
+                  (md) => onEditBlock!(wersja.id, strona?.id ?? null, md),
                 )
               : undefined
           }
@@ -633,27 +688,18 @@ function LinearView({
       )
     }
     if (n.kind === 'text') {
-      if (pisze === n.id && onEditNote) {
+      if (!onEditNote) {
         return (
-          <div className="script-text linear-note">
-            {edytorTresci(n.id, n.text, (md) => onEditNote(n.id, md))}
-          </div>
+          <div
+            className="script-text markdown-body linear-note"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(n.text) }}
+          />
         )
       }
       return (
-        <div
-          className={`script-text markdown-body linear-note ${onEditNote ? 'do-pisania' : ''}`}
-          onClick={(e) => {
-            if ((e.target as Element).closest('a, button')) return
-            if (e.ctrlKey || e.metaKey || e.shiftKey) return
-            if (onEditNote) setPisze(n.id)
-          }}
-          dangerouslySetInnerHTML={{
-            __html: n.text
-              ? renderMarkdown(n.text)
-              : '<p class="note-empty">pusta notatka — kliknij, aby pisać</p>',
-          }}
-        />
+        <div className="script-text linear-note">
+          {poleTresci(n.id, n.id, n.text, (md) => onEditNote(n.id, md))}
+        </div>
       )
     }
     if (n.kind === 'comment') {
@@ -686,21 +732,12 @@ function LinearView({
               </button>
             </span>
           </div>
-          {pisze === n.id && onEditNote ? (
-            edytorTresci(n.id, n.text, (md) => onEditNote(n.id, md))
+          {onEditNote ? (
+            poleTresci(n.id, n.id, n.text, (md) => onEditNote(n.id, md))
           ) : (
             <div
-              className={`markdown-body ${onEditNote ? 'do-pisania' : ''}`}
-              onClick={(e) => {
-                if ((e.target as Element).closest('a, button')) return
-                if (e.ctrlKey || e.metaKey || e.shiftKey) return
-                if (onEditNote) setPisze(n.id)
-              }}
-              dangerouslySetInnerHTML={{
-                __html: n.text
-                  ? renderMarkdown(n.text)
-                  : '<p class="note-empty">pusty komentarz — kliknij, aby pisać</p>',
-              }}
+              className="markdown-body"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(n.text) }}
             />
           )}
         </aside>
@@ -718,10 +755,11 @@ function LinearView({
         onJumpToSource={onJumpToSource}
         pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
         onRename={onRenameFusion ? (name) => onRenameFusion(n.id, name) : undefined}
-        onStartEdit={onEditFusion ? () => setPisze(n.id) : undefined}
         edytor={
-          pisze === n.id && onEditFusion && n.content !== undefined
-            ? edytorTresci(n.id, n.content, (md) => onEditFusion(n.id, md))
+          // scalony blok z własną treścią pisze się jak każdy inny; ten bez
+          // niej pokazuje składniki i tam edytuje się je u źródła
+          onEditFusion && n.content !== undefined
+            ? poleTresci(n.id, n.id, n.content, (md) => onEditFusion(n.id, md))
             : undefined
         }
       />
@@ -736,12 +774,21 @@ function LinearView({
   return (
     <div className="linear-view">
       <Outline items={outline} />
+      {/* Jeden pasek na całą ścieżkę — działa na tym polu, w którym stoi
+          kursor. Ścieżka jest edytorem, a nie zbiorem okienek. */}
+      {onEditNote && (
+        <div className="linear-toolbar">
+          <RichToolbar editor={aktywny} />
+        </div>
+      )}
       <div className="linear-column">
         {ordered.map((n, i) => {
           const h = hint?.id === n.id ? hint.pos : null
           return (
             <div
               key={n.id}
+              ref={patrz}
+              data-seg={n.id}
               className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
                 zazSeg.has(n.id) ? 'zaznaczony' : ''
               } ${h === 'before' ? 'drop-before' : h === 'after' ? 'drop-after' : ''}`}
@@ -1214,8 +1261,27 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
 
   // nazwy pojęć do podpowiedzi wiki-linków w notatkach
   const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
-  const allVersions = useLiveQuery(() => db.versions.toArray(), []) ?? []
-  const allSubpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
+  // Wersje i strony wczytujemy tylko wtedy, gdy naprawdę są potrzebne (okno
+  // edycji grupy). Stałe `useLiveQuery` na całych tabelach kazało kanwie
+  // przerysować się przy każdym uderzeniu w klawisz w dowolnym klocku —
+  // stąd lagi przy pisaniu i przeciąganiu.
+  const czesciGrupy = useLiveQuery(async () => {
+    if (!editingGroup) return null
+    const g = nodesRef.current.find((n) => n.id === editingGroup)
+    const parts = (g?.data.parts as FusionPart[]) ?? []
+    const teksty: string[] = []
+    for (const p of parts) {
+      if (p.subpageId) {
+        const s = await db.subpages.get(p.subpageId)
+        teksty.push((s?.content ?? '').trim())
+        continue
+      }
+      const c = await db.concepts.get(p.conceptId)
+      const v = await db.versions.get(p.versionId ?? c?.currentVersionId ?? '')
+      teksty.push((v?.content ?? '').trim())
+    }
+    return teksty.filter(Boolean).join('\n\n')
+  }, [editingGroup])
   const conceptNamesRef = useRef<string[]>([])
   conceptNamesRef.current = allConcepts.map((c) => c.name)
   const noteExtensions = useMemo(
@@ -1718,6 +1784,35 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     setRfNodes((ns) => ns.map((n) => (n.id === segId ? { ...n, position: pos } : n)))
   }
 
+  /** Zapis do bazy z opóźnieniem — jeden na klucz.
+   *
+   *  Pisanie w kafelku szło dotąd do bazy przy każdym uderzeniu w klawisz,
+   *  a każdy zapis budził żywe zapytania i przerysowywał całą ścieżkę. Stąd
+   *  lagi. Tu czekamy, aż ręka na chwilę stanie. Układ ścieżki ma własny
+   *  autozapis, więc dotyczy to tylko treści i nazw klocków. */
+  const zapisyRef = useRef(new Map<string, { t: number; akcja: () => void }>())
+  const zapiszPozniej = useCallback((klucz: string, akcja: () => void) => {
+    const stary = zapisyRef.current.get(klucz)
+    if (stary) window.clearTimeout(stary.t)
+    const t = window.setTimeout(() => {
+      zapisyRef.current.delete(klucz)
+      akcja()
+    }, 400)
+    zapisyRef.current.set(klucz, { t, akcja })
+  }, [])
+  useEffect(() => {
+    const mapa = zapisyRef.current
+    // zamknięcie ścieżki nie może zjeść ostatniego zdania — czekające zapisy
+    // wykonujemy od razu, zamiast je kasować
+    return () => {
+      for (const { t, akcja } of mapa.values()) {
+        window.clearTimeout(t)
+        akcja()
+      }
+      mapa.clear()
+    }
+  }, [])
+
   /** Przenosi kilka segmentów naraz — każdy ląduje za poprzednim, więc
    *  wzajemna kolejność zaznaczenia zostaje zachowana. */
   const moveSegments = (ids: string[], afterId: string | null, beforeId: string | null) => {
@@ -2082,11 +2177,16 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             if (n.kind === 'block') onOpenConcept(n.conceptId)
             else if (n.kind === 'fusion') setEditingGroup(n.id)
           }}
-          onRenameConcept={(conceptId, name) => updateConcept(conceptId, { name })}
-          onEditBlock={(versionId, subpageId, md) => {
-            if (subpageId) updateSubpage(subpageId, { content: md })
-            else updateVersion(versionId, { content: md })
-          }}
+          onRenameConcept={(conceptId, name) =>
+            zapiszPozniej(`n:${conceptId}`, () => updateConcept(conceptId, { name }))
+          }
+          onEditBlock={(versionId, subpageId, md) =>
+            zapiszPozniej(`t:${subpageId ?? versionId}`, () =>
+              subpageId
+                ? updateSubpage(subpageId, { content: md })
+                : updateVersion(versionId, { content: md }),
+            )
+          }
           onEditNote={(id, md) => api.updateData(id, { text: md })}
           onEditHeading={(id, text) => api.updateData(id, { text })}
           onRenameFusion={(id, name) => api.updateData(id, { name })}
@@ -2287,25 +2387,12 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         (() => {
           const g = rfNodes.find((n) => n.id === editingGroup)
           if (!g) return null
-          const czesci = (g.data.parts as FusionPart[]) ?? []
-          // punkt wyjścia do przepisania: treści składników jedna pod drugą
-          const sklejone = czesci
-            .map((p) => {
-              const c = allConcepts.find((x) => x.id === p.conceptId)
-              const v =
-                allVersions.find((x) => x.id === p.versionId) ??
-                allVersions.find((x) => x.id === c?.currentVersionId)
-              const s = allSubpages.find((x) => x.id === p.subpageId)
-              return (s ? s.content : (v?.content ?? '')).trim()
-            })
-            .filter(Boolean)
-            .join('\n\n')
           return (
             <GroupEditor
               name={(g.data.name as string) ?? ''}
               type={(g.data.type as BlockType | undefined) ?? undefined}
               content={(g.data.content as string | undefined) ?? undefined}
-              sklejone={sklejone}
+              sklejone={czesciGrupy ?? ''}
               onChangeName={(name) => api.updateData(g.id, { name })}
               onChangeType={(type) => api.updateData(g.id, { type })}
               onChangeContent={(content) => api.updateData(g.id, { content })}

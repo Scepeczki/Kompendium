@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
@@ -8,6 +8,7 @@ import Paragraph from '@tiptap/extension-paragraph'
 import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
 import { OBEJMUJACE } from '../cmShortcuts'
+import { zachowajPusteLinie } from '../markdown'
 import { PageRuler } from './PageRuler'
 import { SpacingMenu } from './SpacingMenu'
 import { INDENT_RE, INDENT_RE_ANY, indentStyle, parseIndents } from '../indent'
@@ -241,6 +242,118 @@ const BlankParagraph = Paragraph.extend({
   },
 })
 
+/** Pasek narzędzi edytora. Osobno, bo w ścieżce jeden pasek obsługuje
+ *  wszystkie kafelki naraz — działa na tym polu, w którym stoi kursor. */
+export function RichToolbar({ editor }: { editor: Editor | null }) {
+  if (!editor) return <div className="rich-toolbar rich-toolbar-pusty" />
+
+  /** Wstawia parę dolarów. Z zaznaczeniem obejmuje je, bez — wstawia samą
+   *  parę i stawia kursor w środku, żeby od razu pisać wzór. */
+  const wrapMath = (block: boolean) => {
+    const { from, to } = editor.state.selection
+    const sel = editor.state.doc.textBetween(from, to, ' ')
+    const d = block ? '$$' : '$'
+    editor
+      .chain()
+      .focus()
+      .insertContent(`${d}${sel}${d}`)
+      .command(({ tr, dispatch }) => {
+        const koniec = tr.selection.to
+        const wewn = koniec - d.length
+        if (dispatch) {
+          tr.setSelection(
+            TextSelection.create(tr.doc, sel ? wewn - sel.length : wewn, wewn),
+          )
+        }
+        return true
+      })
+      .run()
+  }
+
+  return (
+    <div className="rich-toolbar">
+      <button
+        className={`btn rich-btn ${editor.isActive('bold') ? 'btn-active' : ''}`}
+        title="Pogrubienie (Ctrl+B)"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      >
+        <b>B</b>
+      </button>
+      <button
+        className={`btn rich-btn ${editor.isActive('italic') ? 'btn-active' : ''}`}
+        title="Kursywa (Ctrl+I)"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      >
+        <i>I</i>
+      </button>
+      <button
+        className={`btn rich-btn ${
+          editor.isActive('heading', { level: 2 }) ? 'btn-active' : ''
+        }`}
+        title="Nagłówek"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+      >
+        H
+      </button>
+      <select
+        className="rich-size"
+        title="Rozmiar zaznaczonego tekstu (zaznacz fragment i wybierz)"
+        value={sizeAtSelection(editor) ?? ''}
+        onChange={(e) => {
+          applySizeToSelection(
+            editor,
+            e.target.value ? Number(e.target.value) : null,
+          )
+          editor.chain().focus().run()
+        }}
+      >
+        <option value="">Aa</option>
+        {SIZE_OPTIONS.map((v) => (
+          <option key={v} value={v}>
+            {v}
+          </option>
+        ))}
+      </select>
+      <button
+        className={`btn rich-btn ${editor.isActive('bulletList') ? 'btn-active' : ''}`}
+        title="Lista punktowana"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+      >
+        ≔
+      </button>
+      <button
+        className={`btn rich-btn ${editor.isActive('orderedList') ? 'btn-active' : ''}`}
+        title="Lista numerowana"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+      >
+        1.
+      </button>
+      <button
+        className={`btn rich-btn ${editor.isActive('blockquote') ? 'btn-active' : ''}`}
+        title="Cytat"
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+      >
+        ❝
+      </button>
+      <button
+        className="btn rich-btn"
+        title="Wzór w tekście: $…$ (Ctrl+M w trybie kodu)"
+        onClick={() => wrapMath(false)}
+      >
+        $x$
+      </button>
+      <button
+        className="btn rich-btn"
+        title="Wzór wystawiony: $$…$$"
+        onClick={() => wrapMath(true)}
+      >
+        $$
+      </button>
+      <SpacingMenu />
+    </div>
+  )
+}
+
 interface Props {
   /** Treść w Markdownie (źródło prawdy) — wczytywana raz przy montowaniu;
    *  komponent montuj z key={id wersji}, żeby zmiana klocka przeładowała treść. */
@@ -252,6 +365,13 @@ interface Props {
   ruler?: boolean
   /** Ustaw kursor w treści zaraz po otwarciu. */
   autoFocus?: boolean
+  /** Bez własnego paska narzędzi — używane tam, gdzie pasek jest jeden
+   *  wspólny dla wielu pól (ścieżka w widoku Linia). */
+  bezPaska?: boolean
+  /** Daje edytor na zewnątrz, żeby wspólny pasek wiedział, na czym działa. */
+  onReady?: (editor: Editor | null) => void
+  /** Wołane po wejściu kursora w to pole — wspólny pasek przełącza się na nie. */
+  onFocus?: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +418,9 @@ export function RichEditor({
   onChange,
   ruler = true,
   autoFocus = false,
+  bezPaska = false,
+  onReady,
+  onFocus,
 }: Props) {
   const editor = useEditor({
     extensions: [
@@ -308,9 +431,11 @@ export function RichEditor({
       SizeRender,
       Markdown.configure({ html: false, linkify: false, breaks: false }),
     ],
-    content: escapeMathForParse(value),
+    // puste linijki wpisane w trybie kodu też mają być widoczne w edytorze
+    content: escapeMathForParse(zachowajPusteLinie(value)),
     editable,
     autofocus: autoFocus ? 'end' : false,
+    onFocus: () => onFocus?.(),
     editorProps: {
       /** Zaznaczasz wzór, wciskasz `$` — i tekst jest w `$…$`, a nie
        *  skasowany. Zaznaczenie zostaje w środku, więc drugie naciśnięcie
@@ -341,6 +466,13 @@ export function RichEditor({
     editor?.setEditable(editable)
   }, [editable, editor])
 
+  // wspólny pasek narzędzi musi wiedzieć, na czym działa
+  useEffect(() => {
+    onReady?.(editor)
+    return () => onReady?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor])
+
   // Firefox potrafi dorysować własne zielone uchwyty zmiany rozmiaru na
   // elementach w polu edycji — wyłączamy jego wbudowane edytowanie obiektów.
   useEffect(() => {
@@ -354,114 +486,9 @@ export function RichEditor({
 
   if (!editor) return null
 
-  /** Wstawia parę `$…$` (albo `$$…$$`). Z zaznaczeniem obejmuje je, bez —
-   *  wstawia samą parę i stawia kursor w środku, żeby od razu pisać wzór.
-   *  Dawniej wchodziło tu literalne „x", które trzeba było najpierw skasować. */
-  const wrapMath = (block: boolean) => {
-    const { from, to } = editor.state.selection
-    const sel = editor.state.doc.textBetween(from, to, ' ')
-    const d = block ? '$$' : '$'
-    editor
-      .chain()
-      .focus()
-      .insertContent(`${d}${sel}${d}`)
-      // kursor między znacznikami: przy pustym zaznaczeniu tuż w środku,
-      // przy niepustym — obejmując wstawiony tekst
-      .command(({ tr, dispatch }) => {
-        const koniec = tr.selection.to
-        const wewn = koniec - d.length
-        if (dispatch) {
-          tr.setSelection(TextSelection.create(tr.doc, sel ? wewn - sel.length : wewn, wewn))
-        }
-        return true
-      })
-      .run()
-  }
-
   return (
     <div className="rich-editor">
-      {editable && (
-        <div className="rich-toolbar">
-          <button
-            className={`btn rich-btn ${editor.isActive('bold') ? 'btn-active' : ''}`}
-            title="Pogrubienie (Ctrl+B)"
-            onClick={() => editor.chain().focus().toggleBold().run()}
-          >
-            <b>B</b>
-          </button>
-          <button
-            className={`btn rich-btn ${editor.isActive('italic') ? 'btn-active' : ''}`}
-            title="Kursywa (Ctrl+I)"
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-          >
-            <i>I</i>
-          </button>
-          <button
-            className={`btn rich-btn ${
-              editor.isActive('heading', { level: 2 }) ? 'btn-active' : ''
-            }`}
-            title="Nagłówek"
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          >
-            H
-          </button>
-          <select
-            className="rich-size"
-            title="Rozmiar zaznaczonego tekstu (zaznacz fragment i wybierz)"
-            value={sizeAtSelection(editor) ?? ''}
-            onChange={(e) => {
-              applySizeToSelection(
-                editor,
-                e.target.value ? Number(e.target.value) : null,
-              )
-              editor.chain().focus().run()
-            }}
-          >
-            <option value="">Aa</option>
-            {SIZE_OPTIONS.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-          <button
-            className={`btn rich-btn ${editor.isActive('bulletList') ? 'btn-active' : ''}`}
-            title="Lista punktowana"
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-          >
-            ≔
-          </button>
-          <button
-            className={`btn rich-btn ${editor.isActive('orderedList') ? 'btn-active' : ''}`}
-            title="Lista numerowana"
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          >
-            1.
-          </button>
-          <button
-            className={`btn rich-btn ${editor.isActive('blockquote') ? 'btn-active' : ''}`}
-            title="Cytat"
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          >
-            ❝
-          </button>
-          <button
-            className="btn rich-btn"
-            title="Wzór w tekście: $…$ (Ctrl+M w trybie kodu)"
-            onClick={() => wrapMath(false)}
-          >
-            $x$
-          </button>
-          <button
-            className="btn rich-btn"
-            title="Wzór wystawiony: $$…$$"
-            onClick={() => wrapMath(true)}
-          >
-            $$
-          </button>
-          <SpacingMenu />
-        </div>
-      )}
+      {editable && !bezPaska && <RichToolbar editor={editor} />}
       {editable && ruler && <PageRuler editor={editor} />}
       <EditorContent editor={editor} className="rich-content markdown-body" />
     </div>

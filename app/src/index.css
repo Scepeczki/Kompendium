@@ -4005,31 +4005,60 @@ button.version-pill.new {
   background: color-mix(in srgb, var(--block-color, var(--ink)) 4%, transparent);
 }
 
-.linear-edytor {
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--panel);
+/* Pole tekstowe w kafelku. Ma wyglądać jak treść, a nie jak formularz —
+   dopiero kursor w środku pokazuje, że się w tym pisze. */
+.linear-pole .rich-editor {
+  display: block;
 }
 
-/* w kafelku edytor nie jest „stroną" — bez linijki i bez kolumny na środku */
-.linear-edytor .rich-content .tiptap {
+.linear-pole .rich-content {
+  background: none;
+  padding-top: 0;
+  overflow: visible;
+}
+
+.linear-pole .rich-content .tiptap {
   max-width: none;
   box-shadow: none;
-  border-radius: 0;
-  min-height: 120px;
-  padding: 10px 12px;
+  border-radius: 6px;
+  background: none;
+  min-height: 1.6em;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  border: 1px solid transparent;
 }
 
-.linear-edytor .rich-content {
+.linear-pole .rich-content .tiptap:hover {
+  border-color: color-mix(in srgb, var(--block-color, var(--line-strong)) 25%, transparent);
+}
+
+.linear-pole .rich-content .tiptap.ProseMirror-focused {
+  border-color: var(--accent);
   background: var(--panel);
-  padding-top: 0;
 }
 
-.linear-gotowe {
-  margin: 6px 8px 8px auto;
-  display: block;
-  font-size: var(--fs-2);
+/* wspólny pasek narzędzi całej ścieżki — jeden na wszystkie kafelki */
+.linear-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.linear-toolbar .rich-toolbar {
+  border-bottom: none;
+  background: none;
+}
+
+/* bez kursora w żadnym polu pasek jest przygaszony, ale nie znika —
+   inaczej treść skakałaby przy każdym kliknięciu */
+.rich-toolbar-pusty {
+  height: 37px;
+}
+
+.linear-toolbar .rich-toolbar:not(.rich-toolbar-pusty) ~ * {
+  opacity: 1;
 }
 
 /* zaznaczony segment w Linii — ta sama kreska co w liście po lewej */

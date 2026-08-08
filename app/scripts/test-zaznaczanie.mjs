@@ -97,8 +97,10 @@ await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 await page.dragAndDrop('.concept-item:has-text("Beta")', '.linear-append')
 await page.waitForTimeout(800)
-const akapity = await page.evaluate(() =>
-  [...document.querySelectorAll('.linear-seg .markdown-body > p')].length,
+const akapity = await page.evaluate(
+  () =>
+    document.querySelectorAll('.linear-seg .linear-pole .tiptap > p').length ||
+    document.querySelectorAll('.linear-seg .markdown-body > p').length,
 )
 check('puste linie z klocka widać w ścieżce', akapity === 4,
   `akapitów w segmencie: ${akapity} (oczekiwane 4: tekst, dwie przerwy, tekst)`)

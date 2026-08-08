@@ -105,14 +105,17 @@ check('tytuł grupy da się zmienić',
 
 // 4. przepisanie treści całości
 await page.click('.group-editor button:has-text("Przepisz na jeden tekst")')
-await page.waitForSelector('.group-content')
-const zalazek = await page.inputValue('.group-content')
-check('przepisywanie startuje od sklejonych treści składników',
-  zalazek.includes('TRESC-DOWODU-KRESU') && zalazek.includes('Piszemy sup A'), zalazek)
-await page.fill('.group-content', 'Kresem gornym zbioru A, pisanym sup A, nazywamy PRZEPISANE.')
 await page.waitForTimeout(500)
 await page.keyboard.press('Escape')
-await page.waitForTimeout(500)
+await page.waitForTimeout(700)
+const zalazek = await page.textContent('.script-group-block .linear-pole')
+check('przepisywanie startuje od sklejonych treści składników',
+  zalazek.includes('TRESC-DOWODU-KRESU') && zalazek.includes('Piszemy sup A'), zalazek)
+// dalej pisze się już wprost w kafelku
+await page.click('.script-group-block .linear-pole .tiptap')
+await page.keyboard.press('Control+a')
+await page.keyboard.type('Kresem gornym zbioru A, pisanym sup A, nazywamy PRZEPISANE.')
+await page.waitForTimeout(900)
 const tresc = await page.textContent('.script-group-block')
 check('grupa pokazuje przepisaną treść', tresc.includes('PRZEPISANE'))
 check('a nie treści składników', !tresc.includes('TRESC-DOWODU-KRESU'))

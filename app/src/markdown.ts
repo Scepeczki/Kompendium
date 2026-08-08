@@ -49,7 +49,7 @@ export function renderMarkdown(src: string, opts: RenderOptions = {}): string {
  *  odstęp zrobiony w klocku znikał przy czytaniu w ścieżce. Każdą nadmiarową
  *  pustą linię zamieniamy na akapit z twardą spacją. Bloki kodu zostawiamy
  *  w spokoju — tam puste linie znaczą dokładnie to, co jest napisane. */
-function zachowajPusteLinie(src: string): string {
+export function zachowajPusteLinie(src: string): string {
   return src
     .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
     .map((czesc, i) =>
