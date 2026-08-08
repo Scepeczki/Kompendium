@@ -107,7 +107,15 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
 5. **Odnośnik do PDF to współrzędne, nie obraz** — `rect` jest prostokątem na
    stronie przy skali 1 (punkty PDF, początek w lewym górnym rogu). Wycinek
    renderuje się na żądanie; działa też na skanach bez warstwy tekstu.
-6. **Ścieżka nigdy nie zmienia klocka** — jest widokiem, nie edytorem.
+6. **Ścieżka nie ma własnej kopii treści klocka.** Do niedawna brzmiało to
+   „ścieżka nigdy nie zmienia klocka" — i było prawdą, dopóki ścieżki się nie
+   edytowało. Dziś w widoku **Linia** pisze się wprost w kafelkach, ale nadal
+   nie powstaje żadna kopia: zmiana tytułu albo treści idzie do tego samego
+   klocka w bazie, więc widać ją wszędzie. Ścieżka trzyma wyłącznie to, co
+   jest jej własne — układ, kolejność, wybór wersji i strony, rozdziały,
+   notatki, grupy (z ich nazwą, rodzajem i ewentualną przepisaną treścią).
+   Dwie granice pilnują reszty: **Skrypt jest tylko do czytania**, a po
+   **starszej wersji klocka nie da się pisać** (historia zostaje historią).
 7. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
 8. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
    nazwę z zestawu Lucide, np. `"sigma"`, a `iconColor` barwę `#rrggbb`. Nieznana

@@ -39,7 +39,14 @@ import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import { RichEditor } from './RichEditor'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { createConcept, db, updatePath } from '../db'
+import {
+  createConcept,
+  db,
+  updateConcept,
+  updatePath,
+  updateSubpage,
+  updateVersion,
+} from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
@@ -414,6 +421,16 @@ interface LinearViewProps {
   onGroupWithNext: (segId: string) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
+
+  // ---- pisanie wprost w ścieżce (Linia jest warsztatem, Skrypt czytelnią) ----
+  /** Nazwa klocka — zmienia klocek w bazie, więc wszędzie. */
+  onRenameConcept?: (conceptId: string, name: string) => void
+  /** Treść klocka: wersja + ewentualna strona. */
+  onEditBlock?: (versionId: string, subpageId: string | null, md: string) => void
+  onEditNote?: (nodeId: string, md: string) => void
+  onEditHeading?: (nodeId: string, text: string) => void
+  onRenameFusion?: (nodeId: string, name: string) => void
+  onEditFusion?: (nodeId: string, md: string) => void
 }
 
 function LinearView({
@@ -434,7 +451,15 @@ function LinearView({
   onGroupWithNext,
   onJumpToSource,
   onOpenConcept,
+  onRenameConcept,
+  onEditBlock,
+  onEditNote,
+  onEditHeading,
+  onRenameFusion,
+  onEditFusion,
 }: LinearViewProps) {
+  /** Segment, w którym właśnie piszemy (jeden naraz — edytor jest ciężki). */
+  const [pisze, setPisze] = useState<string | null>(null)
   const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
   const [endHint, setEndHint] = useState(false)
   /** Zaznaczone segmenty (Ctrl dokłada, Shift bierze zakres). Przeciągnięcie
@@ -492,6 +517,7 @@ function LinearView({
   }, [segMenu])
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+  const subpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
 
   const conceptById = (id: string) => concepts.find((c) => c.id === id)
 
@@ -526,14 +552,43 @@ function LinearView({
     }
   }
 
+  /** Edytor treści dla jednego segmentu — mocowany dopiero po kliknięciu,
+   *  żeby w długim skrypcie nie żyło naraz pięćdziesiąt edytorów. */
+  const edytorTresci = (id: string, value: string, zapisz: (md: string) => void) => (
+    <div
+      className="linear-edytor"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          setPisze(null)
+        }
+      }}
+    >
+      <RichEditor key={id} value={value} editable onChange={zapisz} autoFocus />
+      <button className="btn linear-gotowe" onClick={() => setPisze(null)}>
+        Gotowe
+      </button>
+    </div>
+  )
+
   const segmentContent = (n: PathNode) => {
     if (n.kind === 'block') {
       const c = conceptById(n.conceptId)
       if (!c) return <div className="script-block">(usunięte pojęcie)</div>
+      const wersje = versions.filter((v) => v.conceptId === c.id)
+      const wersja =
+        wersje.find((v) => v.id === n.versionId) ??
+        wersje.find((v) => v.id === c.currentVersionId)
+      const strona = subpages.find((s) => s.id === n.subpageId) ?? null
+      // Historia ma zostać historią: po starszej wersji nie piszemy, tak samo
+      // jak w edytorze klocka.
+      const biezaca = !wersja || wersja.id === c.currentVersionId
+      const wolno = !!onEditBlock && biezaca
+      const tresc = strona ? strona.content : (wersja?.content ?? '')
       return (
         <BlockShell
           concept={c}
-          versions={versions.filter((v) => v.conceptId === c.id)}
+          versions={wersje}
           versionId={n.versionId}
           onVersionChange={(id: string | null) => onSetVersion(n.id, id)}
           subpageId={n.subpageId ?? null}
@@ -542,29 +597,61 @@ function LinearView({
           onJumpToSource={onJumpToSource}
           showOpen={false}
           pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
+          onRename={onRenameConcept ? (name) => onRenameConcept(c.id, name) : undefined}
+          blokada={
+            wolno
+              ? undefined
+              : 'To starsza wersja — przełącz na bieżącą, żeby pisać'
+          }
+          onStartEdit={wolno ? () => setPisze(n.id) : undefined}
+          edytor={
+            pisze === n.id && wolno && wersja
+              ? edytorTresci(`${wersja.id}:${strona?.id ?? 'glowna'}`, tresc, (md) =>
+                  onEditBlock!(wersja.id, strona?.id ?? null, md),
+                )
+              : undefined
+          }
         />
       )
     }
     if (n.kind === 'heading') {
       const H = (`h${n.level + 1}` as unknown) as 'h2'
       return (
-        <H
-          id={outlineId(n.id)}
-          className={`script-heading-node level-${n.level}`}
-          onDoubleClick={() => onEdit(n)}
-        >
-          {n.text || '(rozdział bez nazwy)'}
+        <H id={outlineId(n.id)} className={`script-heading-node level-${n.level}`}>
+          {onEditHeading ? (
+            <input
+              className="inline-title"
+              value={n.text}
+              placeholder="Nazwa rozdziału…"
+              onChange={(e) => onEditHeading(n.id, e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            n.text || '(rozdział bez nazwy)'
+          )}
         </H>
       )
     }
     if (n.kind === 'text') {
+      if (pisze === n.id && onEditNote) {
+        return (
+          <div className="script-text linear-note">
+            {edytorTresci(n.id, n.text, (md) => onEditNote(n.id, md))}
+          </div>
+        )
+      }
       return (
         <div
-          className="script-text markdown-body linear-note"
+          className={`script-text markdown-body linear-note ${onEditNote ? 'do-pisania' : ''}`}
+          onClick={(e) => {
+            if ((e.target as Element).closest('a, button')) return
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return
+            if (onEditNote) setPisze(n.id)
+          }}
           dangerouslySetInnerHTML={{
             __html: n.text
               ? renderMarkdown(n.text)
-              : '<p class="note-empty">pusta notatka — ✏ aby edytować</p>',
+              : '<p class="note-empty">pusta notatka — kliknij, aby pisać</p>',
           }}
         />
       )
@@ -590,9 +677,6 @@ function LinearView({
               >
                 ⇄
               </button>
-              <button className="folder-action" title="Edytuj" onClick={() => onEdit(n)}>
-                ✏
-              </button>
               <button
                 className="folder-action"
                 title="Usuń ze ścieżki"
@@ -602,14 +686,23 @@ function LinearView({
               </button>
             </span>
           </div>
-          <div
-            className="markdown-body"
-            dangerouslySetInnerHTML={{
-              __html: n.text
-                ? renderMarkdown(n.text)
-                : '<p class="note-empty">pusty komentarz — ✏ aby edytować</p>',
-            }}
-          />
+          {pisze === n.id && onEditNote ? (
+            edytorTresci(n.id, n.text, (md) => onEditNote(n.id, md))
+          ) : (
+            <div
+              className={`markdown-body ${onEditNote ? 'do-pisania' : ''}`}
+              onClick={(e) => {
+                if ((e.target as Element).closest('a, button')) return
+                if (e.ctrlKey || e.metaKey || e.shiftKey) return
+                if (onEditNote) setPisze(n.id)
+              }}
+              dangerouslySetInnerHTML={{
+                __html: n.text
+                  ? renderMarkdown(n.text)
+                  : '<p class="note-empty">pusty komentarz — kliknij, aby pisać</p>',
+              }}
+            />
+          )}
         </aside>
       )
     }
@@ -624,6 +717,13 @@ function LinearView({
         onSubpageChange={(i, id) => onSetPartSubpage(n.id, i, id)}
         onJumpToSource={onJumpToSource}
         pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
+        onRename={onRenameFusion ? (name) => onRenameFusion(n.id, name) : undefined}
+        onStartEdit={onEditFusion ? () => setPisze(n.id) : undefined}
+        edytor={
+          pisze === n.id && onEditFusion && n.content !== undefined
+            ? edytorTresci(n.id, n.content, (md) => onEditFusion(n.id, md))
+            : undefined
+        }
       />
     )
   }
@@ -696,9 +796,8 @@ function LinearView({
                 >
                   ⣿
                 </button>
-                <button className="folder-action" title="Edytuj" onClick={() => onEdit(n)}>
-                  ✏
-                </button>
+                {/* pióra nie ma: tytuły i treść zmienia się wprost w kafelku,
+                    a reszta (czym jest grupa, kolor) siedzi pod prawym przyciskiem */}
                 {(n.kind === 'block' || n.kind === 'fusion') &&
                   (() => {
                     const next = ordered[i + 1]
@@ -814,8 +913,33 @@ function LinearView({
                 if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
               }}
             >
+              {/* Czym jest scalony blok — dawniej pod piórkiem, a piórko było
+                  obok treści i mieszało się z pisaniem. */}
+              {sasiad?.kind === 'fusion' && (
+                <>
+                  <div className="tree-menu-where">Scalony blok „{sasiad.name}"</div>
+                  <button className="tree-menu-item" onClick={wstaw(() => onEdit(sasiad))}>
+                    Czym to jest (rodzaj i kolor)
+                  </button>
+                  <button className="tree-menu-item" onClick={wstaw(() => onUnfuse(sasiad.id))}>
+                    Rozdziel z powrotem
+                  </button>
+                  <div className="tree-menu-sep" />
+                </>
+              )}
+              {sasiad?.kind === 'block' && onOpenConcept && (
+                <>
+                  <button
+                    className="tree-menu-item"
+                    onClick={wstaw(() => onOpenConcept(sasiad.conceptId))}
+                  >
+                    Otwórz klocek w edytorze
+                  </button>
+                  <div className="tree-menu-sep" />
+                </>
+              )}
               <div className="tree-menu-where">
-                {segMenu.pos === 'before' ? 'przed' : 'po'} „{opis(sasiad)}"
+                Wstaw {segMenu.pos === 'before' ? 'przed' : 'po'} „{opis(sasiad)}"
               </div>
               <button
                 className="tree-menu-item"
@@ -1655,7 +1779,10 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       afterId,
       beforeId,
     )
-    setEditingNote(id)
+    // W Linii nowa notatka nie otwiera okienka — pisze się ją na miejscu,
+    // klikając w „pusta notatka". Okienko zostaje dla mapy, gdzie kafelek
+    // jest za mały, żeby w nim pisać.
+    if (mode !== 'linear') setEditingNote(id)
   }
 
   const handlePaneContextMenu = (e: React.MouseEvent | MouseEvent) => {
@@ -1951,15 +2078,19 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
           onMoveSegments={moveSegments}
           onAddNote={linearAddNote}
           onRemove={removeSegmentHeal}
-          onEdit={async (n) => {
+          onEdit={(n) => {
             if (n.kind === 'block') onOpenConcept(n.conceptId)
-            else if (n.kind === 'text' || n.kind === 'comment') setEditingNote(n.id)
             else if (n.kind === 'fusion') setEditingGroup(n.id)
-            else if (n.kind === 'heading') {
-              const text = await dlg.prompt({ title: 'Nazwa rozdziału', value: n.text })
-              if (text) api.updateData(n.id, { text })
-            }
           }}
+          onRenameConcept={(conceptId, name) => updateConcept(conceptId, { name })}
+          onEditBlock={(versionId, subpageId, md) => {
+            if (subpageId) updateSubpage(subpageId, { content: md })
+            else updateVersion(versionId, { content: md })
+          }}
+          onEditNote={(id, md) => api.updateData(id, { text: md })}
+          onEditHeading={(id, text) => api.updateData(id, { text })}
+          onRenameFusion={(id, name) => api.updateData(id, { name })}
+          onEditFusion={(id, md) => api.updateData(id, { content: md })}
           onUnfuse={(id) => api.unfuse(id)}
           onToggleSide={(id) => {
             const n = rfNodes.find((x) => x.id === id)

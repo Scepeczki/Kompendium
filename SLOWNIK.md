@@ -39,7 +39,7 @@
 
 | Nazwa | Co to jest | Czym NIE jest |
 |---|---|---|
-| **Ścieżka** | Kompozycja klocków w materiał do nauki — własna kolejność przez wiedzę. Żyje w tym samym drzewie folderów co klocki. | Nie jest edytorem treści: **ścieżka nigdy nie zmienia klocka**. |
+| **Ścieżka** | Kompozycja klocków w materiał do nauki — własna kolejność przez wiedzę. Żyje w tym samym drzewie folderów co klocki. | Nie ma własnej kopii treści: w Linii pisze się wprost w kafelku, ale **zmiana idzie do klocka w bazie**, więc widać ją wszędzie. |
 | **Kafelek** | Klocek pokazany **w ścieżce** (na mapie albo jako segment w linii). Wskazuje wersję i stronę do pokazania. | Nie jest klockiem — usunięcie kafelka nie rusza klocka w bazie. |
 | **Grupa** | Kilka klocków pokazanych razem pod jedną nazwą nadaną w tej ścieżce; czyta się jak jeden blok wybranego typu, a klocki w środku tracą własne ramki i tytuły. | Nie scala klocków w bazie — to wyłącznie sposób pokazania. |
 | **Rozdział / podrozdział / sekcja** | Nagłówek dzielący ścieżkę na części (trzy poziomy). Zasila spis treści. | — |
@@ -53,7 +53,7 @@
 | Widok | Do czego służy |
 |---|---|
 | **Mapa** | Przestrzenne układanie: kafelki i strzałki na nieskończonej tablicy. Tu się buduje strukturę. |
-| **Linia** | Doklejanie segmentów jeden pod drugim — budowanie skryptu po kolei. |
+| **Linia** | Doklejanie segmentów jeden pod drugim — i **warsztat**: tytuły i treść zmienia się wprost w kafelkach, bez otwierania edytora. |
 | **Skrypt** | Gotowy, ciągły dokument do czytania i druku (tylko odczyt). |
 
 ---

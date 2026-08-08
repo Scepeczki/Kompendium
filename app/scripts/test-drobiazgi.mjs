@@ -80,19 +80,22 @@ await page.mouse.click(seg.x + seg.width / 2, seg.y + 8, { button: 'right' })
 await page.waitForSelector('.linear-menu')
 const pozycje = await page.locator('.linear-menu .tree-menu-item').allTextContents()
 check('menu ma rozdział, podrozdział, notatkę i komentarz',
-  pozycje.length === 4 && pozycje.join('|').includes('Rozdział') &&
-    pozycje.join('|').includes('Komentarz'),
+  pozycje.join('|').includes('Rozdział') && pozycje.join('|').includes('Komentarz'),
   pozycje.map((s) => s.trim()).join(' · '))
 check('menu mówi, gdzie wstawi',
-  (await page.locator('.linear-menu .tree-menu-where').textContent()).startsWith('przed'),
-  await page.locator('.linear-menu .tree-menu-where').textContent())
+  (await page.locator('.linear-menu .tree-menu-where').last().textContent()).includes('przed'),
+  await page.locator('.linear-menu .tree-menu-where').last().textContent())
 
 await page.click('.linear-menu .tree-menu-item:has-text("Rozdział"):not(:has-text("Pod"))')
 await podaj(page, 'Rozdzial I')
 await page.waitForTimeout(700)
 const kolejnosc = await page.evaluate(() =>
   [...document.querySelectorAll('.linear-seg')].map((s) =>
-    (s.querySelector('.script-heading-node, .script-block-title')?.textContent ?? '').trim(),
+    (
+      s.querySelector('.inline-title')?.value ??
+      s.querySelector('.script-heading-node, .script-block-title')?.textContent ??
+      ''
+    ).trim(),
   ),
 )
 check('rozdział wstawiony PRZED kafelkiem, nie na końcu',
@@ -103,7 +106,7 @@ const seg2 = await page.locator('.linear-seg').last().boundingBox()
 await page.mouse.click(seg2.x + seg2.width / 2, seg2.y + seg2.height - 8, { button: 'right' })
 await page.waitForSelector('.linear-menu')
 check('dolna połowa segmentu wstawia po nim',
-  (await page.locator('.linear-menu .tree-menu-where').textContent()).startsWith('po'))
+  (await page.locator('.linear-menu .tree-menu-where').last().textContent()).includes('po '))
 await page.click('.linear-menu .tree-menu-item:has-text("Notatka")')
 await page.waitForTimeout(700)
 check('notatka doszła na końcu',

@@ -18,6 +18,10 @@ interface Props {
   onSubpageChange?: (index: number, subpageId: string | null) => void
   onJumpToSource?: (ref: SourceRef) => void
   pickHint?: string
+  // ---- edycja na miejscu (widok Linia) ----
+  onRename?: (name: string) => void
+  edytor?: React.ReactNode
+  onStartEdit?: () => void
 }
 
 /** Grupa klocków pokazana jako JEDEN blok: pasek nagłówka z nazwą nadaną
@@ -32,6 +36,9 @@ export function GroupShell({
   onSubpageChange,
   onJumpToSource,
   pickHint,
+  onRename,
+  edytor,
+  onStartEdit,
 }: Props) {
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
@@ -70,7 +77,17 @@ export function GroupShell({
           <span className="script-block-type">
             {type ? typy.label(type) : 'Grupa'}:
           </span>{' '}
-          {name}
+          {onRename ? (
+            <input
+              className="inline-title"
+              value={name}
+              title="Nazwa scalonego bloku — istnieje tylko w tej ścieżce"
+              onChange={(e) => onRename(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            name
+          )}
         </h3>
       </header>
 
@@ -78,10 +95,24 @@ export function GroupShell({
         {content !== undefined ? (
           // przepisana całość — jeden tekst zamiast poskładanych kawałków
           <div className="block-content">
-            <div
-              className="markdown-body"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-            />
+            {edytor ?? (
+              <div
+                className={`markdown-body ${onStartEdit ? 'do-pisania' : ''}`}
+                onClick={(e) => {
+                  if ((e.target as Element).closest('a, button, select')) return
+                  if (e.ctrlKey || e.metaKey || e.shiftKey) return
+                  onStartEdit?.()
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(
+                    content ||
+                      (onStartEdit
+                        ? '<p class="note-empty">pusto — kliknij, aby pisać</p>'
+                        : ''),
+                  ),
+                }}
+              />
+            )}
           </div>
         ) : (
         <div className="block-content">

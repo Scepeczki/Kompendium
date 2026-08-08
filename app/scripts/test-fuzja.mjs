@@ -93,12 +93,15 @@ check('wybrana strona zmienia pokazywaną treść',
 
 // 3. edycja tytułu grupy
 await page.hover('.linear-seg:first-child')
-await page.click('.linear-seg:first-child .folder-action[title="Edytuj"]')
+const pud = await page.locator('.linear-seg:first-child').boundingBox()
+await page.mouse.click(pud.x + pud.width / 2, pud.y + 6, { button: 'right' })
+await page.waitForSelector('.linear-menu')
+await page.click('.linear-menu .tree-menu-item:has-text("Czym to jest")')
 await page.waitForSelector('.group-editor')
 await page.fill('.group-editor .settings-row:has-text("Nazwa w tej ścieżce") input', 'Kres i notacja')
 await page.waitForTimeout(400)
 check('tytuł grupy da się zmienić',
-  (await page.textContent('.script-group-block .script-block-title')).includes('Kres i notacja'))
+  (await page.inputValue('.script-group-block .inline-title')) === 'Kres i notacja')
 
 // 4. przepisanie treści całości
 await page.click('.group-editor button:has-text("Przepisz na jeden tekst")')

@@ -42,6 +42,8 @@ for (const n of ['Alfa', 'Beta', 'Gamma', 'Delta']) {
 const widoczne = () =>
   page.evaluate(() =>
     [...document.querySelectorAll('.linear-seg')].map((s) => {
+      const pole = s.querySelector('.script-block-title .inline-title')
+      if (pole) return pole.value.trim()
       const t = s.querySelector('.script-block-title, .group-name')
       return (t?.textContent ?? s.textContent ?? '').trim()
     }),

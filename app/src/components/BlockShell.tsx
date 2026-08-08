@@ -19,9 +19,20 @@ interface Props {
   onJumpToSource?: (ref: SourceRef) => void
   /** Dymki wyjaśniające, co oznacza wybór w danym widoku. */
   pickHint?: string
-  /** Strzałka „otwórz klocek" w nagłówku. W Linii zbędna — tam ołówek przy
-   *  segmencie robi to samo, a dwa przyciski do jednej rzeczy tylko mieszają. */
+  /** Strzałka „otwórz klocek" w nagłówku. W Linii zbędna — tam menu pod
+   *  prawym przyciskiem robi to samo, a dwa wejścia mieszają. */
   showOpen?: boolean
+
+  // ---- edycja na miejscu (widok Linia; Skrypt zostaje do czytania) ----
+  /** Gdy podane, tytuł jest polem tekstowym, a nie napisem. */
+  onRename?: (name: string) => void
+  /** Treść w trybie pisania — komponent dostarcza własny edytor. */
+  edytor?: React.ReactNode
+  /** Klik w treść zaczyna pisanie (gdy edytor nie jest jeszcze włączony). */
+  onStartEdit?: () => void
+  /** Powód, dla którego pisać nie wolno (np. starsza wersja) — pokazywany
+   *  jako dymek, zamiast milczącego braku reakcji. */
+  blokada?: string
 }
 
 /** Blok klocka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
@@ -38,6 +49,10 @@ export function BlockShell({
   onJumpToSource,
   pickHint,
   showOpen = true,
+  onRename,
+  edytor,
+  onStartEdit,
+  blokada,
 }: Props) {
   const subs =
     useLiveQuery(
@@ -59,7 +74,17 @@ export function BlockShell({
       <header className="script-block-head">
         <h3 className="script-block-title">
           <span className="script-block-type">{typy.label(concept.type)}:</span>{' '}
-          {concept.name}
+          {onRename ? (
+            <input
+              className="inline-title"
+              value={concept.name}
+              title="Nazwa klocka — zmiana dotyczy klocka wszędzie, nie tylko tutaj"
+              onChange={(e) => onRename(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            concept.name
+          )}
         </h3>
         {onOpenConcept && showOpen && (
           <button
@@ -125,10 +150,23 @@ export function BlockShell({
               ))}
             </div>
           )}
-          <div
-            className="markdown-body"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-          />
+          {edytor ?? (
+            <div
+              className={`markdown-body ${onStartEdit ? 'do-pisania' : ''}`}
+              title={blokada}
+              onClick={(e) => {
+                // odnośniki i przełączniki zostawiamy w spokoju
+                if ((e.target as Element).closest('a, button, select')) return
+                if (e.ctrlKey || e.metaKey || e.shiftKey) return
+                onStartEdit?.()
+              }}
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(
+                  content || (onStartEdit ? '<p class="note-empty">pusto — kliknij, aby pisać</p>' : ''),
+                ),
+              }}
+            />
+          )}
         </div>
 
         <SourceList refs={version?.sourceRefs ?? []} onJump={onJumpToSource} />

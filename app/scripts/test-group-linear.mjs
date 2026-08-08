@@ -118,7 +118,10 @@ check('w ścieżce został jeden segment', st.wezly.filter((k) => k === 'block')
 
 // 5. edycja grupy: ✏ otwiera okno z nazwą i wyborem, czym grupa ma być
 await page.hover('.linear-seg:first-child')
-await page.click('.linear-seg:first-child .folder-action[title="Edytuj"]')
+const pud = await page.locator('.linear-seg:first-child').boundingBox()
+await page.mouse.click(pud.x + pud.width / 2, pud.y + 6, { button: 'right' })
+await page.waitForSelector('.linear-menu')
+await page.click('.linear-menu .tree-menu-item:has-text("Czym to jest")')
 await page.waitForSelector('.group-editor')
 check('✏ przy grupie otwiera okno edycji', true)
 await page.fill('.group-editor input.input', 'Kresy i supremum')
@@ -131,9 +134,12 @@ check('zmiana nazwy grupy z okna edycji', st.grupy[0]?.nazwa === 'Kresy i suprem
   `nazwa: ${st.grupy[0]?.nazwa}`)
 check('zmiana typu grupy z okna edycji', st.grupy[0]?.typ === 'twierdzenie',
   `typ: ${st.grupy[0]?.typ}`)
-const naglowek = await page.evaluate(
-  () => document.querySelector('.script-group-block .script-block-title')?.textContent?.trim(),
-)
+const naglowek = await page.evaluate(() => {
+  const g = document.querySelector('.script-group-block')
+  const typ = g?.querySelector('.script-block-type')?.textContent?.trim() ?? ''
+  const nazwa = g?.querySelector('.inline-title')?.value ?? ''
+  return `${typ} ${nazwa}`.trim()
+})
 check('nagłówek grupy odzwierciedla nowy typ i nazwę',
   naglowek?.startsWith('Twierdzenie:') && naglowek.includes('Kresy i supremum'),
   naglowek)
