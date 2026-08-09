@@ -804,7 +804,7 @@ function LinearView({
           /* Zapas w pikselach: kafelki wchodzą do okna, zanim je widać.
              Za mały zapas znaczy puste miejsca w trakcie szybkiego
              przewijania; za duży — więcej pól tekstowych do postawienia. */
-          { rootMargin: '1000px 0px' },
+          { rootMargin: '600px 0px' },
         ),
   )
   useEffect(

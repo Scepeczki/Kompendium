@@ -110,23 +110,29 @@ export function BlockShell({
       <div className="script-block-body">
         {version && (
           <div className="block-pick block-pick-version">
+            {/* „WR.2" samo z siebie nic nie mówi — stąd słowo z przodu */}
+            <span className="block-pick-etykieta">wersja</span>
             {sorted.length > 1 && onVersionChange ? (
-              <select
-                className="block-pick-select"
-                value={version.id}
-                title={pickHint ?? 'Wersja klocka'}
-                onChange={(e) =>
-                  onVersionChange(
-                    e.target.value === concept.currentVersionId ? null : e.target.value,
-                  )
-                }
-              >
-                {sorted.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {versionName(v)}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  className="block-pick-select"
+                  value={version.id}
+                  title={pickHint ?? 'Wersja klocka'}
+                  onChange={(e) =>
+                    onVersionChange(
+                      e.target.value === concept.currentVersionId ? null : e.target.value,
+                    )
+                  }
+                >
+                  {sorted.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {versionName(v)}
+                    </option>
+                  ))}
+                </select>
+                {/* daszek widoczny zawsze: bez niego wybór wygląda jak napis */}
+                <span className="block-pick-daszek">⌄</span>
+              </>
             ) : (
               <span className="block-pick-static">{versionName(version)}</span>
             )}

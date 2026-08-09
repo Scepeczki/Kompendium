@@ -3567,12 +3567,29 @@ button.version-pill.new {
 
 /* wybór wersji — mała etykieta w kolorze typu, nad treścią */
 .block-pick {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
   font-size: var(--fs-1);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--block-color) 70%, var(--ink));
   margin-bottom: 6px;
+}
+
+/* słowo „wersja" mówi, czym jest to obok; samo „WR.2" nie mówiło niczego */
+.block-pick-etykieta {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.block-pick-daszek {
+  margin-left: -2px;
+  font-size: var(--fs-3);
+  line-height: 1;
+  color: var(--muted);
+  pointer-events: none;
 }
 
 .block-pick-select,
@@ -4042,9 +4059,12 @@ button.version-pill.new {
   border-color: color-mix(in srgb, var(--block-color, var(--line-strong)) 25%, transparent);
 }
 
+/* Kursor w polu ma być widoczny po ramce, nie po zmianie tła. Białe tło
+   pod tekstem znaczyło, że kafelek zmienia kolor w chwili kliknięcia —
+   a tekst ma wyglądać tak samo, czy się w nim akurat pisze, czy nie. */
 .linear-pole .rich-content .tiptap.ProseMirror-focused {
   border-color: var(--accent);
-  background: var(--panel);
+  background: none;
 }
 
 /* pasek + kolumna tekstu jako jedna kolumna układu, obok spisu treści */
