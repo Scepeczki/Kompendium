@@ -71,6 +71,14 @@ const zBazy = async (co) =>
   }, co)
 
 // 1. tytuł klocka zmienia się wprost w ścieżce — i zmienia klocek w bazie
+await page
+  .waitForFunction(
+    () =>
+      document.querySelectorAll('.linear-seg .script-block-title .inline-title').length === 2,
+    null,
+    { timeout: 5000 },
+  )
+  .catch(() => {})
 check('tytuł klocka jest polem, nie napisem',
   (await page.locator('.linear-seg .script-block-title .inline-title').count()) === 2)
 await page.fill('.linear-seg:first-child .script-block-title .inline-title', 'Kres górny zbioru')
@@ -187,18 +195,39 @@ await page.click('.btn-close[title*="Zamknij klocek"]')
 await page.click('.concept-item:has-text("Warsztat")')
 await page.waitForSelector('.linear-seg')
 await page.waitForTimeout(600)
-// przełącz segment na starszą wersję
-const blok = page.locator('.linear-seg:has(.block-pick-select)').first()
-await blok.locator('.block-pick-select').selectOption({ index: 0 })
-await page.waitForTimeout(700)
-check('starsza wersja nie zaprasza do pisania',
-  (await blok.locator('.markdown-body.do-pisania').count()) === 0)
-await blok.locator('.markdown-body').first().click()
-await page.waitForTimeout(400)
-await blok.locator('.markdown-body').first().click()
-await page.waitForTimeout(500)
+// oba klocki siedzą teraz w scalonym bloku, więc wersję przełączamy tam —
+// każdy składnik ma własny wybór wersji i własne pole do pisania
+await page
+  .waitForFunction(
+    () =>
+      document.querySelectorAll('.script-group-block .group-part .linear-pole').length === 2,
+    null,
+    { timeout: 8000 },
+  )
+  .catch(() => {})
+check('w scalonym bloku pisze się po każdym składniku z osobna',
+  (await page.locator('.script-group-block .group-part .linear-pole').count()) === 2,
+  `pól: ${await page.locator('.script-group-block .group-part .linear-pole').count()}, ` +
+    `składników: ${await page.locator('.script-group-block .group-part').count()}`)
+// i to pisanie naprawdę idzie do klocka w bazie, a nie w próżnię
+const pierwszaCzesc = page.locator('.script-group-block .group-part').first()
+await pierwszaCzesc.locator('.linear-pole .tiptap').click()
+await page.keyboard.press('End')
+await page.keyboard.type(' DOPISANE-W-FUZJI')
+await page.waitForTimeout(900)
+const poFuzji = await zBazy('versions')
+check('tekst dopisany w składniku trafia do klocka w bazie',
+  poFuzji.some((v) => v.content.includes('DOPISANE-W-FUZJI')),
+  poFuzji.map((v) => v.content.slice(0, 40)).join(' | '))
+
+const czesc = page.locator('.script-group-block .group-part:has(.block-pick-select)').first()
+await czesc.locator('.block-pick-select').selectOption({ index: 0 })
+await page.waitForTimeout(800)
 check('starsza wersja nie ma pola do pisania',
-  (await blok.locator('.linear-pole').count()) === 0)
+  (await czesc.locator('.linear-pole').count()) === 0,
+  `pól w tym składniku: ${await czesc.locator('.linear-pole').count()}`)
+check('pozostałe składniki nadal są do pisania',
+  (await page.locator('.script-group-block .group-part .linear-pole').count()) === 1)
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

@@ -120,8 +120,12 @@ const ostatni = await page.evaluate(() => {
 check('ostatnia szczelina siada pod ostatnim kafelkiem', naKoncu && naKoncu.y === ostatni,
   `y=${naKoncu?.y}, dół ostatniego=${ostatni}`)
 
-// przeciągnięcie naprawdę wstawia tam, gdzie kreska
-await page.dragAndDrop('.linear-seg:nth-child(3) .linear-grip', '.linear-seg:nth-child(1)')
+// przeciągnięcie naprawdę wstawia tam, gdzie kreska.
+// Celujemy wyraźnie w górną część kafelka — środek to granica między
+// szczeliną nad nim a pod nim, a na granicy wynik zależy od zaokrąglenia.
+await page.dragAndDrop('.linear-seg:nth-child(3) .linear-grip', '.linear-seg:nth-child(1)', {
+  targetPosition: { x: 200, y: 4 },
+})
 await page.waitForTimeout(700)
 const kolejnosc = await page.evaluate(() =>
   [...document.querySelectorAll('.linear-seg .script-block-title .inline-title')].map(

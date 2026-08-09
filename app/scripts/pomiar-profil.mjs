@@ -3,13 +3,21 @@
 import { chromium } from 'playwright'
 
 const N = Number(process.argv[2] ?? 1000)
+const PROD = process.argv.includes('--prod')
+const BRAVE = process.argv.includes('--brave')
+const ADRES = PROD ? 'http://localhost:4173' : 'http://localhost:5173'
 
 const browser = await chromium.launch({
-  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  ...(BRAVE
+    ? {
+        executablePath:
+          'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+      }
+    : {}),
   headless: true,
 })
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
-await page.goto('http://localhost:5173')
+await page.goto(ADRES)
 await page.waitForSelector('text=Kompendium')
 
 await page.evaluate(async (ile) => {

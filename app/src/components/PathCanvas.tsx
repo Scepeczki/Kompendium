@@ -448,6 +448,225 @@ const TrescSegmentu = memo(
   (a, b) => a.sygnatura === b.sygnatura,
 )
 
+/** Kolejka stawiania pól tekstowych: po jednym na klatkę.
+ *
+ *  Postawienie pola to sparsowanie Markdownu i narysowanie wzorów — przy
+ *  wzorach potrafi to zająć ponad sto milisekund. Kilkanaście pól zbudowanych
+ *  w jednej klatce daje zacięcie, które widać; te same pola rozłożone po
+ *  klatkach są niezauważalne. Kolejka jest wspólna dla całej Linii. */
+const kolejkaPol: (() => void)[] = []
+let kolejkaBiegnie = false
+/** Kiedy widok ostatnio drgnął. Dopóki się rusza, nic nie stawiamy. */
+let ostatniRuch = 0
+const SPOKOJ = 180
+function ruchWidoku() {
+  ostatniRuch = performance.now()
+}
+function doKolejki(fn: () => void) {
+  kolejkaPol.push(fn)
+  if (kolejkaBiegnie) return
+  kolejkaBiegnie = true
+  const krok = () => {
+    // przewijanie ma pierwszeństwo: czekamy, aż widok przystanie
+    if (performance.now() - ostatniRuch < SPOKOJ) {
+      requestAnimationFrame(krok)
+      return
+    }
+    kolejkaPol.shift()?.()
+    if (kolejkaPol.length) requestAnimationFrame(krok)
+    else kolejkaBiegnie = false
+  }
+  requestAnimationFrame(krok)
+}
+function zKolejki(fn: () => void) {
+  const i = kolejkaPol.indexOf(fn)
+  if (i >= 0) kolejkaPol.splice(i, 1)
+}
+
+/** Wszystko, co ramka segmentu robi z listą — w jednym, niezmiennym pudełku.
+ *  Dzięki temu ramka dostaje te same propsy przy każdym przerysowaniu Linii
+ *  i React może ją pominąć. */
+interface ApiSegmentu {
+  klik: (e: React.MouseEvent, id: string) => void
+  nadCiagniete: (e: React.DragEvent, i: number) => void
+  upuszczone: (e: React.DragEvent, i: number) => void
+  menu: (e: React.MouseEvent, i: number) => void
+  chwyt: (e: React.DragEvent, id: string) => void
+  scal: (id: string) => void
+  rozdziel: (id: string) => void
+  usun: (id: string) => void
+  /** Czy da się scalić z następnym — zależy od sąsiada, nie od tego kafelka. */
+  scalalny: (i: number) => boolean
+}
+
+interface RamkaProps {
+  n: PathNode
+  i: number
+  pelny: boolean
+  zaznaczony: boolean
+  kreska: 'before' | 'after' | null
+  wysokosc: number
+  sygnatura: string
+  rysuj: () => React.ReactNode
+  api: ApiSegmentu
+  pilnuj: (el: HTMLDivElement | null) => (() => void) | void
+}
+
+/** Ramka jednego segmentu w Linii.
+ *
+ *  Wydzielona i zapamiętana, bo inaczej KAŻDA zmiana w widoku — postawienie
+ *  pola, przesunięcie okna, mrugnięcie kreski — kazała Reactowi zbudować od
+ *  nowa tyle ramek, ile ścieżka ma kafelków. Przy dwóch tysiącach to było
+ *  kilkadziesiąt milisekund na każde naciśnięcie klawisza. */
+const RamkaSegmentu = memo(
+  function RamkaSegmentu({ n, i, pelny, zaznaczony, kreska, wysokosc, rysuj, api, pilnuj }: RamkaProps) {
+    return (
+      <div
+        ref={pilnuj}
+        data-seg={n.id}
+        data-idx={i}
+        data-pelny={pelny ? '1' : '0'}
+        style={pelny ? undefined : { height: wysokosc, boxSizing: 'border-box' }}
+        className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
+          zaznaczony ? 'zaznaczony' : ''
+        } ${kreska === 'before' ? 'drop-before' : kreska === 'after' ? 'drop-after' : ''}`}
+        onClick={(e) => api.klik(e, n.id)}
+        onDragOver={(e) => api.nadCiagniete(e, i)}
+        onDrop={(e) => api.upuszczone(e, i)}
+        onContextMenu={(e) => api.menu(e, i)}
+      >
+        {pelny && n.kind !== 'comment' && (
+          <div className="linear-side">
+            <button
+              draggable
+              className="linear-grip"
+              title="Przeciągnij, aby zmienić kolejność"
+              onDragStart={(e) => api.chwyt(e, n.id)}
+            >
+              ⣿
+            </button>
+            {/* pióra nie ma: tytuły i treść zmienia się wprost w kafelku,
+                a reszta (czym jest grupa, kolor) siedzi pod prawym przyciskiem */}
+            {(n.kind === 'block' || n.kind === 'fusion') && api.scalalny(i) && (
+              <button
+                className="folder-action"
+                title={
+                  n.kind === 'fusion'
+                    ? 'Dołącz następny klocek do tej grupy'
+                    : 'Scal z następnym klockiem w jedną grupę'
+                }
+                onClick={() => api.scal(n.id)}
+              >
+                ⧉
+              </button>
+            )}
+            {n.kind === 'fusion' && (
+              <button
+                className="folder-action"
+                title="Rozdziel fuzję"
+                onClick={() => api.rozdziel(n.id)}
+              >
+                ⇱
+              </button>
+            )}
+            <button className="folder-action" title="Usuń ze ścieżki" onClick={() => api.usun(n.id)}>
+              ×
+            </button>
+          </div>
+        )}
+        {pelny && <div className="linear-content">{rysuj()}</div>}
+      </div>
+    )
+  },
+  /* `rysuj` i `api` z porównania wypadają: pierwsze jest nowe przy każdym
+     przerysowaniu, a o zmianie treści mówi `sygnatura`; drugie jest stałe. */
+  (a, b) =>
+    a.n === b.n &&
+    a.i === b.i &&
+    a.pelny === b.pelny &&
+    a.zaznaczony === b.zaznaczony &&
+    a.kreska === b.kreska &&
+    a.wysokosc === b.wysokosc &&
+    a.sygnatura === b.sygnatura,
+)
+
+interface PoleProps {
+  wartosc: string
+  zapisz: (md: string) => void
+  /** Oddaje edytor do wspólnego paska narzędzi (null przy znikaniu). */
+  zarejestruj: (ed: Editor | null) => void
+  naKursor: () => void
+  dotknij: () => void
+}
+
+/** Pole tekstowe kafelka. Sam decyduje, kiedy stać się polem — dzięki temu
+ *  lista segmentów nie przerysowuje się przy każdym dostawianym polu (przy
+ *  ścieżce na dwa tysiące kafelków to była większość kosztu).
+ *
+ *  Kolejność jest taka: kafelek wjeżdża na ekran i pokazuje gotowy tekst,
+ *  a ułamek sekundy później zamienia się w pole. Kliknięcie nie czeka na nic —
+ *  robi z niego pole natychmiast, z kursorem dokładnie pod myszą. */
+const PoleTresci = memo(function PoleTresci({
+  wartosc,
+  zapisz,
+  zarejestruj,
+  naKursor,
+  dotknij,
+}: PoleProps) {
+  const [gotowe, setGotowe] = useState(false)
+  const punktRef = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const zapal = () => setGotowe(true)
+    doKolejki(zapal)
+    return () => zKolejki(zapal)
+  }, [])
+
+  if (!gotowe) {
+    return (
+      <div
+        className="markdown-body do-pisania"
+        onPointerDown={(e) => {
+          if ((e.target as Element).closest('a, button, select')) return
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return
+          punktRef.current = { x: e.clientX, y: e.clientY }
+          setGotowe(true)
+        }}
+        dangerouslySetInnerHTML={{
+          __html: wartosc ? renderMarkdown(wartosc) : '<p class="note-empty">pusto</p>',
+        }}
+      />
+    )
+  }
+  return (
+    <div className="linear-pole">
+      <RichEditor
+        value={wartosc}
+        editable
+        bezPaska
+        ruler={false}
+        onChange={(md) => {
+          dotknij()
+          zapisz(md)
+        }}
+        onFocus={naKursor}
+        onReady={(ed) => {
+          zarejestruj(ed)
+          const p = punktRef.current
+          punktRef.current = null
+          if (!ed || !p) return
+          // kursor tam, gdzie padło kliknięcie — inaczej skakałby na początek
+          requestAnimationFrame(() => {
+            const trafiony = ed.view.posAtCoords({ left: p.x, top: p.y })
+            ed.chain().focus().setTextSelection(trafiony?.pos ?? 0).run()
+            naKursor()
+          })
+        }}
+      />
+    </div>
+  )
+})
+
 function LinearView({
   ordered,
   onDropConcept,
@@ -475,24 +694,6 @@ function LinearView({
 }: LinearViewProps) {
   /** Pole, w którym stoi kursor — na nim działa wspólny pasek narzędzi. */
   const [aktywny, setAktywny] = useState<Editor | null>(null)
-  /** Segmenty z żywym polem tekstowym. */
-  const [widoczne, setWidoczne] = useState<Set<string>>(new Set())
-  /** Gdzie kliknięto — żeby kursor stanął dokładnie tam, a nie na początku. */
-  const punktRef = useRef<{ x: number; y: number } | null>(null)
-
-  /** Kliknięcie w tekst stawia w nim pole — z kursorem tam, gdzie klik.
-   *
-   *  Pola nie są wiązane z widocznością i to jest tu sedno. Postawienie
-   *  edytora (parsowanie Markdownu, rysowanie wzorów KaTeX-em) kosztuje
-   *  ~200 ms; robione w trakcie przewijania — a więc kilka razy, bo kafelki
-   *  wchodzą i schodzą z ekranu — dawało dokładnie te zacięcia, o których
-   *  było zgłoszenie. Przewijanie nie tworzy już żadnego pola, a kliknięcie
-   *  daje je natychmiast i nie widać różnicy między tekstem a polem. */
-  const obudzPole = useCallback((segId: string, e?: React.PointerEvent) => {
-    if (e) punktRef.current = { x: e.clientX, y: e.clientY }
-    setWidoczne((prev) => (prev.has(segId) ? prev : new Set(prev).add(segId)))
-  }, [])
-
   /** Okno: rysujemy tylko kafelki blisko ekranu, reszta to same puste miejsca.
    *
    *  Bez tego każde przerysowanie Linii tworzyło tyle elementów, ile ścieżka ma
@@ -531,6 +732,9 @@ function LinearView({
       ? null
       : new IntersectionObserver(
           (wpisy) => {
+            // widok drgnął — wstrzymuje stawianie pól, żeby przewijanie
+            // miało pierwszeństwo przed budowaniem edytorów
+            ruchWidoku()
             for (const w of wpisy) {
               const el = w.target as HTMLElement
               const i = Number(el.dataset.idx)
@@ -547,8 +751,10 @@ function LinearView({
             cancelAnimationFrame(planRef.current)
             planRef.current = requestAnimationFrame(() => przeliczRef.current())
           },
-          // zapas w pikselach: kafelki wchodzą do okna, zanim je widać
-          { rootMargin: '1200px 0px' },
+          /* Zapas w pikselach: kafelki wchodzą do okna, zanim je widać.
+             Nie ma sensu robić go wielkim — każdy kafelek w oknie dostaje
+             pole tekstowe, a to najdroższa rzecz w całym widoku. */
+          { rootMargin: '400px 0px' },
         ),
   )
   useEffect(
@@ -568,22 +774,35 @@ function LinearView({
     [obserwator],
   )
 
-  /** Który segment ma kursor + wszystkie żywe edytory, żeby pasek mógł się
+  /** Który segment ma kursor + wszystkie żywe pola, żeby pasek mógł się
    *  na właściwy przełączyć.
    *
    *  Pasek jest czynny od razu, bez klikania w tekst: dopóki nigdzie nie
    *  postawiono kursora, działa na pierwszym polu w widoku. Wyjście z pola
-   *  niczego nie gasi — inaczej przyciski migałyby przy każdym kliknięciu obok. */
+   *  niczego nie gasi — inaczej przyciski migałyby przy każdym kliknięciu obok.
+   *
+   *  Zgłoszenie się pola NIE przerysowuje listy. To ważne przy długiej ścieżce:
+   *  pola dostawiają się jedno po drugim, a gdyby każde z nich odświeżało całą
+   *  listę, przy dwóch tysiącach kafelków koszt wróciłby drzwiami. */
   const [aktywnyId, setAktywnyId] = useState<string | null>(null)
   const edytoryRef = useRef(new Map<string, Editor>())
-  const [ileEdytorow, setIleEdytorow] = useState(0)
+  const zarejestrujPole = useCallback((segId: string, ed: Editor | null) => {
+    if (ed) {
+      edytoryRef.current.set(segId, ed)
+      // pierwsze pole w widoku przejmuje pasek, dopóki nikt nie postawi kursora
+      setAktywnyId((prev) => prev ?? segId)
+    } else {
+      edytoryRef.current.delete(segId)
+      setAktywnyId((prev) => (prev === segId ? null : prev))
+    }
+  }, [])
   useEffect(() => {
-    const wybrany =
+    setAktywny(
       (aktywnyId ? edytoryRef.current.get(aktywnyId) : null) ??
-      edytoryRef.current.values().next().value ??
-      null
-    setAktywny(wybrany)
-  }, [aktywnyId, ileEdytorow])
+        edytoryRef.current.values().next().value ??
+        null,
+    )
+  }, [aktywnyId])
   /** Gdzie wyląduje przeciągany kafelek — numer SZCZELINY między kafelkami,
    *  od 0 (przed pierwszym) do `ordered.length` (za ostatnim).
    *
@@ -666,45 +885,39 @@ function LinearView({
    *  sekundę po ostatnim klawiszu, a do tego czasu pokazujemy zamrożone dane. */
   const [pisze, setPisze] = useState(false)
   const klucz = uzyte.join(',')
-  const zapytaneKlocki =
-    useLiveQuery(
-      () =>
-        pisze
-          ? Promise.resolve([] as Concept[])
-          : db.concepts.where('id').anyOf(uzyte).toArray(),
-      [klucz, pisze],
-    ) ?? []
-  const zapytaneWersje =
-    useLiveQuery(
-      () =>
-        pisze
-          ? Promise.resolve([] as BlockVersion[])
-          : db.versions.where('conceptId').anyOf(uzyte).toArray(),
-      [klucz, pisze],
-    ) ?? []
-  const zapytaneStrony =
-    useLiveQuery(
-      () =>
-        pisze
-          ? Promise.resolve([] as Subpage[])
-          : db.subpages.where('conceptId').anyOf(uzyte).toArray(),
-      [klucz, pisze],
-    ) ?? []
+  /** Jedno zapytanie, które NIESIE ZE SOBĄ swój klucz.
+   *
+   *  Bez tego nie da się odróżnić „dane jeszcze nie doszły" od „klocka
+   *  naprawdę nie ma": po dołożeniu kafelka żywe zapytanie oddaje przez
+   *  chwilę poprzedni wynik, a on wygląda zupełnie normalnie — tyle że nie
+   *  ma w nim nowego klocka. Kafelek mrugał wtedy napisem „(usunięte
+   *  pojęcie)". Skoro wynik mówi, dla jakiego zestawu powstał, wiadomo. */
+  const wynik = useLiveQuery(async () => {
+    if (pisze) return null
+    const [concepts, versions, subpages] = await Promise.all([
+      db.concepts.where('id').anyOf(uzyte).toArray(),
+      db.versions.where('conceptId').anyOf(uzyte).toArray(),
+      db.subpages.where('conceptId').anyOf(uzyte).toArray(),
+    ])
+    return { klucz, concepts, versions, subpages }
+  }, [klucz, pisze])
 
   const stopPisania = useRef<number | undefined>(undefined)
   const mrozoneRef = useRef({
-    concepts: zapytaneKlocki,
-    versions: zapytaneWersje,
-    subpages: zapytaneStrony,
+    concepts: [] as Concept[],
+    versions: [] as BlockVersion[],
+    subpages: [] as Subpage[],
+    /** Dla jakiego zestawu klocków te dane są — patrz `daneAktualne`. */
+    klucz: '',
   })
-  if (!pisze) {
-    mrozoneRef.current = {
-      concepts: zapytaneKlocki,
-      versions: zapytaneWersje,
-      subpages: zapytaneStrony,
-    }
-  }
+  /** Nowe dane bierzemy tylko wtedy, gdy naprawdę są i są dla tego zestawu.
+   *  W trakcie pisania celowo nie pytamy bazy — zostają poprzednie. */
+  if (!pisze && wynik && wynik.klucz === klucz) mrozoneRef.current = wynik
   const { concepts, versions, subpages } = mrozoneRef.current
+  /** Czy trzymane dane opisują dokładnie ten zestaw kafelków, który mamy
+   *  narysować. Po dołożeniu kafelka przez chwilę nie — i wtedy brak klocka
+   *  w mapie znaczy „jeszcze nie doszedł", a nie „skasowany". */
+  const daneAktualne = mrozoneRef.current.klucz === klucz
 
   const dotknijPisania = useCallback(() => {
     setPisze(true)
@@ -745,12 +958,6 @@ function LinearView({
     beforeId: pos === 'before' ? ordered[i].id : (ordered[i + 1]?.id ?? null),
   })
 
-  /** Sąsiedzi szczeliny nr s: to, co nad nią, i to, co pod nią. */
-  const sasiedziSzczeliny = (s: number) => ({
-    afterId: ordered[s - 1]?.id ?? null,
-    beforeId: ordered[s]?.id ?? null,
-  })
-
   const handleDrop = (e: React.DragEvent, afterId: string | null, beforeId: string | null) => {
     e.preventDefault()
     e.stopPropagation()
@@ -773,65 +980,126 @@ function LinearView({
     }
   }
 
-  /** Pole tekstowe segmentu. Pisze się w nim od razu — bez wchodzenia w
-   *  żaden „tryb edycji". Poza ekranem zostaje sam wyrenderowany tekst. */
+  /** Bieżący stan podany ramkom segmentów bez zmiany tożsamości funkcji.
+   *  Gdyby wywołania były zwykłymi domknięciami, każda ramka dostawałaby nowe
+   *  propsy przy każdym przerysowaniu i cała oszczędność by przepadła. */
+  const biezaceRef = useRef({
+    ordered,
+    zazSeg,
+    szczelina,
+    onGroupWithNext,
+    onUnfuse,
+    onRemove,
+    klikSegmentu,
+    handleDrop,
+  })
+  biezaceRef.current = {
+    ordered,
+    zazSeg,
+    szczelina,
+    onGroupWithNext,
+    onUnfuse,
+    onRemove,
+    klikSegmentu,
+    handleDrop,
+  }
+
+  const apiSegmentu = useMemo<ApiSegmentu>(
+    () => ({
+      klik: (e, id) => {
+        // zaznaczamy tylko z klawiszem — zwykły klik ma nadal trafiać
+        // w treść (odnośniki, przełączanie stron)
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+          e.preventDefault()
+          biezaceRef.current.klikSegmentu(e, id)
+        }
+      },
+      nadCiagniete: (e, i) => {
+        if (!isOurs(e)) return
+        e.preventDefault()
+        e.stopPropagation()
+        const r = e.currentTarget.getBoundingClientRect()
+        setSzczelina(e.clientY - r.top < r.height / 2 ? i : i + 1)
+        setEndHint(false)
+      },
+      upuszczone: (e, i) => {
+        const { szczelina: s, ordered: lista, handleDrop: upusc } = biezaceRef.current
+        const gdzie = s ?? i + 1
+        upusc(e, lista[gdzie - 1]?.id ?? null, lista[gdzie]?.id ?? null)
+      },
+      menu: (e, i) => {
+        // wstawianie tam, gdzie stoi kursor: górna połowa segmentu znaczy
+        // „przed nim", dolna „za nim". Bez tego rozdział na początku skryptu
+        // trzeba było dodać na końcu i przeciągać.
+        if ((e.target as Element).closest('.linear-menu')) return
+        e.preventDefault()
+        const r = e.currentTarget.getBoundingClientRect()
+        const pos = e.clientY - r.top < r.height / 2 ? 'before' : 'after'
+        setSegMenu({ x: e.clientX, y: e.clientY, index: i, pos })
+      },
+      chwyt: (e, id) => {
+        const { zazSeg: zaz, ordered: lista } = biezaceRef.current
+        const grupa =
+          zaz.has(id) && zaz.size > 1
+            ? lista.filter((x) => zaz.has(x.id)).map((x) => x.id)
+            : null
+        e.dataTransfer.setData(SEG_MIME, grupa ? JSON.stringify(grupa) : id)
+        e.dataTransfer.effectAllowed = 'move'
+      },
+      scal: (id) => biezaceRef.current.onGroupWithNext(id),
+      rozdziel: (id) => biezaceRef.current.onUnfuse(id),
+      usun: (id) => biezaceRef.current.onRemove(id),
+      scalalny: (i) => {
+        const next = biezaceRef.current.ordered[i + 1]
+        return !!next && (next.kind === 'block' || next.kind === 'fusion')
+      },
+    }),
+    [],
+  )
+
+  /** Pole tekstowe segmentu — jest od razu, bez klikania i bez żadnego
+   *  „trybu edycji". Cała ścieżka JEST edytorem.
+   *
+   *  Stać nas na to dlatego, że rysujemy tylko kilkanaście kafelków wokół
+   *  ekranu (patrz `okno`). Postawienie pola kosztuje — parsowanie Markdownu
+   *  i rysowanie wzorów — więc gdyby dotyczyło całej ścieżki, przy pięciuset
+   *  kafelkach nie dałoby się otworzyć Linii. Kilkanaście pól to nic. */
   const poleTresci = (
     segId: string,
     kluczTresci: string,
     value: string,
     zapisz: (md: string) => void,
-    klasa = '',
-  ) =>
-    widoczne.has(segId) ? (
-      <div className="linear-pole">
-        <RichEditor
-          key={kluczTresci}
-          value={value}
-          editable
-          bezPaska
-          ruler={false}
-          onChange={(md) => {
-            dotknijPisania()
-            zapisz(md)
-          }}
-          onFocus={() => setAktywnyId(segId)}
-          onReady={(ed) => {
-            if (ed) edytoryRef.current.set(segId, ed)
-            else edytoryRef.current.delete(segId)
-            setIleEdytorow(edytoryRef.current.size)
-            // kursor tam, gdzie padło kliknięcie — inaczej skakałby na początek
-            const p = punktRef.current
-            punktRef.current = null
-            if (!ed || !p) return
-            requestAnimationFrame(() => {
-              const trafiony = ed.view.posAtCoords({ left: p.x, top: p.y })
-              ed.chain().focus().setTextSelection(trafiony?.pos ?? 0).run()
-              setAktywnyId(segId)
-            })
-          }}
-        />
-      </div>
-    ) : (
-      <div
-        className={`markdown-body do-pisania ${klasa}`}
-        onPointerDown={(e) => {
-          if ((e.target as Element).closest('a, button, select')) return
-          if (e.ctrlKey || e.metaKey || e.shiftKey) return
-          obudzPole(segId, e)
-        }}
-        dangerouslySetInnerHTML={{
-          // pusty tekst musi mieć w co kliknąć — inaczej jest niewidzialny
-          __html: value
-            ? renderMarkdown(value)
-            : '<p class="note-empty">pusto — kliknij, aby pisać</p>',
-        }}
-      />
-    )
+  ) => (
+    <PoleTresci
+      key={kluczTresci}
+      wartosc={value}
+      zapisz={zapisz}
+      dotknij={dotknijPisania}
+      naKursor={() => setAktywnyId(segId)}
+      zarejestruj={(ed) => zarejestrujPole(segId, ed)}
+    />
+  )
 
   /** Wszystko, od czego zależy wygląd segmentu, w jednym napisie. */
   const sygnatura = (n: PathNode): string => {
+    if (n.kind === 'fusion') {
+      // treść składników siedzi w klockach, nie w węźle ścieżki — bez niej
+      // scalony blok nie odświeżałby się po zmianie któregoś z klocków
+      const czesci = n.parts
+        .map((p) => {
+          const c = mapy.klocki.get(p.conceptId)
+          const wers = mapy.wersjeKlocka.get(p.conceptId) ?? []
+          const w =
+            wers.find((v) => v.id === p.versionId) ??
+            wers.find((v) => v.id === c?.currentVersionId)
+          const s = p.subpageId ? mapy.strony.get(p.subpageId) : undefined
+          return [c?.name, c?.currentVersionId, w?.id, w?.content, s?.id, s?.content].join('|')
+        })
+        .join('#')
+      return `fusion|${JSON.stringify(n)}|${czesci}`
+    }
     if (n.kind !== 'block') {
-      return `${n.kind}|${JSON.stringify(n)}|${widoczne.has(n.id)}`
+      return `${n.kind}|${JSON.stringify(n)}`
     }
     const c = mapy.klocki.get(n.conceptId)
     const wersje = mapy.wersjeKlocka.get(n.conceptId) ?? []
@@ -857,14 +1125,21 @@ function LinearView({
       s?.id,
       s?.content,
       strony,
-      widoczne.has(n.id),
     ].join('|')
   }
 
   const segmentContent = (n: PathNode) => {
     if (n.kind === 'block') {
       const c = conceptById(n.conceptId)
-      if (!c) return <div className="script-block">(usunięte pojęcie)</div>
+      // pusta ramka, dopóki klocek nie doszedł z bazy — napis o usunięciu
+      // należy się tylko temu, którego naprawdę nie ma
+      if (!c) {
+        return daneAktualne ? (
+          <div className="script-block">(usunięte pojęcie)</div>
+        ) : (
+          <div className="script-block script-block-czeka" />
+        )
+      }
       const wersje = mapy.wersjeKlocka.get(c.id) ?? []
       const wersja =
         wersje.find((v) => v.id === n.versionId) ??
@@ -993,11 +1268,33 @@ function LinearView({
         onJumpToSource={onJumpToSource}
         pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
         onRename={onRenameFusion ? (name) => onRenameFusion(n.id, name) : undefined}
+        zewn={{ concepts, versions, subpages }}
         edytor={
-          // scalony blok z własną treścią pisze się jak każdy inny; ten bez
-          // niej pokazuje składniki i tam edytuje się je u źródła
+          // scalony blok z własną treścią pisze się jak każdy inny
           onEditFusion && n.content !== undefined
             ? poleTresci(n.id, n.id, n.content, (md) => onEditFusion(n.id, md))
+            : undefined
+        }
+        edytorCzesci={
+          // …a ten bez własnej treści pokazuje składniki — i po każdym z nich
+          // też się pisze, wprost do tego klocka w bazie. Wcześniej scalony
+          // blok był jedynym miejscem w ścieżce tylko do czytania.
+          onEditBlock
+            ? (i, d) =>
+                d.biezaca ? (
+                  poleTresci(
+                    `${n.id}:${i}`,
+                    `${d.versionId}:${d.subpageId ?? 'glowna'}`,
+                    d.tresc,
+                    (md) => onEditBlock(d.versionId, d.subpageId, md),
+                  )
+                ) : (
+                  <div
+                    className="markdown-body"
+                    title="To starsza wersja klocka — przełącz na bieżącą, żeby pisać"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(d.tresc) }}
+                  />
+                )
             : undefined
         }
       />
@@ -1043,128 +1340,29 @@ function LinearView({
                 : null
           /** Rysujemy w całości to, co blisko ekranu — a poza tym zawsze
            *  rozdziały (spis treści musi mieć do czego skakać), komentarze
-           *  boczne (są malutkie) i kafelek z żywym polem tekstowym. */
+           *  boczne (są malutkie) i kafelek, w którym stoi kursor (inaczej
+           *  zniknąłby spod piszącego, gdyby zjechał z ekranu). */
           const pelny =
             (i >= okno.od && i <= okno.do) ||
             n.kind === 'heading' ||
             n.kind === 'comment' ||
-            widoczne.has(n.id)
+            // kursor może stać w składniku fuzji — stąd dwukropek
+            aktywnyId === n.id ||
+            aktywnyId?.startsWith(`${n.id}:`) === true
           return (
-            <div
+            <RamkaSegmentu
               key={n.id}
-              ref={pilnuj}
-              data-seg={n.id}
-              data-idx={i}
-              data-pelny={pelny ? '1' : '0'}
-              style={
-                pelny
-                  ? undefined
-                  : {
-                      height: wysokosci.current.get(n.id) ?? 150,
-                      boxSizing: 'border-box',
-                    }
-              }
-              className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
-                zazSeg.has(n.id) ? 'zaznaczony' : ''
-              } ${h === 'before' ? 'drop-before' : h === 'after' ? 'drop-after' : ''}`}
-              onClick={(e) => {
-                // zaznaczamy tylko z klawiszem — zwykły klik ma nadal trafiać
-                // w treść (odnośniki, przełączanie stron)
-                if (e.ctrlKey || e.metaKey || e.shiftKey) {
-                  e.preventDefault()
-                  klikSegmentu(e, n.id)
-                }
-              }}
-              onDragOver={(e) => {
-                if (!isOurs(e)) return
-                e.preventDefault()
-                e.stopPropagation()
-                const r = e.currentTarget.getBoundingClientRect()
-                setSzczelina(e.clientY - r.top < r.height / 2 ? i : i + 1)
-                setEndHint(false)
-              }}
-              onDrop={(e) => {
-                const s = szczelina ?? i + 1
-                const { afterId, beforeId } = sasiedziSzczeliny(s)
-                handleDrop(e, afterId, beforeId)
-              }}
-              onContextMenu={(e) => {
-                // wstawianie tam, gdzie stoi kursor: górna połowa segmentu
-                // znaczy „przed nim", dolna „za nim". Bez tego rozdział na
-                // początku skryptu trzeba było dodać na końcu i przeciągać.
-                if ((e.target as Element).closest('.linear-menu')) return
-                e.preventDefault()
-                const r = e.currentTarget.getBoundingClientRect()
-                const pos = e.clientY - r.top < r.height / 2 ? 'before' : 'after'
-                setSegMenu({ x: e.clientX, y: e.clientY, index: i, pos })
-              }}
-            >
-              {pelny && n.kind !== 'comment' && (
-              <div className="linear-side">
-                <button
-                  draggable
-                  className="linear-grip"
-                  title="Przeciągnij, aby zmienić kolejność"
-                  onDragStart={(e) => {
-                    const grupa =
-                      zazSeg.has(n.id) && zazSeg.size > 1
-                        ? ordered.filter((x) => zazSeg.has(x.id)).map((x) => x.id)
-                        : null
-                    e.dataTransfer.setData(SEG_MIME, grupa ? JSON.stringify(grupa) : n.id)
-                    e.dataTransfer.effectAllowed = 'move'
-                  }}
-                >
-                  ⣿
-                </button>
-                {/* pióra nie ma: tytuły i treść zmienia się wprost w kafelku,
-                    a reszta (czym jest grupa, kolor) siedzi pod prawym przyciskiem */}
-                {(n.kind === 'block' || n.kind === 'fusion') &&
-                  (() => {
-                    const next = ordered[i + 1]
-                    if (!next || (next.kind !== 'block' && next.kind !== 'fusion')) {
-                      return null
-                    }
-                    return (
-                      <button
-                        className="folder-action"
-                        title={
-                          n.kind === 'fusion'
-                            ? 'Dołącz następny klocek do tej grupy'
-                            : 'Scal z następnym klockiem w jedną grupę'
-                        }
-                        onClick={() => onGroupWithNext(n.id)}
-                      >
-                        ⧉
-                      </button>
-                    )
-                  })()}
-                {n.kind === 'fusion' && (
-                  <button
-                    className="folder-action"
-                    title="Rozdziel fuzję"
-                    onClick={() => onUnfuse(n.id)}
-                  >
-                    ⇱
-                  </button>
-                )}
-                <button
-                  className="folder-action"
-                  title="Usuń ze ścieżki"
-                  onClick={() => onRemove(n.id)}
-                >
-                  ×
-                </button>
-              </div>
-              )}
-              {pelny && (
-                <div className="linear-content">
-                  <TrescSegmentu
-                    sygnatura={sygnatura(n)}
-                    rysuj={() => segmentContent(n)}
-                  />
-                </div>
-              )}
-            </div>
+              n={n}
+              i={i}
+              pelny={pelny}
+              zaznaczony={zazSeg.has(n.id)}
+              kreska={h}
+              wysokosc={wysokosci.current.get(n.id) ?? 150}
+              sygnatura={pelny ? sygnatura(n) : ''}
+              rysuj={() => <TrescSegmentu sygnatura={sygnatura(n)} rysuj={() => segmentContent(n)} />}
+              api={apiSegmentu}
+              pilnuj={pilnuj}
+            />
           )
         })}
         <div

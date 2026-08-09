@@ -2,7 +2,14 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, mainPageName } from '../db'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
-import { type BlockType, type BlockVersion, type FusionPart, type SourceRef } from '../types'
+import {
+  type BlockType,
+  type BlockVersion,
+  type Concept,
+  type FusionPart,
+  type SourceRef,
+  type Subpage,
+} from '../types'
 import { useBlockTypes } from '../blockTypes'
 
 export type GroupPart = FusionPart
@@ -22,6 +29,21 @@ interface Props {
   onRename?: (name: string) => void
   edytor?: React.ReactNode
   onStartEdit?: () => void
+  /** Klocki/wersje/strony podane z zewnątrz. Linia ma je już wczytane dla
+   *  całej ścieżki; bez tego każdy scalony blok czytałby trzy całe tabele. */
+  zewn?: { concepts: Concept[]; versions: BlockVersion[]; subpages: Subpage[] }
+  /** Pole do pisania dla POJEDYNCZEGO składnika. Dzięki niemu scalony blok
+   *  bez własnej treści nie jest tylko do czytania: pisze się w nim po każdym
+   *  klocku z osobna, a tekst idzie do tego klocka w bazie. */
+  edytorCzesci?: (
+    i: number,
+    dane: {
+      versionId: string
+      subpageId: string | null
+      tresc: string
+      biezaca: boolean
+    },
+  ) => React.ReactNode
 }
 
 /** Grupa klocków pokazana jako JEDEN blok: pasek nagłówka z nazwą nadaną
@@ -39,10 +61,27 @@ export function GroupShell({
   onRename,
   edytor,
   onStartEdit,
+  zewn,
+  edytorCzesci,
 }: Props) {
-  const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
-  const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
-  const subpages = useLiveQuery(() => db.subpages.toArray(), []) ?? []
+  const wlasneKlocki =
+    useLiveQuery(
+      () => (zewn ? Promise.resolve([] as Concept[]) : db.concepts.toArray()),
+      [!!zewn],
+    ) ?? []
+  const wlasneWersje =
+    useLiveQuery(
+      () => (zewn ? Promise.resolve([] as BlockVersion[]) : db.versions.toArray()),
+      [!!zewn],
+    ) ?? []
+  const wlasneStrony =
+    useLiveQuery(
+      () => (zewn ? Promise.resolve([] as Subpage[]) : db.subpages.toArray()),
+      [!!zewn],
+    ) ?? []
+  const concepts = zewn?.concepts ?? wlasneKlocki
+  const versions = zewn?.versions ?? wlasneWersje
+  const subpages = zewn?.subpages ?? wlasneStrony
 
   const resolved = parts.map((p) => {
     const concept = concepts.find((c) => c.id === p.conceptId)
@@ -175,12 +214,21 @@ export function GroupShell({
                   )}
                 </div>
               )}
-              <div
-                className="markdown-body"
-                dangerouslySetInnerHTML={{
-                  __html: renderMarkdown(r.concept ? r.tresc : '(usunięty klocek)'),
-                }}
-              />
+              {edytorCzesci && r.concept && r.version ? (
+                edytorCzesci(i, {
+                  versionId: r.version.id,
+                  subpageId: r.strona?.id ?? null,
+                  tresc: r.tresc,
+                  biezaca: r.version.id === r.concept.currentVersionId,
+                })
+              ) : (
+                <div
+                  className="markdown-body"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(r.concept ? r.tresc : '(usunięty klocek)'),
+                  }}
+                />
+              )}
             </div>
           ))}
         </div>

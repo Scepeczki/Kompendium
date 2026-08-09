@@ -43,10 +43,14 @@ for (let i = 1; i <= ILE; i++) {
 }
 await page.waitForTimeout(1200)
 
-/** Ile edytorów żyje naraz — sedno sprawy przy długiej ścieżce. */
+/** Ile pól żyje naraz — sedno sprawy przy długiej ścieżce. Pola są od razu,
+ *  bez klikania, ale tylko tam, gdzie widać: ich liczba nie może rosnąć razem
+ *  z długością ścieżki. */
 const edytory = await page.locator('.linear-pole .tiptap').count()
-check('bez klikania nie ma ani jednego edytora', edytory === 0,
-  `żywych edytorów: ${edytory} przy ${ILE} kafelkach`)
+check('pola są od razu, bez klikania', edytory > 0,
+  `żywych pól: ${edytory} przy ${ILE} kafelkach`)
+check('pól tyle, co widać, a nie tyle, co kafelków', edytory <= 30,
+  `żywych pól: ${edytory} przy ${ILE} kafelkach`)
 
 /** Mierzy czas klatek w trakcie działania. */
 const mierz = async (nazwa, akcja) => {

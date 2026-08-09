@@ -4094,6 +4094,13 @@ button.version-pill.new {
   contain-intrinsic-size: auto 220px;
 }
 
+/* kafelek dopiero co dołożony, jeszcze bez danych z bazy — pusta ramka
+   zamiast mrugnięcia napisem o usuniętym pojęciu */
+.script-block-czeka {
+  min-height: 68px;
+  opacity: 0.4;
+}
+
 /* zaznaczony segment w Linii — ta sama kreska co w liście po lewej */
 .linear-seg.zaznaczony {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
