@@ -40,14 +40,7 @@ import { wikiCompletion } from '../cmWiki'
 import { RichEditor, RichToolbar } from './RichEditor'
 import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import {
-  createConcept,
-  db,
-  updateConcept,
-  updatePath,
-  updateSubpage,
-  updateVersion,
-} from '../db'
+import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
@@ -60,6 +53,7 @@ import { GroupEditor } from './GroupEditor'
 import {
   RELATION_LABELS,
   isSymmetricRelation,
+  kluczWlasnej,
   type BlockType,
   type BlockVersion,
   type Concept,
@@ -68,6 +62,7 @@ import {
   type PathNode,
   type SourceRef,
   type Subpage,
+  type WlasneTresci,
 } from '../types'
 import { useBlockTypes } from '../blockTypes'
 import { useDialogs } from './Dialogs'
@@ -123,6 +118,9 @@ const toRfNode = (n: PathNode): Node => ({
           conceptId: n.conceptId,
           versionId: n.versionId,
           subpageId: n.subpageId ?? null,
+          // to, co ścieżka ma własnego: nazwa kafelka i napisany tutaj tekst
+          nazwa: n.nazwa,
+          wlasneTresci: n.wlasneTresci,
         }
       : n.kind === 'text'
         ? { text: n.text }
@@ -142,6 +140,8 @@ const fromRfNode = (n: Node): PathNode => {
       conceptId: n.data.conceptId as string,
       versionId: (n.data.versionId as string | null) ?? null,
       subpageId: (n.data.subpageId as string | null) ?? null,
+      nazwa: n.data.nazwa as string | undefined,
+      wlasneTresci: n.data.wlasneTresci as WlasneTresci | undefined,
     }
   }
   if (n.type === 'text') {
@@ -427,10 +427,35 @@ interface LinearViewProps {
   onOpenConcept?: (id: string) => void
 
   // ---- pisanie wprost w ścieżce (Linia jest warsztatem, Skrypt czytelnią) ----
-  /** Nazwa klocka — zmienia klocek w bazie, więc wszędzie. */
-  onRenameConcept?: (conceptId: string, name: string) => void
-  /** Treść klocka: wersja + ewentualna strona. */
-  onEditBlock?: (versionId: string, subpageId: string | null, md: string) => void
+  //
+  // Wszystko poniżej zapisuje się W ŚCIEŻCE. Klocek w bibliotece zostaje
+  // nietknięty — ścieżka jest miejscem pracy nad tekstem, a nie zdalnym
+  // pilotem do biblioteki.
+  /** Nazwa kafelka w tej ścieżce (klocek zachowuje swoją). */
+  onRenameSegment?: (nodeId: string, nazwa: string) => void
+  /** Treść kafelka w tej ścieżce, dla danej wersji i strony. */
+  onEditBlock?: (
+    nodeId: string,
+    versionId: string,
+    subpageId: string | null,
+    md: string,
+  ) => void
+  /** To samo dla składnika scalonego bloku. */
+  onEditPart?: (
+    nodeId: string,
+    index: number,
+    versionId: string,
+    subpageId: string | null,
+    md: string,
+  ) => void
+  /** Porzucenie własnego tekstu — kafelek wraca do pokazywania klocka. */
+  onWrocDoKlocka?: (nodeId: string, versionId: string, subpageId: string | null) => void
+  onWrocDoCzesci?: (
+    nodeId: string,
+    index: number,
+    versionId: string,
+    subpageId: string | null,
+  ) => void
   onEditNote?: (nodeId: string, md: string) => void
   onEditHeading?: (nodeId: string, text: string) => void
   onRenameFusion?: (nodeId: string, name: string) => void
@@ -521,8 +546,6 @@ interface ApiSegmentu {
   scal: (id: string) => void
   rozdziel: (id: string) => void
   usun: (id: string) => void
-  /** Czy da się scalić z następnym — zależy od sąsiada, nie od tego kafelka. */
-  scalalny: (i: number) => boolean
 }
 
 interface RamkaProps {
@@ -532,6 +555,10 @@ interface RamkaProps {
   zaznaczony: boolean
   kreska: 'before' | 'after' | null
   wysokosc: number
+  /** Czy da się scalić z następnym. To zależy od SĄSIADA, więc musi wejść
+   *  propsem — inaczej zapamiętana ramka nie dowiedziałaby się, że ktoś
+   *  dołożył kafelek pod nią, i przycisk scalania by się nie pojawił. */
+  mozeScalic: boolean
   sygnatura: string
   rysuj: () => React.ReactNode
   api: ApiSegmentu
@@ -545,7 +572,18 @@ interface RamkaProps {
  *  nowa tyle ramek, ile ścieżka ma kafelków. Przy dwóch tysiącach to było
  *  kilkadziesiąt milisekund na każde naciśnięcie klawisza. */
 const RamkaSegmentu = memo(
-  function RamkaSegmentu({ n, i, pelny, zaznaczony, kreska, wysokosc, rysuj, api, pilnuj }: RamkaProps) {
+  function RamkaSegmentu({
+    n,
+    i,
+    pelny,
+    zaznaczony,
+    kreska,
+    wysokosc,
+    mozeScalic,
+    rysuj,
+    api,
+    pilnuj,
+  }: RamkaProps) {
     return (
       <div
         ref={pilnuj}
@@ -573,7 +611,7 @@ const RamkaSegmentu = memo(
             </button>
             {/* pióra nie ma: tytuły i treść zmienia się wprost w kafelku,
                 a reszta (czym jest grupa, kolor) siedzi pod prawym przyciskiem */}
-            {(n.kind === 'block' || n.kind === 'fusion') && api.scalalny(i) && (
+            {(n.kind === 'block' || n.kind === 'fusion') && mozeScalic && (
               <button
                 className="folder-action"
                 title={
@@ -605,14 +643,20 @@ const RamkaSegmentu = memo(
     )
   },
   /* `rysuj` i `api` z porównania wypadają: pierwsze jest nowe przy każdym
-     przerysowaniu, a o zmianie treści mówi `sygnatura`; drugie jest stałe. */
+     przerysowaniu, a o zmianie treści mówi `sygnatura`; drugie jest stałe.
+     Samego węzła też nie porównujemy przez tożsamość — od kiedy tekst
+     mieszka w ścieżce, każde naciśnięcie klawisza tworzy nowe obiekty
+     wszystkich węzłów, a to znaczyłoby przerysowanie całej listy. Za to
+     `sygnatura` zawiera cały węzeł, więc żadna zmiana się nie prześlizgnie. */
   (a, b) =>
-    a.n === b.n &&
+    a.n.id === b.n.id &&
+    a.n.kind === b.n.kind &&
     a.i === b.i &&
     a.pelny === b.pelny &&
     a.zaznaczony === b.zaznaczony &&
     a.kreska === b.kreska &&
     a.wysokosc === b.wysokosc &&
+    a.mozeScalic === b.mozeScalic &&
     a.sygnatura === b.sygnatura,
 )
 
@@ -724,8 +768,11 @@ function LinearView({
   onGroupWithNext,
   onJumpToSource,
   onOpenConcept,
-  onRenameConcept,
+  onRenameSegment,
   onEditBlock,
+  onEditPart,
+  onWrocDoKlocka,
+  onWrocDoCzesci,
   onEditNote,
   onEditHeading,
   onRenameFusion,
@@ -1099,10 +1146,6 @@ function LinearView({
       scal: (id) => biezaceRef.current.onGroupWithNext(id),
       rozdziel: (id) => biezaceRef.current.onUnfuse(id),
       usun: (id) => biezaceRef.current.onRemove(id),
-      scalalny: (i) => {
-        const next = biezaceRef.current.ordered[i + 1]
-        return !!next && (next.kind === 'block' || next.kind === 'fusion')
-      },
     }),
     [],
   )
@@ -1161,7 +1204,8 @@ function LinearView({
       .map((x) => `${x.id}:${x.name}`)
       .join(',')
     return [
-      n.id,
+      // cały węzeł: siedzi w nim własny tekst i własna nazwa kafelka
+      JSON.stringify(n),
       c?.name,
       c?.type,
       c?.mainPageName,
@@ -1199,7 +1243,11 @@ function LinearView({
       // Wersje to u nas różne ujęcia tej samej rzeczy („wg Rudina"), a nie
       // zamknięta historia, więc nie ma czego bronić przed poprawianiem.
       const wolno = !!onEditBlock && !!wersja
-      const tresc = strona ? strona.content : (wersja?.content ?? '')
+      // Tekst napisany w ścieżce ma pierwszeństwo. Brak takiego = pokazujemy
+      // klocek żywcem, razem z każdą późniejszą poprawką z biblioteki.
+      const klucz = wersja ? kluczWlasnej(wersja.id, strona?.id) : ''
+      const wlasna = wersja ? n.wlasneTresci?.[klucz] : undefined
+      const tresc = wlasna ?? (strona ? strona.content : (wersja?.content ?? ''))
       return (
         <BlockShell
           concept={c}
@@ -1213,7 +1261,14 @@ function LinearView({
           showOpen={false}
           subsZewn={mapy.stronyKlocka.get(c.id) ?? []}
           pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
-          onRename={onRenameConcept ? (name) => onRenameConcept(c.id, name) : undefined}
+          nazwaWlasna={n.nazwa}
+          trescWlasna={wlasna}
+          onWrocDoKlocka={
+            wlasna !== undefined && onWrocDoKlocka && wersja
+              ? () => onWrocDoKlocka(n.id, wersja.id, strona?.id ?? null)
+              : undefined
+          }
+          onRename={onRenameSegment ? (name) => onRenameSegment(n.id, name) : undefined}
           // jedyny przypadek, w którym nie ma gdzie pisać: klocek bez żadnej
           // wersji. Niech to widać, zamiast cicho pokazywać sam tekst.
           blokada={
@@ -1223,9 +1278,9 @@ function LinearView({
             wolno && wersja
               ? poleTresci(
                   n.id,
-                  `${wersja.id}:${strona?.id ?? 'glowna'}`,
+                  `${n.id}:${klucz}`,
                   tresc,
-                  (md) => onEditBlock!(wersja.id, strona?.id ?? null, md),
+                  (md) => onEditBlock!(n.id, wersja.id, strona?.id ?? null, md),
                 )
               : undefined
           }
@@ -1327,16 +1382,20 @@ function LinearView({
         }
         edytorCzesci={
           // …a ten bez własnej treści pokazuje składniki — i po każdym z nich
-          // też się pisze, wprost do tego klocka w bazie. Wcześniej scalony
-          // blok był jedynym miejscem w ścieżce tylko do czytania.
-          onEditBlock
+          // też się pisze. Tekst zostaje w ścieżce, przy tym składniku.
+          onEditPart
             ? (i, d) =>
                 poleTresci(
                   `${n.id}:${i}`,
-                  `${d.versionId}:${d.subpageId ?? 'glowna'}`,
+                  `${n.id}:${i}:${kluczWlasnej(d.versionId, d.subpageId)}`,
                   d.tresc,
-                  (md) => onEditBlock(d.versionId, d.subpageId, md),
+                  (md) => onEditPart(n.id, i, d.versionId, d.subpageId, md),
                 )
+            : undefined
+        }
+        onWrocCzesc={
+          onWrocDoCzesci
+            ? (i, versionId, subpageId) => onWrocDoCzesci(n.id, i, versionId, subpageId)
             : undefined
         }
       />
@@ -1400,6 +1459,9 @@ function LinearView({
               zaznaczony={zazSeg.has(n.id)}
               kreska={h}
               wysokosc={zmierz(n.id)}
+              mozeScalic={
+                ordered[i + 1]?.kind === 'block' || ordered[i + 1]?.kind === 'fusion'
+              }
               sygnatura={pelny ? sygnatura(n) : ''}
               rysuj={() => <TrescSegmentu sygnatura={sygnatura(n)} rysuj={() => segmentContent(n)} />}
               api={apiSegmentu}
@@ -2305,34 +2367,84 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     setRfNodes((ns) => ns.map((n) => (n.id === segId ? { ...n, position: pos } : n)))
   }
 
-  /** Zapis do bazy z opóźnieniem — jeden na klucz.
+  /** Tekst pisany w ścieżce ląduje w WĘŹLE ŚCIEŻKI, nie w klocku.
    *
-   *  Pisanie w kafelku szło dotąd do bazy przy każdym uderzeniu w klawisz,
-   *  a każdy zapis budził żywe zapytania i przerysowywał całą ścieżkę. Stąd
-   *  lagi. Tu czekamy, aż ręka na chwilę stanie. Układ ścieżki ma własny
-   *  autozapis, więc dotyczy to tylko treści i nazw klocków. */
-  const zapisyRef = useRef(new Map<string, { t: number; akcja: () => void }>())
-  const zapiszPozniej = useCallback((klucz: string, akcja: () => void) => {
-    const stary = zapisyRef.current.get(klucz)
-    if (stary) window.clearTimeout(stary.t)
-    const t = window.setTimeout(() => {
-      zapisyRef.current.delete(klucz)
-      akcja()
-    }, 400)
-    zapisyRef.current.set(klucz, { t, akcja })
+   *  Zmieniamy przez funkcję, a nie przez gotowy obiekt: przy szybkim pisaniu
+   *  i przełączaniu wersji zapis zbudowany z danych sprzed chwili potrafiłby
+   *  zgubić wcześniejszy wpis dla innej wersji. Do bazy trafia to zwykłym
+   *  autozapisem układu ścieżki. */
+  const zapiszWlasna = useCallback((nodeId: string, klucz: string, md: string) => {
+    setRfNodes((ns) =>
+      ns.map((n) =>
+        n.id === nodeId
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                wlasneTresci: {
+                  ...((n.data.wlasneTresci as WlasneTresci | undefined) ?? {}),
+                  [klucz]: md,
+                },
+              },
+            }
+          : n,
+      ),
+    )
   }, [])
-  useEffect(() => {
-    const mapa = zapisyRef.current
-    // zamknięcie ścieżki nie może zjeść ostatniego zdania — czekające zapisy
-    // wykonujemy od razu, zamiast je kasować
-    return () => {
-      for (const { t, akcja } of mapa.values()) {
-        window.clearTimeout(t)
-        akcja()
+
+  const zapiszWlasnaCzesci = useCallback(
+    (nodeId: string, index: number, klucz: string, md: string) => {
+      setRfNodes((ns) =>
+        ns.map((n) => {
+          if (n.id !== nodeId) return n
+          const parts = [...((n.data.parts as FusionPart[]) ?? [])]
+          const p = parts[index]
+          if (!p) return n
+          parts[index] = { ...p, wlasneTresci: { ...(p.wlasneTresci ?? {}), [klucz]: md } }
+          return { ...n, data: { ...n.data, parts } }
+        }),
+      )
+    },
+    [],
+  )
+
+  /** Porzucenie własnego tekstu kafelka. Kasuje coś, co użytkownik napisał,
+   *  więc pyta — i mówi wprost, co się pojawi w zamian. */
+  const wrocDoKlocka = useCallback(
+    async (nodeId: string, klucz: string, index?: number) => {
+      const ok = await dlgRef.current.confirm({
+        title: 'Wrócić do treści klocka?',
+        message:
+          'Tekst napisany w tej ścieżce zostanie porzucony, a kafelek zacznie ' +
+          'pokazywać treść klocka z biblioteki. Klocka to nie zmienia.',
+        confirmLabel: 'Wróć do klocka',
+        danger: true,
+      })
+      if (!ok) return
+      const bez = (m: WlasneTresci | undefined) => {
+        const nowe = { ...(m ?? {}) }
+        delete nowe[klucz]
+        return nowe
       }
-      mapa.clear()
-    }
-  }, [])
+      setRfNodes((ns) =>
+        ns.map((n) => {
+          if (n.id !== nodeId) return n
+          if (index === undefined) {
+            return {
+              ...n,
+              data: { ...n.data, wlasneTresci: bez(n.data.wlasneTresci as WlasneTresci) },
+            }
+          }
+          const parts = [...((n.data.parts as FusionPart[]) ?? [])]
+          const p = parts[index]
+          if (!p) return n
+          parts[index] = { ...p, wlasneTresci: bez(p.wlasneTresci) }
+          return { ...n, data: { ...n.data, parts } }
+        }),
+      )
+    },
+    [],
+  )
 
   /** Przenosi kilka segmentów naraz — każdy ląduje za poprzednim, więc
    *  wzajemna kolejność zaznaczenia zostaje zachowana. */
@@ -2700,15 +2812,21 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             if (n.kind === 'block') onOpenConcept(n.conceptId)
             else if (n.kind === 'fusion') setEditingGroup(n.id)
           }}
-          onRenameConcept={(conceptId, name) =>
-            zapiszPozniej(`n:${conceptId}`, () => updateConcept(conceptId, { name }))
+          onRenameSegment={(nodeId, nazwa) => api.updateData(nodeId, { nazwa })}
+          /* Tekst pisany w ścieżce zostaje w ścieżce. Klocek w bibliotece
+             zachowuje swoją treść — poprawiona tutaj definicja nie zmienia
+             tamtej i nie rozjeżdża innych ścieżek. */
+          onEditBlock={(nodeId, versionId, subpageId, md) =>
+            zapiszWlasna(nodeId, kluczWlasnej(versionId, subpageId), md)
           }
-          onEditBlock={(versionId, subpageId, md) =>
-            zapiszPozniej(`t:${subpageId ?? versionId}`, () =>
-              subpageId
-                ? updateSubpage(subpageId, { content: md })
-                : updateVersion(versionId, { content: md }),
-            )
+          onEditPart={(nodeId, index, versionId, subpageId, md) =>
+            zapiszWlasnaCzesci(nodeId, index, kluczWlasnej(versionId, subpageId), md)
+          }
+          onWrocDoKlocka={(nodeId, versionId, subpageId) =>
+            wrocDoKlocka(nodeId, kluczWlasnej(versionId, subpageId))
+          }
+          onWrocDoCzesci={(nodeId, index, versionId, subpageId) =>
+            wrocDoKlocka(nodeId, kluczWlasnej(versionId, subpageId), index)
           }
           onEditNote={(id, md) => api.updateData(id, { text: md })}
           onEditHeading={(id, text) => api.updateData(id, { text })}

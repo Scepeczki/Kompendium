@@ -35,6 +35,13 @@ interface Props {
   /** Powód, dla którego pisać nie wolno (np. starsza wersja) — pokazywany
    *  jako dymek, zamiast milczącego braku reakcji. */
   blokada?: string
+  /** Nazwa nadana kafelkowi w ścieżce — zamiast nazwy klocka. */
+  nazwaWlasna?: string
+  /** Treść napisana w ścieżce — zamiast treści klocka. */
+  trescWlasna?: string
+  /** Odczepienie: powrót do treści klocka. Pokazujemy tylko wtedy, gdy
+   *  kafelek naprawdę ma własny tekst. */
+  onWrocDoKlocka?: () => void
 }
 
 /** Blok klocka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
@@ -56,6 +63,9 @@ export function BlockShell({
   edytor,
   onStartEdit,
   blokada,
+  nazwaWlasna,
+  trescWlasna,
+  onWrocDoKlocka,
 }: Props) {
   // Strony bierzemy z zewnątrz, jeśli ktoś je już ma. W długiej ścieżce
   // sześćdziesiąt bloków to było sześćdziesiąt osobnych zapytań do bazy,
@@ -76,7 +86,8 @@ export function BlockShell({
     sorted.find((v) => v.id === versionId) ??
     sorted.find((v) => v.id === concept.currentVersionId)
   const sub = subs.find((s) => s.id === subpageId) ?? null
-  const content = sub ? sub.content : (version?.content ?? '')
+  // Tekst napisany w ścieżce ma pierwszeństwo przed tekstem klocka.
+  const content = trescWlasna ?? (sub ? sub.content : (version?.content ?? ''))
   const versionName = (v: BlockVersion) => v.label ?? `wr.${v.version}`
 
   return (
@@ -87,13 +98,13 @@ export function BlockShell({
           {onRename ? (
             <input
               className="inline-title"
-              value={concept.name}
-              title="Nazwa klocka — zmiana dotyczy klocka wszędzie, nie tylko tutaj"
+              value={nazwaWlasna ?? concept.name}
+              title="Nazwa kafelka w tej ścieżce — klocek w bibliotece zostaje bez zmian"
               onChange={(e) => onRename(e.target.value)}
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            concept.name
+            (nazwaWlasna ?? concept.name)
           )}
         </h3>
         {onOpenConcept && showOpen && (
@@ -135,6 +146,25 @@ export function BlockShell({
               </>
             ) : (
               <span className="block-pick-static">{versionName(version)}</span>
+            )}
+            {/* Kafelek z własnym tekstem odciął się od klocka — poprawki
+                zrobione w bibliotece już się tu nie pokażą. Musi to być
+                widać, i musi być droga powrotna. */}
+            {trescWlasna !== undefined && (
+              <span className="block-wlasny">
+                <span className="block-wlasny-znak" title="Ten tekst należy do ścieżki. Klocek w bibliotece ma swój własny.">
+                  tekst tej ścieżki
+                </span>
+                {onWrocDoKlocka && (
+                  <button
+                    className="block-wlasny-wroc"
+                    title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść klocka"
+                    onClick={onWrocDoKlocka}
+                  >
+                    wróć do klocka
+                  </button>
+                )}
+              </span>
             )}
           </div>
         )}

@@ -2,7 +2,7 @@
 // notatka, komentarz, rozdział, nazwa i treść fuzji. Plus dwie barierki:
 // Skrypt zostaje do czytania, a po starszej wersji klocka pisać nie wolno.
 import { chromium } from 'playwright'
-import { nowaSciezka, podaj } from './lib.mjs'
+import { nowaSciezka, podaj, potwierdz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -70,7 +70,21 @@ const zBazy = async (co) =>
     return r.result
   }, co)
 
-// 1. tytuł klocka zmienia się wprost w ścieżce — i zmienia klocek w bazie
+/** Cała treść napisana w tej ścieżce, w jednym napisie — łatwiej sprawdzać. */
+const trescSciezki = async () => {
+  const sciezki = await zBazy('paths')
+  return JSON.stringify(
+    sciezki.flatMap((p) =>
+      p.nodes.flatMap((n) => [
+        n.nazwa,
+        n.wlasneTresci,
+        ...(n.parts ?? []).map((c) => c.wlasneTresci),
+      ]),
+    ),
+  )
+}
+
+// 1. tytuł zmienia się wprost w ścieżce — ale klocek w bibliotece zostaje
 await page
   .waitForFunction(
     () =>
@@ -82,13 +96,17 @@ await page
 check('tytuł klocka jest polem, nie napisem',
   (await page.locator('.linear-seg .script-block-title .inline-title').count()) === 2)
 await page.fill('.linear-seg:first-child .script-block-title .inline-title', 'Kres górny zbioru')
-await page.waitForTimeout(700)
+await page.waitForTimeout(900)
+check('nowa nazwa zapisuje się w ścieżce',
+  (await trescSciezki()).includes('Kres górny zbioru'),
+  await trescSciezki())
 const klocki = await zBazy('concepts')
-check('nowa nazwa trafia do klocka w bazie',
-  klocki.some((c) => c.name === 'Kres górny zbioru'),
+check('klocek w bibliotece zachowuje swoją nazwę',
+  klocki.some((c) => c.name === 'Kres gorny') &&
+    !klocki.some((c) => c.name === 'Kres górny zbioru'),
   klocki.map((c) => c.name).join(' | '))
-check('lista po lewej też pokazuje nową nazwę',
-  (await page.locator('.concept-item:has-text("Kres górny zbioru")').count()) === 1)
+check('lista po lewej pokazuje nazwę klocka, nie tę ze ścieżki',
+  (await page.locator('.concept-item:has-text("Kres górny zbioru")').count()) === 0)
 
 // 2. treść klocka: jeden klik i piszesz — bez żadnego trybu edycji
 await page.click('.linear-seg:first-child .markdown-body')
@@ -97,11 +115,16 @@ check('klik w treść daje pole do pisania',
   (await page.locator('.linear-seg:first-child .linear-pole .tiptap').count()) === 1)
 await page.keyboard.press('End')
 await page.keyboard.type(' DOPISANE-W-SCIEZCE')
-await page.waitForTimeout(900)
+await page.waitForTimeout(1200)
+check('dopisany tekst zapisuje się w ścieżce',
+  (await trescSciezki()).includes('DOPISANE-W-SCIEZCE'),
+  (await trescSciezki()).slice(0, 300))
 const wersje = await zBazy('versions')
-check('dopisany tekst trafia do wersji klocka',
-  wersje.some((v) => v.content.includes('DOPISANE-W-SCIEZCE')),
+check('wersja klocka w bibliotece zostaje nietknięta',
+  !wersje.some((v) => v.content.includes('DOPISANE-W-SCIEZCE')),
   wersje.map((v) => v.content).join(' | '))
+check('kafelek mówi, że ma własny tekst',
+  (await page.locator('.linear-seg:first-child .block-wlasny-znak').count()) === 1)
 // pasek narzędzi jest jeden na całą ścieżkę i działa na polu z kursorem
 check(
   'ścieżka ma wspólny pasek narzędzi',
@@ -112,11 +135,10 @@ await page.keyboard.down('Shift')
 for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowLeft')
 await page.keyboard.up('Shift')
 await page.click('.linear-toolbar .rich-btn:has-text("B")')
-await page.waitForTimeout(900)
-const pogrubione = await zBazy('versions')
+await page.waitForTimeout(1200)
 check('pasek działa na kafelku, w którym stoi kursor',
-  pogrubione.some((v) => v.content.includes('**')),
-  pogrubione.map((v) => v.content).join(' | '))
+  (await trescSciezki()).includes('**'),
+  (await trescSciezki()).slice(0, 300))
 
 // 3. rozdział — nazwa wpisywana wprost
 await menuNad(0)
@@ -186,7 +208,7 @@ check('w Skrypcie treść nie zaprasza do pisania',
 //    tylko do czytania
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-seg')
-await page.click('.concept-item:has-text("Kres górny zbioru")')
+await page.click('.concept-item:has-text("Kres gorny")')
 await page.waitForSelector('.editor-name')
 await page.click('button:has-text("+ nowa wersja")')
 await page.waitForSelector('.ask-dialog')
@@ -210,15 +232,18 @@ check('w scalonym bloku pisze się po każdym składniku z osobna',
   (await page.locator('.script-group-block .group-part .linear-pole').count()) === 2,
   `pól: ${await page.locator('.script-group-block .group-part .linear-pole').count()}, ` +
     `składników: ${await page.locator('.script-group-block .group-part').count()}`)
-// i to pisanie naprawdę idzie do klocka w bazie, a nie w próżnię
+// i to pisanie naprawdę się zapisuje — w ścieżce, nie w klocku
 const pierwszaCzesc = page.locator('.script-group-block .group-part').first()
 await pierwszaCzesc.locator('.linear-pole .tiptap').click()
 await page.keyboard.press('End')
 await page.keyboard.type(' DOPISANE-W-FUZJI')
-await page.waitForTimeout(900)
+await page.waitForTimeout(1200)
+check('tekst dopisany w składniku zapisuje się w ścieżce',
+  (await trescSciezki()).includes('DOPISANE-W-FUZJI'),
+  (await trescSciezki()).slice(0, 300))
 const poFuzji = await zBazy('versions')
-check('tekst dopisany w składniku trafia do klocka w bazie',
-  poFuzji.some((v) => v.content.includes('DOPISANE-W-FUZJI')),
+check('klocek składnika w bibliotece zostaje nietknięty',
+  !poFuzji.some((v) => v.content.includes('DOPISANE-W-FUZJI')),
   poFuzji.map((v) => v.content.slice(0, 40)).join(' | '))
 
 const czesc = page.locator('.script-group-block .group-part:has(.block-pick-select)').first()
@@ -230,11 +255,30 @@ check('starsza wersja też jest do pisania',
 await czesc.locator('.linear-pole .tiptap').click()
 await page.keyboard.press('End')
 await page.keyboard.type(' DOPISANE-W-STARSZEJ')
-await page.waitForTimeout(900)
+await page.waitForTimeout(1200)
+check('tekst dla starszej wersji też zapisuje się w ścieżce',
+  (await trescSciezki()).includes('DOPISANE-W-STARSZEJ'),
+  (await trescSciezki()).slice(0, 400))
 const poStarszej = await zBazy('versions')
-check('tekst dopisany w starszej wersji trafia do niej, a nie do bieżącej',
-  poStarszej.some((v) => v.version === 1 && v.content.includes('DOPISANE-W-STARSZEJ')),
+check('żadna wersja klocka w bibliotece nie ucierpiała',
+  !poStarszej.some((v) => v.content.includes('DOPISANE-W-STARSZEJ')),
   poStarszej.map((v) => `wr.${v.version}: ${v.content.slice(0, 30)}`).join(' | '))
+
+// 9. powrót do klocka: kafelek porzuca własny tekst i znów pokazuje klocek
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-seg')
+await page.waitForTimeout(800)
+const zWlasnym = page.locator('.linear-seg:has(.block-wlasny-znak)').first()
+check('kafelek z własnym tekstem ma drogę powrotną',
+  (await zWlasnym.locator('.block-wlasny-wroc').count()) >= 1)
+await zWlasnym.locator('.block-wlasny-wroc').first().click({ force: true })
+await potwierdz(page)
+await page.waitForTimeout(1200)
+check('po powrocie własny tekst znika ze ścieżki',
+  !(await trescSciezki()).includes('DOPISANE-W-STARSZEJ') ||
+    !(await trescSciezki()).includes('DOPISANE-W-FUZJI') ||
+    !(await trescSciezki()).includes('DOPISANE-W-SCIEZCE'),
+  (await trescSciezki()).slice(0, 400))
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

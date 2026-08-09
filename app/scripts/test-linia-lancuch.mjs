@@ -100,11 +100,14 @@ const drugi = await page.locator('.linear-seg').nth(1).boundingBox()
 await page.dragAndDrop('.concept-item:has-text("Epsilon")', '.linear-seg >> nth=1', {
   targetPosition: { x: drugi.width / 2, y: 6 },
 })
-await page.waitForTimeout(700)
+// zapis ścieżki ma pół sekundy zwłoki, a po upuszczeniu dochodzi jeszcze
+// stawianie pól tekstowych — czekamy z zapasem
+await page.waitForTimeout(1000)
 const po1 = await widoczne()
 const l1 = await lancuch()
 check('wstawienie pomiędzy zachowuje wszystkie kafelki',
-  po1.length === 5 && l1.wLancuchu === 5 && !l1.cykl, po1.join(' | '))
+  po1.length === 5 && l1.wLancuchu === 5 && !l1.cykl,
+  `${po1.join(' | ')} — w bazie ${JSON.stringify(l1)}`)
 check('wstawiony kafelek trafia we wskazane miejsce',
   po1[1].includes('Epsilon'), po1.join(' | '))
 
@@ -115,7 +118,9 @@ await page.mouse.move(ostatni.x + 14, ostatni.y + 20)
 await page.mouse.down()
 await page.mouse.move(pierwszy.x + 14, pierwszy.y + 4, { steps: 10 })
 await page.mouse.up()
-await page.waitForTimeout(700)
+// zapis ścieżki ma pół sekundy zwłoki, a po upuszczeniu dochodzi jeszcze
+// stawianie pól tekstowych — czekamy z zapasem
+await page.waitForTimeout(1000)
 const po2 = await widoczne()
 const l2 = await lancuch()
 check('przeniesienie segmentu zachowuje wszystkie kafelki',
@@ -160,7 +165,9 @@ await page.reload()
 await page.waitForSelector('.concept-item')
 await page.click('.concept-item:has-text("Lancuch")')
 await page.waitForSelector('.linear-seg')
-await page.waitForTimeout(700)
+// zapis ścieżki ma pół sekundy zwłoki, a po upuszczeniu dochodzi jeszcze
+// stawianie pól tekstowych — czekamy z zapasem
+await page.waitForTimeout(1000)
 const po5 = await widoczne()
 check('po przeładowaniu ta sama kolejność', JSON.stringify(po5) === JSON.stringify(po4),
   `${po4.join(' | ')}  ⟶  ${po5.join(' | ')}`)

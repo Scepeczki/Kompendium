@@ -3,6 +3,7 @@ import { db, mainPageName } from '../db'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
 import {
+  kluczWlasnej,
   type BlockType,
   type BlockVersion,
   type Concept,
@@ -44,6 +45,8 @@ interface Props {
       biezaca: boolean
     },
   ) => React.ReactNode
+  /** Porzucenie własnego tekstu składnika — powrót do treści klocka. */
+  onWrocCzesc?: (i: number, versionId: string, subpageId: string | null) => void
 }
 
 /** Grupa klocków pokazana jako JEDEN blok: pasek nagłówka z nazwą nadaną
@@ -63,6 +66,7 @@ export function GroupShell({
   onStartEdit,
   zewn,
   edytorCzesci,
+  onWrocCzesc,
 }: Props) {
   const wlasneKlocki =
     useLiveQuery(
@@ -95,9 +99,11 @@ export function GroupShell({
       .filter((s) => s.conceptId === p.conceptId)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     const strona = strony.find((s) => s.id === p.subpageId) ?? null
-    // treść składnika: wybrana strona albo strona główna z wersji
-    const tresc = strona ? strona.content : (version?.content ?? '')
-    return { concept, own, version, strony, strona, tresc }
+    // treść składnika: najpierw ta napisana w ścieżce, potem wybrana strona
+    // albo strona główna z wersji
+    const wlasna = version ? p.wlasneTresci?.[kluczWlasnej(version.id, strona?.id)] : undefined
+    const tresc = wlasna ?? (strona ? strona.content : (version?.content ?? ''))
+    return { concept, own, version, strony, strona, tresc, wlasna }
   })
 
   // źródła całej grupy razem — grupa czyta się jak jeden blok
@@ -211,6 +217,29 @@ export function GroupShell({
                     </select>
                   ) : (
                     <span className="block-pick-static">{versionName(r.version)}</span>
+                  )}
+                  {/* składnik pisany w ścieżce — tak samo jak zwykły kafelek
+                      musi mówić, że odciął się od klocka */}
+                  {r.wlasna !== undefined && (
+                    <span className="block-wlasny">
+                      <span
+                        className="block-wlasny-znak"
+                        title="Ten tekst należy do ścieżki. Klocek w bibliotece ma swój własny."
+                      >
+                        tekst tej ścieżki
+                      </span>
+                      {onWrocCzesc && (
+                        <button
+                          className="block-wlasny-wroc"
+                          title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść klocka"
+                          onClick={() =>
+                            onWrocCzesc(i, r.version!.id, r.strona?.id ?? null)
+                          }
+                        >
+                          wróć do klocka
+                        </button>
+                      )}
+                    </span>
                   )}
                 </div>
               )}

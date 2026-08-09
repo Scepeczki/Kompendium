@@ -107,19 +107,26 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
 5. **Odnośnik do PDF to współrzędne, nie obraz** — `rect` jest prostokątem na
    stronie przy skali 1 (punkty PDF, początek w lewym górnym rogu). Wycinek
    renderuje się na żądanie; działa też na skanach bez warstwy tekstu.
-6. **Ścieżka nie ma własnej kopii treści klocka.** Do niedawna brzmiało to
-   „ścieżka nigdy nie zmienia klocka" — i było prawdą, dopóki ścieżki się nie
-   edytowało. Dziś w widoku **Linia** pisze się wprost w kafelkach, ale nadal
-   nie powstaje żadna kopia: zmiana tytułu albo treści idzie do tego samego
-   klocka w bazie, więc widać ją wszędzie. Ścieżka trzyma wyłącznie to, co
-   jest jej własne — układ, kolejność, wybór wersji i strony, rozdziały,
-   notatki, grupy (z ich nazwą, rodzajem i ewentualną przepisaną treścią).
-   W Linii **wszystko jest do pisania** — także starsza wersja klocka i każdy
-   składnik scalonego bloku z osobna; tekst idzie wtedy dokładnie do tej wersji
-   i tej strony, którą widać. (Przez chwilę było inaczej — starszej wersji
-   broniliśmy jako „historii" — ale wersje są u nas różnymi ujęciami tej samej
-   rzeczy, a nie zapisem przeszłości, więc nie ma czego bronić.) Jedyna granica:
-   **Skrypt jest tylko do czytania**.
+6. **Ścieżka nigdy nie zmienia klocka.** W widoku **Linia** pisze się wprost
+   w kafelkach — wszystko jest do pisania, także starsza wersja klocka, każdy
+   składnik scalonego bloku i tytuł kafelka. Ale to, co tam napiszesz, zostaje
+   **w ścieżce**: klocek w bibliotece zachowuje swoją treść i swoją nazwę, a
+   inne ścieżki nic nie zauważają. Ścieżka jest miejscem pracy nad tekstem, a
+   nie zdalnym pilotem do biblioteki.
+
+   Węzeł typu `block` trzyma to w dwóch polach: `nazwa` (własny tytuł kafelka)
+   i `wlasneTresci` — mapie `{ "<versionId>:<subpageId>": markdown }`. Klucz
+   robi `kluczWlasnej(versionId, subpageId)`; para (wersja, strona) jest w nim
+   dlatego, że przełączenie wersji ma pokazać tekst napisany do TEJ wersji, a
+   nie do innej. Składniki fuzji mają w `FusionPart` dokładnie to samo pole.
+
+   **Brak wpisu znaczy „pokazuj klocek żywcem"** — i tak jest domyślnie. Dopóki
+   kafelka nie tknąłeś, widzi każdą późniejszą poprawkę zrobioną w bibliotece.
+   Od pierwszej zmiany przestaje: kafelek pokazuje wtedy plakietkę „tekst tej
+   ścieżki", a przyciskiem „wróć do klocka" można własny tekst porzucić i
+   wrócić do żywego podglądu.
+
+   Skrypt czyta dokładnie to samo, co Linia — i **zostaje tylko do czytania**.
 7. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
 8. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
    nazwę z zestawu Lucide, np. `"sigma"`, a `iconColor` barwę `#rrggbb`. Nieznana

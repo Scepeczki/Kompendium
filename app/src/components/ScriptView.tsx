@@ -6,7 +6,7 @@ import { topoOrder } from '../topo'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Outline, outlineId, type OutlineItem } from './Outline'
-import type { SourceRef } from '../types'
+import { kluczWlasnej, type PathNodeBlock, type SourceRef } from '../types'
 
 interface Props {
   pathId: string
@@ -31,26 +31,35 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
 
   const conceptById = new Map(concepts.map((c) => [c.id, c]))
 
-  const blockSection = (
-    conceptId: string,
-    key: string,
-    baseVersionId: string | null,
-    baseSubpageId: string | null,
-  ) => {
-    const c = conceptById.get(conceptId)
+  const blockSection = (n: PathNodeBlock) => {
+    const c = conceptById.get(n.conceptId)
     if (!c) return null
+    const key = n.id
+    const wlasne = versions.filter((v) => v.conceptId === c.id)
+    const versionId = key in verOverride ? verOverride[key] : n.versionId
+    const subpageId = key in pageOverride ? pageOverride[key] : (n.subpageId ?? null)
+    // ta sama wersja, którą widać w Linii — Skrypt to ta sama ścieżka,
+    // tylko złożona do czytania
+    const wersja =
+      wlasne.find((v) => v.id === versionId) ??
+      wlasne.find((v) => v.id === c.currentVersionId)
+    const trescWlasna = wersja
+      ? n.wlasneTresci?.[kluczWlasnej(wersja.id, subpageId)]
+      : undefined
     return (
       <BlockShell
         key={key}
         concept={c}
-        versions={versions.filter((v) => v.conceptId === c.id)}
-        versionId={key in verOverride ? verOverride[key] : baseVersionId}
+        versions={wlasne}
+        versionId={versionId}
         onVersionChange={(id) => setVerOverride((o) => ({ ...o, [key]: id }))}
-        subpageId={key in pageOverride ? pageOverride[key] : baseSubpageId}
+        subpageId={subpageId}
         onSubpageChange={(id) => setPageOverride((o) => ({ ...o, [key]: id }))}
         onOpenConcept={onOpenConcept}
         onJumpToSource={onJumpToSource}
         pickHint="Przełącz przy czytaniu — nie zmienia ustawień ścieżki"
+        nazwaWlasna={n.nazwa}
+        trescWlasna={trescWlasna}
       />
     )
   }
@@ -91,9 +100,7 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
               />
             )
           }
-          if (n.kind === 'block') {
-            return blockSection(n.conceptId, n.id, n.versionId, n.subpageId ?? null)
-          }
+          if (n.kind === 'block') return blockSection(n)
           // grupa czyta się jak jeden blok danego typu: pasek nagłówka
           // z nazwą nadaną w ścieżce, a w środku same treści klocków
           return (
@@ -102,7 +109,7 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
               name={n.name}
               type={n.type}
               parts={n.parts.map((p, i) => ({
-                conceptId: p.conceptId,
+                ...p,
                 versionId:
                   `${n.id}:${i}` in verOverride
                     ? verOverride[`${n.id}:${i}`]

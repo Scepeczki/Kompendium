@@ -238,6 +238,16 @@ export interface Subpage {
 // ---------------------------------------------------------------------------
 
 /** Kafelek klocka na mapie ścieżki. */
+/** Tekst napisany W ŚCIEŻCE, osobno dla każdej wersji i strony klocka.
+ *  Klucz robi `kluczWlasnej`. Brak wpisu = kafelek pokazuje to, co w klocku,
+ *  i widzi wszystkie późniejsze poprawki zrobione w bibliotece. */
+export type WlasneTresci = Record<string, string>
+
+/** Klucz własnej treści: para (wersja, strona). Bez tego zmiana wersji
+ *  pokazywałaby tekst napisany do innej. */
+export const kluczWlasnej = (versionId: string, subpageId?: string | null) =>
+  `${versionId}:${subpageId ?? ''}`
+
 export interface PathNodeBlock {
   id: string
   kind: 'block'
@@ -246,6 +256,10 @@ export interface PathNodeBlock {
   versionId: string | null
   /** Strona klocka pokazywana bazowo przy oglądaniu (null = główna treść). */
   subpageId?: string | null
+  /** Nazwa nadana kafelkowi w tej ścieżce. Brak = nazwa klocka. */
+  nazwa?: string
+  /** Treść napisana w tej ścieżce — klocek zostaje nietknięty. */
+  wlasneTresci?: WlasneTresci
   x: number
   y: number
 }
@@ -278,6 +292,9 @@ export interface FusionPart {
   versionId: string | null
   /** Strona klocka (null / brak = strona główna). */
   subpageId?: string | null
+  /** Treść napisana w tej ścieżce dla tego składnika — jak w zwykłym
+   *  kafelku, klocek w bazie zostaje nietknięty. */
+  wlasneTresci?: WlasneTresci
 }
 
 export interface PathNodeFusion {
