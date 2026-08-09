@@ -83,10 +83,10 @@ check('scalony blok pokazuje źródła składników', zrodla.lista && zrodla.ile
   JSON.stringify(zrodla))
 
 // 2. strony składników do wyboru w środku grupy
-const chipy = await page.locator('.script-group-block .group-part-pages .page-chip').allTextContents()
+const chipy = await page.locator('.script-group-block .group-part-pages .block-page').allTextContents()
 check('w grupie da się wybrać stronę składnika',
   chipy.includes('Dowod') && chipy.includes('Treść'), chipy.join(' · '))
-await page.click('.script-group-block .group-part-pages .page-chip:has-text("Dowod")')
+await page.click('.script-group-block .group-part-pages .block-page:has-text("Dowod")')
 await page.waitForTimeout(600)
 check('wybrana strona zmienia pokazywaną treść',
   (await page.textContent('.script-group-block')).includes('TRESC-DOWODU-KRESU'))

@@ -3165,12 +3165,20 @@ button.version-pill.new {
 
 .linear-grip {
   font: inherit;
-  font-size: var(--fs-2);
+  /* uchwyt ma być łatwy do trafienia — dawny znaczek był ledwo widoczny */
+  font-size: var(--fs-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: none;
   color: var(--muted);
   cursor: grab;
-  padding: 0 4px;
+  padding: 2px;
+}
+
+.linear-grip:hover {
+  color: var(--ink-soft);
 }
 
 .linear-grip:active {
@@ -3588,6 +3596,49 @@ button.version-pill.new {
 .tree-menu-item.wybrany {
   font-weight: 600;
   color: var(--accent-ink);
+}
+
+.tree-menu-item.tree-menu-groznie:hover {
+  color: var(--danger);
+}
+
+/* Rozwijana pozycja menu: najeżdżasz i obok wysuwa się lista. Wersje bywają
+   liczne, a menu ma pokazywać czynności, nie wysypywać wszystko naraz. */
+.tree-menu-podmenu {
+  position: relative;
+}
+
+.tree-menu-rozwija {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.tree-menu-teraz {
+  margin-left: 8px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.tree-menu-strzalka {
+  color: var(--muted);
+}
+
+.tree-menu-boczne {
+  position: absolute;
+  left: 100%;
+  top: -6px;
+  margin-left: 2px;
+  display: none;
+  /* siatka menu głównego jest ciasna — boczne musi się zmieścić obok */
+  min-width: 160px;
+}
+
+.tree-menu-podmenu:hover .tree-menu-boczne,
+.tree-menu-podmenu:focus-within .tree-menu-boczne {
+  display: block;
 }
 
 .block-pick-daszek {

@@ -49,6 +49,7 @@ import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Outline, outlineId, type OutlineItem } from './Outline'
 import { ConceptPicker } from './ConceptPicker'
+import { Icon } from './Icon'
 import { GroupEditor } from './GroupEditor'
 import {
   RELATION_LABELS,
@@ -609,7 +610,7 @@ const RamkaSegmentu = memo(
               title="Przeciągnij, aby zmienić kolejność"
               onDragStart={(e) => api.chwyt(e, n.id)}
             >
-              ⣿
+              <Icon name="przesun" size={1.15} />
             </button>
             {/* pióra nie ma: tytuły i treść zmienia się wprost w kafelku,
                 a reszta (czym jest grupa, kolor) siedzi pod prawym przyciskiem */}
@@ -635,9 +636,8 @@ const RamkaSegmentu = memo(
                 ⇱
               </button>
             )}
-            <button className="folder-action" title="Usuń ze ścieżki" onClick={() => api.usun(n.id)}>
-              ×
-            </button>
+            {/* usuwanie siedzi pod prawym przyciskiem — krzyżyk tuż obok
+                uchwytu za łatwo trafiało się przy przeciąganiu */}
           </div>
         )}
         {pelny && <div className="linear-content">{rysuj()}</div>}
@@ -1553,26 +1553,37 @@ function LinearView({
               wersje.find((v) => v.id === wybranaId) ??
               wersje.find((v) => v.id === c?.currentVersionId)
             if (wersje.length < 2 && !wlasny) return
-            wybory.push(
-              <div className="tree-menu-where" key={`${tytul}-h`}>
-                {tytul}
-              </div>,
-            )
+            const dopisek = wieluCzesci ? ` — ${tytul}` : ''
             if (wersje.length > 1) {
-              for (const v of wersje) {
-                wybory.push(
-                  <button
-                    key={`${tytul}-${v.id}`}
-                    className={`tree-menu-item ${teraz?.id === v.id ? 'wybrany' : ''}`}
-                    onClick={wstaw(() =>
-                      ustaw(v.id === c?.currentVersionId ? null : v.id),
-                    )}
-                  >
+              // Wersje pod rozwijaną pozycją, nie płaską listą: menu ma
+              // pokazywać czynności, a nie wysypywać wszystko naraz.
+              wybory.push(
+                <div className="tree-menu-podmenu" key={`${tytul}-w`}>
+                  <button className="tree-menu-item tree-menu-rozwija" type="button">
+                    <span>
+                      Wersja{dopisek}
+                      <span className="tree-menu-teraz">
+                        {teraz ? (teraz.label ?? `wersja ${teraz.version}`) : ''}
+                      </span>
+                    </span>
+                    <span className="tree-menu-strzalka">›</span>
+                  </button>
+                  <div className="tree-menu tree-menu-boczne">
+                    {wersje.map((v) => (
+                      <button
+                        key={v.id}
+                        className={`tree-menu-item ${teraz?.id === v.id ? 'wybrany' : ''}`}
+                        onClick={wstaw(() =>
+                          ustaw(v.id === c?.currentVersionId ? null : v.id),
+                        )}
+                      >
                     {teraz?.id === v.id ? '• ' : '   '}
-                    {v.label ?? `wersja ${v.version}`}
-                  </button>,
-                )
-              }
+                        {v.label ?? `wersja ${v.version}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>,
+              )
             }
             if (wlasny) {
               wybory.push(
@@ -1582,11 +1593,14 @@ function LinearView({
                   title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść klocka"
                   onClick={wstaw(wlasny)}
                 >
-                  ↺ Przywróć treść klocka
+                  ↺ Przywróć treść klocka{dopisek}
                 </button>,
               )
             }
           }
+          /** Scalony blok ma po składniku na każdy klocek — wtedy przy każdej
+           *  pozycji trzeba dopisać, o który z nich chodzi. */
+          const wieluCzesci = sasiad?.kind === 'fusion' && sasiad.parts.length > 1
           if (sasiad?.kind === 'block') {
             const c = mapy.klocki.get(sasiad.conceptId)
             const wersje = mapy.wersjeKlocka.get(sasiad.conceptId) ?? []
@@ -1686,6 +1700,17 @@ function LinearView({
               {wybory.length > 0 && (
                 <>
                   {wybory}
+                  <div className="tree-menu-sep" />
+                </>
+              )}
+              {sasiad && (
+                <>
+                  <button
+                    className="tree-menu-item tree-menu-groznie"
+                    onClick={wstaw(() => onRemove(sasiad.id))}
+                  >
+                    🗑 Usuń ze ścieżki
+                  </button>
                   <div className="tree-menu-sep" />
                 </>
               )}
@@ -2021,6 +2046,70 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       document.title = 'Kompendium'
     }
   }, [mode, name])
+
+  /** Cofanie i ponawianie w obrębie ścieżki (Ctrl+Z / Ctrl+Shift+Z, Ctrl+Y).
+   *
+   *  Zapamiętujemy kolejne stany układu — kafelki i strzałki. Obejmuje to
+   *  wszystko, co ścieżka ma własnego: usunięcie kafelka, scalenie i
+   *  rozdzielenie, przeniesienie, dołożenie rozdziału czy notatki, a od
+   *  kiedy tekst mieszka w ścieżce — także pisanie. NIE obejmuje zmian w
+   *  bibliotece; tam klocki żyją własnym życiem.
+   *
+   *  Zdjęcia robimy z opóźnieniem, żeby całe zdanie było jednym krokiem, a
+   *  nie trzydziestoma. */
+  const historiaRef = useRef<{ nodes: Node[]; edges: Edge[] }[]>([])
+  const przyszloscRef = useRef<{ nodes: Node[]; edges: Edge[] }[]>([])
+  /** Ustawione, gdy zmiana pochodzi z cofania — wtedy nie zapisujemy jej. */
+  const cofamyRef = useRef(false)
+  const zdjecieRef = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (!loadedRef.current) return
+    if (cofamyRef.current) {
+      cofamyRef.current = false
+      return
+    }
+    window.clearTimeout(zdjecieRef.current)
+    zdjecieRef.current = window.setTimeout(() => {
+      const ost = historiaRef.current[historiaRef.current.length - 1]
+      if (ost && ost.nodes === rfNodes && ost.edges === rfEdges) return
+      historiaRef.current.push({ nodes: rfNodes, edges: rfEdges })
+      // pamiętamy sto kroków wstecz — dalej i tak nikt nie sięga
+      if (historiaRef.current.length > 100) historiaRef.current.shift()
+      przyszloscRef.current = []
+    }, 400)
+    return () => window.clearTimeout(zdjecieRef.current)
+  }, [rfNodes, rfEdges])
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const z = e.key === 'z' || e.key === 'Z'
+      if (!(e.ctrlKey || e.metaKey) || (!z && e.key !== 'y')) return
+      // w polu tekstowym cofanie należy do edytora — on wie o literach
+      const cel = e.target as Element | null
+      if (cel?.closest('.tiptap, .cm-content, input, textarea')) return
+      const wPrzod = e.key === 'y' || (z && e.shiftKey)
+      const skad = wPrzod ? przyszloscRef.current : historiaRef.current
+      // ostatni wpis historii to stan bieżący — cofamy do przedostatniego
+      if (!wPrzod && skad.length < 2) return
+      if (wPrzod && skad.length < 1) return
+      e.preventDefault()
+      window.clearTimeout(zdjecieRef.current)
+      cofamyRef.current = true
+      if (wPrzod) {
+        const stan = przyszloscRef.current.pop()!
+        historiaRef.current.push(stan)
+        setRfNodes(stan.nodes)
+        setRfEdges(stan.edges)
+      } else {
+        przyszloscRef.current.push(historiaRef.current.pop()!)
+        const stan = historiaRef.current[historiaRef.current.length - 1]
+        setRfNodes(stan.nodes)
+        setRfEdges(stan.edges)
+      }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [])
 
   // Escape zamyka okno notatki i menu kontekstowe
   useEffect(() => {

@@ -172,9 +172,11 @@ export function GroupShell({
                 </div>
               )}
               {r.strony.length > 0 && onSubpageChange && (
+                // te same zakładki co w zwykłym kafelku — wcześniej były tu
+                // pigułki w ramkach i scalony blok wyglądał jak coś innego
                 <div className="block-pages group-part-pages">
                   <button
-                    className={`page-chip ${r.strona ? '' : 'active'}`}
+                    className={`block-page ${r.strona ? '' : 'active'}`}
                     title={`Strona główna klocka „${r.concept?.name ?? ''}"`}
                     onClick={() => onSubpageChange(i, null)}
                   >
@@ -183,7 +185,7 @@ export function GroupShell({
                   {r.strony.map((s) => (
                     <button
                       key={s.id}
-                      className={`page-chip ${r.strona?.id === s.id ? 'active' : ''}`}
+                      className={`block-page ${r.strona?.id === s.id ? 'active' : ''}`}
                       onClick={() => onSubpageChange(i, s.id)}
                     >
                       {s.name}
