@@ -47,10 +47,17 @@ await page.click('.rich-content .tiptap')
 await page.keyboard.type('Zwykły tekst i ważny fragment na końcu.')
 await page.waitForTimeout(400)
 
+/** Kontrolka rozmiaru to pole do wpisania (z listą podpowiedzi), a nie lista
+ *  wyboru — dowolną liczbę też da się wpisać ręcznie. */
+const ustawRozmiar = async (v) => {
+  await page.fill('.rich-size', String(v))
+  await page.press('.rich-size', 'Enter')
+  await page.waitForTimeout(500)
+}
+
 // 1. zaznacz „ważny fragment" i ustaw rozmiar 20
 await selectText('ważny fragment')
-await page.selectOption('.rich-size', '20')
-await page.waitForTimeout(500)
+await ustawRozmiar(20)
 
 // 2. w edytorze fragment ma font-size 20px (dekoracja), znaczniki schowane
 const sized = await page.evaluate(() => {
@@ -93,8 +100,7 @@ console.log(`✓ podgląd renderuje rozmiar: ${prevSized ? 'ok' : 'BRAK!'}`)
 await page.click('.view-switch button:has-text("Wizualny")')
 await page.waitForSelector('.rich-content .tiptap')
 await selectText('ważny fragment')
-await page.selectOption('.rich-size', '14')
-await page.waitForTimeout(500)
+await ustawRozmiar(14)
 await page.click('.view-switch button:has-text("Kod")')
 const code2 = await page.textContent('.editor-code .cm-content')
 const opens = (code2.match(/⟦s\d+⟧/g) ?? []).length
@@ -104,12 +110,22 @@ console.log(
     ` (znaczniki: ${opens} otwarcia / ${closes} domknięcia — oczekiwane 1/1)`,
 )
 
-// 7. powrót do domyślnego („Aa") usuwa znaczniki
+// 6b. dowolna liczba spoza listy — wpisana ręcznie
 await page.click('.view-switch button:has-text("Wizualny")')
 await page.waitForSelector('.rich-content .tiptap')
 await selectText('ważny fragment')
-await page.selectOption('.rich-size', '')
-await page.waitForTimeout(500)
+await ustawRozmiar(23)
+await page.click('.view-switch button:has-text("Kod")')
+const code23 = await page.textContent('.editor-code .cm-content')
+console.log(
+  `✓ rozmiar wpisany ręcznie (23): ${code23.includes('⟦s23⟧') ? 'ok' : 'ZLE: ' + code23}`,
+)
+
+// 7. puste pole przywraca rozmiar podstawowy i usuwa znaczniki
+await page.click('.view-switch button:has-text("Wizualny")')
+await page.waitForSelector('.rich-content .tiptap')
+await selectText('ważny fragment')
+await ustawRozmiar('')
 await page.click('.view-switch button:has-text("Kod")')
 const code3 = await page.textContent('.editor-code .cm-content')
 console.log(

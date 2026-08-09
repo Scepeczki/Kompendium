@@ -239,16 +239,42 @@ export function BlockEditor({
   // edytor wizualny nigdy nie zobaczył treści poprzedniego klocka.
   const contentKey = `${version.id}:${activeSub?.id ?? 'main'}`
   const [prevKey, setPrevKey] = useState(contentKey)
+  /** Czy ktoś w ogóle postawił kursor w polu od czasu ostatniego przełączenia.
+   *
+   *  Bez tego samo przejście na inną stronę klocka zapisywało treść od nowa:
+   *  edytor wizualny wczytuje Markdown i oddaje go z powrotem, a to nie
+   *  zawsze wraca znak w znak — puste linie zamieniały się w akapity ze
+   *  spacją i po kilku przełączeniach robił się z tekstu jednolity mur.
+   *  Przełączenie strony nie jest zmianą treści i nie ma prawa nic zapisać. */
+  const dotknieteRef = useRef(false)
   if (prevKey !== contentKey) {
     setPrevKey(contentKey)
     setDraft(activeSub ? activeSub.content : version.content)
+    dotknieteRef.current = false
+  }
+  // to samo przy przełączeniu Kod ↔ Wizualny: pole powstaje od nowa i od razu
+  // oddaje treść „po swojemu", a to nie jest zmiana zrobiona przez człowieka
+  const [prevWidok, setPrevWidok] = useState(view)
+  if (prevWidok !== view) {
+    setPrevWidok(view)
+    dotknieteRef.current = false
   }
 
-  // Strony są edytowalne zawsze; główna treść tylko w wersji bieżącej.
-  const editable = activeSub ? true : isCurrent
+  /** Wszystko jest do pisania — także starsza wersja.
+   *
+   *  Wersje są u nas różnymi ujęciami tej samej rzeczy („wg Rudina"), a nie
+   *  zapisem przeszłości, więc nie ma czego bronić przed poprawianiem. Do
+   *  niedawna starsza wersja była tylko do odczytu i literówki w niej nie
+   *  dało się naprawić inaczej niż przez zrobienie z niej bieżącej. */
+  const editable = true
 
   // Autozapis z opóźnieniem (strona klocka albo bieżąca wersja).
   const onChange = (val: string) => {
+    // Zmiana z samego wczytania treści, a nie spod ręki — ignorujemy ją
+    // w całości. Nie tylko zapisu: gdybyśmy wzięli ją choćby do brudnopisu,
+    // pierwsze prawdziwe naciśnięcie klawisza zapisałoby już przekręcony
+    // tekst i puste linie i tak by przepadły.
+    if (!dotknieteRef.current) return
     setDraft(val)
     if (!editable) return
     window.clearTimeout(saveTimer.current)
@@ -322,7 +348,6 @@ export function BlockEditor({
   /** Podpina inny klocek jako źródło tej wersji (genealogia wiedzy). */
   const addBlockSource = async (source: Concept) => {
     setPickingSource(false)
-    if (!isCurrent) return
     const already = version.sourceRefs.some(
       (r) => !isPdfSource(r) && r.conceptId === source.id,
     )
@@ -341,7 +366,6 @@ export function BlockEditor({
   }
 
   const removeSourceRef = async (refId: string) => {
-    if (!isCurrent) return
     await updateVersion(version.id, {
       sourceRefs: version.sourceRefs.filter((r) => r.id !== refId),
     })
@@ -360,7 +384,6 @@ export function BlockEditor({
 
   /** Przenosi chip źródła do grupy (undefined = bez grupy). */
   const setRefGroup = async (refId: string, group: string | undefined) => {
-    if (!isCurrent) return
     await updateVersion(version.id, {
       sourceRefs: version.sourceRefs.map((r) =>
         r.id === refId ? { ...r, group } : r,
@@ -419,7 +442,7 @@ export function BlockEditor({
     <span
       key={r.id}
       className="source-chip"
-      draggable={isCurrent}
+      draggable
       onDragStart={(e) => {
         e.dataTransfer.setData(SRC_MIME, r.id)
         e.dataTransfer.effectAllowed = 'move'
@@ -436,7 +459,7 @@ export function BlockEditor({
           ? `📖 ${pdfTitle(r.pdfId)} · s. ${r.page}`
           : `🧱 ${conceptTitle(r.conceptId)}`}
       </button>
-      {isCurrent && (
+      {(
         <button
           className="source-remove"
           title="Odepnij źródło"
@@ -584,8 +607,8 @@ export function BlockEditor({
 
       {!isCurrent && !activeSub && (
         <div className="editor-banner">
-          Przeglądasz starszą wersję v{version.version} — tylko do odczytu.
-          Edycja odbywa się w wersji bieżącej.
+          Piszesz po wersji v{version.version}, a bieżąca jest inna — ta treść
+          i te źródła należą tylko do niej.
         </div>
       )}
 
@@ -594,7 +617,6 @@ export function BlockEditor({
           <button
             className={`btn ${selecting ? 'btn-active' : ''}`}
             onClick={onToggleSelecting}
-            disabled={!isCurrent}
             title="Zaznacz fragment PDF i podepnij go jako źródło (wspólne dla wszystkich stron tej wersji)"
           >
             Podepnij źródło
@@ -602,7 +624,6 @@ export function BlockEditor({
           <button
             className="btn"
             onClick={() => setPickingSource(true)}
-            disabled={!isCurrent}
             title="Wskaż inny klocek jako źródło tego klocka (np. przy podsumowaniu)"
           >
             Klocek jako źródło
@@ -610,7 +631,6 @@ export function BlockEditor({
           <button
             className="btn"
             onClick={handleNewGroup}
-            disabled={!isCurrent}
             title="Nowa grupa źródeł"
           >
             + 🗀
@@ -686,7 +706,7 @@ export function BlockEditor({
                   🗀 {g}
                   <span className="folder-count">{refsIn(g).length}</span>
                 </button>
-                {isCurrent && (
+                {(
                   <span className="source-group-actions">
                     <button
                       className="folder-action"
@@ -778,15 +798,28 @@ export function BlockEditor({
           </button>
         </div>
         {view === 'wizualny' ? (
-          <RichEditor
-            key={contentKey}
-            value={draft}
-            editable={editable}
-            onChange={onChange}
-          />
+          <div
+            className="editor-pole"
+            // kursor w polu = od teraz zmiany są od użytkownika
+            onFocusCapture={() => {
+              dotknieteRef.current = true
+            }}
+          >
+            <RichEditor
+              key={contentKey}
+              value={draft}
+              editable={editable}
+              onChange={onChange}
+            />
+          </div>
         ) : (
           <>
-            <div className="editor-code">
+            <div
+              className="editor-code"
+              onFocusCapture={() => {
+                dotknieteRef.current = true
+              }}
+            >
               <CodeMirror
                 value={draft}
                 onChange={onChange}

@@ -1324,12 +1324,20 @@ button.version-pill.new {
 .rich-size {
   font: inherit;
   font-size: var(--fs-3);
+  /* tyle, żeby zmieściły się dwie cyfry i strzałka listy podpowiedzi */
+  width: 52px;
+  text-align: center;
   padding: 3px 4px;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
   background: var(--panel);
   color: var(--ink-soft);
-  cursor: pointer;
+  cursor: text;
+}
+
+.rich-size:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .rich-content {
@@ -3590,6 +3598,13 @@ button.version-pill.new {
 .block-pick-etykieta {
   font-weight: 600;
   color: var(--muted);
+}
+
+/* Otulina pola w edytorze klocka — jest tylko po to, żeby złapać wejście
+   kursora do pola. `display: contents` znaczy „nie ma mnie w układzie", więc
+   siatka edytora widzi to, co widziała wcześniej. */
+.editor-pole {
+  display: contents;
 }
 
 /* wybrana wersja w menu pod prawym przyciskiem */

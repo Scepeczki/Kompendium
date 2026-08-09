@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
@@ -13,6 +13,8 @@ import { PageRuler } from './PageRuler'
 import { SpacingMenu } from './SpacingMenu'
 import { INDENT_RE, INDENT_RE_ANY, indentStyle, parseIndents } from '../indent'
 import {
+  SIZE_MAX,
+  SIZE_MIN,
   SIZE_OPTIONS,
   applySizeToSelection,
   blockTextWithMap,
@@ -242,6 +244,83 @@ const BlankParagraph = Paragraph.extend({
   },
 })
 
+/** Rozmiar tekstu: pokazuje liczbę, a nie „Aa".
+ *
+ *  Trzy rzeczy naraz. Widać, ile ten tekst ma teraz — a gdy nic nie ustawiono,
+ *  widać rozmiar podstawowy odczytany z pola, więc liczba zawsze coś znaczy.
+ *  Lista podpowiada rozmiary co jeden punkt. A wpisać można dowolną liczbę,
+ *  bo żadna lista nie zgadnie wszystkiego. */
+function PoleRozmiaru({ editor }: { editor: Editor }) {
+  const teraz = sizeAtSelection(editor)
+  const [bazowy, setBazowy] = useState<number | null>(null)
+  useEffect(() => {
+    const el = editor.view.dom as HTMLElement
+    const px = parseFloat(getComputedStyle(el).fontSize)
+    if (px) setBazowy(Math.round(px))
+  }, [editor])
+  const pokazywane = String(teraz ?? bazowy ?? '')
+  const [wpis, setWpis] = useState(pokazywane)
+  const [pisze, setPisze] = useState(false)
+  /** To samo, tylko do odczytania w obsłudze zdarzeń, które przychodzą po
+   *  zatwierdzeniu — inaczej opuszczenie pola zatwierdzałoby je drugi raz,
+   *  i to wartością, która zdążyła się już podmienić. */
+  const piszeRef = useRef(false)
+  if (!pisze && wpis !== pokazywane) setWpis(pokazywane)
+
+  const zatwierdz = (raw: string) => {
+    setPisze(false)
+    piszeRef.current = false
+    const t = raw.trim()
+    if (t === '') {
+      applySizeToSelection(editor, null)
+    } else {
+      const n = Math.round(Number(t))
+      if (Number.isFinite(n) && n > 0) {
+        applySizeToSelection(editor, Math.min(SIZE_MAX, Math.max(SIZE_MIN, n)))
+      }
+    }
+    editor.chain().focus().run()
+  }
+
+  return (
+    <>
+      <input
+        className="rich-size"
+        list="rozmiary-tekstu"
+        inputMode="numeric"
+        title="Rozmiar zaznaczonego tekstu — wybierz z listy albo wpisz własny; puste pole przywraca rozmiar podstawowy"
+        value={wpis}
+        onChange={(e) => {
+          setPisze(true)
+          piszeRef.current = true
+          setWpis(e.target.value)
+          // wybór z listy podpowiedzi zatwierdzamy od razu
+          if (SIZE_OPTIONS.includes(Number(e.target.value))) zatwierdz(e.target.value)
+        }}
+        onBlur={(e) => {
+          if (piszeRef.current) zatwierdz(e.target.value)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            zatwierdz((e.target as HTMLInputElement).value)
+          }
+          if (e.key === 'Escape') {
+            setPisze(false)
+            piszeRef.current = false
+            setWpis(pokazywane)
+          }
+        }}
+      />
+      <datalist id="rozmiary-tekstu">
+        {SIZE_OPTIONS.map((v) => (
+          <option key={v} value={v} />
+        ))}
+      </datalist>
+    </>
+  )
+}
+
 /** Pasek narzędzi edytora. Osobno, bo w ścieżce jeden pasek obsługuje
  *  wszystkie kafelki naraz — działa na tym polu, w którym stoi kursor. */
 export function RichToolbar({ editor }: { editor: Editor | null }) {
@@ -295,25 +374,7 @@ export function RichToolbar({ editor }: { editor: Editor | null }) {
       >
         H
       </button>
-      <select
-        className="rich-size"
-        title="Rozmiar zaznaczonego tekstu (zaznacz fragment i wybierz)"
-        value={sizeAtSelection(editor) ?? ''}
-        onChange={(e) => {
-          applySizeToSelection(
-            editor,
-            e.target.value ? Number(e.target.value) : null,
-          )
-          editor.chain().focus().run()
-        }}
-      >
-        <option value="">Aa</option>
-        {SIZE_OPTIONS.map((v) => (
-          <option key={v} value={v}>
-            {v}
-          </option>
-        ))}
-      </select>
+      <PoleRozmiaru editor={editor} />
       <button
         className={`btn rich-btn ${editor.isActive('bulletList') ? 'btn-active' : ''}`}
         title="Lista punktowana"
