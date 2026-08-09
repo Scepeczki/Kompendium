@@ -182,7 +182,8 @@ check('w Skrypcie tytuły nie są polami',
 check('w Skrypcie treść nie zaprasza do pisania',
   (await page.locator('.script-body .do-pisania').count()) === 0)
 
-// 8. po starszej wersji klocka pisać nie wolno
+// 8. starsza wersja klocka też jest do pisania — nic w ścieżce nie jest
+//    tylko do czytania
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-seg')
 await page.click('.concept-item:has-text("Kres górny zbioru")')
@@ -222,12 +223,18 @@ check('tekst dopisany w składniku trafia do klocka w bazie',
 
 const czesc = page.locator('.script-group-block .group-part:has(.block-pick-select)').first()
 await czesc.locator('.block-pick-select').selectOption({ index: 0 })
-await page.waitForTimeout(800)
-check('starsza wersja nie ma pola do pisania',
-  (await czesc.locator('.linear-pole').count()) === 0,
+await page.waitForTimeout(1200)
+check('starsza wersja też jest do pisania',
+  (await czesc.locator('.linear-pole').count()) === 1,
   `pól w tym składniku: ${await czesc.locator('.linear-pole').count()}`)
-check('pozostałe składniki nadal są do pisania',
-  (await page.locator('.script-group-block .group-part .linear-pole').count()) === 1)
+await czesc.locator('.linear-pole .tiptap').click()
+await page.keyboard.press('End')
+await page.keyboard.type(' DOPISANE-W-STARSZEJ')
+await page.waitForTimeout(900)
+const poStarszej = await zBazy('versions')
+check('tekst dopisany w starszej wersji trafia do niej, a nie do bieżącej',
+  poStarszej.some((v) => v.version === 1 && v.content.includes('DOPISANE-W-STARSZEJ')),
+  poStarszej.map((v) => `wr.${v.version}: ${v.content.slice(0, 30)}`).join(' | '))
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

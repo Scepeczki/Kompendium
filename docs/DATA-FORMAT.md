@@ -114,8 +114,12 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
    klocka w bazie, więc widać ją wszędzie. Ścieżka trzyma wyłącznie to, co
    jest jej własne — układ, kolejność, wybór wersji i strony, rozdziały,
    notatki, grupy (z ich nazwą, rodzajem i ewentualną przepisaną treścią).
-   Dwie granice pilnują reszty: **Skrypt jest tylko do czytania**, a po
-   **starszej wersji klocka nie da się pisać** (historia zostaje historią).
+   W Linii **wszystko jest do pisania** — także starsza wersja klocka i każdy
+   składnik scalonego bloku z osobna; tekst idzie wtedy dokładnie do tej wersji
+   i tej strony, którą widać. (Przez chwilę było inaczej — starszej wersji
+   broniliśmy jako „historii" — ale wersje są u nas różnymi ujęciami tej samej
+   rzeczy, a nie zapisem przeszłości, więc nie ma czego bronić.) Jedyna granica:
+   **Skrypt jest tylko do czytania**.
 7. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
 8. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
    nazwę z zestawu Lucide, np. `"sigma"`, a `iconColor` barwę `#rrggbb`. Nieznana

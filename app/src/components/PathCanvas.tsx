@@ -454,34 +454,60 @@ const TrescSegmentu = memo(
  *  wzorach potrafi to zająć ponad sto milisekund. Kilkanaście pól zbudowanych
  *  w jednej klatce daje zacięcie, które widać; te same pola rozłożone po
  *  klatkach są niezauważalne. Kolejka jest wspólna dla całej Linii. */
-const kolejkaPol: (() => void)[] = []
+/** Zgłoszenie zwraca false, jeśli jeszcze nie pora — wraca wtedy na koniec. */
+type ZgloszeniePola = () => boolean
+const kolejkaPol: ZgloszeniePola[] = []
 let kolejkaBiegnie = false
 /** Kiedy widok ostatnio drgnął. Dopóki się rusza, nic nie stawiamy. */
 let ostatniRuch = 0
 const SPOKOJ = 180
 function ruchWidoku() {
   ostatniRuch = performance.now()
+  ruszKolejke()
 }
-function doKolejki(fn: () => void) {
-  kolejkaPol.push(fn)
-  if (kolejkaBiegnie) return
+function ruszKolejke() {
+  if (kolejkaBiegnie || kolejkaPol.length === 0) return
   kolejkaBiegnie = true
+  let pominiete = 0
   const krok = () => {
+    if (kolejkaPol.length === 0) {
+      kolejkaBiegnie = false
+      return
+    }
     // przewijanie ma pierwszeństwo: czekamy, aż widok przystanie
     if (performance.now() - ostatniRuch < SPOKOJ) {
       requestAnimationFrame(krok)
       return
     }
-    kolejkaPol.shift()?.()
-    if (kolejkaPol.length) requestAnimationFrame(krok)
-    else kolejkaBiegnie = false
+    // cała kolejka to kafelki daleko od ekranu — nie ma po co kręcić się
+    // w kółko, obudzi nas najbliższy ruch widoku
+    if (pominiete >= kolejkaPol.length) {
+      kolejkaBiegnie = false
+      return
+    }
+    const fn = kolejkaPol.shift()!
+    if (fn() === false) {
+      kolejkaPol.push(fn)
+      pominiete++
+    } else {
+      pominiete = 0
+    }
+    requestAnimationFrame(krok)
   }
   requestAnimationFrame(krok)
 }
-function zKolejki(fn: () => void) {
+function doKolejki(fn: ZgloszeniePola) {
+  kolejkaPol.push(fn)
+  ruszKolejke()
+}
+function zKolejki(fn: ZgloszeniePola) {
   const i = kolejkaPol.indexOf(fn)
   if (i >= 0) kolejkaPol.splice(i, 1)
 }
+/** Jak daleko od ekranu kafelek dostaje pole. Rysujemy szerzej (żeby przy
+ *  przewijaniu nie było pustych miejsc), ale pola — najdroższą rzecz w tym
+ *  widoku — stawiamy tylko przy samym ekranie. */
+const ZASIEG_POLA = 300
 
 /** Wszystko, co ramka segmentu robi z listą — w jednym, niezmiennym pudełku.
  *  Dzięki temu ramka dostaje te same propsy przy każdym przerysowaniu Linii
@@ -615,9 +641,21 @@ const PoleTresci = memo(function PoleTresci({
 }: PoleProps) {
   const [gotowe, setGotowe] = useState(false)
   const punktRef = useRef<{ x: number; y: number } | null>(null)
+  const tekstRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const zapal = () => setGotowe(true)
+    const zapal = () => {
+      const el = tekstRef.current
+      if (el) {
+        const r = el.getBoundingClientRect()
+        // za daleko od ekranu — niech poczeka, aż tam dojedziemy
+        if (r.bottom < -ZASIEG_POLA || r.top > window.innerHeight + ZASIEG_POLA) {
+          return false
+        }
+      }
+      setGotowe(true)
+      return true
+    }
     doKolejki(zapal)
     return () => zKolejki(zapal)
   }, [])
@@ -625,6 +663,7 @@ const PoleTresci = memo(function PoleTresci({
   if (!gotowe) {
     return (
       <div
+        ref={tekstRef}
         className="markdown-body do-pisania"
         onPointerDown={(e) => {
           if ((e.target as Element).closest('a, button, select')) return
@@ -708,6 +747,12 @@ function LinearView({
   const oknoRef = useRef(okno)
   const naEkranie = useRef(new Set<number>())
   const wysokosci = useRef(new Map<string, number>())
+  /** Ile średnio ma kafelek w TEJ ścieżce — lepsza zgadywanka wysokości
+   *  pustego miejsca niż jedna liczba na sztywno. Zła zgadywanka to właśnie
+   *  te przeskoki przy skakaniu po spisie treści: pasek przewijania pokazuje
+   *  co innego, niż wyjdzie po narysowaniu. */
+  const sredniaRef = useRef(150)
+  const zmierz = (id: string) => wysokosci.current.get(id) ?? sredniaRef.current
   const planRef = useRef(0)
   const przeliczRef = useRef<() => void>(() => {})
 
@@ -746,15 +791,20 @@ function LinearView({
               const h = w.boundingClientRect.height
               if (h > 4 && el.dataset.pelny === '1' && el.dataset.seg) {
                 wysokosci.current.set(el.dataset.seg, h)
+                // średnia biegnie po zmierzonych — im więcej kafelków
+                // widzieliśmy, tym trafniej zgadujemy resztę
+                let suma = 0
+                for (const v of wysokosci.current.values()) suma += v
+                sredniaRef.current = suma / wysokosci.current.size
               }
             }
             cancelAnimationFrame(planRef.current)
             planRef.current = requestAnimationFrame(() => przeliczRef.current())
           },
           /* Zapas w pikselach: kafelki wchodzą do okna, zanim je widać.
-             Nie ma sensu robić go wielkim — każdy kafelek w oknie dostaje
-             pole tekstowe, a to najdroższa rzecz w całym widoku. */
-          { rootMargin: '400px 0px' },
+             Za mały zapas znaczy puste miejsca w trakcie szybkiego
+             przewijania; za duży — więcej pól tekstowych do postawienia. */
+          { rootMargin: '1000px 0px' },
         ),
   )
   useEffect(
@@ -1145,10 +1195,10 @@ function LinearView({
         wersje.find((v) => v.id === n.versionId) ??
         wersje.find((v) => v.id === c.currentVersionId)
       const strona = (n.subpageId ? mapy.strony.get(n.subpageId) : null) ?? null
-      // Historia ma zostać historią: po starszej wersji nie piszemy, tak samo
-      // jak w edytorze klocka.
-      const biezaca = !wersja || wersja.id === c.currentVersionId
-      const wolno = !!onEditBlock && biezaca
+      // Wszystko w ścieżce jest do pisania — także starsza wersja klocka.
+      // Wersje to u nas różne ujęcia tej samej rzeczy („wg Rudina"), a nie
+      // zamknięta historia, więc nie ma czego bronić przed poprawianiem.
+      const wolno = !!onEditBlock && !!wersja
       const tresc = strona ? strona.content : (wersja?.content ?? '')
       return (
         <BlockShell
@@ -1164,10 +1214,10 @@ function LinearView({
           subsZewn={mapy.stronyKlocka.get(c.id) ?? []}
           pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
           onRename={onRenameConcept ? (name) => onRenameConcept(c.id, name) : undefined}
+          // jedyny przypadek, w którym nie ma gdzie pisać: klocek bez żadnej
+          // wersji. Niech to widać, zamiast cicho pokazywać sam tekst.
           blokada={
-            wolno
-              ? undefined
-              : 'To starsza wersja — przełącz na bieżącą, żeby pisać'
+            wersja ? undefined : 'Ten klocek nie ma jeszcze żadnej wersji — otwórz go i dodaj treść'
           }
           edytor={
             wolno && wersja
@@ -1281,19 +1331,11 @@ function LinearView({
           // blok był jedynym miejscem w ścieżce tylko do czytania.
           onEditBlock
             ? (i, d) =>
-                d.biezaca ? (
-                  poleTresci(
-                    `${n.id}:${i}`,
-                    `${d.versionId}:${d.subpageId ?? 'glowna'}`,
-                    d.tresc,
-                    (md) => onEditBlock(d.versionId, d.subpageId, md),
-                  )
-                ) : (
-                  <div
-                    className="markdown-body"
-                    title="To starsza wersja klocka — przełącz na bieżącą, żeby pisać"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(d.tresc) }}
-                  />
+                poleTresci(
+                  `${n.id}:${i}`,
+                  `${d.versionId}:${d.subpageId ?? 'glowna'}`,
+                  d.tresc,
+                  (md) => onEditBlock(d.versionId, d.subpageId, md),
                 )
             : undefined
         }
@@ -1357,7 +1399,7 @@ function LinearView({
               pelny={pelny}
               zaznaczony={zazSeg.has(n.id)}
               kreska={h}
-              wysokosc={wysokosci.current.get(n.id) ?? 150}
+              wysokosc={zmierz(n.id)}
               sygnatura={pelny ? sygnatura(n) : ''}
               rysuj={() => <TrescSegmentu sygnatura={sygnatura(n)} rysuj={() => segmentContent(n)} />}
               api={apiSegmentu}
