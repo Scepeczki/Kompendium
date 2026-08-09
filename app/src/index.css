@@ -3584,40 +3584,10 @@ button.version-pill.new {
   color: var(--muted);
 }
 
-/* kafelek pisany w ścieżce — odciął się od klocka, więc to musi być widać */
-.block-wlasny {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.block-wlasny-znak {
+/* wybrana wersja w menu pod prawym przyciskiem */
+.tree-menu-item.wybrany {
   font-weight: 600;
-  color: var(--muted);
-  border-bottom: 1px dotted var(--line-strong);
-  cursor: help;
-}
-
-.block-wlasny-wroc {
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--accent);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-
-.script-block:hover .block-wlasny-wroc {
-  opacity: 1;
-}
-
-.block-wlasny-wroc:hover {
-  text-decoration: underline;
+  color: var(--accent-ink);
 }
 
 .block-pick-daszek {

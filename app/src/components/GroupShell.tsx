@@ -45,8 +45,9 @@ interface Props {
       biezaca: boolean
     },
   ) => React.ReactNode
-  /** Porzucenie własnego tekstu składnika — powrót do treści klocka. */
-  onWrocCzesc?: (i: number, versionId: string, subpageId: string | null) => void
+  /** Bez pasków wersji nad składnikami — w Linii wersję i przywracanie
+   *  obsługuje menu pod prawym przyciskiem. */
+  bezPaskaWersji?: boolean
 }
 
 /** Grupa klocków pokazana jako JEDEN blok: pasek nagłówka z nazwą nadaną
@@ -66,7 +67,7 @@ export function GroupShell({
   onStartEdit,
   zewn,
   edytorCzesci,
-  onWrocCzesc,
+  bezPaskaWersji,
 }: Props) {
   const wlasneKlocki =
     useLiveQuery(
@@ -190,7 +191,7 @@ export function GroupShell({
                   ))}
                 </div>
               )}
-              {r.version && (
+              {r.version && !bezPaskaWersji && (
                 <div className="block-pick block-pick-version">
                   {r.own.length > 1 && onVersionChange ? (
                     <select
@@ -217,29 +218,6 @@ export function GroupShell({
                     </select>
                   ) : (
                     <span className="block-pick-static">{versionName(r.version)}</span>
-                  )}
-                  {/* składnik pisany w ścieżce — tak samo jak zwykły kafelek
-                      musi mówić, że odciął się od klocka */}
-                  {r.wlasna !== undefined && (
-                    <span className="block-wlasny">
-                      <span
-                        className="block-wlasny-znak"
-                        title="Ten tekst należy do ścieżki. Klocek w bibliotece ma swój własny."
-                      >
-                        tekst tej ścieżki
-                      </span>
-                      {onWrocCzesc && (
-                        <button
-                          className="block-wlasny-wroc"
-                          title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść klocka"
-                          onClick={() =>
-                            onWrocCzesc(i, r.version!.id, r.strona?.id ?? null)
-                          }
-                        >
-                          wróć do klocka
-                        </button>
-                      )}
-                    </span>
                   )}
                 </div>
               )}

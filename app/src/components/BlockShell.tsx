@@ -39,9 +39,10 @@ interface Props {
   nazwaWlasna?: string
   /** Treść napisana w ścieżce — zamiast treści klocka. */
   trescWlasna?: string
-  /** Odczepienie: powrót do treści klocka. Pokazujemy tylko wtedy, gdy
-   *  kafelek naprawdę ma własny tekst. */
-  onWrocDoKlocka?: () => void
+  /** Bez paska nad treścią (wersja, plakietka własnego tekstu). W Linii
+   *  jedno i drugie siedzi pod prawym przyciskiem, żeby kafelek pokazywał
+   *  tekst, a nie metryczkę. */
+  bezPaskaWersji?: boolean
 }
 
 /** Blok klocka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
@@ -65,7 +66,7 @@ export function BlockShell({
   blokada,
   nazwaWlasna,
   trescWlasna,
-  onWrocDoKlocka,
+  bezPaskaWersji,
 }: Props) {
   // Strony bierzemy z zewnątrz, jeśli ktoś je już ma. W długiej ścieżce
   // sześćdziesiąt bloków to było sześćdziesiąt osobnych zapytań do bazy,
@@ -119,7 +120,7 @@ export function BlockShell({
       </header>
 
       <div className="script-block-body">
-        {version && (
+        {version && !bezPaskaWersji && (
           <div className="block-pick block-pick-version">
             {/* „WR.2" samo z siebie nic nie mówi — stąd słowo z przodu */}
             <span className="block-pick-etykieta">wersja</span>
@@ -146,25 +147,6 @@ export function BlockShell({
               </>
             ) : (
               <span className="block-pick-static">{versionName(version)}</span>
-            )}
-            {/* Kafelek z własnym tekstem odciął się od klocka — poprawki
-                zrobione w bibliotece już się tu nie pokażą. Musi to być
-                widać, i musi być droga powrotna. */}
-            {trescWlasna !== undefined && (
-              <span className="block-wlasny">
-                <span className="block-wlasny-znak" title="Ten tekst należy do ścieżki. Klocek w bibliotece ma swój własny.">
-                  tekst tej ścieżki
-                </span>
-                {onWrocDoKlocka && (
-                  <button
-                    className="block-wlasny-wroc"
-                    title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść klocka"
-                    onClick={onWrocDoKlocka}
-                  >
-                    wróć do klocka
-                  </button>
-                )}
-              </span>
             )}
           </div>
         )}

@@ -84,6 +84,29 @@ const trescSciezki = async () => {
   )
 }
 
+// 0. Kafelek, którego nikt nie tknął, NIE ma własnego tekstu i nadal chodzi
+//    za klockiem. Samo postawienie pola potrafiło zapisać własną kopię —
+//    kafelek odcinał się od biblioteki, choć nikt w nim nic nie napisał.
+await page.waitForTimeout(2500)
+const swiezaSciezka = (await zBazy('paths')).find((p) => p.name === 'Warsztat')
+check('nietknięty kafelek nie ma własnego tekstu',
+  swiezaSciezka.nodes.every((n) => n.wlasneTresci === undefined),
+  JSON.stringify(swiezaSciezka.nodes.map((n) => n.wlasneTresci ?? null)))
+// poprawka w bibliotece ma się pokazać w ścieżce
+await page.click('.concept-item:has-text("Notacja")')
+await page.waitForSelector('.editor-name')
+await page.click('.view-switch button:has-text("Kod")')
+await page.click('.editor-code .cm-content')
+await page.keyboard.press('End')
+await page.keyboard.type(' POPRAWKA-Z-BIBLIOTEKI')
+await page.waitForTimeout(600)
+await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.concept-item:has-text("Warsztat")')
+await page.waitForSelector('.linear-seg')
+await page.waitForTimeout(1500)
+check('nietknięty kafelek pokazuje poprawkę zrobioną w bibliotece',
+  (await page.textContent('.linear-column')).includes('POPRAWKA-Z-BIBLIOTEKI'))
+
 // 1. tytuł zmienia się wprost w ścieżce — ale klocek w bibliotece zostaje
 await page
   .waitForFunction(
@@ -123,8 +146,18 @@ const wersje = await zBazy('versions')
 check('wersja klocka w bibliotece zostaje nietknięta',
   !wersje.some((v) => v.content.includes('DOPISANE-W-SCIEZCE')),
   wersje.map((v) => v.content).join(' | '))
-check('kafelek mówi, że ma własny tekst',
-  (await page.locator('.linear-seg:first-child .block-wlasny-znak').count()) === 1)
+// kafelek nie nosi metryczki na wierzchu — wersja i przywracanie siedzą
+// pod prawym przyciskiem
+check('kafelek nie pokazuje paska wersji nad treścią',
+  (await page.locator('.linear-seg .block-pick-version').count()) === 0)
+await menuNad(0)
+check('menu proponuje przywrócenie treści klocka',
+  (await page.locator('.linear-menu .tree-menu-item:has-text("Przywróć treść klocka")').count()) === 1,
+  (await page.locator('.linear-menu .tree-menu-item').allTextContents()).join(' · '))
+await page.keyboard.press('Escape')
+await page.waitForTimeout(300)
+await page.click('.linear-seg:first-child .linear-pole .tiptap')
+await page.keyboard.press('End')
 // pasek narzędzi jest jeden na całą ścieżkę i działa na polu z kursorem
 check(
   'ścieżka ma wspólny pasek narzędzi',
@@ -246,9 +279,20 @@ check('klocek składnika w bibliotece zostaje nietknięty',
   !poFuzji.some((v) => v.content.includes('DOPISANE-W-FUZJI')),
   poFuzji.map((v) => v.content.slice(0, 40)).join(' | '))
 
-const czesc = page.locator('.script-group-block .group-part:has(.block-pick-select)').first()
-await czesc.locator('.block-pick-select').selectOption({ index: 0 })
-await page.waitForTimeout(1200)
+// wersję składnika przełącza się teraz w menu pod prawym przyciskiem
+const nrFuzji2 = await page.evaluate(() =>
+  [...document.querySelectorAll('.linear-seg')].findIndex((s) =>
+    s.querySelector('.script-group-block'),
+  ),
+)
+await menuNad(nrFuzji2)
+const wersjeWMenu = page.locator('.linear-menu .tree-menu-item:has-text("wersja")')
+check('menu podaje wersje składników scalonego bloku',
+  (await wersjeWMenu.count()) >= 2,
+  (await page.locator('.linear-menu .tree-menu-item').allTextContents()).join(' · '))
+await wersjeWMenu.first().click()
+await page.waitForTimeout(1400)
+const czesc = page.locator('.script-group-block .group-part').first()
 check('starsza wersja też jest do pisania',
   (await czesc.locator('.linear-pole').count()) === 1,
   `pól w tym składniku: ${await czesc.locator('.linear-pole').count()}`)
@@ -264,21 +308,31 @@ check('żadna wersja klocka w bibliotece nie ucierpiała',
   !poStarszej.some((v) => v.content.includes('DOPISANE-W-STARSZEJ')),
   poStarszej.map((v) => `wr.${v.version}: ${v.content.slice(0, 30)}`).join(' | '))
 
-// 9. powrót do klocka: kafelek porzuca własny tekst i znów pokazuje klocek
-await page.click('.view-switch button:has-text("Linia")')
-await page.waitForSelector('.linear-seg')
-await page.waitForTimeout(800)
-const zWlasnym = page.locator('.linear-seg:has(.block-wlasny-znak)').first()
-check('kafelek z własnym tekstem ma drogę powrotną',
-  (await zWlasnym.locator('.block-wlasny-wroc').count()) >= 1)
-await zWlasnym.locator('.block-wlasny-wroc').first().click({ force: true })
+// 9. przywrócenie treści klocka — spod prawego przycisku
+await page.keyboard.press('Escape')
+await page.waitForTimeout(400)
+await menuNad(nrFuzji2)
+const przywroc = page.locator('.linear-menu .tree-menu-item:has-text("Przywróć treść klocka")')
+check('menu daje przywrócenie treści klocka dla składnika',
+  (await przywroc.count()) >= 1,
+  (await page.locator('.linear-menu .tree-menu-item').allTextContents()).join(' · '))
+await przywroc.first().click()
 await potwierdz(page)
-await page.waitForTimeout(1200)
-check('po powrocie własny tekst znika ze ścieżki',
-  !(await trescSciezki()).includes('DOPISANE-W-STARSZEJ') ||
-    !(await trescSciezki()).includes('DOPISANE-W-FUZJI') ||
-    !(await trescSciezki()).includes('DOPISANE-W-SCIEZCE'),
+await page.waitForTimeout(1400)
+check('po przywróceniu ten tekst znika ze ścieżki',
+  !(await trescSciezki()).includes('DOPISANE-W-STARSZEJ'),
   (await trescSciezki()).slice(0, 400))
+
+// 10. kliknięcie obok kolumny gasi zaznaczenie
+await page.locator('.linear-seg').first().click({ modifiers: ['Control'] })
+await page.waitForTimeout(300)
+check('Ctrl+klik zaznacza', (await page.locator('.linear-seg.zaznaczony').count()) === 1)
+const widok = await page.locator('.linear-view').boundingBox()
+await page.mouse.click(widok.x + 30, widok.y + widok.height - 40)
+await page.waitForTimeout(300)
+check('kliknięcie obok gasi zaznaczenie',
+  (await page.locator('.linear-seg.zaznaczony').count()) === 0,
+  `zaznaczonych: ${await page.locator('.linear-seg.zaznaczony').count()}`)
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

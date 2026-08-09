@@ -668,7 +668,6 @@ interface PoleProps {
   /** Oddaje edytor do wspólnego paska narzędzi (null przy znikaniu). */
   zarejestruj: (ed: Editor | null) => void
   naKursor: () => void
-  dotknij: () => void
 }
 
 /** Pole tekstowe kafelka. Sam decyduje, kiedy stać się polem — dzięki temu
@@ -683,11 +682,13 @@ const PoleTresci = memo(function PoleTresci({
   zapisz,
   zarejestruj,
   naKursor,
-  dotknij,
 }: PoleProps) {
   const [gotowe, setGotowe] = useState(false)
   const punktRef = useRef<{ x: number; y: number } | null>(null)
   const tekstRef = useRef<HTMLDivElement | null>(null)
+  const edytorRef = useRef<Editor | null>(null)
+  /** Czy ktoś w ogóle postawił tu kursor. Dopóki nie — nic nie zapisujemy. */
+  const dotknieteRef = useRef(false)
 
   useEffect(() => {
     const zapal = () => {
@@ -730,12 +731,23 @@ const PoleTresci = memo(function PoleTresci({
         editable
         bezPaska
         ruler={false}
+        /* Zapisujemy TYLKO wtedy, gdy pisze człowiek.
+         *
+         *  Samo postawienie pola wywołuje zmianę treści — Markdown wczytany
+         *  do edytora i zapisany z powrotem nie zawsze wraca znak w znak
+         *  (np. zagnieżdżone listy). Bez tej bramki każdy kafelek, na który
+         *  ktoś tylko spojrzał, robił sobie własną kopię tekstu i po cichu
+         *  odcinał się od klocka w bibliotece. */
         onChange={(md) => {
-          dotknij()
+          if (!dotknieteRef.current) return
           zapisz(md)
         }}
-        onFocus={naKursor}
+        onFocus={() => {
+          dotknieteRef.current = true
+          naKursor()
+        }}
         onReady={(ed) => {
+          edytorRef.current = ed
           zarejestruj(ed)
           const p = punktRef.current
           punktRef.current = null
@@ -977,13 +989,6 @@ function LinearView({
     return [...s].sort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordered.map((n) => n.id).join(',')])
-  /** W trakcie pisania lista w ogóle nie rusza bazy.
-   *
-   *  Każdy zapis treści kazałby bazie wydać wszystkie klocki tej ścieżki od
-   *  nowa; przy pięciuset to setki milisekund pracy na głównym wątku — a to,
-   *  co właśnie piszemy, widać w polu, nie w odczycie. Pytamy więc dopiero
-   *  sekundę po ostatnim klawiszu, a do tego czasu pokazujemy zamrożone dane. */
-  const [pisze, setPisze] = useState(false)
   const klucz = uzyte.join(',')
   /** Jedno zapytanie, które NIESIE ZE SOBĄ swój klucz.
    *
@@ -993,16 +998,14 @@ function LinearView({
    *  ma w nim nowego klocka. Kafelek mrugał wtedy napisem „(usunięte
    *  pojęcie)". Skoro wynik mówi, dla jakiego zestawu powstał, wiadomo. */
   const wynik = useLiveQuery(async () => {
-    if (pisze) return null
     const [concepts, versions, subpages] = await Promise.all([
       db.concepts.where('id').anyOf(uzyte).toArray(),
       db.versions.where('conceptId').anyOf(uzyte).toArray(),
       db.subpages.where('conceptId').anyOf(uzyte).toArray(),
     ])
     return { klucz, concepts, versions, subpages }
-  }, [klucz, pisze])
+  }, [klucz])
 
-  const stopPisania = useRef<number | undefined>(undefined)
   const mrozoneRef = useRef({
     concepts: [] as Concept[],
     versions: [] as BlockVersion[],
@@ -1010,21 +1013,14 @@ function LinearView({
     /** Dla jakiego zestawu klocków te dane są — patrz `daneAktualne`. */
     klucz: '',
   })
-  /** Nowe dane bierzemy tylko wtedy, gdy naprawdę są i są dla tego zestawu.
-   *  W trakcie pisania celowo nie pytamy bazy — zostają poprzednie. */
-  if (!pisze && wynik && wynik.klucz === klucz) mrozoneRef.current = wynik
+  /** Nowe dane bierzemy tylko wtedy, gdy naprawdę są i są dla tego zestawu. */
+  if (wynik && wynik.klucz === klucz) mrozoneRef.current = wynik
   const { concepts, versions, subpages } = mrozoneRef.current
   /** Czy trzymane dane opisują dokładnie ten zestaw kafelków, który mamy
    *  narysować. Po dołożeniu kafelka przez chwilę nie — i wtedy brak klocka
    *  w mapie znaczy „jeszcze nie doszedł", a nie „skasowany". */
   const daneAktualne = mrozoneRef.current.klucz === klucz
 
-  const dotknijPisania = useCallback(() => {
-    setPisze(true)
-    window.clearTimeout(stopPisania.current)
-    stopPisania.current = window.setTimeout(() => setPisze(false), 1000)
-  }, [])
-  useEffect(() => () => window.clearTimeout(stopPisania.current), [])
 
   // Podręczne mapy zamiast przeszukiwania tablic przy każdym kafelku.
   // Przy 500 segmentach `find` w pętli to ćwierć miliona przebiegów na jedno
@@ -1170,7 +1166,6 @@ function LinearView({
       key={kluczTresci}
       wartosc={value}
       zapisz={zapisz}
-      dotknij={dotknijPisania}
       naKursor={() => setAktywnyId(segId)}
       zarejestruj={(ed) => zarejestrujPole(segId, ed)}
     />
@@ -1266,11 +1261,7 @@ function LinearView({
           pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
           nazwaWlasna={n.nazwa}
           trescWlasna={wlasna}
-          onWrocDoKlocka={
-            wlasna !== undefined && onWrocDoKlocka && wersja
-              ? () => onWrocDoKlocka(n.id, wersja.id, strona?.id ?? null)
-              : undefined
-          }
+          bezPaskaWersji
           onRename={onRenameSegment ? (name) => onRenameSegment(n.id, name) : undefined}
           // jedyny przypadek, w którym nie ma gdzie pisać: klocek bez żadnej
           // wersji. Niech to widać, zamiast cicho pokazywać sam tekst.
@@ -1396,11 +1387,7 @@ function LinearView({
                 )
             : undefined
         }
-        onWrocCzesc={
-          onWrocDoCzesci
-            ? (i, versionId, subpageId) => onWrocDoCzesci(n.id, i, versionId, subpageId)
-            : undefined
-        }
+        bezPaskaWersji
       />
     )
   }
@@ -1411,7 +1398,16 @@ function LinearView({
     .map((n) => ({ domId: outlineId(n.id), text: n.text, level: n.level }))
 
   return (
-    <div className="linear-view">
+    <div
+      className="linear-view"
+      /* Kliknięcie obok kolumny gasi zaznaczenie — tak samo jak wszędzie
+         indziej. Bez tego zaznaczenie zostawało do następnego Ctrl+kliku
+         i nie było wiadomo, czego dotyczy „Scal zaznaczone". */
+      onClick={(e) => {
+        if ((e.target as Element).closest('.linear-seg, .linear-menu')) return
+        if (zazSeg.size > 0) setZazSeg(new Set())
+      }}
+    >
       <Outline items={outline} />
       {/* Pasek i kolumna razem w jednej kolumnie układu — inaczej pasek
           wchodziłby jako trzecia kolumna obok spisu treści i spychał tekst. */}
@@ -1537,6 +1533,100 @@ function LinearView({
           const doScalenia = ordered
             .filter((n) => zazSeg.has(n.id) && (n.kind === 'block' || n.kind === 'fusion'))
             .map((n) => n.id)
+
+          /** Wersje i przywracanie kafelka — wszystko, co dawniej stało
+           *  napisami nad treścią. Kafelek ma pokazywać tekst, a nie
+           *  metryczkę; to są rzeczy robione raz na jakiś czas. */
+          const wybory: React.ReactNode[] = []
+          const dodajWybor = (
+            tytul: string,
+            conceptId: string,
+            wybranaId: string | null,
+            ustaw: (id: string | null) => void,
+            wlasny: (() => void) | null,
+          ) => {
+            const c = mapy.klocki.get(conceptId)
+            const wersje = [...(mapy.wersjeKlocka.get(conceptId) ?? [])].sort(
+              (a, b) => a.version - b.version,
+            )
+            const teraz =
+              wersje.find((v) => v.id === wybranaId) ??
+              wersje.find((v) => v.id === c?.currentVersionId)
+            if (wersje.length < 2 && !wlasny) return
+            wybory.push(
+              <div className="tree-menu-where" key={`${tytul}-h`}>
+                {tytul}
+              </div>,
+            )
+            if (wersje.length > 1) {
+              for (const v of wersje) {
+                wybory.push(
+                  <button
+                    key={`${tytul}-${v.id}`}
+                    className={`tree-menu-item ${teraz?.id === v.id ? 'wybrany' : ''}`}
+                    onClick={wstaw(() =>
+                      ustaw(v.id === c?.currentVersionId ? null : v.id),
+                    )}
+                  >
+                    {teraz?.id === v.id ? '• ' : '   '}
+                    {v.label ?? `wersja ${v.version}`}
+                  </button>,
+                )
+              }
+            }
+            if (wlasny) {
+              wybory.push(
+                <button
+                  key={`${tytul}-wroc`}
+                  className="tree-menu-item"
+                  title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść klocka"
+                  onClick={wstaw(wlasny)}
+                >
+                  ↺ Przywróć treść klocka
+                </button>,
+              )
+            }
+          }
+          if (sasiad?.kind === 'block') {
+            const c = mapy.klocki.get(sasiad.conceptId)
+            const wersje = mapy.wersjeKlocka.get(sasiad.conceptId) ?? []
+            const w =
+              wersje.find((v) => v.id === sasiad.versionId) ??
+              wersje.find((v) => v.id === c?.currentVersionId)
+            const strona = sasiad.subpageId ? mapy.strony.get(sasiad.subpageId) : undefined
+            const maWlasny =
+              !!w && sasiad.wlasneTresci?.[kluczWlasnej(w.id, strona?.id)] !== undefined
+            dodajWybor(
+              c?.name ?? 'Kafelek',
+              sasiad.conceptId,
+              sasiad.versionId,
+              (id) => onSetVersion(sasiad.id, id),
+              maWlasny && onWrocDoKlocka && w
+                ? () => onWrocDoKlocka(sasiad.id, w.id, strona?.id ?? null)
+                : null,
+            )
+          }
+          if (sasiad?.kind === 'fusion') {
+            sasiad.parts.forEach((p, idx) => {
+              const c = mapy.klocki.get(p.conceptId)
+              const wersje = mapy.wersjeKlocka.get(p.conceptId) ?? []
+              const w =
+                wersje.find((v) => v.id === p.versionId) ??
+                wersje.find((v) => v.id === c?.currentVersionId)
+              const strona = p.subpageId ? mapy.strony.get(p.subpageId) : undefined
+              const maWlasny =
+                !!w && p.wlasneTresci?.[kluczWlasnej(w.id, strona?.id)] !== undefined
+              dodajWybor(
+                c?.name ?? `Składnik ${idx + 1}`,
+                p.conceptId,
+                p.versionId,
+                (id) => onSetPartVersion(sasiad.id, idx, id),
+                maWlasny && onWrocDoCzesci && w
+                  ? () => onWrocDoCzesci(sasiad.id, idx, w.id, strona?.id ?? null)
+                  : null,
+              )
+            })
+          }
           return (
             <div
               className="tree-menu linear-menu"
@@ -1590,6 +1680,12 @@ function LinearView({
                   >
                     Otwórz klocek w edytorze
                   </button>
+                  <div className="tree-menu-sep" />
+                </>
+              )}
+              {wybory.length > 0 && (
+                <>
+                  {wybory}
                   <div className="tree-menu-sep" />
                 </>
               )}
@@ -2409,39 +2505,74 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
    *  i przełączaniu wersji zapis zbudowany z danych sprzed chwili potrafiłby
    *  zgubić wcześniejszy wpis dla innej wersji. Do bazy trafia to zwykłym
    *  autozapisem układu ścieżki. */
-  const zapiszWlasna = useCallback((nodeId: string, klucz: string, md: string) => {
-    setRfNodes((ns) =>
-      ns.map((n) =>
-        n.id === nodeId
-          ? {
-              ...n,
-              data: {
-                ...n.data,
-                wlasneTresci: {
-                  ...((n.data.wlasneTresci as WlasneTresci | undefined) ?? {}),
-                  [klucz]: md,
-                },
-              },
-            }
-          : n,
-      ),
-    )
+  /** Odłożony zapis — jeden na kafelek i wersję.
+   *
+   *  Bez tego każde naciśnięcie klawisza zmienia węzły ścieżki, a to znaczy
+   *  przeliczenie kolejności całej ścieżki i zbudowanie wszystkich ramek od
+   *  nowa. Pole tekstowe i tak trzyma to, co piszesz, więc nikt nie zauważa,
+   *  że ścieżka dowiaduje się o tym ułamek sekundy później. */
+  const odlozoneRef = useRef(new Map<string, { t: number; akcja: () => void }>())
+  const odloz = useCallback((klucz: string, akcja: () => void) => {
+    const stary = odlozoneRef.current.get(klucz)
+    if (stary) window.clearTimeout(stary.t)
+    const t = window.setTimeout(() => {
+      odlozoneRef.current.delete(klucz)
+      akcja()
+    }, 350)
+    odlozoneRef.current.set(klucz, { t, akcja })
   }, [])
+  useEffect(() => {
+    const mapa = odlozoneRef.current
+    // zamknięcie ścieżki nie może zjeść ostatniego zdania
+    return () => {
+      for (const { t, akcja } of mapa.values()) {
+        window.clearTimeout(t)
+        akcja()
+      }
+      mapa.clear()
+    }
+  }, [])
+
+  const zapiszWlasna = useCallback(
+    (nodeId: string, klucz: string, md: string) => {
+      odloz(`${nodeId}|${klucz}`, () =>
+        setRfNodes((ns) =>
+          ns.map((n) =>
+            n.id === nodeId
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    wlasneTresci: {
+                      ...((n.data.wlasneTresci as WlasneTresci | undefined) ?? {}),
+                      [klucz]: md,
+                    },
+                  },
+                }
+              : n,
+          ),
+        ),
+      )
+    },
+    [odloz],
+  )
 
   const zapiszWlasnaCzesci = useCallback(
     (nodeId: string, index: number, klucz: string, md: string) => {
-      setRfNodes((ns) =>
-        ns.map((n) => {
-          if (n.id !== nodeId) return n
-          const parts = [...((n.data.parts as FusionPart[]) ?? [])]
-          const p = parts[index]
-          if (!p) return n
-          parts[index] = { ...p, wlasneTresci: { ...(p.wlasneTresci ?? {}), [klucz]: md } }
-          return { ...n, data: { ...n.data, parts } }
-        }),
+      odloz(`${nodeId}|${index}|${klucz}`, () =>
+        setRfNodes((ns) =>
+          ns.map((n) => {
+            if (n.id !== nodeId) return n
+            const parts = [...((n.data.parts as FusionPart[]) ?? [])]
+            const p = parts[index]
+            if (!p) return n
+            parts[index] = { ...p, wlasneTresci: { ...(p.wlasneTresci ?? {}), [klucz]: md } }
+            return { ...n, data: { ...n.data, parts } }
+          }),
+        ),
       )
     },
-    [],
+    [odloz],
   )
 
   /** Porzucenie własnego tekstu kafelka. Kasuje coś, co użytkownik napisał,
