@@ -423,6 +423,8 @@ interface LinearViewProps {
   onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
   /** Scala segment z następnym (albo dokłada następny do grupy). */
   onGroupWithNext: (segId: string) => void
+  /** Scala zaznaczone kafelki — także takie, które nie sąsiadują ze sobą. */
+  onFuseSelected: (ids: string[]) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 
@@ -766,6 +768,7 @@ function LinearView({
   onSetPartSubpage,
   onAddHeading,
   onGroupWithNext,
+  onFuseSelected,
   onJumpToSource,
   onOpenConcept,
   onRenameSegment,
@@ -1530,6 +1533,10 @@ function LinearView({
             setSegMenu(null)
             fn()
           }
+          /** Zaznaczone kafelki, które da się scalić — w kolejności z Linii. */
+          const doScalenia = ordered
+            .filter((n) => zazSeg.has(n.id) && (n.kind === 'block' || n.kind === 'fusion'))
+            .map((n) => n.id)
           return (
             <div
               className="tree-menu linear-menu"
@@ -1543,6 +1550,24 @@ function LinearView({
                 if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
               }}
             >
+              {/* Scalanie z zaznaczenia. Kafelki nie muszą ze sobą sąsiadować:
+                  definicja notacji zaznaczona razem z definicją, która jej
+                  używa, wejdzie do jednego bloku, choćby leżały daleko od
+                  siebie. Kolejność bierzemy z Linii, bo tak to widać. */}
+              {doScalenia.length >= 2 && (
+                <>
+                  <button
+                    className="tree-menu-item"
+                    onClick={wstaw(() => {
+                      onFuseSelected(doScalenia)
+                      setZazSeg(new Set())
+                    })}
+                  >
+                    ⧉ Scal zaznaczone ({doScalenia.length})
+                  </button>
+                  <div className="tree-menu-sep" />
+                </>
+              )}
               {/* Czym jest scalony blok — dawniej pod piórkiem, a piórko było
                   obok treści i mieszało się z pisaniem. */}
               {sasiad?.kind === 'fusion' && (
@@ -1994,7 +2019,13 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         id: crypto.randomUUID(),
         type: 'block',
         position: { x: f.position.x + i * 30, y: f.position.y + i * 220 },
-        data: { conceptId: p.conceptId, versionId: p.versionId, subpageId: p.subpageId ?? null },
+        // uwolniony kafelek zabiera ze sobą tekst, który napisano mu w grupie
+        data: {
+          conceptId: p.conceptId,
+          versionId: p.versionId,
+          subpageId: p.subpageId ?? null,
+          wlasneTresci: p.wlasneTresci,
+        },
       }))
       setRfNodes((ns) => [...ns.filter((n) => n.id !== id), ...blocks])
       // Łańcuch trzeba zszyć: poprzednik → uwolnione po kolei → następnik.
@@ -2040,14 +2071,19 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
   }), [onOpenConcept])
 
   /** Części klocka albo grupy — do składania grup z jednego i drugiego. */
-  const partsOf = (n: Node): { conceptId: string; versionId: string | null }[] =>
+  /** Składniki kafelka przed scaleniem. Kafelek wnosi ze sobą WSZYSTKO, co
+   *  ma własnego — wybraną stronę i tekst napisany w ścieżce. Bez tego
+   *  scalenie po cichu zjadałoby to, co użytkownik zdążył napisać. */
+  const partsOf = (n: Node): FusionPart[] =>
     n.type === 'fusion'
-      ? ((n.data.parts as { conceptId: string; versionId: string | null }[]) ?? [])
+      ? ((n.data.parts as FusionPart[]) ?? [])
       : n.type === 'block'
         ? [
             {
               conceptId: n.data.conceptId as string,
               versionId: (n.data.versionId as string | null) ?? null,
+              subpageId: (n.data.subpageId as string | null) ?? null,
+              wlasneTresci: n.data.wlasneTresci as WlasneTresci | undefined,
             },
           ]
         : []
@@ -2073,7 +2109,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
         })
     if (!name) return
 
-    const parts: { conceptId: string; versionId: string | null }[] = []
+    const parts: FusionPart[] = []
     for (const n of chosen) {
       for (const p of partsOf(n)) {
         if (!parts.some((x) => x.conceptId === p.conceptId)) parts.push(p)
@@ -2867,6 +2903,10 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
             const next = chain[i + 1]
             if (next) groupNodes([segId, next.id])
           }}
+          /* Kolejność bierzemy taką, jaką podała Linia — czyli tę, którą
+             widać na ekranie. Mapa sortuje po położeniu kafelków, a w Linii
+             położenie nic nie znaczy. */
+          onFuseSelected={(ids) => groupNodes(ids)}
           onJumpToSource={onJumpToSource}
           onOpenConcept={onOpenConcept}
         />
