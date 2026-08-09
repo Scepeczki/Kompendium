@@ -28,9 +28,11 @@ const nameVal = await page.inputValue('.editor-name')
 console.log(`✓ autofokus i nadpisanie nazwy: "${nameVal}" ${nameVal === 'Granica ciągu' ? '' : '— BŁĄD'}`)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 
-// 2. akcje na liście: zmiana nazwy (własne okienko) i usuwanie
-await page.hover('.concept-item:has-text("Granica ciągu")')
-await page.click('.concept-item .folder-action[title*="Zmień nazwę"]')
+// 2. akcje na liście: zmiana nazwy i usuwanie — spod prawego przycisku
+// (piórka i krzyżyka pod kursorem już nie ma)
+await page.click('.concept-item:has-text("Granica ciągu")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu .tree-menu-item:has-text("Zmień nazwę")')
 await nazwij(page, 'Granica')
 await page.waitForSelector('.concept-item:has-text("Granica"):not(:has-text("ciągu"))')
 console.log('✓ zmiana nazwy z listy działa')
@@ -78,9 +80,10 @@ await page.keyboard.press('Escape')
 await page.waitForFunction(() => !document.querySelector('.settings-page'))
 console.log('✓ Escape zamyka ustawienia')
 
-// 7. usuwanie z listy
-await page.hover('.concept-item:has-text("Ciąg zbieżny")')
-await page.click('.concept-item:has-text("Ciąg zbieżny") .folder-action[title*="Usuń"]')
+// 7. usuwanie z listy — też spod prawego przycisku
+await page.click('.concept-item:has-text("Ciąg zbieżny")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu .tree-menu-item:has-text("Usuń")')
 await potwierdz(page)
 await page.waitForFunction(
   () => ![...document.querySelectorAll('.concept-name')].some((e) => e.textContent === 'Ciąg zbieżny'),

@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import { BUILTIN_BLOCK_TYPES, isSymmetricRelation } from './types'
+import { topoOrder } from './topo'
 import type {
   BlockType,
   BlockTypeDef,
@@ -8,6 +9,7 @@ import type {
   Folder,
   FolderKind,
   LearningPath,
+  PathNode,
   PdfDoc,
   Relation,
   RelationKind,
@@ -127,6 +129,47 @@ class KompendiumDB extends Dexie {
             return own && /^#[0-9a-f]{6}$/i.test(own) ? { ...t, color: own } : { ...t }
           }),
         )
+      })
+    // v8: strony należą do WERSJI, nie do pojęcia.
+    //
+    // Wersje mają być niezależne — mogą mieć różną liczbę stron. Dotąd strona
+    // wisiała przy pojęciu, więc usunięcie jej w jednej wersji zabierało ją
+    // wszystkim naraz. Migracja nie kasuje niczego: istniejąca strona zostaje
+    // przy wersji bieżącej, a każda pozostała wersja dostaje własną kopię z tą
+    // samą treścią. Nikt nic nie traci, a od teraz wersje idą swoimi drogami.
+    this.version(8)
+      .stores({
+        concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
+        versions: 'id, conceptId, [conceptId+version], createdAt',
+        pdfs: 'id, title, addedAt, folderId',
+        folders: 'id, kind, parentId, name',
+        paths: 'id, name, folderId, createdAt, updatedAt',
+        subpages: 'id, conceptId, versionId, [conceptId+versionId]',
+        relations: 'id, fromId, toId, kind',
+        blockTypes: 'id, order',
+      })
+      .upgrade(async (tx) => {
+        const concepts = (await tx.table('concepts').toArray()) as Concept[]
+        const versions = (await tx.table('versions').toArray()) as BlockVersion[]
+        const strony = (await tx.table('subpages').toArray()) as Subpage[]
+        const wgKlocka = new Map<string, BlockVersion[]>()
+        for (const v of versions) {
+          wgKlocka.set(v.conceptId, [...(wgKlocka.get(v.conceptId) ?? []), v])
+        }
+        const kopie: Subpage[] = []
+        for (const s of strony) {
+          const wersje = wgKlocka.get(s.conceptId) ?? []
+          const biezaca =
+            concepts.find((c) => c.id === s.conceptId)?.currentVersionId ?? wersje[0]?.id
+          if (!biezaca) continue
+          s.versionId = biezaca
+          for (const v of wersje) {
+            if (v.id === biezaca) continue
+            kopie.push({ ...s, id: uid(), versionId: v.id })
+          }
+        }
+        await tx.table('subpages').bulkPut(strony)
+        if (kopie.length) await tx.table('subpages').bulkAdd(kopie)
       })
   }
 }
@@ -293,7 +336,13 @@ export async function saveAsNewVersion(conceptId: string, label?: string): Promi
   const latest = versions.sort((a, b) => b.version - a.version)[0]
   const id = uid()
   const t = now()
-  await db.transaction('rw', db.concepts, db.versions, async () => {
+  // strony też są własnością wersji — nowa dostaje swoje kopie, żeby dalej
+  // można je było zmieniać i kasować bez ruszania poprzedniej
+  const strony = await db.subpages
+    .where('[conceptId+versionId]')
+    .equals([conceptId, latest.id])
+    .toArray()
+  await db.transaction('rw', db.concepts, db.versions, db.subpages, async () => {
     await db.versions.add({
       id,
       conceptId,
@@ -305,6 +354,11 @@ export async function saveAsNewVersion(conceptId: string, label?: string): Promi
       createdAt: t,
       updatedAt: t,
     })
+    if (strony.length) {
+      await db.subpages.bulkAdd(
+        strony.map((s) => ({ ...s, id: uid(), versionId: id, createdAt: t, updatedAt: t })),
+      )
+    }
     await db.concepts.update(conceptId, { currentVersionId: id, updatedAt: t })
   })
   return id
@@ -328,12 +382,15 @@ export async function reorderVersions(conceptId: string, orderedIds: string[]) {
 /** Usuwa wersję (nie ostatnią). Numeracja pozostałych jest scalana;
  *  jeśli usunięto wersję bieżącą, bieżącą staje się ostatnia z pozostałych. */
 export async function deleteVersion(versionId: string) {
-  await db.transaction('rw', db.concepts, db.versions, async () => {
+  await db.transaction('rw', db.concepts, db.versions, db.subpages, async () => {
     const v = await db.versions.get(versionId)
     if (!v) return
     const all = await db.versions.where('conceptId').equals(v.conceptId).toArray()
     if (all.length <= 1) return
     await db.versions.delete(versionId)
+    // strony należą do wersji, więc znikają razem z nią (użytkownik został
+    // o utracie treści zapytany przed wywołaniem)
+    await db.subpages.where('versionId').equals(versionId).delete()
     const rest = all
       .filter((x) => x.id !== versionId)
       .sort((a, b) => a.version - b.version)
@@ -408,7 +465,15 @@ export async function duplicateConcept(id: string): Promise<string | null> {
       })),
     )
     await db.subpages.bulkAdd(
-      pages.map((p) => ({ ...p, id: uid(), conceptId: newId, createdAt: t, updatedAt: t })),
+      pages.map((p) => ({
+        ...p,
+        id: uid(),
+        conceptId: newId,
+        // strona należy do wersji, więc musi trafić do NOWEJ wersji, nie starej
+        versionId: verMap.get(p.versionId) ?? p.versionId,
+        createdAt: t,
+        updatedAt: t,
+      })),
     )
     await db.concepts.add({
       ...src,
@@ -564,17 +629,25 @@ export async function flipRelation(id: string) {
 export const mainPageName = (c: { mainPageName?: string }) =>
   c.mainPageName?.trim() || 'Treść'
 
-/** Dodaje nową stronę (np. dowód) do pojęcia i zwraca jej id. */
-export async function createSubpage(conceptId: string, name: string): Promise<string> {
+/** Dodaje nową stronę (np. dowód) do KONKRETNEJ WERSJI klocka i zwraca jej id. */
+export async function createSubpage(
+  conceptId: string,
+  versionId: string,
+  name: string,
+): Promise<string> {
   const id = uid()
   const t = now()
-  const existing = await db.subpages.where('conceptId').equals(conceptId).toArray()
+  const existing = await db.subpages
+    .where('[conceptId+versionId]')
+    .equals([conceptId, versionId])
+    .toArray()
   const order = existing.length
     ? Math.max(...existing.map((s) => s.order ?? 0)) + 1
     : 1
   await db.subpages.add({
     id,
     conceptId,
+    versionId,
     name,
     content: '',
     order,
@@ -582,6 +655,54 @@ export async function createSubpage(conceptId: string, name: string): Promise<st
     updatedAt: t,
   })
   return id
+}
+
+/** Dokleja klocek na koniec ścieżki — tak samo, jakby go tam przeciągnąć
+ *  w widoku Linia. Dzięki temu w liście po lewej ścieżka zachowuje się jak
+ *  folder: upuszczasz na nią kafelek i on do niej wchodzi. */
+export async function addConceptToPath(pathId: string, conceptId: string) {
+  const p = await db.paths.get(pathId)
+  if (!p) return
+  const kolejnosc = topoOrder(p.nodes, p.edges)
+  const ostatni = kolejnosc[kolejnosc.length - 1] ?? null
+  const id = uid()
+  const wezel: PathNode = {
+    id,
+    kind: 'block',
+    conceptId,
+    versionId: null,
+    subpageId: null,
+    x: ostatni?.x ?? 120,
+    y: (ostatni?.y ?? -160) + 160,
+  }
+  await db.paths.update(pathId, {
+    nodes: [...p.nodes, wezel],
+    edges: ostatni ? [...p.edges, { id: uid(), from: ostatni.id, to: id }] : p.edges,
+    updatedAt: now(),
+  })
+}
+
+/** Ścieżki, w których ten klocek występuje (także jako składnik scalonego
+ *  bloku) — edytor klocka pokazuje, gdzie on właściwie pracuje. */
+export async function pathsWithConcept(conceptId: string): Promise<LearningPath[]> {
+  const wszystkie = await db.paths.toArray()
+  return wszystkie.filter((p) =>
+    p.nodes.some(
+      (n) =>
+        (n.kind === 'block' && n.conceptId === conceptId) ||
+        (n.kind === 'fusion' && n.parts.some((c) => c.conceptId === conceptId)),
+    ),
+  )
+}
+
+/** Nowa kolejność stron po przeciągnięciu. */
+export async function reorderSubpages(ids: string[]) {
+  const t = now()
+  await db.transaction('rw', db.subpages, async () => {
+    for (let i = 0; i < ids.length; i++) {
+      await db.subpages.update(ids[i], { order: i, updatedAt: t })
+    }
+  })
 }
 
 export async function renameSubpage(id: string, name: string) {

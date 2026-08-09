@@ -71,21 +71,25 @@ export function BlockShell({
   // Strony bierzemy z zewnątrz, jeśli ktoś je już ma. W długiej ścieżce
   // sześćdziesiąt bloków to było sześćdziesiąt osobnych zapytań do bazy,
   // odpalanych przy każdym przerysowaniu — i stąd zacięcia przy przewijaniu.
-  const pobrane =
-    useLiveQuery(
-      () =>
-        subsZewn
-          ? Promise.resolve([] as Subpage[])
-          : db.subpages.where('conceptId').equals(concept.id).sortBy('order'),
-      [concept.id, !!subsZewn],
-    ) ?? []
-  const subs = subsZewn ?? pobrane
-
   const typy = useBlockTypes()
   const sorted = [...versions].sort((a, b) => a.version - b.version)
   const version =
     sorted.find((v) => v.id === versionId) ??
     sorted.find((v) => v.id === concept.currentVersionId)
+
+  const pobrane =
+    useLiveQuery(
+      () =>
+        subsZewn || !version
+          ? Promise.resolve([] as Subpage[])
+          : db.subpages
+              .where('[conceptId+versionId]')
+              .equals([concept.id, version.id])
+              .sortBy('order'),
+      [concept.id, version?.id, !!subsZewn],
+    ) ?? []
+  // strony należą do wersji — z zewnątrz przychodzą wszystkie, więc odsiewamy
+  const subs = (subsZewn ?? pobrane).filter((s) => s.versionId === version?.id)
   const sub = subs.find((s) => s.id === subpageId) ?? null
   // Tekst napisany w ścieżce ma pierwszeństwo przed tekstem klocka.
   const content = trescWlasna ?? (sub ? sub.content : (version?.content ?? ''))

@@ -224,8 +224,14 @@ function BlockNode({ id, data, selected }: NodeProps) {
     : versions.find((v) => v.id === concept?.currentVersionId)
   const subs =
     useLiveQuery(
-      () => db.subpages.where('conceptId').equals(conceptId).toArray(),
-      [conceptId],
+      () =>
+        version
+          ? db.subpages
+              .where('[conceptId+versionId]')
+              .equals([conceptId, version.id])
+              .toArray()
+          : Promise.resolve([] as Subpage[]),
+      [conceptId, version?.id],
     ) ?? []
   const activeSub = subs.find((s) => s.id === subpageId) ?? null
 
@@ -277,6 +283,7 @@ function BlockNode({ id, data, selected }: NodeProps) {
       </select>
       <SubpageTabs
         conceptId={conceptId}
+        versionId={version?.id ?? ''}
         active={subpageId}
         onSelect={(sid) => ctx.updateData(id, { subpageId: sid })}
         hint="Strona pokazywana bazowo przy oglądaniu tej ścieżki"
@@ -1033,12 +1040,13 @@ function LinearView({
       if (lista) lista.push(v)
       else wersjeKlocka.set(v.conceptId, [v])
     }
+    // strony grupujemy po WERSJI — każda wersja ma własne
     const stronyKlocka = new Map<string, typeof subpages>()
     const strony = new Map(subpages.map((s) => [s.id, s]))
-    for (const s of subpages) {
-      const lista = stronyKlocka.get(s.conceptId)
+    for (const s of [...subpages].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
+      const lista = stronyKlocka.get(s.versionId)
       if (lista) lista.push(s)
-      else stronyKlocka.set(s.conceptId, [s])
+      else stronyKlocka.set(s.versionId, [s])
     }
     return { klocki, wersjeKlocka, stronyKlocka, strony }
   }, [concepts, versions, subpages])
@@ -1198,7 +1206,7 @@ function LinearView({
       wersje.find((v) => v.id === n.versionId) ??
       wersje.find((v) => v.id === c?.currentVersionId)
     const s = n.subpageId ? mapy.strony.get(n.subpageId) : undefined
-    const strony = (mapy.stronyKlocka.get(n.conceptId) ?? [])
+    const strony = (w ? (mapy.stronyKlocka.get(w.id) ?? []) : [])
       .map((x) => `${x.id}:${x.name}`)
       .join(',')
     return [
@@ -1257,7 +1265,7 @@ function LinearView({
           onOpenConcept={onOpenConcept}
           onJumpToSource={onJumpToSource}
           showOpen={false}
-          subsZewn={mapy.stronyKlocka.get(c.id) ?? []}
+          subsZewn={wersja ? (mapy.stronyKlocka.get(wersja.id) ?? []) : []}
           pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
           nazwaWlasna={n.nazwa}
           trescWlasna={wlasna}

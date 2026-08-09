@@ -96,8 +96,9 @@ export function GroupShell({
     const version =
       own.find((v) => v.id === p.versionId) ??
       own.find((v) => v.id === concept?.currentVersionId)
+    // strony należą do wersji, więc filtrujemy po niej, a nie po pojęciu
     const strony = subpages
-      .filter((s) => s.conceptId === p.conceptId)
+      .filter((s) => s.versionId === version?.id)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     const strona = strony.find((s) => s.id === p.subpageId) ?? null
     // treść składnika: najpierw ta napisana w ścieżce, potem wybrana strona

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  addConceptToPath,
   createConcept,
   createFolder,
   createPath,
@@ -585,28 +586,8 @@ export function Sidebar({
             </span>
           )}
           <span className="concept-name">{c.name}</span>
-          <span className="folder-actions">
-            <button
-              className="folder-action"
-              title="Zmień nazwę pojęcia"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleRenameConcept(c)
-              }}
-            >
-              ✎
-            </button>
-            <button
-              className="folder-action"
-              title="Usuń pojęcie (ze wszystkimi wersjami)"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDeleteConcept(c)
-              }}
-            >
-              ×
-            </button>
-          </span>
+          {/* bez piórka i krzyżyka pod kursorem — te same rzeczy siedzą pod
+              prawym przyciskiem, a tam mają nazwy zamiast znaczków */}
         </div>
       </li>
     )
@@ -665,28 +646,6 @@ export function Sidebar({
           )}
           <span className="folder-name">{f.name}</span>
           <span className="folder-count">{kids.length}</span>
-          <span className="folder-actions">
-            <button
-              className="folder-action"
-              title="Zmień nazwę"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleRenameFolder(f)
-              }}
-            >
-              ✎
-            </button>
-            <button
-              className="folder-action"
-              title="Usuń folder (zawartość przejdzie wyżej)"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDeleteFolder(f)
-              }}
-            >
-              ×
-            </button>
-          </span>
         </div>
         {isOpen && (
           <ul className="folder-children" data-folder={f.id}>
@@ -705,7 +664,13 @@ export function Sidebar({
         <div
           draggable
           className={`concept-item path-item ${zaznaczone.has(p.id) ? 'zaznaczony' : ''} ${p.id === openPathId ? 'selected' : ''} ${
-            hint === 'before' ? 'drop-before' : hint === 'after' ? 'drop-after' : ''
+            hint === 'before'
+              ? 'drop-before'
+              : hint === 'after'
+                ? 'drop-after'
+                : hint === 'into'
+                  ? 'drop-into'
+                  : ''
           }`}
           onClick={(e) => {
             if (!klikZaznaczeniem(e, p.id)) onOpenPath(p.id)
@@ -716,7 +681,11 @@ export function Sidebar({
             e.preventDefault()
             e.stopPropagation()
             const rect = e.currentTarget.getBoundingClientRect()
-            const pos = e.clientY - rect.top < rect.height / 2 ? 'before' : 'after'
+            const y = e.clientY - rect.top
+            // Ścieżka zachowuje się jak folder: upuszczony na jej ŚRODEK klocek
+            // wchodzi do niej, a przy krawędziach zmienia się kolejność listy.
+            const pos =
+              y < rect.height * 0.3 ? 'before' : y > rect.height * 0.7 ? 'after' : 'into'
             setDropHint({ id: p.id, pos })
             setRootHint(false)
           }}
@@ -725,10 +694,20 @@ export function Sidebar({
             e.preventDefault()
             e.stopPropagation()
             const pl = getDragData(e)
-            const pos =
-              dropHint?.id === p.id && dropHint.pos !== 'into' ? dropHint.pos : 'after'
+            const pos = dropHint?.id === p.id ? dropHint.pos : 'after'
             clearHints()
-            if (pl) dropRelative(pl, node, parentId, pos)
+            if (!pl) return
+            if (pos === 'into') {
+              const klocki =
+                pl.kind === 'concept'
+                  ? [pl.id]
+                  : pl.kind === 'wiele'
+                    ? pl.items.filter((i) => i.kind === 'concept').map((i) => i.id)
+                    : []
+              for (const id of klocki) addConceptToPath(p.id, id)
+              return
+            }
+            dropRelative(pl, node, parentId, pos)
           }}
         >
           <span
@@ -739,28 +718,6 @@ export function Sidebar({
             <Icon name={isIconName(p.icon) ? p.icon : 'sciezka'} size={1.05} />
           </span>
           <span className="concept-name">{p.name}</span>
-          <span className="folder-actions">
-            <button
-              className="folder-action"
-              title="Zmień nazwę ścieżki"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleRenamePath(p)
-              }}
-            >
-              ✎
-            </button>
-            <button
-              className="folder-action"
-              title="Usuń ścieżkę"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDeletePath(p)
-              }}
-            >
-              ×
-            </button>
-          </span>
         </div>
       </li>
     )

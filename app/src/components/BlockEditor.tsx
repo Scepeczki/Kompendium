@@ -14,7 +14,9 @@ import {
   deleteSubpage,
   deleteVersion,
   mainPageName,
+  pathsWithConcept,
   renameSubpage,
+  reorderSubpages,
   renameVersion,
   reorderVersions,
   saveAsNewVersion,
@@ -50,6 +52,8 @@ interface Props {
   onJumpToSource: (ref: SourceRef) => void
   /** Otwiera inny klocek (nawigacja wiki-linkiem / odwołaniem zwrotnym). */
   onOpenConcept: (id: string) => void
+  /** Otwiera ścieżkę — z paska „w ścieżkach". */
+  onOpenPath?: (id: string) => void
 }
 
 export function BlockEditor({
@@ -63,6 +67,7 @@ export function BlockEditor({
   onToggleSelecting,
   onJumpToSource,
   onOpenConcept,
+  onOpenPath,
 }: Props) {
   const typy = useBlockTypes()
   const dlg = useDialogs()
@@ -112,14 +117,23 @@ export function BlockEditor({
 
   const isCurrent = version.id === concept.currentVersionId
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
+  /** Ścieżki, w których ten klocek się pojawia (także w scalonych blokach). */
+  const wSciezkach = useLiveQuery(() => pathsWithConcept(concept.id), [concept.id]) ?? []
 
   // Strony klocka (dowody itp.) — dodatkowe treści obok głównej.
   const subs =
     useLiveQuery(
-      () => db.subpages.where('conceptId').equals(concept.id).sortBy('order'),
-      [concept.id],
+      () =>
+        db.subpages
+          .where('[conceptId+versionId]')
+          .equals([concept.id, version.id])
+          .sortBy('order'),
+      [concept.id, version.id],
     ) ?? []
   const [subId, setSubId] = useState<string | null>(null)
+  /** Przeciąganie stron: która jedzie i nad którą wisi. */
+  const ciagnietaRef = useRef<string | null>(null)
+  const [nadStrona, setNadStrona] = useState<string | null>(null)
   // zmiana klocka → wróć na główną treść (synchronizacja w trakcie renderu)
   const [prevConceptId, setPrevConceptId] = useState(concept.id)
   if (prevConceptId !== concept.id) {
@@ -136,7 +150,7 @@ export function BlockEditor({
       confirmLabel: 'Utwórz stronę',
     })
     if (!name) return
-    const id = await createSubpage(concept.id, name)
+    const id = await createSubpage(concept.id, version.id, name)
     setSubId(id)
   }
 
@@ -612,6 +626,24 @@ export function BlockEditor({
         </div>
       )}
 
+      {/* Gdzie ten klocek pracuje. Sama treść nie mówi, czy jest wpleciony
+          w jakiś skrypt, a to bywa ważniejsze niż to, co w nim napisano. */}
+      {wSciezkach.length > 0 && (
+        <div className="editor-sciezki">
+          <span className="editor-sciezki-tytul">W ścieżkach:</span>
+          {wSciezkach.map((p) => (
+            <button
+              key={p.id}
+              className="editor-sciezka"
+              title={onOpenPath ? `Otwórz ścieżkę „${p.name}"` : p.name}
+              onClick={() => onOpenPath?.(p.id)}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="editor-toolbar">
         <div className="toolbar-left">
           <button
@@ -758,9 +790,33 @@ export function BlockEditor({
           {subs.map((s) => (
             <div
               key={s.id}
-              className={`subpage-item ${activeSub?.id === s.id ? 'active' : ''}`}
+              className={`subpage-item ${activeSub?.id === s.id ? 'active' : ''} ${
+                nadStrona === s.id ? 'nad' : ''
+              }`}
               onClick={() => setSubId(s.id)}
-              title={`Strona „${s.name}"`}
+              title={`Strona „${s.name}" — przeciągnij, aby zmienić kolejność`}
+              draggable
+              onDragStart={(e) => {
+                ciagnietaRef.current = s.id
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', s.id)
+              }}
+              onDragOver={(e) => {
+                if (!ciagnietaRef.current || ciagnietaRef.current === s.id) return
+                e.preventDefault()
+                setNadStrona(s.id)
+              }}
+              onDragLeave={() => setNadStrona((x) => (x === s.id ? null : x))}
+              onDrop={(e) => {
+                e.preventDefault()
+                setNadStrona(null)
+                const skad = ciagnietaRef.current
+                ciagnietaRef.current = null
+                if (!skad || skad === s.id) return
+                const kolejnosc = subs.map((x) => x.id).filter((x) => x !== skad)
+                kolejnosc.splice(kolejnosc.indexOf(s.id), 0, skad)
+                reorderSubpages(kolejnosc)
+              }}
             >
               <span className="subpage-name">{s.name}</span>
               {activeSub?.id === s.id && (

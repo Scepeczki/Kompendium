@@ -529,9 +529,45 @@ select.type-select {
 .concept-list {
   list-style: none;
   margin: 0;
-  padding: 6px;
+  /* Zapas u dołu: pusty pas, w który da się trafić prawym przyciskiem, żeby
+     zrobić nowy kafelek. Bez niego przy pełnej liście nie było gdzie kliknąć. */
+  padding: 6px 6px 90px;
   overflow-y: auto;
   flex: 1;
+}
+
+/* ---- paski przewijania w naszej stylistyce ----
+   Systemowy pasek to szara belka z innego programu. Ten jest cienki, w kolorze
+   linii i pokazuje się dopiero, gdy jest co przewijać. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+  /* obwódka z tła robi wrażenie cieńszego paska, bez utraty pola trafienia */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ink) 35%, var(--line-strong));
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .concept-empty {
@@ -3598,6 +3634,42 @@ button.version-pill.new {
 .block-pick-etykieta {
   font-weight: 600;
   color: var(--muted);
+}
+
+/* pasek „w ścieżkach" nad edytorem — gdzie ten klocek właściwie pracuje */
+.editor-sciezki {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-2);
+}
+
+.editor-sciezki-tytul {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.editor-sciezka {
+  font: inherit;
+  padding: 1px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.editor-sciezka:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* strona, nad którą właśnie wisi przeciągana — kreska pokazuje, gdzie wpadnie */
+.subpage-item.nad {
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 /* Otulina pola w edytorze klocka — jest tylko po to, żeby złapać wejście

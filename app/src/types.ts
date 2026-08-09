@@ -223,6 +223,13 @@ export interface Relation {
 export interface Subpage {
   id: string
   conceptId: string
+  /** Do której WERSJI klocka należy ta strona.
+   *
+   *  Wersje są niezależne: mogą mieć różną liczbę stron i różne źródła. Do
+   *  schematu v8 strony wisiały przy samym pojęciu, więc usunięcie strony
+   *  w jednej wersji zabierało ją wszystkim — i to był błąd. Migracja dała
+   *  każdej wersji własne kopie, żeby nic nie zniknęło. */
+  versionId: string
   /** Np. „Dowód", „Dowód (indukcja)", „Szkic". */
   name: string
   /** Markdown + LaTeX. */

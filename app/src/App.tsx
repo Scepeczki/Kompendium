@@ -208,6 +208,7 @@ function Widok() {
           onToggleSelecting={toggleSelecting}
           onJumpToSource={jumpToSource}
           onOpenConcept={selectConcept}
+          onOpenPath={openPath}
         />
       ) : (
         <section className="editor editor-welcome">

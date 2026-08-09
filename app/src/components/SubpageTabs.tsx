@@ -3,6 +3,8 @@ import { db, mainPageName } from '../db'
 
 interface Props {
   conceptId: string
+  /** Strony należą do wersji — bez tego kafelek pokazywałby cudze. */
+  versionId: string
   /** Id aktywnej strony (null = główna treść). */
   active: string | null
   onSelect: (id: string | null) => void
@@ -12,11 +14,15 @@ interface Props {
 
 /** Zakładki stron klocka (Treść + dowody itp.) — pokazują się tylko, gdy
  *  klocek ma dodatkowe strony. Używane w kafelkach ścieżek i w Skrypcie. */
-export function SubpageTabs({ conceptId, active, onSelect, hint }: Props) {
+export function SubpageTabs({ conceptId, versionId, active, onSelect, hint }: Props) {
   const subs =
     useLiveQuery(
-      () => db.subpages.where('conceptId').equals(conceptId).sortBy('order'),
-      [conceptId],
+      () =>
+        db.subpages
+          .where('[conceptId+versionId]')
+          .equals([conceptId, versionId])
+          .sortBy('order'),
+      [conceptId, versionId],
     ) ?? []
   const concept = useLiveQuery(() => db.concepts.get(conceptId), [conceptId])
   const activeSub = subs.find((s) => s.id === active) ?? null
