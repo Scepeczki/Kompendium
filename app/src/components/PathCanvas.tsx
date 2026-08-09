@@ -584,7 +584,14 @@ function LinearView({
       null
     setAktywny(wybrany)
   }, [aktywnyId, ileEdytorow])
-  const [hint, setHint] = useState<{ id: string; pos: 'before' | 'after' } | null>(null)
+  /** Gdzie wyląduje przeciągany kafelek — numer SZCZELINY między kafelkami,
+   *  od 0 (przed pierwszym) do `ordered.length` (za ostatnim).
+   *
+   *  Wcześniej trzymaliśmy to jako „pod kafelkiem X" albo „nad kafelkiem Y".
+   *  Jedna i ta sama szczelina miała więc dwa opisy, a każdy z nich rysował
+   *  kreskę o kilka pikseli gdzie indziej — przy najlżejszym ruchu myszy
+   *  kreska drgała i wyglądało to na dwa miejsca zamiast jednego. */
+  const [szczelina, setSzczelina] = useState<number | null>(null)
   const [endHint, setEndHint] = useState(false)
   /** Zaznaczone segmenty (Ctrl dokłada, Shift bierze zakres). Przeciągnięcie
    *  uchwytu któregokolwiek z nich przenosi całą grupę. */
@@ -738,10 +745,16 @@ function LinearView({
     beforeId: pos === 'before' ? ordered[i].id : (ordered[i + 1]?.id ?? null),
   })
 
+  /** Sąsiedzi szczeliny nr s: to, co nad nią, i to, co pod nią. */
+  const sasiedziSzczeliny = (s: number) => ({
+    afterId: ordered[s - 1]?.id ?? null,
+    beforeId: ordered[s]?.id ?? null,
+  })
+
   const handleDrop = (e: React.DragEvent, afterId: string | null, beforeId: string | null) => {
     e.preventDefault()
     e.stopPropagation()
-    setHint(null)
+    setSzczelina(null)
     setEndHint(false)
     const seg = e.dataTransfer.getData(SEG_MIME)
     if (seg) {
@@ -1009,9 +1022,25 @@ function LinearView({
             <RichToolbar editor={aktywny} />
           </div>
         )}
-      <div className="linear-column">
+      {/* Kreskę gasimy dopiero przy wyjściu z całej kolumny. Gdyby gasił ją
+          każdy kafelek z osobna, migałaby przy przejeździe między nimi. */}
+      <div
+        className="linear-column"
+        onDragLeave={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget as HTMLElement | null)) return
+          setSzczelina(null)
+        }}
+      >
         {ordered.map((n, i) => {
-          const h = hint?.id === n.id ? hint.pos : null
+          /* Kreskę rysuje zawsze GÓRNA krawędź kafelka pod szczeliną — jedna
+             szczelina, jedno miejsce. Ostatnia szczelina nie ma pod sobą
+             kafelka, więc siada na dolnej krawędzi ostatniego. */
+          const h =
+            szczelina === i
+              ? 'before'
+              : szczelina === ordered.length && i === ordered.length - 1
+                ? 'after'
+                : null
           /** Rysujemy w całości to, co blisko ekranu — a poza tym zawsze
            *  rozdziały (spis treści musi mieć do czego skakać), komentarze
            *  boczne (są malutkie) i kafelek z żywym polem tekstowym. */
@@ -1051,14 +1080,12 @@ function LinearView({
                 e.preventDefault()
                 e.stopPropagation()
                 const r = e.currentTarget.getBoundingClientRect()
-                const pos = e.clientY - r.top < r.height / 2 ? 'before' : 'after'
-                setHint({ id: n.id, pos })
+                setSzczelina(e.clientY - r.top < r.height / 2 ? i : i + 1)
                 setEndHint(false)
               }}
-              onDragLeave={() => setHint(null)}
               onDrop={(e) => {
-                const pos = hint?.id === n.id ? hint.pos : 'after'
-                const { afterId, beforeId } = neighbors(i, pos)
+                const s = szczelina ?? i + 1
+                const { afterId, beforeId } = sasiedziSzczeliny(s)
                 handleDrop(e, afterId, beforeId)
               }}
               onContextMenu={(e) => {
@@ -1146,7 +1173,7 @@ function LinearView({
             if (!isOurs(e)) return
             e.preventDefault()
             setEndHint(true)
-            setHint(null)
+            setSzczelina(null)
           }}
           onDragLeave={() => setEndHint(false)}
           onDrop={(e) => handleDrop(e, last?.id ?? null, null)}
