@@ -196,54 +196,45 @@ export function NameDialog({
 
         {picking && (
           <div className="icon-picker">
-            {/* Domyślny znaczek pokazujemy takim, jaki naprawdę stoi w drzewie:
-                dla kafelka to plakietka rodzaju, dla folderu i ścieżki — ich
-                własny znaczek. */}
-            {/* Własne litery: trzy znaki na barwnym tle. Bywa, że żaden
-                gotowy znaczek nie pasuje, a skrót w rodzaju „ZFC" mówi
-                wszystko na jeden rzut oka. */}
-            <label className="wlasne-litery">
-              <span
-                className="type-mini"
-                style={
-                  { '--block-color': barwa ?? plakietka?.kolor ?? '#8d8677' } as React.CSSProperties
+            {/* Jeden wiersz na plakietkę: po lewej ta domyślna (rodzaju albo
+                znaczek roli), po prawej pole na własne litery. To dwie strony
+                tej samej rzeczy, więc stoją obok siebie, a nie osobno. */}
+            <div className="plakietka-wiersz">
+              <button
+                className={`plakietka-domyslna ${pick || wlasneLitery ? '' : 'active'}`}
+                title={
+                  plakietka
+                    ? 'Wróć do plakietki rodzaju'
+                    : 'Wróć do domyślnego znaczka'
                 }
+                onClick={() => {
+                  setPick(undefined)
+                  setLitery('')
+                }}
               >
-                {wlasneLitery || '···'}
-              </span>
+                {plakietka ? (
+                  <span
+                    className="type-mini"
+                    style={{ '--block-color': barwa ?? plakietka.kolor } as React.CSSProperties}
+                  >
+                    {plakietka.skrot}
+                  </span>
+                ) : (
+                  <Icon name={fallbackIcon} size={1} />
+                )}
+              </button>
               <input
-                className="input"
+                className="input plakietka-litery"
                 value={litery}
                 maxLength={3}
-                placeholder="Własne litery (do trzech)"
+                placeholder="albo własne litery (do trzech)"
                 spellCheck={false}
                 onChange={(e) => {
                   setLitery(e.target.value)
                   if (e.target.value.trim()) setPick(undefined)
                 }}
               />
-            </label>
-
-            <button
-              className={`icon-picker-clear ${pick || wlasneLitery ? '' : 'active'}`}
-              onClick={() => {
-                setPick(undefined)
-                setLitery('')
-                setPicking(false)
-              }}
-            >
-              {plakietka ? (
-                <span
-                  className="type-mini"
-                  style={{ '--block-color': barwa ?? plakietka.kolor } as React.CSSProperties}
-                >
-                  {plakietka.skrot}
-                </span>
-              ) : (
-                <Icon name={fallbackIcon} size={1} />
-              )}
-              {plakietka ? 'Plakietka rodzaju' : 'Bez własnego znaczka'}
-            </button>
+            </div>
 
             {/* barwa osobno: dotyczy też domyślnego znaczka, więc siedzi
                 nad siatką, a nie w niej */}

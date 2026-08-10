@@ -3786,25 +3786,42 @@ button.version-pill.new {
   border: 1px solid var(--line-strong);
 }
 
-/* własne litery na plakietce — obok podglądu, jak wyjdą */
-.wlasne-litery {
+/* plakietka: domyślna po lewej, własne litery po prawej — jeden wiersz,
+   bo to dwie strony tej samej rzeczy */
+.plakietka-wiersz {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  align-items: stretch;
+  gap: 6px;
+  margin: 10px 0 8px;
 }
 
-.wlasne-litery .input {
+.plakietka-domyslna {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: none;
+  cursor: pointer;
+}
+
+.plakietka-domyslna:hover {
+  border-color: var(--line-strong);
+}
+
+.plakietka-domyslna.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.plakietka-litery {
   flex: 1;
   min-width: 0;
   font-size: var(--fs-2);
   padding: 5px 8px;
-}
-
-.wlasne-litery .type-mini {
-  flex: none;
-  min-width: 34px;
-  justify-content: center;
 }
 
 /* plakietka rodzaju w okienku nazwy — ten sam wygląd co w drzewie */
