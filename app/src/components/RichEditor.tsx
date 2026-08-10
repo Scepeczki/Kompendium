@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
-import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import Paragraph from '@tiptap/extension-paragraph'
 import { Markdown } from 'tiptap-markdown'
@@ -227,6 +227,48 @@ const SizeRender = Extension.create({
           decorations(state) {
             return DecorationSet.create(state.doc, build(state.doc))
           },
+        },
+      }),
+    ]
+  },
+})
+
+/** Zaznaczenie widoczne także wtedy, gdy kursor wyszedł z pola.
+ *
+ *  Przeglądarka pokazuje podświetlenie tylko w elemencie, który ma kursor.
+ *  Klikasz więc w pole rozmiaru albo w przycisk paska — i zaznaczony fragment
+ *  przestaje być widoczny, chociaż wciąż jest zaznaczony i to jego dotyczy
+ *  to, co za chwilę zrobisz. Rysujemy je wtedy sami. */
+const ZamrozoneZaznaczenie = Extension.create({
+  name: 'zamrozoneZaznaczenie',
+  addProseMirrorPlugins() {
+    let widok: EditorView | null = null
+    return [
+      new Plugin({
+        key: new PluginKey('zamrozoneZaznaczenie'),
+        props: {
+          decorations(state) {
+            const { from, to, empty } = state.selection
+            if (empty || !widok || widok.hasFocus()) return null
+            return DecorationSet.create(state.doc, [
+              Decoration.inline(from, to, { class: 'sel-zamrozone' }),
+            ])
+          },
+        },
+        view(v) {
+          widok = v
+          // samo wyjście kursora nie jest zmianą stanu, więc trzeba poprosić
+          // o przerysowanie dekoracji
+          const odswiez = () => v.dispatch(v.state.tr.setMeta('zamrozone', Date.now()))
+          v.dom.addEventListener('blur', odswiez)
+          v.dom.addEventListener('focus', odswiez)
+          return {
+            destroy() {
+              v.dom.removeEventListener('blur', odswiez)
+              v.dom.removeEventListener('focus', odswiez)
+              widok = null
+            },
+          }
         },
       }),
     ]
@@ -542,6 +584,7 @@ export function RichEditor({
       MathRender,
       IndentRender,
       SizeRender,
+      ZamrozoneZaznaczenie,
       Markdown.configure({ html: false, linkify: false, breaks: false }),
     ],
     // puste linijki wpisane w trybie kodu też mają być widoczne w edytorze

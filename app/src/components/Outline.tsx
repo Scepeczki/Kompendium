@@ -4,11 +4,22 @@ export interface OutlineItem {
   /** id elementu nagłówka w dokumencie (do przewijania). */
   domId: string
   text: string
-  level: 1 | 2 | 3
+  /** 1–3 = rozdział i podrozdziały; 'kafelek' = pozycja pod rozdziałem. */
+  level: 1 | 2 | 3 | 'kafelek'
+  /** Plakietka rodzaju przy kafelku (DEF, TW…). */
+  znak?: string
+  /** Kolor rodzaju — żeby definicje odróżniały się od twierdzeń wzrokiem. */
+  barwa?: string
 }
 
 /** Identyfikator elementu nagłówka — wspólny dla spisu i samego dokumentu. */
 export const outlineId = (nodeId: string) => `outline-${nodeId}`
+
+/** Element, do którego prowadzi pozycja spisu. Rozdziały mają własne `id`,
+ *  a kafelki znajdujemy po znaczniku segmentu — nie mają nagłówka w treści. */
+const znajdz = (domId: string): HTMLElement | null =>
+  document.getElementById(domId) ??
+  (document.querySelector(`[data-seg="${domId}"]`) as HTMLElement | null)
 
 /** Najbliższy przewijany rodzic elementu (widok Skryptu albo Linii). */
 function scrollParent(el: HTMLElement): HTMLElement | null {
@@ -33,6 +44,8 @@ export function Outline({ items }: Props) {
   }, [open])
 
   const [active, setActive] = useState<string | null>(null)
+  /** Rozwinięte rozdziały — pod nimi widać kafelki. */
+  const [rozwiniete, setRozwiniete] = useState<Set<string>>(new Set())
   const visible = useRef(new Set<string>())
 
   // Podświetlenie bieżącego rozdziału: śledzimy, które nagłówki są w oknie,
@@ -40,7 +53,7 @@ export function Outline({ items }: Props) {
   useEffect(() => {
     if (!open || items.length === 0) return
     visible.current.clear()
-    const anchor = document.getElementById(items[0].domId)
+    const anchor = znajdz(items[0].domId)
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
@@ -57,8 +70,11 @@ export function Outline({ items }: Props) {
         threshold: 0,
       },
     )
+    // podświetlamy tylko rozdziały — obserwowanie każdego kafelka w długiej
+    // ścieżce byłoby setkami obserwacji bez pożytku
     for (const it of items) {
-      const el = document.getElementById(it.domId)
+      if (it.level === 'kafelek') continue
+      const el = znajdz(it.domId)
       if (el) io.observe(el)
     }
     return () => io.disconnect()
@@ -68,7 +84,7 @@ export function Outline({ items }: Props) {
    *  (wzory, podglądy stron) dorasta już po przewinięciu i zepchnęłaby cel
    *  w dół. Przypinanie kończy się, gdy użytkownik sam przewinie. */
   const goTo = (domId: string) => {
-    const first = document.getElementById(domId)
+    const first = znajdz(domId)
     if (!first) return
     const scroller = scrollParent(first)
     if (!scroller) {
@@ -83,7 +99,7 @@ export function Outline({ items }: Props) {
     scroller.addEventListener('touchstart', cancel, { passive: true })
 
     const align = () => {
-      const el = document.getElementById(domId)
+      const el = znajdz(domId)
       if (!el) return
       const delta =
         el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12
@@ -103,6 +119,25 @@ export function Outline({ items }: Props) {
     }
     window.setTimeout(tick, 60)
   }
+
+  /** Rozdział, pod którym stoi pozycja o tym numerze. */
+  const rozdzialNad = (i: number) => {
+    for (let j = i - 1; j >= 0; j--) if (items[j].level !== 'kafelek') return items[j].domId
+    return ''
+  }
+  /** Ile kafelków siedzi pod rozdziałem o tym numerze. */
+  const ileDzieci = (i: number) => {
+    let n = 0
+    for (let j = i + 1; j < items.length && items[j].level === 'kafelek'; j++) n++
+    return n
+  }
+  const przelacz = (domId: string) =>
+    setRozwiniete((prev) => {
+      const next = new Set(prev)
+      if (next.has(domId)) next.delete(domId)
+      else next.add(domId)
+      return next
+    })
 
   if (items.length === 0) return null
 
@@ -131,19 +166,76 @@ export function Outline({ items }: Props) {
         </button>
       </div>
       <ul className="outline-list">
-        {items.map((it) => (
-          <li key={it.domId}>
-            <button
-              className={`outline-item level-${it.level} ${
-                active === it.domId ? 'active' : ''
-              }`}
-              title={it.text}
-              onClick={() => goTo(it.domId)}
-            >
-              {it.text || '(bez nazwy)'}
-            </button>
+        {/* Kafelki stojące przed pierwszym rozdziałem też muszą być osiągalne —
+            inaczej ścieżka bez rozdziałów miałaby pusty spis. */}
+        {items[0]?.level === 'kafelek' && (
+          <li>
+            <div className="outline-wiersz">
+              <button
+                className={`outline-chev ${rozwiniete.has('') ? 'open' : ''}`}
+                title={rozwiniete.has('') ? 'Zwiń' : `Pokaż, co jest na początku (${ileDzieci(-1)})`}
+                onClick={() => przelacz('')}
+              >
+                ▸
+              </button>
+              <span className="outline-item level-1 outline-poczatek">Początek</span>
+            </div>
           </li>
-        ))}
+        )}
+        {items.map((it, i) => {
+          // Kafelki chowają się pod swoim rozdziałem. Spis ma prowadzić do
+          // konkretnej definicji czy twierdzenia, a nie tylko do rozdziału —
+          // ale nierozwinięty ma zostać krótką listą rozdziałów.
+          if (it.level === 'kafelek' && !rozwiniete.has(rozdzialNad(i))) return null
+          if (it.level === 'kafelek') {
+            return (
+              <li key={it.domId}>
+                <button
+                  className={`outline-item outline-kafelek ${
+                    active === it.domId ? 'active' : ''
+                  }`}
+                  title={it.text}
+                  onClick={() => goTo(it.domId)}
+                >
+                  {it.znak && (
+                    <span className="outline-znak" style={{ color: it.barwa }}>
+                      {it.znak}
+                    </span>
+                  )}
+                  <span className="outline-tekst">{it.text || '(bez nazwy)'}</span>
+                </button>
+              </li>
+            )
+          }
+          const dzieci = ileDzieci(i)
+          const otwarty = rozwiniete.has(it.domId)
+          return (
+            <li key={it.domId}>
+              <div className="outline-wiersz">
+                {dzieci > 0 ? (
+                  <button
+                    className={`outline-chev ${otwarty ? 'open' : ''}`}
+                    title={otwarty ? 'Zwiń' : `Pokaż, co jest w środku (${dzieci})`}
+                    onClick={() => przelacz(it.domId)}
+                  >
+                    ▸
+                  </button>
+                ) : (
+                  <span className="outline-chev pusty" />
+                )}
+                <button
+                  className={`outline-item level-${it.level} ${
+                    active === it.domId ? 'active' : ''
+                  }`}
+                  title={it.text}
+                  onClick={() => goTo(it.domId)}
+                >
+                  {it.text || '(bez nazwy)'}
+                </button>
+              </div>
+            </li>
+          )
+        })}
       </ul>
     </nav>
   )

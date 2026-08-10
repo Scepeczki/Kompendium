@@ -128,6 +128,50 @@ function Widok() {
     setShowSettings(false)
   }
 
+  /** Zakotwiczona ścieżka: ta, do której chce się wracać.
+   *
+   *  Pracuje się przy niej długo — zaglądasz do klocka, do innej ścieżki, do
+   *  PDF-u — i za każdym razem trzeba było jej szukać na liście. Kotwica
+   *  trzyma jedną ścieżkę pod ręką: przycisk w lewym górnym rogu i Alt+Z. */
+  const [zakotwiczona, setZakotwiczona] = useState<string | null>(
+    () => localStorage.getItem('ui.kotwica'),
+  )
+  useEffect(() => {
+    if (zakotwiczona) localStorage.setItem('ui.kotwica', zakotwiczona)
+    else localStorage.removeItem('ui.kotwica')
+  }, [zakotwiczona])
+  /** Wynik NIESIE ZE SOBĄ id, dla którego powstał.
+   *
+   *  Żywe zapytanie oddaje przez chwilę poprzednią odpowiedź, a ta mówiła
+   *  „takiej ścieżki nie ma" (bo kotwicy jeszcze nie było). Bez sprawdzenia,
+   *  czego dotyczy, kotwica zdejmowałaby się sama w ułamku sekundy po
+   *  założeniu. `undefined` = jeszcze nie wiadomo, `null` = naprawdę nie ma. */
+  const kotwicaWynik = useLiveQuery(
+    async () => ({
+      id: zakotwiczona,
+      sciezka: zakotwiczona ? ((await db.paths.get(zakotwiczona)) ?? null) : null,
+    }),
+    [zakotwiczona],
+  )
+  const kotwicaSciezka =
+    kotwicaWynik && kotwicaWynik.id === zakotwiczona ? kotwicaWynik.sciezka : undefined
+  // ścieżka mogła zostać usunięta — wtedy kotwica nie ma czego trzymać
+  useEffect(() => {
+    if (zakotwiczona && kotwicaSciezka === null) setZakotwiczona(null)
+  }, [zakotwiczona, kotwicaSciezka])
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.key !== 'z' && e.key !== 'Z')) return
+      if (!zakotwiczona) return
+      e.preventDefault()
+      openPath(zakotwiczona)
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zakotwiczona])
+
   const closeConcept = () => {
     setSelectedId(null)
     setShownVersionId(null)
@@ -190,6 +234,18 @@ function Widok() {
       />
       <Splitter onDrag={(dx) => setSidebarW((w) => clamp(w + dx, 200, 480))} />
 
+      {/* Kotwica: droga powrotna do ścieżki, przy której się pracuje.
+          Pokazuje się tylko wtedy, gdy jesteśmy gdzie indziej. */}
+      {kotwicaSciezka && openPathId !== kotwicaSciezka.id && (
+        <button
+          className="kotwica-powrot"
+          title={`Wróć do ścieżki „${kotwicaSciezka.name}" (Alt+Z)`}
+          onClick={() => openPath(kotwicaSciezka.id)}
+        >
+          ⚓ <span className="kotwica-nazwa">{kotwicaSciezka.name}</span>
+        </button>
+      )}
+
       {showSettings ? (
         <SettingsPage onClose={() => setShowSettings(false)} />
       ) : showGraph ? (
@@ -198,6 +254,10 @@ function Widok() {
         <PathCanvas
           pathId={openPathId}
           celKlocek={celKlocka}
+          zakotwiczona={zakotwiczona === openPathId}
+          onZakotwicz={() =>
+            setZakotwiczona((z) => (z === openPathId ? null : openPathId))
+          }
           onClose={() => setOpenPathId(null)}
           onOpenConcept={selectConcept}
           onJumpToSource={jumpToSource}

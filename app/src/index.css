@@ -3671,6 +3671,106 @@ button.version-pill.new {
   color: var(--muted);
 }
 
+/* Kotwica: droga powrotna do ścieżki, przy której się pracuje. Siedzi nad
+   wszystkim w lewym górnym rogu, więc jest zawsze pod ręką. */
+.kotwica-powrot {
+  position: fixed;
+  left: 12px;
+  top: 10px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  font: inherit;
+  font-size: var(--fs-2);
+  padding: 4px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  box-shadow: 0 2px 8px rgba(43, 38, 32, 0.12);
+  cursor: pointer;
+}
+
+.kotwica-powrot:hover {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.kotwica-nazwa {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* spis treści: rozdział z rozwinięciem, a pod nim jego kafelki */
+.outline-wiersz {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.outline-chev {
+  flex: none;
+  width: 16px;
+  font: inherit;
+  font-size: var(--fs-2);
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.outline-chev.open {
+  transform: rotate(90deg);
+}
+
+.outline-chev.pusty {
+  cursor: default;
+}
+
+.outline-wiersz .outline-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.outline-poczatek {
+  color: var(--muted);
+  cursor: default;
+}
+
+.outline-kafelek {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-left: 34px;
+  font-size: var(--fs-2);
+  color: var(--ink-soft);
+}
+
+.outline-znak {
+  flex: none;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.outline-tekst {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Zaznaczenie, gdy kursor wyszedł z pola (np. do pola rozmiaru albo na pasek).
+   Przeglądarka rysuje podświetlenie tylko tam, gdzie stoi kursor — a przecież
+   to zaznaczenie wciąż obowiązuje. */
+.sel-zamrozone {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: 2px;
+}
+
 /* pasek „w ścieżkach" nad edytorem — gdzie ten klocek właściwie pracuje */
 .editor-sciezki {
   display: flex;

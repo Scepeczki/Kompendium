@@ -435,6 +435,8 @@ interface LinearViewProps {
   onFuseSelected: (ids: string[]) => void
   /** Klocek, do którego trzeba podskoczyć po otwarciu ścieżki. */
   celKlocek?: string | null
+  /** Do zapamiętania miejsca czytania — osobno dla każdej ścieżki. */
+  pathId: string
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 
@@ -791,6 +793,7 @@ function LinearView({
   onGroupWithNext,
   onFuseSelected,
   celKlocek,
+  pathId,
   onJumpToSource,
   onOpenConcept,
   onRenameSegment,
@@ -805,6 +808,8 @@ function LinearView({
 }: LinearViewProps) {
   /** Pole, w którym stoi kursor — na nim działa wspólny pasek narzędzi. */
   const [aktywny, setAktywny] = useState<Editor | null>(null)
+  /** Rodzaje kafelków — do plakietek w spisie treści. */
+  const typy = useBlockTypes()
   /** Okno: rysujemy tylko kafelki blisko ekranu, reszta to same puste miejsca.
    *
    *  Bez tego każde przerysowanie Linii tworzyło tyle elementów, ile ścieżka ma
@@ -886,6 +891,49 @@ function LinearView({
     },
     [obserwator],
   )
+  /** Ścieżka pamięta, gdzie się skończyło czytanie.
+   *
+   *  Wracasz do niej po dniu i jesteś tam, gdzie byłeś — a nie na początku,
+   *  z setką kafelków do przewinięcia. Zapisujemy w pamięci przeglądarki, bo
+   *  to sprawa tego komputera, a nie treści ścieżki. */
+  const kluczMiejsca = `ui.miejsceWSciezce.${pathId}`
+  const widokRef = useRef<HTMLDivElement | null>(null)
+  const przywroconoRef = useRef(false)
+  useEffect(() => {
+    const el = widokRef.current
+    if (!el || przywroconoRef.current || celKlocek) return
+    const zapisane = Number(localStorage.getItem(kluczMiejsca) ?? '0')
+    if (!zapisane) {
+      przywroconoRef.current = true
+      return
+    }
+    // Kafelki poza oknem mają dopiero zgadywaną wysokość, więc pierwszy skok
+    // bywa niecelny — poprawiamy go jeszcze przez chwilę, aż treść się ułoży.
+    let n = 0
+    const skocz = () => {
+      el.scrollTop = zapisane
+      if (++n < 12) window.setTimeout(skocz, 90)
+      else przywroconoRef.current = true
+    }
+    skocz()
+  }, [kluczMiejsca, celKlocek, ordered.length])
+  useEffect(() => {
+    const el = widokRef.current
+    if (!el) return
+    let t = 0
+    const zapamietaj = () => {
+      window.clearTimeout(t)
+      t = window.setTimeout(() => {
+        if (przywroconoRef.current) localStorage.setItem(kluczMiejsca, String(el.scrollTop))
+      }, 300)
+    }
+    el.addEventListener('scroll', zapamietaj, { passive: true })
+    return () => {
+      el.removeEventListener('scroll', zapamietaj)
+      window.clearTimeout(t)
+    }
+  }, [kluczMiejsca])
+
   /** Skok do wskazanego kafelka: rysujemy go (choćby był daleko poza oknem),
    *  przewijamy na środek i na moment podświetlamy, żeby dało się go znaleźć
    *  wzrokiem w długim skrypcie. */
@@ -1433,13 +1481,38 @@ function LinearView({
   }
 
   const last = ordered[ordered.length - 1] ?? null
+  /** Spis treści: rozdziały, a pod nimi to, co w nich stoi — definicje,
+   *  twierdzenia, przykłady. Rozdział bez rozwinięcia wygląda jak dotąd,
+   *  a rozwinięty pozwala skoczyć wprost do konkretnego kafelka. */
   const outline: OutlineItem[] = ordered
-    .filter((n) => n.kind === 'heading')
-    .map((n) => ({ domId: outlineId(n.id), text: n.text, level: n.level }))
+    .filter((n) => n.kind === 'heading' || n.kind === 'block' || n.kind === 'fusion')
+    .map((n) => {
+      if (n.kind === 'heading') {
+        return { domId: outlineId(n.id), text: n.text, level: n.level }
+      }
+      if (n.kind === 'fusion') {
+        return {
+          domId: n.id,
+          text: n.name,
+          level: 'kafelek' as const,
+          znak: n.type ? typy.short(n.type) : '⧉',
+          barwa: n.type ? typy.def(n.type).color : undefined,
+        }
+      }
+      const c = mapy.klocki.get(n.conceptId)
+      return {
+        domId: n.id,
+        text: n.nazwa ?? c?.name ?? '(usunięty klocek)',
+        level: 'kafelek' as const,
+        znak: c ? typy.short(c.type) : undefined,
+        barwa: c ? typy.def(c.type).color : undefined,
+      }
+    })
 
   return (
     <div
       className="linear-view"
+      ref={widokRef}
       /* Kliknięcie obok kolumny gasi zaznaczenie — tak samo jak wszędzie
          indziej. Bez tego zaznaczenie zostawało do następnego Ctrl+kliku
          i nie było wiadomo, czego dotyczy „Scal zaznaczone". */
@@ -1956,6 +2029,9 @@ interface Props {
   /** Klocek, do którego ścieżka ma podskoczyć zaraz po otwarciu — z paska
    *  „w ścieżkach" w edytorze klocka. */
   celKlocek?: string | null
+  /** Czy to ta ścieżka jest zakotwiczona (przycisk powrotu w rogu). */
+  zakotwiczona?: boolean
+  onZakotwicz?: () => void
 }
 
 function CanvasInner({
@@ -1964,6 +2040,8 @@ function CanvasInner({
   onOpenConcept,
   onJumpToSource,
   celKlocek,
+  zakotwiczona,
+  onZakotwicz,
 }: Props) {
   const dlg = useDialogs()
   // przez pudełko, żeby `api` mapy zachowało stałą tożsamość (od niej zależy
@@ -2998,6 +3076,19 @@ function CanvasInner({
           }}
           placeholder="Nazwa ścieżki…"
         />
+        {onZakotwicz && (
+          <button
+            className={`btn ${zakotwiczona ? 'btn-active' : ''}`}
+            title={
+              zakotwiczona
+                ? 'Zdejmij kotwicę — zniknie przycisk powrotu'
+                : 'Zakotwicz tę ścieżkę: przycisk powrotu w lewym górnym rogu i Alt+Z'
+            }
+            onClick={onZakotwicz}
+          >
+            ⚓
+          </button>
+        )}
         <div className="view-switch">
           <button
             className={`btn ${mode === 'map' ? 'btn-active' : ''}`}
@@ -3115,6 +3206,7 @@ function CanvasInner({
         <LinearView
           ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
           celKlocek={celKlocek}
+          pathId={pathId}
           onDropConcept={linearDropConcept}
           onMoveSegment={moveSegment}
           onMoveSegments={moveSegments}
