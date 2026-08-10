@@ -42,6 +42,7 @@ import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
+import { sciezkaJakoTekst } from '../sciezkaTekst'
 import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
@@ -437,6 +438,10 @@ interface LinearViewProps {
   celKlocek?: string | null
   /** Do zapamiętania miejsca czytania — osobno dla każdej ścieżki. */
   pathId: string
+  /** Tryb przypominania: treści zakryte, odsłaniane kliknięciem. */
+  zakryte?: boolean
+  /** Kopiuje jako tekst sam ten rozdział razem z tym, co pod nim stoi. */
+  onKopiujRozdzial?: (headingId: string) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 
@@ -673,6 +678,30 @@ const RamkaSegmentu = memo(
     a.sygnatura === b.sygnatura,
 )
 
+/** Kafelek w trybie przypominania: widać, że tu coś stoi i czego dotyczy,
+ *  ale nie widać treści. Klikasz dopiero wtedy, gdy sam sobie odpowiesz. */
+function ZakrytyKafelek({
+  opis,
+  onOdslon,
+}: {
+  opis: { znak: string; nazwa: string; barwa?: string }
+  onOdslon: () => void
+}) {
+  return (
+    <button className="kafelek-zakryty" onClick={onOdslon} title="Kliknij, aby sprawdzić">
+      <span className="kafelek-zakryty-glowa">
+        {opis.znak && (
+          <span className="kafelek-zakryty-znak" style={{ color: opis.barwa }}>
+            {opis.znak}
+          </span>
+        )}
+        <span className="kafelek-zakryty-nazwa">{opis.nazwa}</span>
+      </span>
+      <span className="kafelek-zakryty-hint">przypomnij sobie · kliknij, aby sprawdzić</span>
+    </button>
+  )
+}
+
 interface PoleProps {
   wartosc: string
   zapisz: (md: string) => void
@@ -794,6 +823,8 @@ function LinearView({
   onFuseSelected,
   celKlocek,
   pathId,
+  zakryte,
+  onKopiujRozdzial,
   onJumpToSource,
   onOpenConcept,
   onRenameSegment,
@@ -810,6 +841,12 @@ function LinearView({
   const [aktywny, setAktywny] = useState<Editor | null>(null)
   /** Rodzaje kafelków — do plakietek w spisie treści. */
   const typy = useBlockTypes()
+  /** Kafelki odsłonięte ręcznie w trybie zakrytym. */
+  const [odsloniete, setOdsloniete] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    // wyjście z trybu i ponowne wejście zaczyna przypominanie od nowa
+    if (!zakryte) setOdsloniete(new Set())
+  }, [zakryte])
   /** Okno: rysujemy tylko kafelki blisko ekranu, reszta to same puste miejsca.
    *
    *  Bez tego każde przerysowanie Linii tworzyło tyle elementów, ile ścieżka ma
@@ -1481,6 +1518,35 @@ function LinearView({
   }
 
   const last = ordered[ordered.length - 1] ?? null
+  /** Czy ten segment ma być teraz zakryty.
+   *
+   *  Rozdziały i komentarze zostają widoczne — bez nich nie wiadomo, przy
+   *  czym się jest i czego właściwie sobie przypominać. */
+  const zakrywac = (n: PathNode) =>
+    !!zakryte &&
+    (n.kind === 'block' || n.kind === 'fusion' || n.kind === 'text') &&
+    !odsloniete.has(n.id)
+
+  /** Co widać na zakrytym kafelku: rodzaj i nazwa, czyli tyle, ile trzeba,
+   *  żeby móc sobie przypomnieć resztę. */
+  const opisZakrytego = (n: PathNode) => {
+    if (n.kind === 'fusion') {
+      return {
+        znak: n.type ? typy.short(n.type) : '⧉',
+        nazwa: n.name,
+        barwa: n.type ? typy.def(n.type).color : undefined,
+      }
+    }
+    if (n.kind === 'text') return { znak: '✎', nazwa: 'Notatka', barwa: undefined }
+    if (n.kind !== 'block') return { znak: '', nazwa: '', barwa: undefined }
+    const c = mapy.klocki.get(n.conceptId)
+    return {
+      znak: c ? typy.short(c.type) : '',
+      nazwa: n.nazwa ?? c?.name ?? '(usunięty klocek)',
+      barwa: c ? typy.def(c.type).color : undefined,
+    }
+  }
+
   /** Spis treści: rozdziały, a pod nimi to, co w nich stoi — definicje,
    *  twierdzenia, przykłady. Rozdział bez rozwinięcia wygląda jak dotąd,
    *  a rozwinięty pozwala skoczyć wprost do konkretnego kafelka. */
@@ -1575,8 +1641,19 @@ function LinearView({
               mozeScalic={
                 ordered[i + 1]?.kind === 'block' || ordered[i + 1]?.kind === 'fusion'
               }
-              sygnatura={pelny ? sygnatura(n) : ''}
-              rysuj={() => <TrescSegmentu sygnatura={sygnatura(n)} rysuj={() => segmentContent(n)} />}
+              sygnatura={pelny ? `${sygnatura(n)}|${zakrywac(n)}` : ''}
+              rysuj={() =>
+                zakrywac(n) ? (
+                  <ZakrytyKafelek
+                    opis={opisZakrytego(n)}
+                    onOdslon={() =>
+                      setOdsloniete((prev) => new Set(prev).add(n.id))
+                    }
+                  />
+                ) : (
+                  <TrescSegmentu sygnatura={sygnatura(n)} rysuj={() => segmentContent(n)} />
+                )
+              }
               api={apiSegmentu}
               pilnuj={pilnuj}
             />
@@ -1814,6 +1891,18 @@ function LinearView({
               {wybory.length > 0 && (
                 <>
                   {wybory}
+                  <div className="tree-menu-sep" />
+                </>
+              )}
+              {sasiad?.kind === 'heading' && onKopiujRozdzial && (
+                <>
+                  <button
+                    className="tree-menu-item"
+                    title="Cały rozdział jako tekst — do wklejenia gdziekolwiek"
+                    onClick={wstaw(() => onKopiujRozdzial(sasiad.id))}
+                  >
+                    ⧉ Kopiuj rozdział jako tekst
+                  </button>
                   <div className="tree-menu-sep" />
                 </>
               )}
@@ -2153,6 +2242,13 @@ function CanvasInner({
   )
 
   // tryb widoku ścieżki: mapa (canvas) / linia (doklejanie) / skrypt (odczyt)
+  /** Rodzaje kafelków i krótka informacja zwrotna po skopiowaniu ścieżki. */
+  const typyKanwy = useBlockTypes()
+  const [skopiowano, setSkopiowano] = useState(false)
+  /** Tryb zakryty: kafelki są, ale treści nie widać — odsłania się ją
+   *  kliknięciem, sprawdzając po kolei, ile się pamięta. */
+  const [zakryte, setZakryte] = useState(false)
+
   const [mode, setMode] = useState<'map' | 'linear' | 'script'>(() => {
     const m = localStorage.getItem('ui.pathMode')
     return m === 'linear' || m === 'script' ? m : 'map'
@@ -3076,6 +3172,31 @@ function CanvasInner({
           }}
           placeholder="Nazwa ścieżki…"
         />
+        <button
+          className="btn"
+          title="Skopiuj całą ścieżkę jako tekst (do wklejenia gdziekolwiek)"
+          onClick={async () => {
+            const tekst = await sciezkaJakoTekst(pathId, (t) => typyKanwy.label(t))
+            await navigator.clipboard.writeText(tekst).catch(() => {})
+            setSkopiowano(true)
+            window.setTimeout(() => setSkopiowano(false), 1600)
+          }}
+        >
+          {skopiowano ? '✓ skopiowane' : '⧉ Kopiuj'}
+        </button>
+        {mode === 'linear' && (
+          <button
+            className={`btn ${zakryte ? 'btn-active' : ''}`}
+            title={
+              zakryte
+                ? 'Odkryj wszystko'
+                : 'Tryb zakryty: widać, że kafelek jest, ale nie widać treści — przypominasz sobie i sprawdzasz kliknięciem'
+            }
+            onClick={() => setZakryte((z) => !z)}
+          >
+            {zakryte ? '👁 Odkryj' : '🙈 Zakryj'}
+          </button>
+        )}
         {onZakotwicz && (
           <button
             className={`btn ${zakotwiczona ? 'btn-active' : ''}`}
@@ -3207,6 +3328,15 @@ function CanvasInner({
           ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
           celKlocek={celKlocek}
           pathId={pathId}
+          zakryte={zakryte}
+          onKopiujRozdzial={async (headingId) => {
+            const tekst = await sciezkaJakoTekst(pathId, (t) => typyKanwy.label(t), {
+              odRozdzialu: headingId,
+            })
+            await navigator.clipboard.writeText(tekst).catch(() => {})
+            setSkopiowano(true)
+            window.setTimeout(() => setSkopiowano(false), 1600)
+          }}
           onDropConcept={linearDropConcept}
           onMoveSegment={moveSegment}
           onMoveSegments={moveSegments}

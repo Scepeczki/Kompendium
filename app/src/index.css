@@ -529,9 +529,10 @@ select.type-select {
 .concept-list {
   list-style: none;
   margin: 0;
-  /* Zapas u dołu: pusty pas, w który da się trafić prawym przyciskiem, żeby
-     zrobić nowy kafelek. Bez niego przy pełnej liście nie było gdzie kliknąć. */
-  padding: 6px 6px 90px;
+  /* Zapas u dołu: pusty pas, w który da się trafić prawym przyciskiem, i tyle
+     miejsca, żeby ostatni kafelek dało się wyciągnąć pod sam górny brzeg —
+     przy długiej liście czyta się dolne pozycje tak samo wygodnie jak górne. */
+  padding: 6px 6px 75vh;
   overflow-y: auto;
   flex: 1;
 }
@@ -3668,6 +3669,59 @@ button.version-pill.new {
 /* słowo „wersja" mówi, czym jest to obok; samo „WR.2" nie mówiło niczego */
 .block-pick-etykieta {
   font-weight: 600;
+  color: var(--muted);
+}
+
+/* Tryb przypominania: kafelek zakryty. Widać, że coś tu stoi i czego dotyczy,
+   ale treści nie — odsłania się ją dopiero po własnej próbie. */
+.kafelek-zakryty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  min-height: 62px;
+  margin: 6px 0;
+  padding: 12px 14px;
+  font: inherit;
+  text-align: left;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--panel-alt),
+    var(--panel-alt) 7px,
+    var(--paper) 7px,
+    var(--paper) 14px
+  );
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.kafelek-zakryty:hover {
+  border-color: var(--accent);
+}
+
+.kafelek-zakryty-glowa {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kafelek-zakryty-znak {
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.kafelek-zakryty-nazwa {
+  font-size: var(--fs-5);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.kafelek-zakryty-hint {
+  font-size: var(--fs-1);
   color: var(--muted);
 }
 
