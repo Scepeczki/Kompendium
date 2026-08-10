@@ -2600,9 +2600,43 @@ button.version-pill.new {
   border-top: 1px solid var(--line);
 }
 
+/* Wybór znaczka: zwarty panel, nie pół ekranu. Grupy siedzą na zakładkach,
+   więc widać jedną naraz, a siatka ma stałą wysokość — okienko nie skacze
+   przy przełączaniu. */
 .icon-picker {
   overflow-y: auto;
   padding: 0 16px 10px;
+}
+
+.icon-picker-zakladki {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 10px 0 8px;
+}
+
+.icon-picker-zakladka {
+  font: inherit;
+  font-size: var(--fs-1);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-picker-zakladka:hover {
+  border-color: var(--line-strong);
+  color: var(--ink-soft);
+}
+
+.icon-picker-zakladka.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 .icon-picker-clear {
@@ -2676,8 +2710,11 @@ button.version-pill.new {
 
 .icon-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  grid-template-columns: repeat(8, 1fr);
   gap: 4px;
+  /* dwa rzędy na oko; dłuższe grupy przewijają się w miejscu */
+  max-height: 92px;
+  overflow-y: auto;
 }
 
 .icon-picker-btn {
@@ -3684,38 +3721,47 @@ button.version-pill.new {
     conic-gradient(#e05252, #e0c452, #6fbf73, #52b7e0, #7b6fd6, #d06fb4, #e05252);
 }
 
+/* własna barwa: próbka, trzy cienkie suwaki i kod — jeden pasek, nie panel */
 .barwa-wlasna {
   display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin-top: 9px;
-  padding: 10px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-alt);
 }
 
-.barwa-suwak {
-  display: grid;
-  grid-template-columns: 74px 1fr;
-  align-items: center;
-  gap: 9px;
-  font-size: var(--fs-1);
-  color: var(--muted);
+.barwa-suwaki {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.barwa-suwak input[type='range'] {
+.barwa-kod {
+  flex: none;
+  width: 88px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2);
+  padding: 3px 6px;
+  text-align: center;
+}
+
+.barwa-wlasna input[type='range'] {
   appearance: none;
-  height: 10px;
+  height: 9px;
   border-radius: 999px;
   border: 1px solid var(--line);
   cursor: pointer;
 }
 
-.barwa-suwak input[type='range']::-webkit-slider-thumb {
+.barwa-wlasna input[type='range']::-webkit-slider-thumb {
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   background: var(--panel);
   border: 2px solid var(--ink-soft);
@@ -3723,33 +3769,20 @@ button.version-pill.new {
   cursor: grab;
 }
 
-.barwa-suwak input[type='range']::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+.barwa-wlasna input[type='range']::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   background: var(--panel);
   border: 2px solid var(--ink-soft);
   cursor: grab;
 }
 
-.barwa-hex {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.barwa-hex .input {
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: var(--fs-2);
-  padding: 3px 8px;
-}
-
 .barwa-probka {
   flex: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   border: 1px solid var(--line-strong);
 }
 

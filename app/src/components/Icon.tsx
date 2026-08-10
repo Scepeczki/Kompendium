@@ -258,7 +258,7 @@ export const PICK_GROUPS: { label: string; names: IconName[] }[] = [
     ],
   },
   {
-    label: 'Reszta świata',
+    label: 'Inne',
     names: [
       'network',
       'git-branch',

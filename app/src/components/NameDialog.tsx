@@ -88,6 +88,12 @@ export function NameDialog({
   const [picking, setPicking] = useState(false)
   /** Otwarty wybór własnej barwy (suwaki) — poza gotowymi kolorami. */
   const [wlasnaOtwarta, setWlasnaOtwarta] = useState(false)
+  /** Pokazywana grupa znaczków — zaczynamy od tej, w której siedzi obecny. */
+  const [grupa, setGrupa] = useState(
+    () =>
+      PICK_GROUPS.find((g) => g.names.some((n) => n === icon))?.label ??
+      PICK_GROUPS[0].label,
+  )
   const startowe = hexNaHsl(iconColor ?? '') ?? { h: 210, s: 50, l: 40 }
   const [hsl, setHsl] = useState(startowe)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -192,7 +198,6 @@ export function NameDialog({
             {/* barwa osobno: dotyczy też domyślnego znaczka, więc siedzi
                 nad siatką, a nie w niej */}
             <div className="icon-picker-group">
-              <div className="icon-picker-label">Barwa</div>
               <div className="icon-picker-colors">
                 <button
                   className={`icon-picker-color domyslna ${barwa ? '' : 'active'}`}
@@ -231,10 +236,11 @@ export function NameDialog({
 
               {wlasnaOtwarta && (
                 <div className="barwa-wlasna">
-                  <label className="barwa-suwak">
-                    <span>Odcień</span>
+                  <span className="barwa-probka" style={{ background: barwa }} />
+                  <div className="barwa-suwaki">
                     <input
                       type="range"
+                      title="Odcień"
                       min={0}
                       max={360}
                       value={hsl.h}
@@ -244,11 +250,9 @@ export function NameDialog({
                       }}
                       onChange={(e) => ustawWlasna({ ...hsl, h: Number(e.target.value) })}
                     />
-                  </label>
-                  <label className="barwa-suwak">
-                    <span>Nasycenie</span>
                     <input
                       type="range"
+                      title="Nasycenie"
                       min={0}
                       max={100}
                       value={hsl.s}
@@ -257,11 +261,9 @@ export function NameDialog({
                       }}
                       onChange={(e) => ustawWlasna({ ...hsl, s: Number(e.target.value) })}
                     />
-                  </label>
-                  <label className="barwa-suwak">
-                    <span>Jasność</span>
                     <input
                       type="range"
+                      title="Jasność"
                       min={10}
                       max={80}
                       value={hsl.l}
@@ -270,45 +272,53 @@ export function NameDialog({
                       }}
                       onChange={(e) => ustawWlasna({ ...hsl, l: Number(e.target.value) })}
                     />
-                  </label>
-                  <div className="barwa-hex">
-                    <span className="barwa-probka" style={{ background: barwa }} />
-                    <input
-                      className="input"
-                      value={barwa ?? ''}
-                      spellCheck={false}
-                      onChange={(e) => {
-                        const v = e.target.value.trim()
-                        setBarwa(v)
-                        const h = hexNaHsl(v)
-                        if (h) setHsl(h)
-                      }}
-                    />
                   </div>
+                  <input
+                    className="input barwa-kod"
+                    value={barwa ?? ''}
+                    spellCheck={false}
+                    title="Kod barwy"
+                    onChange={(e) => {
+                      const v = e.target.value.trim()
+                      setBarwa(v)
+                      const h = hexNaHsl(v)
+                      if (h) setHsl(h)
+                    }}
+                  />
                 </div>
               )}
             </div>
-            {PICK_GROUPS.map((g) => (
-              <div key={g.label} className="icon-picker-group">
-                <div className="icon-picker-label">{g.label}</div>
-                <div className="icon-picker-grid">
-                  {g.names.map((n) => (
-                    <button
-                      key={n}
-                      className={`icon-picker-btn ${pick === n ? 'active' : ''}`}
-                      title={n}
-                      style={barwa ? { color: barwa } : undefined}
-                      onClick={() => {
-                        setPick(n)
-                        setPicking(false)
-                      }}
-                    >
-                      <Icon name={n} size={1.15} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+            {/* Znaczki po jednej grupie naraz. Wszystkie sześć wysypanych pod
+                sobą zajmowało pół ekranu, a i tak wybiera się jeden. */}
+            <div className="icon-picker-zakladki">
+              {PICK_GROUPS.map((g) => (
+                <button
+                  key={g.label}
+                  className={`icon-picker-zakladka ${grupa === g.label ? 'active' : ''}`}
+                  onClick={() => setGrupa(g.label)}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <div className="icon-picker-grid">
+              {(PICK_GROUPS.find((g) => g.label === grupa) ?? PICK_GROUPS[0]).names.map(
+                (n) => (
+                  <button
+                    key={n}
+                    className={`icon-picker-btn ${pick === n ? 'active' : ''}`}
+                    title={n}
+                    style={barwa ? { color: barwa } : undefined}
+                    onClick={() => {
+                      setPick(n)
+                      setPicking(false)
+                    }}
+                  >
+                    <Icon name={n} size={1.15} />
+                  </button>
+                ),
+              )}
+            </div>
           </div>
         )}
 
