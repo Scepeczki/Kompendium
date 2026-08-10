@@ -3721,8 +3721,23 @@ button.version-pill.new {
 }
 
 .kafelek-zakryty-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: var(--fs-1);
   color: var(--muted);
+}
+
+/* Odsłonięty kafelek w trybie przypominania. Treść jest do czytania, nie do
+   pisania — kliknięcie gdziekolwiek chowa ją z powrotem, żeby dało się
+   spróbować jeszcze raz. */
+.kafelek-odslony {
+  cursor: zoom-out;
+}
+
+.kafelek-odslony > * {
+  pointer-events: none;
+  user-select: none;
 }
 
 /* Kotwica: droga powrotna do ścieżki, przy której się pracuje. Siedzi nad

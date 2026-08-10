@@ -55,6 +55,8 @@ import {
   Map,
   MessageSquare,
   Move,
+  Eye,
+  EyeOff,
   Microscope,
   Milestone,
   Network,
@@ -105,6 +107,8 @@ const ICONS = {
   kopia: Copy,
   usun: Trash2,
   przesun: Move,
+  zakryj: EyeOff,
+  odkryj: Eye,
 
   // znaczki do wyboru — nazwy trafiają do bazy, więc są nietykalne
   'file-text': FileText,

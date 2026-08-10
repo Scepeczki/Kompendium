@@ -1,5 +1,4 @@
-// Tryb przypominania (kafelki zakryte, odsłaniane kliknięciem) i kopiowanie
-// ścieżki jako tekst — całej i samego rozdziału.
+// Tryb przypominania: kafelki zakryte, odsłaniane i zakrywane kliknięciem.
 import { chromium } from 'playwright'
 import { nowaSciezka, podaj } from './lib.mjs'
 
@@ -76,45 +75,31 @@ check('pozostałe zostają zakryte',
   (await page.locator('.kafelek-zakryty').count()) === 1,
   `${await page.locator('.kafelek-zakryty').count()}`)
 
+// klik w odsłonięty chowa go z powrotem — można spróbować jeszcze raz
+await page.locator('.kafelek-odslony').first().click()
+await page.waitForTimeout(900)
+check('klik w odsłonięty zakrywa go z powrotem',
+  (await page.locator('.kafelek-zakryty').count()) === 2 &&
+    !(await page.textContent('.linear-column')).includes('Najmniejsze ograniczenie'),
+  `zakrytych: ${await page.locator('.kafelek-zakryty').count()}`)
+
+// w trybie przypominania treść jest do czytania, nie do pisania
+await page.locator('.kafelek-zakryty').first().click()
+await page.waitForTimeout(900)
+check('odsłonięta treść nie zaprasza do pisania',
+  (await page.locator('.kafelek-odslony .linear-pole .tiptap').count()) === 0 ||
+    (await page.evaluate(
+      () =>
+        getComputedStyle(document.querySelector('.kafelek-odslony > *')).pointerEvents ===
+        'none',
+    )))
+
 await page.click('.path-toolbar button[title*="Odkryj wszystko"]')
 await page.waitForTimeout(900)
 check('wyjście z trybu odsłania wszystko',
   (await page.locator('.kafelek-zakryty').count()) === 0)
-
-// --- kopiowanie całej ścieżki ---
-await page.click('.path-toolbar button:has-text("Kopiuj")')
-await page.waitForTimeout(900)
-const caly = await page.evaluate(() => navigator.clipboard.readText())
-check('skopiowany tekst ma nazwę ścieżki', caly.includes('# Kresy'), caly.slice(0, 60))
-check('ma rozdział', caly.includes('Rozdzial o kresach'))
-check('ma treści obu kafelków',
-  caly.includes('Najmniejsze ograniczenie') && caly.includes('Piszemy sup A'),
-  caly.slice(0, 200))
-check('ma rodzaje kafelków', /Definicja:/.test(caly), caly.slice(0, 200))
-
-// --- kopiowanie samego rozdziału ---
-await page.evaluate(() => navigator.clipboard.writeText(''))
-const nrRozdzialu = await page.evaluate(() =>
-  [...document.querySelectorAll('.linear-seg')].findIndex((s) =>
-    s.querySelector('.script-heading-node'),
-  ),
-)
-const seg = page.locator('.linear-seg').nth(nrRozdzialu)
-await seg.evaluate((el) => el.scrollIntoView({ block: 'center' }))
-const b = await seg.boundingBox()
-await page.mouse.click(b.x + b.width / 2, b.y + 6, { button: 'right' })
-await page.waitForSelector('.linear-menu')
-check('menu rozdziału ma kopiowanie',
-  (await page.locator('.linear-menu .tree-menu-item:has-text("Kopiuj rozdział")').count()) === 1,
-  (await page.locator('.linear-menu .tree-menu-item').allTextContents()).join(' · '))
-await page.click('.linear-menu .tree-menu-item:has-text("Kopiuj rozdział")')
-await page.waitForTimeout(900)
-const rozdzial = await page.evaluate(() => navigator.clipboard.readText())
-check('kopia rozdziału zaczyna się od niego, bez nazwy ścieżki',
-  rozdzial.startsWith('## Rozdzial o kresach') && !rozdzial.includes('# Kresy\n'),
-  rozdzial.slice(0, 80))
-check('kopia rozdziału zawiera jego kafelki',
-  rozdzial.includes('Najmniejsze ograniczenie'), rozdzial.slice(0, 200))
+check('po wyjściu z trybu znów da się pisać',
+  (await page.locator('.kafelek-odslony').count()) === 0)
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
@@ -125,3 +110,4 @@ console.log(
     : `>>> NIEPOPRAWNE (${problems.length}): ${problems.join('; ')}`,
 )
 await browser.close()
+

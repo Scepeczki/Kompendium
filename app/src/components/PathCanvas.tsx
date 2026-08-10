@@ -42,7 +42,6 @@ import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createConcept, db, updatePath } from '../db'
 import { renderMarkdown } from '../markdown'
-import { sciezkaJakoTekst } from '../sciezkaTekst'
 import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
@@ -440,8 +439,6 @@ interface LinearViewProps {
   pathId: string
   /** Tryb przypominania: treści zakryte, odsłaniane kliknięciem. */
   zakryte?: boolean
-  /** Kopiuje jako tekst sam ten rozdział razem z tym, co pod nim stoi. */
-  onKopiujRozdzial?: (headingId: string) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 
@@ -697,7 +694,10 @@ function ZakrytyKafelek({
         )}
         <span className="kafelek-zakryty-nazwa">{opis.nazwa}</span>
       </span>
-      <span className="kafelek-zakryty-hint">przypomnij sobie · kliknij, aby sprawdzić</span>
+      <span className="kafelek-zakryty-hint">
+        <Icon name="odkryj" size={0.95} />
+        przypomnij sobie · kliknij, aby sprawdzić
+      </span>
     </button>
   )
 }
@@ -824,7 +824,6 @@ function LinearView({
   celKlocek,
   pathId,
   zakryte,
-  onKopiujRozdzial,
   onJumpToSource,
   onOpenConcept,
   onRenameSegment,
@@ -1518,14 +1517,22 @@ function LinearView({
   }
 
   const last = ordered[ordered.length - 1] ?? null
-  /** Czy ten segment ma być teraz zakryty.
+  /** Czy ten segment w ogóle podlega zakrywaniu.
    *
    *  Rozdziały i komentarze zostają widoczne — bez nich nie wiadomo, przy
    *  czym się jest i czego właściwie sobie przypominać. */
-  const zakrywac = (n: PathNode) =>
-    !!zakryte &&
-    (n.kind === 'block' || n.kind === 'fusion' || n.kind === 'text') &&
-    !odsloniete.has(n.id)
+  const doZakrycia = (n: PathNode) =>
+    !!zakryte && (n.kind === 'block' || n.kind === 'fusion' || n.kind === 'text')
+  const zakrywac = (n: PathNode) => doZakrycia(n) && !odsloniete.has(n.id)
+  /** Odsłonięty kafelek chowa się z powrotem tym samym kliknięciem — można
+   *  sprawdzić, schować i spróbować jeszcze raz. */
+  const przelaczOdsloniecie = (id: string) =>
+    setOdsloniete((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   /** Co widać na zakrytym kafelku: rodzaj i nazwa, czyli tyle, ile trzeba,
    *  żeby móc sobie przypomnieć resztę. */
@@ -1641,15 +1648,25 @@ function LinearView({
               mozeScalic={
                 ordered[i + 1]?.kind === 'block' || ordered[i + 1]?.kind === 'fusion'
               }
-              sygnatura={pelny ? `${sygnatura(n)}|${zakrywac(n)}` : ''}
+              sygnatura={
+                pelny ? `${sygnatura(n)}|${zakrywac(n)}|${doZakrycia(n)}` : ''
+              }
               rysuj={() =>
                 zakrywac(n) ? (
                   <ZakrytyKafelek
                     opis={opisZakrytego(n)}
-                    onOdslon={() =>
-                      setOdsloniete((prev) => new Set(prev).add(n.id))
-                    }
+                    onOdslon={() => przelaczOdsloniecie(n.id)}
                   />
+                ) : doZakrycia(n) ? (
+                  // odsłonięty w trybie przypominania: treść tylko do
+                  // czytania, a kliknięcie gdziekolwiek chowa ją z powrotem
+                  <div
+                    className="kafelek-odslony"
+                    title="Kliknij, aby zakryć z powrotem"
+                    onClick={() => przelaczOdsloniecie(n.id)}
+                  >
+                    <TrescSegmentu sygnatura={sygnatura(n)} rysuj={() => segmentContent(n)} />
+                  </div>
                 ) : (
                   <TrescSegmentu sygnatura={sygnatura(n)} rysuj={() => segmentContent(n)} />
                 )
@@ -1891,18 +1908,6 @@ function LinearView({
               {wybory.length > 0 && (
                 <>
                   {wybory}
-                  <div className="tree-menu-sep" />
-                </>
-              )}
-              {sasiad?.kind === 'heading' && onKopiujRozdzial && (
-                <>
-                  <button
-                    className="tree-menu-item"
-                    title="Cały rozdział jako tekst — do wklejenia gdziekolwiek"
-                    onClick={wstaw(() => onKopiujRozdzial(sasiad.id))}
-                  >
-                    ⧉ Kopiuj rozdział jako tekst
-                  </button>
                   <div className="tree-menu-sep" />
                 </>
               )}
@@ -2242,9 +2247,6 @@ function CanvasInner({
   )
 
   // tryb widoku ścieżki: mapa (canvas) / linia (doklejanie) / skrypt (odczyt)
-  /** Rodzaje kafelków i krótka informacja zwrotna po skopiowaniu ścieżki. */
-  const typyKanwy = useBlockTypes()
-  const [skopiowano, setSkopiowano] = useState(false)
   /** Tryb zakryty: kafelki są, ale treści nie widać — odsłania się ją
    *  kliknięciem, sprawdzając po kolei, ile się pamięta. */
   const [zakryte, setZakryte] = useState(false)
@@ -3172,18 +3174,6 @@ function CanvasInner({
           }}
           placeholder="Nazwa ścieżki…"
         />
-        <button
-          className="btn"
-          title="Skopiuj całą ścieżkę jako tekst (do wklejenia gdziekolwiek)"
-          onClick={async () => {
-            const tekst = await sciezkaJakoTekst(pathId, (t) => typyKanwy.label(t))
-            await navigator.clipboard.writeText(tekst).catch(() => {})
-            setSkopiowano(true)
-            window.setTimeout(() => setSkopiowano(false), 1600)
-          }}
-        >
-          {skopiowano ? '✓ skopiowane' : '⧉ Kopiuj'}
-        </button>
         {mode === 'linear' && (
           <button
             className={`btn ${zakryte ? 'btn-active' : ''}`}
@@ -3194,7 +3184,8 @@ function CanvasInner({
             }
             onClick={() => setZakryte((z) => !z)}
           >
-            {zakryte ? '👁 Odkryj' : '🙈 Zakryj'}
+            <Icon name={zakryte ? 'odkryj' : 'zakryj'} size={1} />
+            <span className="btn-napis">{zakryte ? 'Odkryj' : 'Zakryj'}</span>
           </button>
         )}
         {onZakotwicz && (
@@ -3329,14 +3320,6 @@ function CanvasInner({
           celKlocek={celKlocek}
           pathId={pathId}
           zakryte={zakryte}
-          onKopiujRozdzial={async (headingId) => {
-            const tekst = await sciezkaJakoTekst(pathId, (t) => typyKanwy.label(t), {
-              odRozdzialu: headingId,
-            })
-            await navigator.clipboard.writeText(tekst).catch(() => {})
-            setSkopiowano(true)
-            window.setTimeout(() => setSkopiowano(false), 1600)
-          }}
           onDropConcept={linearDropConcept}
           onMoveSegment={moveSegment}
           onMoveSegments={moveSegments}
