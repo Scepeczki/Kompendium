@@ -22,6 +22,8 @@ interface Props {
   icon?: string
   /** Barwa znaczka — pusta znaczy „zostaw domyślną". */
   iconColor?: string
+  /** Własna plakietka: do trzech znaków na barwnym tle. */
+  iconText?: string
   /** Znaczek pokazywany, gdy własnego nie wybrano (rola rzeczy w drzewie). */
   fallbackIcon: IconName
   /** Plakietka rodzaju (DEF, TW…) — to ona stoi w drzewie, gdy kafelek nie
@@ -30,7 +32,12 @@ interface Props {
   plakietka?: { skrot: string; kolor: string }
   /** Podpowiedź w pustym polu. */
   placeholder?: string
-  onSave: (name: string, icon: string | undefined, iconColor: string | undefined) => void
+  onSave: (
+    name: string,
+    icon: string | undefined,
+    iconColor: string | undefined,
+    iconText: string | undefined,
+  ) => void
   onClose: () => void
 }
 
@@ -76,6 +83,7 @@ export function NameDialog({
   name,
   icon,
   iconColor,
+  iconText,
   fallbackIcon,
   plakietka,
   placeholder,
@@ -85,6 +93,8 @@ export function NameDialog({
   const [draft, setDraft] = useState(name)
   const [pick, setPick] = useState<string | undefined>(icon)
   const [barwa, setBarwa] = useState<string | undefined>(iconColor)
+  /** Własne litery na plakietce — do trzech znaków. */
+  const [litery, setLitery] = useState(iconText ?? '')
   const [picking, setPicking] = useState(false)
   /** Otwarty wybór własnej barwy (suwaki) — poza gotowymi kolorami. */
   const [wlasnaOtwarta, setWlasnaOtwarta] = useState(false)
@@ -113,20 +123,34 @@ export function NameDialog({
     return () => window.removeEventListener('keydown', onKey)
   }, [picking, onClose])
 
+  const wlasneLitery = litery.trim()
+
   const zapisz = () => {
     const czysta = draft.trim()
     if (!czysta) return
-    onSave(czysta, isIconName(pick) ? pick : undefined, barwa)
+    onSave(
+      czysta,
+      wlasneLitery ? undefined : isIconName(pick) ? pick : undefined,
+      barwa,
+      wlasneLitery || undefined,
+    )
     onClose()
   }
 
   const pokazywany = isIconName(pick) ? pick : fallbackIcon
   /** Czy w drzewie stoi teraz plakietka rodzaju, a nie znaczek. */
-  const naPlakietce = !isIconName(pick) && !!plakietka
+  const naPlakietce = !wlasneLitery && !isIconName(pick) && !!plakietka
 
   /** Znaczek dokładnie taki, jaki widać w drzewie. */
   const podglad = (rozmiar: number) =>
-    naPlakietce ? (
+    wlasneLitery ? (
+      <span
+        className="type-mini"
+        style={{ '--block-color': barwa ?? plakietka?.kolor } as React.CSSProperties}
+      >
+        {wlasneLitery}
+      </span>
+    ) : naPlakietce ? (
       <span
         className="type-mini"
         style={{ '--block-color': barwa ?? plakietka!.kolor } as React.CSSProperties}
@@ -175,10 +199,36 @@ export function NameDialog({
             {/* Domyślny znaczek pokazujemy takim, jaki naprawdę stoi w drzewie:
                 dla kafelka to plakietka rodzaju, dla folderu i ścieżki — ich
                 własny znaczek. */}
+            {/* Własne litery: trzy znaki na barwnym tle. Bywa, że żaden
+                gotowy znaczek nie pasuje, a skrót w rodzaju „ZFC" mówi
+                wszystko na jeden rzut oka. */}
+            <label className="wlasne-litery">
+              <span
+                className="type-mini"
+                style={
+                  { '--block-color': barwa ?? plakietka?.kolor ?? '#8d8677' } as React.CSSProperties
+                }
+              >
+                {wlasneLitery || '···'}
+              </span>
+              <input
+                className="input"
+                value={litery}
+                maxLength={3}
+                placeholder="Własne litery (do trzech)"
+                spellCheck={false}
+                onChange={(e) => {
+                  setLitery(e.target.value)
+                  if (e.target.value.trim()) setPick(undefined)
+                }}
+              />
+            </label>
+
             <button
-              className={`icon-picker-clear ${pick ? '' : 'active'}`}
+              className={`icon-picker-clear ${pick || wlasneLitery ? '' : 'active'}`}
               onClick={() => {
                 setPick(undefined)
+                setLitery('')
                 setPicking(false)
               }}
             >
@@ -311,6 +361,8 @@ export function NameDialog({
                     style={barwa ? { color: barwa } : undefined}
                     onClick={() => {
                       setPick(n)
+                      // znaczek i własne litery wykluczają się — jedno miejsce
+                      setLitery('')
                       setPicking(false)
                     }}
                   >

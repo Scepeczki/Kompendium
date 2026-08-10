@@ -201,6 +201,49 @@ await page.waitForTimeout(700)
 check('kopia zachowuje znaczek',
   (await page.locator('.concept-item:has-text("(kopia)") .tree-icon svg').count()) === 1)
 
+// 12. własna plakietka: trzy litery na barwnym tle, zamiast znaczka
+await page.click('.concept-item:has-text("Granica ciągu")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Zmień nazwę")')
+await page.waitForSelector('.name-dialog')
+await page.click('.name-dialog-icon')
+await page.waitForSelector('.wlasne-litery input')
+await page.fill('.wlasne-litery input', 'ZFC')
+await page.waitForTimeout(300)
+check('podgląd pokazuje wpisane litery',
+  (await page.textContent('.name-dialog-icon')).trim() === 'ZFC',
+  await page.textContent('.name-dialog-icon'))
+await page.click('.icon-picker-color[title="Ceglany"]')
+await page.click('.name-dialog button:has-text("Zapisz")')
+await page.waitForTimeout(600)
+const wlasna = page.locator('.concept-item:has-text("Granica ciągu"):not(:has-text("kopia")) .type-mini').first()
+check('własna plakietka trafia do drzewa',
+  (await wlasna.textContent()).trim() === 'ZFC', await wlasna.textContent())
+check('własna plakietka zastępuje znaczek',
+  (await page.locator('.concept-item:has-text("Granica ciągu"):not(:has-text("kopia")) .tree-icon').count()) === 0)
+const tlo = await wlasna.evaluate((el) => getComputedStyle(el).getPropertyValue('--block-color'))
+check('własna plakietka bierze wybraną barwę', tlo.trim() === '#a8452f', tlo)
+
+// przeżywa przeładowanie
+await page.reload()
+await page.waitForSelector('.concept-item:has-text("Granica ciągu")')
+check('własna plakietka zapamiętana w bazie',
+  (await page.locator('.concept-item:has-text("Granica ciągu"):not(:has-text("kopia")) .type-mini').first().textContent()).trim() ===
+    'ZFC')
+
+// i da się z niej wrócić
+await page.click('.concept-item:has-text("Granica ciągu")', { button: 'right' })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Zmień nazwę")')
+await page.waitForSelector('.name-dialog')
+await page.click('.name-dialog-icon')
+await page.click('.icon-picker-clear')
+await page.click('.name-dialog button:has-text("Zapisz")')
+await page.waitForTimeout(600)
+check('powrót do plakietki rodzaju',
+  (await page.locator('.concept-item:has-text("Granica ciągu"):not(:has-text("kopia")) .type-mini').first().textContent()).trim() ===
+    'DEF')
+
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
 for (const e of errors.slice(0, 5)) console.log(`   ${e.slice(0, 200)}`)

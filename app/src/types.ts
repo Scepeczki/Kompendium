@@ -106,6 +106,9 @@ export interface Folder {
   icon?: string
   /** Barwa znaczka (#rrggbb). Brak = zwykły kolor tekstu paska. */
   iconColor?: string
+  /** Własna plakietka: do trzech znaków na barwnym tle, zamiast znaczka.
+   *  Ma pierwszeństwo przed `icon`. */
+  iconText?: string
   /** null = poziom główny. Dla kind='pdfs' zawsze null (bez zagnieżdżania). */
   parentId: string | null
   /** Wspólna kolejność z klockami w obrębie rodzica (foldery i klocki się przeplatają). */
@@ -128,6 +131,9 @@ export interface Concept {
   icon?: string
   /** Barwa znaczka (#rrggbb). Brak = kolor typu klocka. */
   iconColor?: string
+  /** Własna plakietka: do trzech znaków na barwnym tle, zamiast znaczka.
+   *  Ma pierwszeństwo przed `icon`. */
+  iconText?: string
   /** null = poziom główny drzewa. */
   folderId: string | null
   /** Ręczna kolejność w obrębie folderu (ułamkowa — wstawianie pomiędzy). */
@@ -358,6 +364,9 @@ export interface LearningPath {
   icon?: string
   /** Barwa znaczka (#rrggbb). Brak = kolor akcentu. */
   iconColor?: string
+  /** Własna plakietka: do trzech znaków na barwnym tle, zamiast znaczka.
+   *  Ma pierwszeństwo przed `icon`. */
+  iconText?: string
   folderId: string | null
   order: number
   nodes: PathNode[]

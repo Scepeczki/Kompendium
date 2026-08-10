@@ -65,6 +65,10 @@ const MIME = 'text/x-kompendium'
 
 /** Własna barwa znaczka albo nic (wtedy decyduje arkusz stylów). */
 const barwa = (hex: string | undefined) => (hex ? { color: hex } : undefined)
+/** Własna plakietka bierze barwę tak samo jak plakietka rodzaju — przez
+ *  `--block-color`, bo z niej wywodzi się i tekst, i tło, i obramowanie. */
+const tloPlakietki = (hex: string | undefined) =>
+  hex ? ({ '--block-color': hex } as React.CSSProperties) : undefined
 const EXP_KEY = 'ui.expandedFolders'
 
 const loadExpanded = (): Set<string> => {
@@ -135,10 +139,12 @@ export function Sidebar({
     /** Plakietka rodzaju — pokazywana zamiast znaczka, gdy własnego nie ma. */
     plakietka?: { skrot: string; kolor: string }
     placeholder?: string
+    iconText?: string
     onSave: (
       name: string,
       icon: string | undefined,
       iconColor: string | undefined,
+      iconText: string | undefined,
     ) => void | Promise<void>
   } | null>(null)
 
@@ -464,8 +470,10 @@ export function Sidebar({
       name: p.name,
       icon: p.icon,
       iconColor: p.iconColor,
+      iconText: p.iconText,
       fallbackIcon: 'sciezka',
-      onSave: (name, icon, iconColor) => updatePath(p.id, { name, icon, iconColor }),
+      onSave: (name, icon, iconColor, iconText) =>
+        updatePath(p.id, { name, icon, iconColor, iconText }),
     })
 
   const handleDeletePath = async (p: LearningPath) => {
@@ -484,8 +492,10 @@ export function Sidebar({
       name: f.name,
       icon: f.icon,
       iconColor: f.iconColor,
+      iconText: f.iconText,
       fallbackIcon: 'folderZwykly',
-      onSave: (name, icon, iconColor) => updateFolder(f.id, { name, icon, iconColor }),
+      onSave: (name, icon, iconColor, iconText) =>
+        updateFolder(f.id, { name, icon, iconColor, iconText }),
     })
 
   const handleDeleteFolder = async (f: Folder) => {
@@ -508,11 +518,13 @@ export function Sidebar({
       name: c.name,
       icon: c.icon,
       iconColor: c.iconColor,
+      iconText: c.iconText,
       fallbackIcon: 'file-text',
       // bez własnego znaczka kafelek pokazuje plakietkę rodzaju — i to ją
       // ma widać w okienku, a nie zastępczą kartkę
       plakietka: { skrot: typy.short(c.type), kolor: typy.def(c.type).color },
-      onSave: (name, icon, iconColor) => updateConcept(c.id, { name, icon, iconColor }),
+      onSave: (name, icon, iconColor, iconText) =>
+        updateConcept(c.id, { name, icon, iconColor, iconText }),
     })
 
   const handleDeleteConcept = async (c: Concept) => {
@@ -558,7 +570,16 @@ export function Sidebar({
             if (p) dropRelative(p, node, parentId, pos)
           }}
         >
-          {isIconName(c.icon) ? (
+          {c.iconText ? (
+            <span
+              className="type-mini"
+              data-typ={c.type}
+              style={{ ...typy.style(c.type), ...tloPlakietki(c.iconColor) }}
+              title={typy.label(c.type)}
+            >
+              {c.iconText}
+            </span>
+          ) : isIconName(c.icon) ? (
             <span
               className="tree-icon"
               data-typ={c.type}
@@ -627,7 +648,14 @@ export function Sidebar({
           {/* Własny znaczek siada dokładnie tam, gdzie stoi strzałka — czyli
               nad prowadnicą rozwiniętego folderu. Bez znaczka zostaje
               strzałka, bo bez niej nie byłoby wiadomo, że to się rozwija. */}
-          {isIconName(f.icon) ? (
+          {f.iconText ? (
+            <span
+              className="folder-chevron folder-icon type-mini"
+              style={tloPlakietki(f.iconColor)}
+            >
+              {f.iconText}
+            </span>
+          ) : isIconName(f.icon) ? (
             <span className="folder-chevron folder-icon" style={barwa(f.iconColor)}>
               <Icon name={f.icon} size={1.05} />
             </span>
@@ -702,13 +730,23 @@ export function Sidebar({
             dropRelative(pl, node, parentId, pos)
           }}
         >
-          <span
-            className="tree-icon type-path"
-            style={barwa(p.iconColor)}
-            title="Ścieżka nauki"
-          >
-            <Icon name={isIconName(p.icon) ? p.icon : 'sciezka'} size={1.05} />
-          </span>
+          {p.iconText ? (
+            <span
+              className="type-mini"
+              style={tloPlakietki(p.iconColor ?? 'var(--accent)')}
+              title="Ścieżka nauki"
+            >
+              {p.iconText}
+            </span>
+          ) : (
+            <span
+              className="tree-icon type-path"
+              style={barwa(p.iconColor)}
+              title="Ścieżka nauki"
+            >
+              <Icon name={isIconName(p.icon) ? p.icon : 'sciezka'} size={1.05} />
+            </span>
+          )}
           <span className="concept-name">{p.name}</span>
         </div>
       </li>
@@ -908,6 +946,7 @@ export function Sidebar({
           // bez tego okienko otwierało się z domyślną barwą, choć znaczek
           // w drzewie miał już swoją
           iconColor={dialog.iconColor}
+          iconText={dialog.iconText}
           fallbackIcon={dialog.fallbackIcon}
           plakietka={dialog.plakietka}
           placeholder={dialog.placeholder}
