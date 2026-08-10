@@ -125,9 +125,19 @@ await page.click('.tree-menu-item:has-text("Zmień nazwę")')
 await page.waitForSelector('.name-dialog')
 await page.click('.name-dialog-icon')
 await page.waitForSelector('.icon-picker-colors')
-check('paleta ma barwy plus domyślną',
-  (await page.locator('.icon-picker-color').count()) === 9,
+// domyślna + osiem gotowych + własna
+check('paleta ma barwy, domyślną i własną',
+  (await page.locator('.icon-picker-color').count()) === 10,
   `${await page.locator('.icon-picker-color').count()}`)
+check('własna barwa otwiera suwaki',
+  (await page.locator('.icon-picker-color.wlasna').count()) === 1)
+await page.click('.icon-picker-color.wlasna')
+await page.waitForTimeout(400)
+check('suwaki własnej barwy: odcień, nasycenie, jasność',
+  (await page.locator('.barwa-suwak').count()) === 3,
+  `${await page.locator('.barwa-suwak').count()}`)
+check('własną barwę da się też wpisać',
+  (await page.locator('.barwa-hex .input').count()) === 1)
 await page.click('.icon-picker-color[title="Ceglany"]')
 await page.click('.icon-picker-btn[title="sigma"]')
 await page.click('.name-dialog button:has-text("Zapisz")')

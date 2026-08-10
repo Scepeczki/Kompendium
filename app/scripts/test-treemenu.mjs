@@ -103,8 +103,10 @@ const naKlocku = await page.locator('.tree-menu-item').allTextContents()
 check('menu klocka: nazwa, powielenie, usunięcie',
   naKlocku.length === 3 && naKlocku.join('|').includes('Powiel'),
   naKlocku.map((s) => s.trim()).join(' · '))
-check('menu mówi, o który klocek chodzi',
-  (await page.locator('.tree-menu-where').textContent()).includes('Z menu'))
+// menu rzeczy nie powtarza już jej nazwy — widać ją w wierszu, na który
+// się kliknęło, a nagłówek tylko rozpychał menu
+check('menu rzeczy nie powtarza jej nazwy',
+  (await page.locator('.tree-menu .tree-menu-where').count()) === 0)
 
 // 9. zmiana nazwy z menu (własne okienko, nie systemowy prompt)
 await page.click('.tree-menu-item:has-text("Zmień nazwę")')

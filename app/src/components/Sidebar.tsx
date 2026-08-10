@@ -132,6 +132,8 @@ export function Sidebar({
     icon?: string
     iconColor?: string
     fallbackIcon: IconName
+    /** Plakietka rodzaju — pokazywana zamiast znaczka, gdy własnego nie ma. */
+    plakietka?: { skrot: string; kolor: string }
     placeholder?: string
     onSave: (
       name: string,
@@ -212,17 +214,6 @@ export function Sidebar({
   )
 
   const menuParent = menu?.cel.kind === 'tlo' ? menu.cel.parentId : null
-
-  /** Nagłówek menu: co to za rzecz i jak się nazywa. */
-  const menuTitle = !menu
-    ? ''
-    : menu.cel.kind === 'concept'
-      ? `Klocek „${menu.cel.concept.name}"`
-      : menu.cel.kind === 'folder'
-        ? `Folder „${menu.cel.folder.name}"`
-        : menu.cel.kind === 'path'
-          ? `Ścieżka „${menu.cel.path.name}"`
-          : ''
 
   const handleMenuRename = () => {
     if (!menu) return
@@ -513,13 +504,14 @@ export function Sidebar({
 
   const handleRenameConcept = (c: Concept) =>
     setDialog({
-      title: 'Klocek',
+      title: 'Kafelek',
       name: c.name,
       icon: c.icon,
       iconColor: c.iconColor,
-      // bez własnego znaczka klocek pokazuje plakietkę typu, więc w okienku
-      // proponujemy neutralną kartkę — to podpowiedź, a nie stan faktyczny
       fallbackIcon: 'file-text',
+      // bez własnego znaczka kafelek pokazuje plakietkę rodzaju — i to ją
+      // ma widać w okienku, a nie zastępczą kartkę
+      plakietka: { skrot: typy.short(c.type), kolor: typy.def(c.type).color },
       onSave: (name, icon, iconColor) => updateConcept(c.id, { name, icon, iconColor }),
     })
 
@@ -913,7 +905,11 @@ export function Sidebar({
           title={dialog.title}
           name={dialog.name}
           icon={dialog.icon}
+          // bez tego okienko otwierało się z domyślną barwą, choć znaczek
+          // w drzewie miał już swoją
+          iconColor={dialog.iconColor}
           fallbackIcon={dialog.fallbackIcon}
+          plakietka={dialog.plakietka}
           placeholder={dialog.placeholder}
           onSave={dialog.onSave}
           onClose={() => setDialog(null)}
@@ -943,7 +939,8 @@ export function Sidebar({
             </>
           ) : (
             <>
-              <div className="tree-menu-where">{menuTitle}</div>
+              {/* bez nagłówka z nazwą: widać ją w wierszu, na który się
+                  kliknęło, a w menu tylko rozpychała się na trzy linijki */}
               {menuItem('edycja', 'Zmień nazwę', handleMenuRename)}
               {menuItem(
                 'kopia',

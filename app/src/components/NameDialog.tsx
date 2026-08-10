@@ -15,7 +15,7 @@ const BARWY: { hex: string; nazwa: string }[] = [
 ]
 
 interface Props {
-  /** Nagłówek okienka, np. „Nazwa klocka". */
+  /** Nagłówek okienka, np. „Kafelek". */
   title: string
   name: string
   /** Zapisany znaczek — pusty znaczy „zostaw domyślny". */
@@ -24,10 +24,48 @@ interface Props {
   iconColor?: string
   /** Znaczek pokazywany, gdy własnego nie wybrano (rola rzeczy w drzewie). */
   fallbackIcon: IconName
+  /** Plakietka rodzaju (DEF, TW…) — to ona stoi w drzewie, gdy kafelek nie
+   *  ma własnego znaczka. Okienko ma pokazywać stan faktyczny, a nie
+   *  zastępczą kartkę. */
+  plakietka?: { skrot: string; kolor: string }
   /** Podpowiedź w pustym polu. */
   placeholder?: string
   onSave: (name: string, icon: string | undefined, iconColor: string | undefined) => void
   onClose: () => void
+}
+
+/** Zamiana koloru na składowe HSL — do suwaków własnej barwy. */
+function hexNaHsl(hex: string): { h: number; s: number; l: number } | null {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return null
+  const n = parseInt(m[1], 16)
+  const r = ((n >> 16) & 255) / 255
+  const g = ((n >> 8) & 255) / 255
+  const b = (n & 255) / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  if (max === min) return { h: 0, s: 0, l: Math.round(l * 100) }
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h =
+    max === r
+      ? ((g - b) / d + (g < b ? 6 : 0)) * 60
+      : max === g
+        ? ((b - r) / d + 2) * 60
+        : ((r - g) / d + 4) * 60
+  return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) }
+}
+
+function hslNaHex(h: number, s: number, l: number): string {
+  const sn = s / 100
+  const ln = l / 100
+  const k = (n: number) => (n + h / 30) % 12
+  const a = sn * Math.min(ln, 1 - ln)
+  const f = (n: number) =>
+    Math.round(255 * (ln - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))))
+  const dwie = (v: number) => v.toString(16).padStart(2, '0')
+  return `#${dwie(f(0))}${dwie(f(8))}${dwie(f(4))}`
 }
 
 /** Okienko nazwy — zamiast systemowego `prompt`, który nie umie nic poza
@@ -39,6 +77,7 @@ export function NameDialog({
   icon,
   iconColor,
   fallbackIcon,
+  plakietka,
   placeholder,
   onSave,
   onClose,
@@ -47,6 +86,10 @@ export function NameDialog({
   const [pick, setPick] = useState<string | undefined>(icon)
   const [barwa, setBarwa] = useState<string | undefined>(iconColor)
   const [picking, setPicking] = useState(false)
+  /** Otwarty wybór własnej barwy (suwaki) — poza gotowymi kolorami. */
+  const [wlasnaOtwarta, setWlasnaOtwarta] = useState(false)
+  const startowe = hexNaHsl(iconColor ?? '') ?? { h: 210, s: 50, l: 40 }
+  const [hsl, setHsl] = useState(startowe)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -72,6 +115,26 @@ export function NameDialog({
   }
 
   const pokazywany = isIconName(pick) ? pick : fallbackIcon
+  /** Czy w drzewie stoi teraz plakietka rodzaju, a nie znaczek. */
+  const naPlakietce = !isIconName(pick) && !!plakietka
+
+  /** Znaczek dokładnie taki, jaki widać w drzewie. */
+  const podglad = (rozmiar: number) =>
+    naPlakietce ? (
+      <span
+        className="type-mini"
+        style={{ '--block-color': barwa ?? plakietka!.kolor } as React.CSSProperties}
+      >
+        {plakietka!.skrot}
+      </span>
+    ) : (
+      <Icon name={pokazywany} size={rozmiar} />
+    )
+
+  const ustawWlasna = (nowe: { h: number; s: number; l: number }) => {
+    setHsl(nowe)
+    setBarwa(hslNaHex(nowe.h, nowe.s, nowe.l))
+  }
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -84,10 +147,10 @@ export function NameDialog({
           <button
             className={`name-dialog-icon ${pick ? 'wybrany' : ''}`}
             title="Wybierz znaczek i jego barwę"
-            style={barwa ? { color: barwa } : undefined}
+            style={barwa && !naPlakietce ? { color: barwa } : undefined}
             onClick={() => setPicking((o) => !o)}
           >
-            <Icon name={pokazywany} size={1.25} />
+            {podglad(1.25)}
           </button>
           <input
             ref={inputRef}
@@ -103,16 +166,27 @@ export function NameDialog({
 
         {picking && (
           <div className="icon-picker">
+            {/* Domyślny znaczek pokazujemy takim, jaki naprawdę stoi w drzewie:
+                dla kafelka to plakietka rodzaju, dla folderu i ścieżki — ich
+                własny znaczek. */}
             <button
-              className={`icon-picker-clear ${pick || barwa ? '' : 'active'}`}
+              className={`icon-picker-clear ${pick ? '' : 'active'}`}
               onClick={() => {
                 setPick(undefined)
-                setBarwa(undefined)
                 setPicking(false)
               }}
             >
-              <Icon name={fallbackIcon} size={1} />
-              Bez własnego znaczka
+              {plakietka ? (
+                <span
+                  className="type-mini"
+                  style={{ '--block-color': barwa ?? plakietka.kolor } as React.CSSProperties}
+                >
+                  {plakietka.skrot}
+                </span>
+              ) : (
+                <Icon name={fallbackIcon} size={1} />
+              )}
+              {plakietka ? 'Plakietka rodzaju' : 'Bez własnego znaczka'}
             </button>
 
             {/* barwa osobno: dotyczy też domyślnego znaczka, więc siedzi
@@ -122,8 +196,11 @@ export function NameDialog({
               <div className="icon-picker-colors">
                 <button
                   className={`icon-picker-color domyslna ${barwa ? '' : 'active'}`}
-                  title="Domyślna (kolor typu)"
-                  onClick={() => setBarwa(undefined)}
+                  title="Domyślna (kolor rodzaju)"
+                  onClick={() => {
+                    setBarwa(undefined)
+                    setWlasnaOtwarta(false)
+                  }}
                 />
                 {BARWY.map((b) => (
                   <button
@@ -131,10 +208,85 @@ export function NameDialog({
                     className={`icon-picker-color ${barwa === b.hex ? 'active' : ''}`}
                     style={{ background: b.hex }}
                     title={b.nazwa}
-                    onClick={() => setBarwa(b.hex)}
+                    onClick={() => {
+                      setBarwa(b.hex)
+                      setWlasnaOtwarta(false)
+                    }}
                   />
                 ))}
+                <button
+                  className={`icon-picker-color wlasna ${
+                    barwa && !BARWY.some((b) => b.hex === barwa) ? 'active' : ''
+                  }`}
+                  style={barwa ? { background: barwa } : undefined}
+                  title="Własna barwa"
+                  onClick={() => {
+                    setWlasnaOtwarta((o) => !o)
+                    if (!barwa) ustawWlasna(hsl)
+                  }}
+                >
+                  +
+                </button>
               </div>
+
+              {wlasnaOtwarta && (
+                <div className="barwa-wlasna">
+                  <label className="barwa-suwak">
+                    <span>Odcień</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={360}
+                      value={hsl.h}
+                      style={{
+                        background:
+                          'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)',
+                      }}
+                      onChange={(e) => ustawWlasna({ ...hsl, h: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="barwa-suwak">
+                    <span>Nasycenie</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={hsl.s}
+                      style={{
+                        background: `linear-gradient(to right, hsl(${hsl.h} 0% ${hsl.l}%), hsl(${hsl.h} 100% ${hsl.l}%))`,
+                      }}
+                      onChange={(e) => ustawWlasna({ ...hsl, s: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="barwa-suwak">
+                    <span>Jasność</span>
+                    <input
+                      type="range"
+                      min={10}
+                      max={80}
+                      value={hsl.l}
+                      style={{
+                        background: `linear-gradient(to right, hsl(${hsl.h} ${hsl.s}% 12%), hsl(${hsl.h} ${hsl.s}% 50%), hsl(${hsl.h} ${hsl.s}% 78%))`,
+                      }}
+                      onChange={(e) => ustawWlasna({ ...hsl, l: Number(e.target.value) })}
+                    />
+                  </label>
+                  <div className="barwa-hex">
+                    <span className="barwa-probka" style={{ background: barwa }} />
+                    <input
+                      className="input"
+                      value={barwa ?? ''}
+                      spellCheck={false}
+                      onChange={(e) => {
+                        const v = e.target.value.trim()
+                        setBarwa(v)
+                        const h = hexNaHsl(v)
+                        if (h) setHsl(h)
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             {PICK_GROUPS.map((g) => (
               <div key={g.label} className="icon-picker-group">

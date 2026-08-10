@@ -3672,6 +3672,93 @@ button.version-pill.new {
   color: var(--muted);
 }
 
+/* ---- własna barwa znaczka: suwaki zamiast systemowego okienka ---- */
+.icon-picker-color.wlasna {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-3);
+  line-height: 1;
+  color: var(--muted);
+  background:
+    conic-gradient(#e05252, #e0c452, #6fbf73, #52b7e0, #7b6fd6, #d06fb4, #e05252);
+}
+
+.barwa-wlasna {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-alt);
+}
+
+.barwa-suwak {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  align-items: center;
+  gap: 9px;
+  font-size: var(--fs-1);
+  color: var(--muted);
+}
+
+.barwa-suwak input[type='range'] {
+  appearance: none;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.barwa-suwak input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-soft);
+  box-shadow: 0 1px 3px rgba(43, 38, 32, 0.3);
+  cursor: grab;
+}
+
+.barwa-suwak input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-soft);
+  cursor: grab;
+}
+
+.barwa-hex {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barwa-hex .input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2);
+  padding: 3px 8px;
+}
+
+.barwa-probka {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid var(--line-strong);
+}
+
+/* plakietka rodzaju w okienku nazwy — ten sam wygląd co w drzewie */
+.name-dialog-icon .type-mini,
+.icon-picker-clear .type-mini {
+  font-size: var(--fs-1);
+}
+
 /* Tryb przypominania: kafelek zakryty. Widać, że coś tu stoi i czego dotyczy,
    ale treści nie — odsłania się ją dopiero po własnej próbie. */
 .kafelek-zakryty {
