@@ -52,8 +52,8 @@ interface Props {
   onJumpToSource: (ref: SourceRef) => void
   /** Otwiera inny klocek (nawigacja wiki-linkiem / odwołaniem zwrotnym). */
   onOpenConcept: (id: string) => void
-  /** Otwiera ścieżkę — z paska „w ścieżkach". */
-  onOpenPath?: (id: string) => void
+  /** Otwiera ścieżkę i skacze do miejsca, w którym siedzi w niej ten klocek. */
+  onOpenPath?: (id: string, conceptId?: string) => void
 }
 
 export function BlockEditor({
@@ -299,10 +299,19 @@ export function BlockEditor({
     }, 400)
   }
 
+  /** Podgląd liczymy TYLKO wtedy, gdy jest widoczny.
+   *
+   *  Wcześniej powstawał przy każdym naciśnięciu klawisza, także w trybie
+   *  Kod, gdzie nikt na niego nie patrzy — a to znaczy przepuszczenie całej
+   *  treści przez Markdown i KaTeX. Przy długim dowodzie stąd brały się
+   *  zacięcia przy pisaniu. */
   const preview = useMemo(
-    () => renderMarkdown(draft, { exists: (name) => !!findByName(name) }),
+    () =>
+      view === 'podzial'
+        ? renderMarkdown(draft, { exists: (name) => !!findByName(name) })
+        : '',
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [draft, allConcepts],
+    [draft, allConcepts, view],
   )
 
   const handleNewVersion = async () => {
@@ -635,8 +644,10 @@ export function BlockEditor({
             <button
               key={p.id}
               className="editor-sciezka"
-              title={onOpenPath ? `Otwórz ścieżkę „${p.name}"` : p.name}
-              onClick={() => onOpenPath?.(p.id)}
+              title={
+                onOpenPath ? `Skocz do tego kafelka w ścieżce „${p.name}"` : p.name
+              }
+              onClick={() => onOpenPath?.(p.id, concept.id)}
             >
               {p.name}
             </button>

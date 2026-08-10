@@ -27,11 +27,49 @@ import {
 /** Renderuje wzory $...$ i $$...$$ w miejscu (dekoracje nad tekstem).
  *  Tekst w dokumencie pozostaje czystym LaTeX-em (bezpieczny Markdown);
  *  gdy kursor wejdzie we wzór, widać jego kod — jak w dobrym Overleafie. */
+/** Narysowane wzory z pamięcią.
+ *
+ *  Dekoracje przeliczają się przy KAŻDYM naciśnięciu klawisza, a razem z nimi
+ *  rysował się od nowa każdy wzór w całym klocku — przy długim dowodzie to
+ *  było kilkaset milisekund na literę. Wzór zależy tylko od swojego LaTeX-a,
+ *  więc wystarczy zapamiętać gotowy HTML. */
+const pamiecWzorow = new Map<string, string>()
+function zapamietanyWzor(tex: string, display: boolean, surowy: string): string {
+  const klucz = `${display ? 'D' : 'i'}|${tex}`
+  const gotowy = pamiecWzorow.get(klucz)
+  if (gotowy !== undefined) return gotowy
+  let html: string
+  try {
+    html = katex.renderToString(tex, { displayMode: display, throwOnError: false })
+  } catch {
+    // niepoprawny wzór pokazujemy tak, jak go napisano
+    const div = document.createElement('div')
+    div.textContent = surowy
+    html = div.innerHTML
+  }
+  // pamięć bez dna zjadałaby ją przy tysiącach wzorów — starsze wypadają
+  if (pamiecWzorow.size > 800) pamiecWzorow.delete(pamiecWzorow.keys().next().value!)
+  pamiecWzorow.set(klucz, html)
+  return html
+}
+
 const MathRender = Extension.create({
   name: 'mathRender',
   addProseMirrorPlugins() {
+    /** Gotowe elementy wzorów tego edytora.
+     *
+     *  ProseMirror porównuje dekoracje-widżety po tożsamości elementu: jeśli
+     *  oddamy TEN SAM element co poprzednio, nie przerysuje go. Bez tego każde
+     *  naciśnięcie klawisza budowało od nowa wszystkie wzory w klocku — przy
+     *  długim dowodzie kilkaset elementów na literę.
+     *
+     *  Klucz zawiera numer wystąpienia, bo ten sam wzór bywa w tekście wiele
+     *  razy, a jeden element nie może stać w dokumencie dwa razy. */
+    const elementy = new Map<string, HTMLElement>()
+
     const build = (doc: import('@tiptap/pm/model').Node, selFrom: number, selTo: number) => {
       const decos: Decoration[] = []
+      const ile = new Map<string, number>()
       // wzór jest osobnym elementem obok tekstu, więc nie dziedziczy rozmiaru
       // z dekoracji ⟦sNN⟧ — ustawiamy go jawnie
       const sizes = sizeRangesInDoc(doc)
@@ -50,14 +88,20 @@ const MathRender = Extension.create({
           }
           const display = m[1] !== undefined
           const tex = m[1] ?? m[2]
-          const el = document.createElement(display ? 'div' : 'span')
-          el.className = `math-render${display ? ' math-render-display' : ''}`
           const size = sizeAtPos(sizes, from)
-          if (size !== null) el.style.fontSize = `${size}px`
-          try {
-            katex.render(tex, el, { displayMode: display, throwOnError: false })
-          } catch {
-            el.textContent = m[0]
+          const baza = `${display ? 'D' : 'i'}|${size ?? ''}|${tex}`
+          const nr = (ile.get(baza) ?? 0) + 1
+          ile.set(baza, nr)
+          const klucz = `${baza}|${nr}`
+          let el = elementy.get(klucz)
+          if (!el) {
+            el = document.createElement(display ? 'div' : 'span')
+            el.className = `math-render${display ? ' math-render-display' : ''}`
+            if (size !== null) el.style.fontSize = `${size}px`
+            el.innerHTML = zapamietanyWzor(tex, display, m[0])
+            // pamięć bez dna zjadałaby ją przy ogromnych klockach
+            if (elementy.size > 2000) elementy.clear()
+            elementy.set(klucz, el)
           }
           decos.push(Decoration.widget(from, el, { side: 1 }))
           decos.push(Decoration.inline(from, to, { class: 'math-hide' }))
@@ -288,6 +332,14 @@ function PoleRozmiaru({ editor }: { editor: Editor }) {
         className="rich-size"
         list="rozmiary-tekstu"
         inputMode="numeric"
+        /* Kliknięcie w pole zabierało zaznaczenie tekstu — a przecież to
+           właśnie zaznaczony fragment ma zmienić rozmiar. Nie oddajemy więc
+           kursora: pole samo się skupia, a podświetlenie zostaje. */
+        onMouseDown={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLInputElement).focus({ preventScroll: true })
+          ;(e.currentTarget as HTMLInputElement).select()
+        }}
         title="Rozmiar zaznaczonego tekstu — wybierz z listy albo wpisz własny; puste pole przywraca rozmiar podstawowy"
         value={wpis}
         onChange={(e) => {
@@ -497,6 +549,7 @@ export function RichEditor({
     editable,
     autofocus: autoFocus ? 'end' : false,
     onFocus: () => onFocus?.(),
+    onBlur: () => oddajTeraz(),
     editorProps: {
       /** Zaznaczasz wzór, wciskasz `$` — i tekst jest w `$…$`, a nie
        *  skasowany. Zaznaczenie zostaje w środku, więc drugie naciśnięcie
@@ -519,9 +572,29 @@ export function RichEditor({
       },
     },
     onUpdate: ({ editor }) => {
-      onChange(unescapeMathAfterSerialize(editor.storage.markdown.getMarkdown()))
+      oddajPozniej(editor)
     },
   })
+
+  /** Przepisanie treści na Markdown z małym opóźnieniem.
+   *
+   *  Serializacja przepuszcza CAŁY dokument — przy długim dowodzie to
+   *  kilkanaście milisekund na każdą literę, a nikt tego wyniku w trakcie
+   *  pisania nie ogląda. Wystarczy raz na chwilę ciszy; przy opuszczeniu pola
+   *  i przy zamknięciu edytora oddajemy natychmiast, żeby nic nie przepadło. */
+  const oddajRef = useRef<{ t: number; ed: Editor } | null>(null)
+  const oddajTeraz = () => {
+    const czeka = oddajRef.current
+    if (!czeka) return
+    window.clearTimeout(czeka.t)
+    oddajRef.current = null
+    onChange(unescapeMathAfterSerialize(czeka.ed.storage.markdown.getMarkdown()))
+  }
+  const oddajPozniej = (ed: Editor) => {
+    if (oddajRef.current) window.clearTimeout(oddajRef.current.t)
+    oddajRef.current = { ed, t: window.setTimeout(oddajTeraz, 220) }
+  }
+  useEffect(() => () => oddajTeraz(), [])
 
   useEffect(() => {
     editor?.setEditable(editable)

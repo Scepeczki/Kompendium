@@ -156,12 +156,10 @@ export function BlockShell({
         )}
 
         <div className="block-content">
-          {/* nazwa strony widoczna zawsze — także gdy klocek ma tylko jedną */}
-          {subs.length === 0 ? (
-            <div className="block-pages">
-              <span className="page-chip-static">{mainPageName(concept)}</span>
-            </div>
-          ) : (
+          {/* Nazwy stron tylko wtedy, gdy jest z czego wybierać. Przy jednej
+              stronie napis „Treść" niczego nie mówi, a zabiera wiersz tuż nad
+              samą treścią. */}
+          {subs.length > 0 && (
             <div className="block-pages">
               <button
                 className={`block-page ${!sub ? 'active' : ''}`}

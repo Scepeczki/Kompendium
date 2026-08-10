@@ -433,6 +433,8 @@ interface LinearViewProps {
   onGroupWithNext: (segId: string) => void
   /** Scala zaznaczone kafelki — także takie, które nie sąsiadują ze sobą. */
   onFuseSelected: (ids: string[]) => void
+  /** Klocek, do którego trzeba podskoczyć po otwarciu ścieżki. */
+  celKlocek?: string | null
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 
@@ -788,6 +790,7 @@ function LinearView({
   onAddHeading,
   onGroupWithNext,
   onFuseSelected,
+  celKlocek,
   onJumpToSource,
   onOpenConcept,
   onRenameSegment,
@@ -883,6 +886,35 @@ function LinearView({
     },
     [obserwator],
   )
+  /** Skok do wskazanego kafelka: rysujemy go (choćby był daleko poza oknem),
+   *  przewijamy na środek i na moment podświetlamy, żeby dało się go znaleźć
+   *  wzrokiem w długim skrypcie. */
+  const [podswietlony, setPodswietlony] = useState<string | null>(null)
+  useEffect(() => {
+    if (!celKlocek) return
+    const i = ordered.findIndex(
+      (n) =>
+        (n.kind === 'block' && n.conceptId === celKlocek) ||
+        (n.kind === 'fusion' && n.parts.some((p) => p.conceptId === celKlocek)),
+    )
+    if (i < 0) return
+    const seg = ordered[i]
+    oknoRef.current = { od: Math.max(0, i - ZAPAS), do: i + ZAPAS }
+    setOkno(oknoRef.current)
+    setPodswietlony(seg.id)
+    const t = window.setTimeout(() => {
+      document
+        .querySelector(`[data-seg="${seg.id}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 120)
+    const gasnie = window.setTimeout(() => setPodswietlony(null), 2600)
+    return () => {
+      window.clearTimeout(t)
+      window.clearTimeout(gasnie)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [celKlocek, ordered.length])
+
   /** React 19 sprząta po ref-callbacku sam, jeśli oddamy mu funkcję. */
   const pilnuj = useCallback(
     (el: HTMLDivElement | null) => {
@@ -1456,14 +1488,15 @@ function LinearView({
             n.kind === 'comment' ||
             // kursor może stać w składniku fuzji — stąd dwukropek
             aktywnyId === n.id ||
-            aktywnyId?.startsWith(`${n.id}:`) === true
+            aktywnyId?.startsWith(`${n.id}:`) === true ||
+            podswietlony === n.id
           return (
             <RamkaSegmentu
               key={n.id}
               n={n}
               i={i}
               pelny={pelny}
-              zaznaczony={zazSeg.has(n.id)}
+              zaznaczony={zazSeg.has(n.id) || podswietlony === n.id}
               kreska={h}
               wysokosc={zmierz(n.id)}
               mozeScalic={
@@ -1920,9 +1953,18 @@ interface Props {
   onOpenConcept: (id: string) => void
   /** Skok do miejsca w PDF (klik w źródło pod treścią bloku). */
   onJumpToSource?: (ref: SourceRef) => void
+  /** Klocek, do którego ścieżka ma podskoczyć zaraz po otwarciu — z paska
+   *  „w ścieżkach" w edytorze klocka. */
+  celKlocek?: string | null
 }
 
-function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) {
+function CanvasInner({
+  pathId,
+  onClose,
+  onOpenConcept,
+  onJumpToSource,
+  celKlocek,
+}: Props) {
   const dlg = useDialogs()
   // przez pudełko, żeby `api` mapy zachowało stałą tożsamość (od niej zależy
   // płynność przeciągania kafelków — patrz komentarz przy useMemo niżej)
@@ -2037,6 +2079,11 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
     const m = localStorage.getItem('ui.pathMode')
     return m === 'linear' || m === 'script' ? m : 'map'
   })
+  // Skok „do tego kafelka w tej ścieżce" ma sens w Linii — tam widać, co jest
+  // przed nim i za nim. Na Mapie kafelek bywa gdzieś w rogu tablicy.
+  useEffect(() => {
+    if (celKlocek) setMode('linear')
+  }, [celKlocek])
   useEffect(() => {
     localStorage.setItem('ui.pathMode', mode)
   }, [mode])
@@ -3067,6 +3114,7 @@ function CanvasInner({ pathId, onClose, onOpenConcept, onJumpToSource }: Props) 
       {mode === 'linear' && (
         <LinearView
           ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
+          celKlocek={celKlocek}
           onDropConcept={linearDropConcept}
           onMoveSegment={moveSegment}
           onMoveSegments={moveSegments}

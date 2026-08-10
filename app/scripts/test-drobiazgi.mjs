@@ -58,15 +58,28 @@ const wizualny = await page.textContent('.editor-code .cm-content')
 check('w trybie wizualnym $ też obejmuje zaznaczenie',
   wizualny.includes('$x^2$'), wizualny)
 
-// --- 1. nazwa strony widoczna przy jednej stronie ---
+// --- 1. przy jednej stronie jej nazwa NIE zabiera miejsca w ścieżce ---
 await page.click('.btn-close[title*="Zamknij klocek"]')
 await nowaSciezka(page, 'Drobiazgi')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 await page.dragAndDrop('.concept-item:has-text("Kres gorny")', '.linear-append')
-await page.waitForTimeout(600)
-const nazwaStrony = await page.textContent('.linear-seg .page-chip-static')
-check('klocek z jedną stroną pokazuje jej nazwę', nazwaStrony === 'Treść', nazwaStrony)
+await page.waitForTimeout(1200)
+check('kafelek z jedną stroną nie pokazuje jej nazwy',
+  (await page.locator('.linear-seg .block-pages').count()) === 0,
+  await page.locator('.linear-seg .block-pages').allTextContents().then((t) => t.join(' | ')))
+// …ale gdy stron jest więcej, zakładki są
+await page.click('.concept-item:has-text("Kres gorny")')
+await page.waitForSelector('.editor-name')
+await page.click('button:has-text("+ strona")')
+await podaj(page, 'Dowod')
+await page.waitForTimeout(800)
+await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.concept-item:has-text("Drobiazgi")')
+await page.waitForSelector('.linear-seg')
+await page.waitForTimeout(1500)
+const zakladki = await page.locator('.linear-seg .block-pages .block-page').allTextContents()
+check('przy dwóch stronach zakładki są', zakladki.length === 2, zakladki.join(' | '))
 
 // --- 3. brak znaku przy źródłach i strzałki w nagłówku ---
 check('nagłówek kafelka w Linii bez strzałki ↗',

@@ -61,6 +61,8 @@ function Widok() {
   const [showGraph, setShowGraph] = useState(false)
   /** Otwarta ścieżka (canvas). */
   const [openPathId, setOpenPathId] = useState<string | null>(null)
+  /** Klocek, do którego ścieżka ma podskoczyć zaraz po otwarciu. */
+  const [celKlocka, setCelKlocka] = useState<string | null>(null)
   /** Ścieżka, do której wracamy po zamknięciu klocka otwartego z jej poziomu. */
   const [returnPathId, setReturnPathId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
@@ -115,8 +117,11 @@ function Widok() {
     setShowSettings(false)
   }
 
-  const openPath = (id: string) => {
+  /** Otwiera ścieżkę; z drugim argumentem od razu skacze do miejsca, w którym
+   *  siedzi w niej ten klocek (przycisk „w ścieżkach" w edytorze). */
+  const openPath = (id: string, conceptId?: string) => {
     setOpenPathId(id)
+    setCelKlocka(conceptId ?? null)
     setReturnPathId(null)
     setShowGraph(false)
     setSelecting(false)
@@ -192,6 +197,7 @@ function Widok() {
       ) : openPathId ? (
         <PathCanvas
           pathId={openPathId}
+          celKlocek={celKlocka}
           onClose={() => setOpenPathId(null)}
           onOpenConcept={selectConcept}
           onJumpToSource={jumpToSource}

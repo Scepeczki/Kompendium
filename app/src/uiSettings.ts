@@ -40,6 +40,18 @@ export const MATH_GAP_OPTIONS: { value: number; label: string }[] = [
   { value: 1.6, label: 'Bardzo duży' },
 ]
 
+/** Wcięcie list punktowanych i numerowanych, w em.
+ *
+ *  Przeglądarka domyślnie odsuwa tekst punktu o czterdzieści pikseli od
+ *  marginesu — w gęstym tekście matematycznym to przepaść. */
+export const LIST_INDENT_DEFAULT = 1.4
+export const LIST_INDENT_OPTIONS: { value: number; label: string }[] = [
+  { value: 0.9, label: 'Ciasno' },
+  { value: 1.4, label: 'Zwykle' },
+  { value: 2, label: 'Luźno' },
+  { value: 2.6, label: 'Bardzo luźno' },
+]
+
 /** Deseń tła — cichy rysunek na marginesach, wokół kartki i pod Skryptem. */
 export type BgPattern = 'gladkie' | 'kratka' | 'kropki' | 'ukosne'
 export const BG_PATTERN_DEFAULT: BgPattern = 'gladkie'
@@ -161,6 +173,20 @@ export function setMathGap(v: number): void {
   notify()
 }
 
+export function getListIndent(): number {
+  return readNum(
+    'ui.listIndent',
+    (v) => LIST_INDENT_OPTIONS.some((o) => o.value === v),
+    LIST_INDENT_DEFAULT,
+  )
+}
+
+export function setListIndent(v: number): void {
+  document.documentElement.style.setProperty('--list-indent', `${v}em`)
+  localStorage.setItem('ui.listIndent', String(v))
+  notify()
+}
+
 export function getParaSpacing(): number {
   return readNum(
     'ui.paraSpacing',
@@ -250,6 +276,7 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--text-pad', `${getIndOffset()}px`)
   document.documentElement.style.setProperty('--math-scale', String(getMathScale()))
   document.documentElement.style.setProperty('--math-gap', `${getMathGap()}em`)
+  document.documentElement.style.setProperty('--list-indent', `${getListIndent()}em`)
   document.documentElement.style.setProperty('--block-tint', String(getBlockTint()))
   document.documentElement.style.setProperty('--tree-size', `${getTreeSize()}px`)
   setContentFontVar(getContentFont())

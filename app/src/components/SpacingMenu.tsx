@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   LINE_SPACING_OPTIONS,
+  LIST_INDENT_OPTIONS,
   MATH_GAP_OPTIONS,
   MATH_SCALE_OPTIONS,
   PARA_SPACING_OPTIONS,
   getLineSpacing,
+  getListIndent,
   getMathGap,
   getMathScale,
   getParaSpacing,
   setLineSpacing,
+  setListIndent,
   setMathGap,
   setMathScale,
   setParaSpacing,
@@ -22,6 +25,7 @@ export function SpacingMenu() {
   const [para, setPara] = useState(getParaSpacing)
   const [mScale, setMScale] = useState(getMathScale)
   const [mGap, setMGap] = useState(getMathGap)
+  const [lista, setLista] = useState(getListIndent)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -111,6 +115,23 @@ export function SpacingMenu() {
                   onClick={() => {
                     setMathGap(o.value)
                     setMGap(o.value)
+                  }}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="spacing-group">
+            <span className="spacing-title">Wcięcie list (punkty i numery)</span>
+            <div className="spacing-opts">
+              {LIST_INDENT_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  className={`btn spacing-opt ${lista === o.value ? 'btn-active' : ''}`}
+                  onClick={() => {
+                    setListIndent(o.value)
+                    setLista(o.value)
                   }}
                 >
                   {o.label}

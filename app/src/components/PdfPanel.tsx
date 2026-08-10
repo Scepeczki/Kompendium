@@ -77,6 +77,29 @@ export function PdfPanel({
       })
     : []
 
+  /** Ten sam fragment bywa źródłem kilku klocków — wtedy zamiast zgadywać,
+   *  pokazujemy listę. „Ten sam" znaczy: prostokąty niemal się pokrywają. */
+  const wSpolneRects = (u: (typeof usedRects)[number]) =>
+    usedRects.filter(
+      (x) =>
+        x.ref.page === u.ref.page &&
+        Math.abs(x.ref.rect.x - u.ref.rect.x) < 6 &&
+        Math.abs(x.ref.rect.y - u.ref.rect.y) < 6 &&
+        Math.abs(x.ref.rect.w - u.ref.rect.w) < 12 &&
+        Math.abs(x.ref.rect.h - u.ref.rect.h) < 12,
+    )
+  const [wybor, setWybor] = useState<{
+    x: number
+    y: number
+    lista: typeof usedRects
+  } | null>(null)
+  useEffect(() => {
+    if (!wybor) return
+    const zamknij = () => setWybor(null)
+    document.addEventListener('mousedown', zamknij)
+    return () => document.removeEventListener('mousedown', zamknij)
+  }, [wybor])
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const pageRefs = useRef(new Map<number, HTMLDivElement>())
@@ -410,9 +433,32 @@ export function PdfPanel({
                         width: u.ref.rect.w * scale,
                         height: u.ref.rect.h * scale,
                       }}
-                      title={`Użyte w: ${u.name}${onOpenConcept ? ' — kliknij, aby otworzyć' : ''}`}
+                      title={
+                        selecting
+                          ? `Wepnij ten sam fragment jako źródło (użyty w: ${u.name})`
+                          : `Użyte w: ${u.name}${onOpenConcept ? ' — kliknij, aby otworzyć' : ''}`
+                      }
                       onClick={(e) => {
                         e.stopPropagation()
+                        // W trybie podpinania klik w gotowy prostokąt wpina go
+                        // tam, gdzie właśnie pracujemy — po co obrysowywać
+                        // drugi raz to samo miejsce.
+                        if (selecting) {
+                          onRegionSelected({
+                            pdfId: pdfId!,
+                            page: u.ref.page,
+                            rect: { ...u.ref.rect },
+                          })
+                          return
+                        }
+                        // Poza tym trybem klik prowadzi do klocka. Jeśli ten
+                        // sam fragment ma kilku właścicieli — najpierw pytamy,
+                        // do którego.
+                        const tuz = wSpolneRects(u)
+                        if (tuz.length > 1) {
+                          setWybor({ x: e.clientX, y: e.clientY, lista: tuz })
+                          return
+                        }
                         onOpenConcept?.(u.conceptId)
                       }}
                     >
@@ -436,6 +482,29 @@ export function PdfPanel({
             </div>
           ))}
       </div>
+
+      {/* jeden fragment, kilku właścicieli — do którego skoczyć */}
+      {wybor && (
+        <div
+          className="tree-menu"
+          style={{ left: wybor.x, top: wybor.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="tree-menu-where">Ten fragment jest źródłem w:</div>
+          {wybor.lista.map((u) => (
+            <button
+              key={u.ref.id}
+              className="tree-menu-item"
+              onClick={() => {
+                setWybor(null)
+                onOpenConcept?.(u.conceptId)
+              }}
+            >
+              {u.name}
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   )
 }
