@@ -88,12 +88,6 @@
   --c-intuicja: #c97e9c;
 }
 
-/* elementy z kolorami zapisanymi na sztywno — wersje ciemne */
-:root[data-theme='dark'] .editor-banner {
-  background: #3a2f1a;
-  color: #d9b96a;
-  border-bottom-color: #4a3d22;
-}
 
 :root[data-theme='dark'] .path-node-text {
   background: #2b2718;
@@ -1069,14 +1063,6 @@ button.version-pill.new {
 
 .version-pill.drop-right {
   box-shadow: 2px 0 0 0 var(--accent);
-}
-
-.editor-banner {
-  padding: 6px 14px;
-  background: #f6ecd9;
-  color: #7a5c1e;
-  font-size: var(--fs-3);
-  border-bottom: 1px solid #eadfc4;
 }
 
 .editor-toolbar {

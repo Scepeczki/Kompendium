@@ -84,6 +84,44 @@ check('wybór z listy otwiera ten kafelek',
   (await page.inputValue('.editor-name')) === 'Drugi',
   await page.inputValue('.editor-name'))
 
+// --- źródło podpięte do STARSZEJ wersji też widać na stronie ---
+// (dawniej pokazywaliśmy tylko wersje bieżące, więc taki fragment znikał)
+await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'Ze starszej')
+await page.waitForTimeout(600)
+// robimy drugą wersję i wracamy do pierwszej
+await page.click('button:has-text("+ nowa wersja")')
+await page.waitForSelector('.ask-dialog')
+await page.click('.ask-foot .btn:last-child')
+await page.waitForTimeout(900)
+await page.locator('.version-pill').first().click()
+await page.waitForTimeout(700)
+const ileWczesniej = await page.locator('.pdf-used').count()
+await page.click('button:has-text("Podepnij źródło")')
+await page.waitForSelector('.pdf-banner')
+const c2 = await page.locator('.pdf-page-wrap canvas').first().boundingBox()
+await page.mouse.move(c2.x + 40, c2.y + 220)
+await page.mouse.down()
+await page.mouse.move(c2.x + 300, c2.y + 280, { steps: 5 })
+await page.mouse.up()
+await page.waitForTimeout(1000)
+check('źródło ze starszej wersji widać jako prostokąt',
+  (await page.locator('.pdf-used').count()) === ileWczesniej + 1,
+  `${ileWczesniej} → ${await page.locator('.pdf-used').count()}`)
+await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.waitForTimeout(700)
+check('widać je też z zewnątrz, po zamknięciu kafelka',
+  (await page.locator('.pdf-used').count()) === ileWczesniej + 1,
+  `${await page.locator('.pdf-used').count()}`)
+// nowa wersja dostaje kopie źródeł poprzedniej — ten sam prostokąt ma się
+// pokazać raz, a nie tyle razy, ile wersji
+const etykiety = await page.locator('.pdf-used .pdf-used-label').allTextContents()
+check('ten sam fragment nie dubluje się przez wersje',
+  new Set(etykiety).size === etykiety.length,
+  etykiety.join(' | '))
+
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
 for (const e of errors.slice(0, 5)) console.log(`   ${e.slice(0, 200)}`)

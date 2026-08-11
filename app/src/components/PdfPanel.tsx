@@ -66,15 +66,35 @@ export function PdfPanel({
   // Wszystkie źródła wskazujące na otwarty PDF — z nazwą klocka, do etykiet.
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
+  /** Fragmenty ze WSZYSTKICH wersji, nie tylko bieżących.
+   *
+   *  Dawniej pokazywaliśmy same bieżące — z obawy, że stare zaśmiecą stronę.
+   *  Ale odkąd po starszych wersjach też się pisze i podpina im źródła, taki
+   *  fragment po prostu znikał: nie było go widać ani wśród prostokątów, ani
+   *  przy wpinaniu do innego kafelka.
+   *
+   *  Nowa wersja dostaje kopie źródeł poprzedniej, więc ten sam prostokąt
+   *  siedziałby na stronie tyle razy, ile wersji ma klocek — dlatego jeden
+   *  klocek pokazujemy w danym miejscu raz. */
   const usedRects = pdfId
-    ? versions.flatMap((v) => {
-        const c = concepts.find((x) => x.id === v.conceptId)
-        // pokazujemy tylko bieżące wersje — stare zaśmiecałyby stronę
-        if (!c || c.currentVersionId !== v.id) return []
-        return v.sourceRefs
-          .filter((r) => isPdfSource(r) && r.pdfId === pdfId)
-          .map((r) => ({ ref: r as PdfSourceRef, conceptId: c.id, name: c.name }))
-      })
+    ? (() => {
+        const widziane = new Set<string>()
+        const lista: { ref: PdfSourceRef; conceptId: string; name: string }[] = []
+        for (const v of versions) {
+          const c = concepts.find((x) => x.id === v.conceptId)
+          if (!c) continue
+          for (const r of v.sourceRefs) {
+            if (!isPdfSource(r) || r.pdfId !== pdfId) continue
+            const klucz = `${c.id}|${r.page}|${Math.round(r.rect.x)}|${Math.round(
+              r.rect.y,
+            )}|${Math.round(r.rect.w)}|${Math.round(r.rect.h)}`
+            if (widziane.has(klucz)) continue
+            widziane.add(klucz)
+            lista.push({ ref: r, conceptId: c.id, name: c.name })
+          }
+        }
+        return lista
+      })()
     : []
 
   /** Ten sam fragment bywa źródłem kilku klocków — wtedy zamiast zgadywać,

@@ -115,7 +115,6 @@ export function BlockEditor({
   /** Cel przeciągania chipa: nazwa grupy albo '' (obszar „bez grupy"). */
   const [srcHint, setSrcHint] = useState<string | null>(null)
 
-  const isCurrent = version.id === concept.currentVersionId
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
   /** Ścieżki, w których ten klocek się pojawia (także w scalonych blokach). */
   const wSciezkach = useLiveQuery(() => pathsWithConcept(concept.id), [concept.id]) ?? []
@@ -627,13 +626,6 @@ export function BlockEditor({
           </div>
         </div>
       </header>
-
-      {!isCurrent && !activeSub && (
-        <div className="editor-banner">
-          Piszesz po wersji v{version.version}, a bieżąca jest inna — ta treść
-          i te źródła należą tylko do niej.
-        </div>
-      )}
 
       {/* Gdzie ten klocek pracuje. Sama treść nie mówi, czy jest wpleciony
           w jakiś skrypt, a to bywa ważniejsze niż to, co w nim napisano. */}
