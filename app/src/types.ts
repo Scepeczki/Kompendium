@@ -25,6 +25,13 @@ export interface BlockTypeDef {
   /** Schowany z listy wyboru. Istniejące klocki takiego typu działają
    *  normalnie; po prostu nie proponujemy go przy nowych. */
   hidden?: boolean
+  /** Kafelki tego rodzaju mieszkają w ścieżce, a nie w bibliotece.
+   *
+   *  Przykłady i zadania należą do wykładu, w którym powstały: w liście po
+   *  lewej byłyby setką wierszy, przez które nie widać pojęć. Definicje
+   *  i twierdzenia zostają w bibliotece — te żyją własnym życiem i bywają
+   *  w kilku wykładach naraz. */
+  wSciezce?: boolean
 }
 
 /** Fabryczne typy. Barwy te same, co dawniej w arkuszu stylów.
@@ -35,10 +42,11 @@ export const BUILTIN_BLOCK_TYPES: BlockTypeDef[] = [
   { id: 'definicja', label: 'Definicja', short: 'DEF', color: '#31619e', order: 1, builtin: true },
   { id: 'twierdzenie', label: 'Twierdzenie', short: 'TW', color: '#6d4a9e', order: 2, builtin: true },
   { id: 'lemat', label: 'Lemat', short: 'LEM', color: '#8a5fb0', order: 3, builtin: true },
-  { id: 'przyklad', label: 'Przykład', short: 'PRZ', color: '#3d7a52', order: 4, builtin: true },
-  { id: 'uwaga', label: 'Uwaga', short: 'UW', color: '#a9742c', order: 5, builtin: true },
-  { id: 'dowod', label: 'Dowód', short: 'DOW', color: '#6b6b66', order: 6, builtin: true, hidden: true },
-  { id: 'intuicja', label: 'Intuicja', short: 'INT', color: '#b05575', order: 7, builtin: true, hidden: true },
+  { id: 'przyklad', label: 'Przykład', short: 'PRZ', color: '#3d7a52', order: 4, builtin: true, wSciezce: true },
+  { id: 'zadanie', label: 'Zadanie', short: 'ZAD', color: '#2f7b7b', order: 5, builtin: true, wSciezce: true },
+  { id: 'uwaga', label: 'Uwaga', short: 'UW', color: '#a9742c', order: 6, builtin: true },
+  { id: 'dowod', label: 'Dowód', short: 'DOW', color: '#6b6b66', order: 7, builtin: true, hidden: true },
+  { id: 'intuicja', label: 'Intuicja', short: 'INT', color: '#b05575', order: 8, builtin: true, hidden: true },
 ]
 
 /** Awaryjny opis typu, którego nie ma już w tabeli (np. po wczytaniu kopii
@@ -136,6 +144,11 @@ export interface Concept {
   iconText?: string
   /** null = poziom główny drzewa. */
   folderId: string | null
+  /** Kafelek mieszka tylko w tej ścieżce i nie pokazuje się w bibliotece po
+   *  lewej. Tak robimy przykłady: należą do wykładu, w którym powstały, i nie
+   *  zaśmiecają listy pojęć. Wyjęty ze ścieżki (albo skasowana ścieżka) —
+   *  pole znika i kafelek wraca do biblioteki, nic nie ginie. */
+  pathId?: string
   /** Ręczna kolejność w obrębie folderu (ułamkowa — wstawianie pomiędzy). */
   order: number
   /** ISO — punkt na osi zdobywania wiedzy. */

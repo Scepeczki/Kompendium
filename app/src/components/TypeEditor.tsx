@@ -97,6 +97,22 @@ export function TypeEditor() {
             />
             do wyboru
           </label>
+          <label
+            className="type-row-hide"
+            title={
+              'Kafelki tego rodzaju mieszkają w ścieżce, w której powstały, ' +
+              'i nie zajmują miejsca w liście po lewej. Tak trzyma się przykłady ' +
+              'i rozwiązane zadania. Definicje i twierdzenia zostaw w bibliotece — ' +
+              'te bywają w kilku wykładach naraz.'
+            }
+          >
+            <input
+              type="checkbox"
+              checked={!!t.wSciezce}
+              onChange={(e) => updateBlockType(t.id, { wSciezce: e.target.checked })}
+            />
+            w ścieżce
+          </label>
           <button
             className="type-row-del"
             title={

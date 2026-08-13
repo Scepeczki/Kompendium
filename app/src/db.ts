@@ -188,7 +188,51 @@ const uid = () => crypto.randomUUID()
 export async function seedBlockTypes(): Promise<void> {
   if ((await db.blockTypes.count()) === 0) {
     await db.blockTypes.bulkAdd(BUILTIN_BLOCK_TYPES.map((t) => ({ ...t })))
+    return
   }
+  // Jednorazowe dosypanie dla baz założonych, zanim rodzaje umiały mieszkać
+  // w ścieżce. Robimy to raz — potem użytkownik jest panem swojej listy
+  // i skasowanego „Zadania" nie wskrzeszamy przy każdym uruchomieniu.
+  const znacznik = 'ui.rodzajeWSciezce.v1'
+  if (localStorage.getItem(znacznik)) return
+  localStorage.setItem(znacznik, '1')
+  const przyklad = await db.blockTypes.get('przyklad')
+  if (przyklad && przyklad.wSciezce === undefined) {
+    await db.blockTypes.update('przyklad', { wSciezce: true })
+  }
+  if (!(await db.blockTypes.get('zadanie'))) {
+    const wzor = BUILTIN_BLOCK_TYPES.find((t) => t.id === 'zadanie')!
+    const zajete = await db.blockTypes.toArray()
+    await db.blockTypes.add({
+      ...wzor,
+      order: zajete.length ? Math.max(...zajete.map((t) => t.order)) + 1 : wzor.order,
+    })
+  }
+}
+
+/** Rodzaje kafelków, które mieszkają w ścieżce zamiast w bibliotece.
+ *
+ *  Rodzaj sprzed tej zmiany nie ma tego pola w ogóle. Fabryczny przykład
+ *  i zadanie liczymy wtedy jako tutejsze — inaczej w starej bazie wkładanie
+ *  do ścieżki po prostu nic by nie robiło, a przyczyna byłaby niewidoczna.
+ *  Wyraźne odznaczenie w edytorze rodzajów (`false`) zawsze wygrywa. */
+export async function pathHomeTypes(): Promise<Set<string>> {
+  const domyslne = new Set(
+    BUILTIN_BLOCK_TYPES.filter((t) => t.wSciezce).map((t) => t.id),
+  )
+  const rodzaje = await db.blockTypes.toArray()
+  return new Set(
+    rodzaje
+      .filter((t) => (t.wSciezce === undefined ? domyslne.has(t.id) : t.wSciezce))
+      .map((t) => t.id),
+  )
+}
+
+/** Przypina kafelek do ścieżki niezależnie od jego rodzaju — ręczne
+ *  „trzymaj to tutaj" spod prawego przycisku. Rodzaje załatwiają zwykły
+ *  przypadek, ale użytkownik musi móc zdecydować o pojedynczym kafelku. */
+export async function keepConceptInPath(pathId: string, conceptId: string) {
+  await db.concepts.update(conceptId, { pathId })
 }
 
 /** Nowy własny typ — ląduje na końcu listy. */
@@ -211,7 +255,9 @@ export async function addBlockType(
 
 export async function updateBlockType(
   id: string,
-  patch: Partial<Pick<BlockTypeDef, 'label' | 'short' | 'color' | 'hidden' | 'order'>>,
+  patch: Partial<
+    Pick<BlockTypeDef, 'label' | 'short' | 'color' | 'hidden' | 'order' | 'wSciezce'>
+  >,
 ) {
   await db.blockTypes.update(id, patch)
 }
@@ -273,7 +319,13 @@ export async function nextConceptOrder(folderId: string | null): Promise<number>
 }
 
 /** Tworzy nowe pojęcie z pustą wersją v1 i zwraca jego id. */
-export async function createConcept(type: BlockType = 'definicja'): Promise<string> {
+/** Tworzy klocek. `pathId` robi z niego własność ścieżki: taki kafelek nie
+ *  pokazuje się w bibliotece po lewej (tak trzymamy przykłady przy wykładzie,
+ *  do którego należą). */
+export async function createConcept(
+  type: BlockType = 'definicja',
+  pathId?: string,
+): Promise<string> {
   const conceptId = uid()
   const versionId = uid()
   const t = now()
@@ -294,6 +346,7 @@ export async function createConcept(type: BlockType = 'definicja'): Promise<stri
       type,
       tags: [],
       folderId: null,
+      ...(pathId ? { pathId } : {}),
       order,
       createdAt: t,
       updatedAt: t,
@@ -301,6 +354,24 @@ export async function createConcept(type: BlockType = 'definicja'): Promise<stri
     })
   })
   return conceptId
+}
+
+/** Zdejmuje z kafelka przypisanie do ścieżki — od tej chwili widać go w
+ *  bibliotece. Używamy tego zamiast kasowania: kafelek wyjęty ze ścieżki ma
+ *  gdzieś wylądować, a nie zniknąć. */
+export async function releaseConceptToLibrary(conceptId: string) {
+  await db.concepts
+    .where('id')
+    .equals(conceptId)
+    .modify((c) => {
+      delete c.pathId
+    })
+}
+
+/** Wszystkie kafelki należące do ścieżki (przykłady zrobione w środku). */
+export async function conceptsOwnedByPath(pathId: string): Promise<Concept[]> {
+  const all = await db.concepts.toArray()
+  return all.filter((c) => c.pathId === pathId)
 }
 
 export async function updateConcept(
@@ -663,8 +734,47 @@ export async function createSubpage(
 export async function addConceptToPath(pathId: string, conceptId: string) {
   const p = await db.paths.get(pathId)
   if (!p) return
+  // Kafelek już w tej ścieżce nie ma się dublować. Upuszczenie na ścieżkę to
+  // „włóż do folderu", a nie „dołóż jeszcze raz" — bez tego przeciągnięcie
+  // zaznaczonych przykładów robiło ich kopie na samym dole.
+  const juzJest = p.nodes.some(
+    (n) =>
+      (n.kind === 'block' && n.conceptId === conceptId) ||
+      (n.kind === 'fusion' && n.parts.some((c) => c.conceptId === conceptId)),
+  )
+  if (juzJest) {
+    await zadomowKafelek(pathId, conceptId)
+    return
+  }
+  await wstawKlocekWSciezke(pathId, conceptId, null)
+}
+
+/** Wstawia klocek do ścieżki TUŻ ZA podanym węzłem (`null` = na końcu)
+ *  i zszywa łańcuch: poprzednik → nowy → następnik. Tą drogą kafelek trafia
+ *  w wybrane miejsce wykładu, a nie zawsze na sam dół. */
+export async function wstawKlocekWSciezke(
+  pathId: string,
+  conceptId: string,
+  poWezle: string | null,
+) {
+  const p = await db.paths.get(pathId)
+  if (!p) return
+  // Kafelek, który już tam stoi, ma się tylko zadomowić — nie zdublować.
+  const juzJest = p.nodes.some(
+    (n) =>
+      (n.kind === 'block' && n.conceptId === conceptId) ||
+      (n.kind === 'fusion' && n.parts.some((c) => c.conceptId === conceptId)),
+  )
+  if (juzJest) {
+    await zadomowKafelek(pathId, conceptId)
+    return
+  }
   const kolejnosc = topoOrder(p.nodes, p.edges)
   const ostatni = kolejnosc[kolejnosc.length - 1] ?? null
+  const poprzednik = poWezle ? (p.nodes.find((n) => n.id === poWezle) ?? ostatni) : ostatni
+  const nastepnikId = poprzednik
+    ? (p.edges.find((e) => e.from === poprzednik.id)?.to ?? null)
+    : null
   const id = uid()
   const wezel: PathNode = {
     id,
@@ -672,14 +782,84 @@ export async function addConceptToPath(pathId: string, conceptId: string) {
     conceptId,
     versionId: null,
     subpageId: null,
-    x: ostatni?.x ?? 120,
-    y: (ostatni?.y ?? -160) + 160,
+    x: poprzednik?.x ?? 120,
+    y: (poprzednik?.y ?? -160) + 160,
   }
+  const edges = p.edges.filter(
+    (e) => !(poprzednik && nastepnikId && e.from === poprzednik.id && e.to === nastepnikId),
+  )
+  if (poprzednik) edges.push({ id: uid(), from: poprzednik.id, to: id })
+  if (nastepnikId) edges.push({ id: uid(), from: id, to: nastepnikId })
   await db.paths.update(pathId, {
     nodes: [...p.nodes, wezel],
-    edges: ostatni ? [...p.edges, { id: uid(), from: ostatni.id, to: id }] : p.edges,
+    edges,
     updatedAt: now(),
   })
+  await zadomowKafelek(pathId, conceptId)
+}
+
+/** Miejsca, w które da się wstawić kafelek — koniec ścieżki i każdy rozdział.
+ *  Do okienka „gdzie w ścieżce?". */
+export async function pathInsertSpots(
+  pathId: string,
+): Promise<{ id: string; label: string; hint?: string }[]> {
+  const p = await db.paths.get(pathId)
+  if (!p) return []
+  const kolejnosc = topoOrder(p.nodes, p.edges)
+  const spots: { id: string; label: string; hint?: string }[] = [
+    { id: '', label: 'Na końcu ścieżki' },
+  ]
+  for (const n of kolejnosc) {
+    if (n.kind !== 'heading') continue
+    spots.push({
+      id: n.id,
+      label: `Zaraz po: ${n.text}`,
+      hint: n.level === 1 ? 'rozdział' : n.level === 2 ? 'podrozdział' : 'sekcja',
+    })
+  }
+  return spots
+}
+
+/** Kafelek rodzaju „mieszka w ścieżce" (przykład, zadanie) wrzucony do ścieżki
+ *  się w niej zadomawia: znika z listy po lewej. Definicje i twierdzenia
+ *  zostają w bibliotece — one żyją własnym życiem i bywają w kilku wykładach.
+ *
+ *  Wołać ZA KAŻDYM razem, gdy kafelek wchodzi do ścieżki — także wtedy, gdy
+ *  wchodzi przeciągnięciem wprost w skrypt albo na mapę, bo tamte drogi omijają
+ *  `addConceptToPath` i piszą do płótna, nie do bazy. */
+export async function zadomowKafelek(pathId: string, conceptId: string) {
+  const c = await db.concepts.get(conceptId)
+  if (!c || c.pathId) return
+  if ((await pathHomeTypes()).has(c.type)) {
+    await db.concepts.update(conceptId, { pathId })
+  }
+}
+
+/** Kafelki tej ścieżki, które są rodzaju „mieszka w ścieżce", a mimo to wciąż
+ *  siedzą w bibliotece — czyli zrobione, zanim ścieżka umiała je przygarnąć. */
+async function doZadomowienia(pathId: string): Promise<Concept[]> {
+  const p = await db.paths.get(pathId)
+  if (!p) return []
+  const uzyte = new Set<string>()
+  for (const n of p.nodes) {
+    if (n.kind === 'block') uzyte.add(n.conceptId)
+    else if (n.kind === 'fusion') for (const c of n.parts) uzyte.add(c.conceptId)
+  }
+  const rodzaje = await pathHomeTypes()
+  const lista = await db.concepts.where('id').anyOf([...uzyte]).toArray()
+  return lista.filter((c) => rodzaje.has(c.type) && !c.pathId)
+}
+
+/** Chowa je w ścieżce. Zwraca, ilu kafelków to dotyczyło. */
+export async function claimExamplesForPath(pathId: string): Promise<number> {
+  const kandydaci = await doZadomowienia(pathId)
+  for (const c of kandydaci) await db.concepts.update(c.id, { pathId })
+  return kandydaci.length
+}
+
+/** Ile ich jest — pasek ścieżki proponuje sprzątanie tylko, gdy jest co. */
+export async function examplesToClaim(pathId: string): Promise<number> {
+  return (await doZadomowienia(pathId)).length
 }
 
 /** Ścieżki, w których ten klocek występuje (także jako składnik scalonego
@@ -819,6 +999,15 @@ export async function movePath(id: string, folderId: string | null, order?: numb
 }
 
 export async function deletePath(id: string) {
+  // Przykłady zrobione w środku należą do ścieżki — gdyby zostały z jej id,
+  // przepadłyby bez śladu (nigdzie by ich nie było widać). Wypuszczamy je
+  // do biblioteki i dopiero wtedy kasujemy ścieżkę.
+  await db.concepts
+    .where('id')
+    .anyOf((await conceptsOwnedByPath(id)).map((c) => c.id))
+    .modify((c) => {
+      delete c.pathId
+    })
   await db.paths.delete(id)
 }
 

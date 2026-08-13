@@ -62,7 +62,7 @@ check('po schowaniu widać znów wszystkie klocki',
 await page.click('.sidebar-tool-wrap .sidebar-tool')
 await page.waitForSelector('.sidebar-filter-pop')
 const items = await page.locator('.sidebar-filter-item').count()
-check('lista typów zawiera wszystkie typy + „Wszystkie"', items === 6, `pozycji: ${items}`)
+check('lista typów zawiera wszystkie typy + „Wszystkie"', items === 7, `pozycji: ${items}`)
 await page.click('.sidebar-filter-item:has-text("Twierdzenie")')
 await page.waitForTimeout(500)
 check('lista typów zamyka się po wyborze',

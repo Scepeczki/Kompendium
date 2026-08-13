@@ -127,8 +127,33 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
    wrócić do żywego podglądu.
 
    Skrypt czyta dokładnie to samo, co Linia — i **zostaje tylko do czytania**.
-7. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
-8. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
+
+   **Wyjątek: kafelki tutejsze.** Przykład albo zadanie zrobione w ścieżce ma
+   `Concept.pathId` i nie istnieje poza nią, więc pisanie w nim idzie **prosto
+   do klocka** — inaczej tekst zostałby „obok", a sam kafelek byłby pusty.
+   Zasada z punktu 6 chroni bibliotekę; tutaj biblioteki nie ma czego chronić.
+7. **Rodzaj decyduje, gdzie kafelek mieszka.** `BlockTypeDef.wSciezce` znaczy
+   „kafelki tego rodzaju należą do ścieżki, w której powstały". Fabrycznie mają
+   to Przykład i Zadanie; przełącznik „w ścieżce" w edytorze rodzajów pozwala
+   dołożyć własne. Taki kafelek dostaje `Concept.pathId` i **znika z listy po
+   lewej** — biblioteka ma być listą pojęć, a nie wysypiskiem przykładów do
+   nich. Definicje i twierdzenia zostają w bibliotece, bo bywają w kilku
+   wykładach naraz.
+
+   **Droga główna: nadanie rodzaju.** Nadanie kafelkowi rodzaju ścieżkowego
+   w edytorze pyta, do której ścieżki ma trafić i w które miejsce (koniec albo
+   „zaraz po" wybranym rozdziale), wstawia go tam i przypisuje. Kafelek stojący
+   już w jednej ścieżce po prostu się w niej zadomawia. Rodzaj zwyczajny odsyła
+   go z powrotem do listy, nie ruszając samej ścieżki.
+
+   **Nic przez to nie ginie.** Wyjęcie ze ścieżki, skasowanie ścieżki, przycisk
+   „tylko tutaj" w edytorze albo „↗ Odeślij do biblioteki" pod prawym
+   przyciskiem kasują `pathId` i kafelek wraca do listy. Przypisanie zdarza się
+   też przy każdym innym wejściu do ścieżki: przeciągnięciu w skrypt, na mapę,
+   na wiersz ścieżki w liście i przy dołożeniu do scalonego bloku. Kafelek już
+   obecny w ścieżce nigdy się przy tym nie dubluje.
+8. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
+9. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
    nazwę z zestawu Lucide, np. `"sigma"`, a `iconColor` barwę `#rrggbb`. Nieznana
    nazwa jest po cichu ignorowana i wraca domyślny wygląd, więc kopia zapasowa
    z przyszłej wersji nic nie psuje.

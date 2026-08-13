@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   addConceptToPath,
+  conceptsOwnedByPath,
   createConcept,
   createFolder,
   createPath,
@@ -228,6 +229,18 @@ export function Sidebar({
     else if (menu.cel.kind === 'path') handleRenamePath(menu.cel.path)
   }
 
+  /** Wkłada do ścieżki klocek spod prawego przycisku — a jeśli kliknięto
+   *  jeden z zaznaczonych, to całe zaznaczenie. Przykłady i zadania od razu
+   *  się w niej zadomawiają (znikają z tej listy); reszta zostaje. */
+  const wlozDoSciezki = async (pathId: string) => {
+    if (!menu || menu.cel.kind !== 'concept') return
+    const cel = menu.cel.concept.id
+    const ids = zaznaczone.has(cel)
+      ? [...zaznaczone].filter((id) => concepts.some((c) => c.id === id))
+      : [cel]
+    for (const id of ids) await addConceptToPath(pathId, id)
+  }
+
   const handleMenuDelete = () => {
     if (!menu) return
     if (menu.cel.kind === 'concept') handleDeleteConcept(menu.cel.concept)
@@ -254,7 +267,10 @@ export function Sidebar({
 
   const folders =
     useLiveQuery(() => db.folders.where('kind').equals('concepts').toArray(), []) ?? []
-  const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  // Kafelki z `pathId` mieszkają w swojej ścieżce (przykłady) — biblioteka
+  // ma być listą pojęć, a nie wysypiskiem przykładów do nich.
+  const concepts =
+    useLiveQuery(() => db.concepts.filter((c) => !c.pathId).toArray(), []) ?? []
   const paths = useLiveQuery(() => db.paths.toArray(), []) ?? []
 
   const filtering = search.trim() !== '' || typeFilter !== 'wszystkie'
@@ -477,9 +493,16 @@ export function Sidebar({
     })
 
   const handleDeletePath = async (p: LearningPath) => {
+    // Przykłady zrobione w środku nie mają domu poza tą ścieżką — trzeba
+    // powiedzieć, dokąd trafią, bo inaczej wygląda to na kasowanie ich razem.
+    const wlasne = await conceptsOwnedByPath(p.id)
     const ok = await dlg.confirm({
       title: `Usunąć ścieżkę „${p.name}"?`,
-      message: 'Klocki zostają w bazie — znika tylko sposób ich ułożenia.',
+      message:
+        'Klocki zostają w bazie — znika tylko sposób ich ułożenia.' +
+        (wlasne.length
+          ? ` Przykłady zrobione w tej ścieżce (${wlasne.length}) wrócą do listy po lewej.`
+          : ''),
       confirmLabel: 'Usuń ścieżkę',
       danger: true,
     })
@@ -702,10 +725,12 @@ export function Sidebar({
             e.stopPropagation()
             const rect = e.currentTarget.getBoundingClientRect()
             const y = e.clientY - rect.top
-            // Ścieżka zachowuje się jak folder: upuszczony na jej ŚRODEK klocek
-            // wchodzi do niej, a przy krawędziach zmienia się kolejność listy.
+            // Ścieżka zachowuje się jak folder: upuszczony na nią klocek
+            // wchodzi do środka, a same krawędzie zmieniają kolejność listy.
+            // Pole „do środka" jest szerokie, bo o to chodzi dziewięć razy
+            // na dziesięć — celowanie w kilkanaście pikseli było za trudne.
             const pos =
-              y < rect.height * 0.3 ? 'before' : y > rect.height * 0.7 ? 'after' : 'into'
+              y < rect.height * 0.2 ? 'before' : y > rect.height * 0.8 ? 'after' : 'into'
             setDropHint({ id: p.id, pos })
             setRootHint(false)
           }}
@@ -985,6 +1010,33 @@ export function Sidebar({
                 'kopia',
                 menu.cel.kind === 'folder' ? 'Powiel z zawartością' : 'Powiel',
                 handleMenuDuplicate,
+              )}
+              {/* Wkładanie do ścieżki bez celowania myszą. Upuszczenie na
+                  wiersz ścieżki działa, ale trzeba trafić w jego środek —
+                  a to kilkanaście pikseli. Tu się po prostu wybiera. */}
+              {menu.cel.kind === 'concept' && paths.length > 0 && (
+                <div className="tree-menu-podmenu">
+                  <button className="tree-menu-item tree-menu-rozwija" type="button">
+                    <span>
+                      <Icon name="sciezka" size={1} /> Włóż do ścieżki
+                    </span>
+                    <span className="tree-menu-strzalka">›</span>
+                  </button>
+                  <div className="tree-menu tree-menu-boczne">
+                    {paths.map((p) => (
+                      <button
+                        key={p.id}
+                        className="tree-menu-item"
+                        onClick={() => {
+                          setMenu(null)
+                          wlozDoSciezki(p.id)
+                        }}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
               <div className="tree-menu-sep" />
               {menuItem('usun', 'Usuń', handleMenuDelete, true)}

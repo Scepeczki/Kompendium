@@ -13,9 +13,13 @@ import {
   deleteConcept,
   deleteSubpage,
   deleteVersion,
+  keepConceptInPath,
   mainPageName,
+  pathInsertSpots,
   pathsWithConcept,
+  releaseConceptToLibrary,
   renameSubpage,
+  wstawKlocekWSciezke,
   reorderSubpages,
   renameVersion,
   reorderVersions,
@@ -114,6 +118,61 @@ export function BlockEditor({
   }, [concept.id])
   /** Cel przeciągania chipa: nazwa grupy albo '' (obszar „bez grupy"). */
   const [srcHint, setSrcHint] = useState<string | null>(null)
+
+  /** Zmiana rodzaju kafelka.
+   *
+   *  Rodzaj ścieżkowy (przykład, zadanie) znaczy „to nie należy do biblioteki,
+   *  tylko do jakiegoś wykładu" — więc od razu pytamy do którego i w które
+   *  miejsce, i tam go przenosimy. Odwrotnie: rodzaj zwyczajny odsyła kafelek
+   *  z powrotem do listy po lewej. Ścieżka zachowuje go u siebie w obu
+   *  przypadkach — zmiana rodzaju nie wyrzuca niczego ze skryptu. */
+  const zmienRodzaj = async (typeId: BlockType) => {
+    if (typeId === concept.type) return
+    await updateConcept(concept.id, { type: typeId })
+    const sciezkowy = !!typy.def(typeId).wSciezce
+    if (!sciezkowy) {
+      if (concept.pathId) await releaseConceptToLibrary(concept.id)
+      return
+    }
+    if (concept.pathId) return // już mieszka w ścieżce — nie ma o co pytać
+    // Kafelek, który już stoi w jednej ścieżce, po prostu się w niej zadomawia
+    // — pytanie „do której?" byłoby udawaniem wyboru, a wstawianie zrobiłoby
+    // z niego drugi taki sam kafelek kilka linijek niżej.
+    if (wSciezkach.length === 1) {
+      await keepConceptInPath(wSciezkach[0].id, concept.id)
+      return
+    }
+    const sciezki = wSciezkach.length > 1 ? wSciezkach : await db.paths.toArray()
+    if (sciezki.length === 0) return
+    const gdzie = await dlg.choose({
+      title: `${typy.label(typeId)} mieszka w ścieżce`,
+      message:
+        wSciezkach.length > 1
+          ? 'Ten kafelek jest w kilku ścieżkach. W której ma mieszkać?'
+          : 'Taki kafelek nie zostaje w liście po lewej — należy do wykładu. ' +
+            'Do którego ma trafić?',
+      options: sciezki.map((s) => ({ id: s.id, label: s.name })),
+      cancelLabel: 'Zostaw na razie w liście',
+    })
+    if (!gdzie) return
+    if (wSciezkach.length > 1) {
+      await keepConceptInPath(gdzie, concept.id)
+      return
+    }
+    const miejsca = await pathInsertSpots(gdzie)
+    // bez rozdziałów nie ma o co pytać — ląduje na końcu
+    const poWezle =
+      miejsca.length > 1
+        ? await dlg.choose({
+            title: 'W którym miejscu ścieżki?',
+            options: miejsca,
+            cancelLabel: 'Anuluj',
+          })
+        : ''
+    if (poWezle === null) return
+    await wstawKlocekWSciezke(gdzie, concept.id, poWezle || null)
+    await keepConceptInPath(gdzie, concept.id)
+  }
 
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
   /** Ścieżki, w których ten klocek się pojawia (także w scalonych blokach). */
@@ -512,9 +571,7 @@ export function BlockEditor({
             data-typ={concept.type}
             style={typy.style(concept.type)}
             value={concept.type}
-            onChange={(e) =>
-              updateConcept(concept.id, { type: e.target.value as BlockType })
-            }
+            onChange={(e) => zmienRodzaj(e.target.value as BlockType)}
           >
             {typy.choices.map((t) => (
               <option key={t.id} value={t.id}>
@@ -644,6 +701,26 @@ export function BlockEditor({
               {p.name}
             </button>
           ))}
+          {/* Przykład należy do ścieżki i nie ma go w liście po lewej.
+              Trzeba to powiedzieć wprost — inaczej wygląda na zgubiony. */}
+          {concept.pathId && (
+            <button
+              className="editor-sciezka editor-sciezka-wlasny"
+              title="Ten kafelek mieszka tylko w tej ścieżce. Kliknij, aby przenieść go do biblioteki."
+              onClick={async () => {
+                const ok = await dlg.confirm({
+                  title: 'Przenieść do biblioteki?',
+                  message:
+                    'Kafelek zostanie w ścieżce, ale od tej chwili pokaże się też ' +
+                    'w liście po lewej — jak każde inne pojęcie.',
+                  confirmLabel: 'Przenieś',
+                })
+                if (ok) await releaseConceptToLibrary(concept.id)
+              }}
+            >
+              tylko tutaj ↗
+            </button>
+          )}
         </div>
       )}
 

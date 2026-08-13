@@ -41,9 +41,20 @@ interface PromptOpts {
   allowEmpty?: boolean
 }
 
+/** Wybór jednej rzeczy z listy — np. „do której ścieżki?". Lepszy od pytania
+ *  z polem tekstowym: nie da się wpisać czegoś, czego nie ma. */
+interface ChooseOpts {
+  title: string
+  message?: string
+  options: { id: string; label: string; hint?: string }[]
+  /** Napis na przycisku rezygnacji; domyślnie „Anuluj". */
+  cancelLabel?: string
+}
+
 interface Dialogs {
   confirm: (opts: ConfirmOpts) => Promise<boolean>
   prompt: (opts: PromptOpts) => Promise<string | null>
+  choose: (opts: ChooseOpts) => Promise<string | null>
 }
 
 const Ctx = createContext<Dialogs | null>(null)
@@ -53,6 +64,7 @@ const Ctx = createContext<Dialogs | null>(null)
 const fallback: Dialogs = {
   confirm: async (o) => window.confirm([o.title, o.message].filter(Boolean).join('\n\n')),
   prompt: async (o) => window.prompt(o.title, o.value ?? ''),
+  choose: async (o) => o.options[0]?.id ?? null,
 }
 
 export const useDialogs = (): Dialogs => useContext(Ctx) ?? fallback
@@ -60,6 +72,7 @@ export const useDialogs = (): Dialogs => useContext(Ctx) ?? fallback
 type Otwarte =
   | { kind: 'confirm'; opts: ConfirmOpts; resolve: (v: boolean) => void }
   | { kind: 'prompt'; opts: PromptOpts; resolve: (v: string | null) => void }
+  | { kind: 'choose'; opts: ChooseOpts; resolve: (v: string | null) => void }
 
 export function DialogProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState<Otwarte | null>(null)
@@ -75,6 +88,12 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     [],
   )
 
+  const choose = useCallback(
+    (opts: ChooseOpts) =>
+      new Promise<string | null>((resolve) => setOpen({ kind: 'choose', opts, resolve })),
+    [],
+  )
+
   const zamknij = (wynik: boolean | string | null) => {
     if (!open) return
     setOpen(null)
@@ -84,7 +103,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
 
   // stała tożsamość: inaczej każdy render dostawcy unieważniałby zapamiętane
   // obiekty u odbiorców (m.in. api mapy, od którego zależy jej płynność)
-  const api = useMemo(() => ({ confirm, prompt }), [confirm, prompt])
+  const api = useMemo(() => ({ confirm, prompt, choose }), [confirm, prompt, choose])
 
   return (
     <Ctx.Provider value={api}>
@@ -94,6 +113,9 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
       )}
       {open?.kind === 'prompt' && (
         <PromptBox opts={open.opts} onDone={(v) => zamknij(v)} />
+      )}
+      {open?.kind === 'choose' && (
+        <ChooseBox opts={open.opts} onDone={(v) => zamknij(v)} />
       )}
     </Ctx.Provider>
   )
@@ -191,6 +213,38 @@ function PromptBox({
             onClick={() => onDone(draft.trim())}
           >
             {opts.confirmLabel ?? 'Zapisz'}
+          </button>
+        </footer>
+      </div>
+    </div>
+  )
+}
+
+/** Wybór z listy. Każda pozycja jest przyciskiem — jedno kliknięcie kończy
+ *  pytanie, bez osobnego „OK". */
+function ChooseBox({ opts, onDone }: { opts: ChooseOpts; onDone: (v: string | null) => void }) {
+  useKlawisze(
+    () => onDone(null),
+    () => {},
+    true,
+  )
+
+  return (
+    <div className="modal-backdrop" onMouseDown={() => onDone(null)}>
+      <div className="modal ask-dialog" onMouseDown={(e) => e.stopPropagation()}>
+        <h3 className="ask-title">{opts.title}</h3>
+        {opts.message && <p className="ask-message">{opts.message}</p>}
+        <div className="ask-lista">
+          {opts.options.map((o) => (
+            <button key={o.id} className="ask-lista-poz" onClick={() => onDone(o.id)}>
+              <span className="ask-lista-nazwa">{o.label}</span>
+              {o.hint && <span className="ask-lista-opis">{o.hint}</span>}
+            </button>
+          ))}
+        </div>
+        <footer className="ask-foot">
+          <button className="btn" onClick={() => onDone(null)}>
+            {opts.cancelLabel ?? 'Anuluj'}
           </button>
         </footer>
       </div>

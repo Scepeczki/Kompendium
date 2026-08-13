@@ -43,7 +43,7 @@ check('klik w klocek zamyka Ustawienia i otwiera edytor',
   (await page.locator('.settings-page').count()) === 0 &&
     (await page.locator('.editor-name').count()) === 1)
 
-// 2. lista typów: pięć do wyboru, siedem wszystkich (dowód i intuicja schowane)
+// 2. lista typów: sześć do wyboru, osiem wszystkich (dowód i intuicja schowane)
 await doTypow()
 const wiersze = await page.locator('.type-row').count()
 const doWyboru = await page.evaluate(
@@ -52,10 +52,21 @@ const doWyboru = await page.evaluate(
       (r) => r.querySelector('input[type=checkbox]').checked,
     ).length,
 )
-check('wszystkie typy fabryczne widoczne w edytorze', wiersze === 7, `${wiersze}`)
-check('pięć typów proponowanych przy klocku', doWyboru === 5, `${doWyboru}`)
+check('wszystkie typy fabryczne widoczne w edytorze', wiersze === 8, `${wiersze}`)
+check('sześć typów proponowanych przy klocku', doWyboru === 6, `${doWyboru}`)
 check('każdy typ da się usunąć, także fabryczny',
   (await page.locator('.type-row-del:disabled').count()) === 0)
+
+// 2a. „w ścieżce" — to ono decyduje, że kafelki danego rodzaju mieszkają
+// w ścieżce, a nie w bibliotece. Fabrycznie: przykład i zadanie.
+const wSciezce = await page.evaluate(() =>
+  [...document.querySelectorAll('.type-row')]
+    .filter((r) => r.querySelectorAll('input[type=checkbox]')[1].checked)
+    .map((r) => r.querySelector('.type-row-name').value),
+)
+check('fabrycznie w ścieżce mieszkają przykład i zadanie',
+  wSciezce.length === 2 && wSciezce.includes('Przykład') && wSciezce.includes('Zadanie'),
+  wSciezce.join(' · '))
 
 // 3. zmiana nazwy typu przechodzi do całego programu
 await page.fill('.type-row:has(input[value="Definicja"]) .type-row-name', 'Określenie')
@@ -72,7 +83,7 @@ await page.fill('.type-row-nowy .type-row-name', 'Aksjomat')
 await page.fill('.type-row-nowy .type-row-abbr', 'AKS')
 await page.click('.type-row-nowy button:has-text("Dodaj")')
 await page.waitForTimeout(400)
-check('własny typ dopisany', (await page.locator('.type-row').count()) === 8)
+check('własny typ dopisany', (await page.locator('.type-row').count()) === 9)
 
 // 5. własny typ jest do wyboru przy klocku i barwi plakietkę
 await page.click('.settings-page-head button:has-text("Wróć")')
@@ -109,7 +120,7 @@ await page.waitForSelector('.ask-dialog')
 const pytanie = await page.textContent('.ask-message')
 check('pytanie o usunięcie mówi, ile klocków zmieni typ', pytanie.includes('1'), pytanie)
 await potwierdz(page)
-check('typ usunięty', (await page.locator('.type-row').count()) === 7)
+check('typ usunięty', (await page.locator('.type-row').count()) === 8)
 await page.click('.settings-page-head button:has-text("Wróć")')
 await page.waitForTimeout(500)
 const poUsunieciu = await page.locator('.concept-item .type-mini').textContent()
@@ -121,7 +132,7 @@ await doTypow()
 await page.click('.type-row:has(input[value="Intuicja"]) .type-row-del')
 await potwierdz(page)
 const poKasacjiFabrycznego = await page.locator('.type-row').count()
-check('typ fabryczny daje się usunąć', poKasacjiFabrycznego === 6, `${poKasacjiFabrycznego}`)
+check('typ fabryczny daje się usunąć', poKasacjiFabrycznego === 7, `${poKasacjiFabrycznego}`)
 check('pojawia się „Przywróć fabryczne"',
   (await page.locator('button:has-text("Przywróć fabryczne")').count()) === 1)
 await page.click('button:has-text("Przywróć fabryczne")')

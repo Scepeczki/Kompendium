@@ -40,7 +40,19 @@ import { wikiCompletion } from '../cmWiki'
 import { RichEditor, RichToolbar } from './RichEditor'
 import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { createConcept, db, updatePath } from '../db'
+import {
+  claimExamplesForPath,
+  createConcept,
+  db,
+  examplesToClaim,
+  keepConceptInPath,
+  releaseConceptToLibrary,
+  updateConcept,
+  updatePath,
+  updateSubpage,
+  updateVersion,
+  zadomowKafelek,
+} from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
@@ -418,6 +430,10 @@ interface LinearViewProps {
   /** Przenosi kilka zaznaczonych segmentów naraz, zachowując ich kolejność. */
   onMoveSegments: (ids: string[], afterId: string | null, beforeId: string | null) => void
   onAddNote: (kind: 'text' | 'comment', afterId: string | null, beforeId: string | null) => void
+  /** Nowy kafelek rodzaju „mieszka w ścieżce" — poza biblioteką. */
+  onAddExample: (typeId: string, afterId: string | null, beforeId: string | null) => void
+  /** Ręczne „ten kafelek mieszka tutaj" / „wróć do biblioteki". */
+  onKeepHere: (conceptId: string, tutaj: boolean) => void
   onRemove: (id: string) => void
   onEdit: (n: PathNode) => void
   onUnfuse: (id: string) => void
@@ -810,6 +826,8 @@ function LinearView({
   onMoveSegment,
   onMoveSegments,
   onAddNote,
+  onAddExample,
+  onKeepHere,
   onRemove,
   onEdit,
   onUnfuse,
@@ -840,6 +858,9 @@ function LinearView({
   const [aktywny, setAktywny] = useState<Editor | null>(null)
   /** Rodzaje kafelków — do plakietek w spisie treści. */
   const typy = useBlockTypes()
+  /** Rodzaje mieszkające w ścieżce (przykład, zadanie…) — z nich robią się
+   *  przyciski „nowy tutejszy" w menu szczeliny i na dole Linii. */
+  const tutejszeRodzaje = typy.choices.filter((t) => t.wSciezce)
   /** Kafelki odsłonięte ręcznie w trybie zakrytym. */
   const [odsloniete, setOdsloniete] = useState<Set<string>>(new Set())
   useEffect(() => {
@@ -1689,6 +1710,20 @@ function LinearView({
         >
           <p>Przeciągnij klocek z listy po lewej, aby dokleić go do skryptu…</p>
           <div className="linear-append-actions">
+            {tutejszeRodzaje.map((t) => (
+              <button
+                key={t.id}
+                className="btn"
+                title={`${t.label} należy do tej ścieżki — nie trafia do listy po lewej`}
+                onClick={() => onAddExample(t.id, last?.id ?? null, null)}
+              >
+                +{' '}
+                <span className="type-mini menu-mini" data-typ={t.id} style={typy.style(t.id)}>
+                  {t.short}
+                </span>{' '}
+                {t.label}
+              </button>
+            ))}
             <button
               className="btn"
               title="Rozdział — dzieli skrypt na części"
@@ -1894,14 +1929,35 @@ function LinearView({
                   <div className="tree-menu-sep" />
                 </>
               )}
-              {sasiad?.kind === 'block' && onOpenConcept && (
+              {sasiad?.kind === 'block' && (
                 <>
-                  <button
-                    className="tree-menu-item"
-                    onClick={wstaw(() => onOpenConcept(sasiad.conceptId))}
-                  >
-                    Otwórz klocek w edytorze
-                  </button>
+                  {onOpenConcept && (
+                    <button
+                      className="tree-menu-item"
+                      onClick={wstaw(() => onOpenConcept(sasiad.conceptId))}
+                    >
+                      Otwórz klocek w edytorze
+                    </button>
+                  )}
+                  {/* Rodzaje załatwiają zwykły przypadek (przykład, zadanie),
+                      ale o pojedynczym kafelku musi dać się zdecydować ręcznie
+                      — bez chodzenia do ustawień. */}
+                  {(() => {
+                    const tutejszy = mapy.klocki.get(sasiad.conceptId)?.pathId === pathId
+                    return (
+                      <button
+                        className="tree-menu-item"
+                        title={
+                          tutejszy
+                            ? 'Wróci do listy po lewej, zostając w tej ścieżce'
+                            : 'Zniknie z listy po lewej i będzie mieszkać w tej ścieżce'
+                        }
+                        onClick={wstaw(() => onKeepHere(sasiad.conceptId, !tutejszy))}
+                      >
+                        {tutejszy ? '↗ Odeślij do biblioteki' : '⌂ Trzymaj tylko tutaj'}
+                      </button>
+                    )
+                  })()}
                   <div className="tree-menu-sep" />
                 </>
               )}
@@ -1925,6 +1981,19 @@ function LinearView({
               <div className="tree-menu-where">
                 Wstaw {segMenu.pos === 'before' ? 'przed' : 'po'} „{opis(sasiad)}"
               </div>
+              {tutejszeRodzaje.map((t) => (
+                <button
+                  key={t.id}
+                  className="tree-menu-item"
+                  title={`${t.label} mieszka w tej ścieżce — nie ma go w liście po lewej`}
+                  onClick={wstaw(() => onAddExample(t.id, afterId, beforeId))}
+                >
+                  <span className="type-mini menu-mini" data-typ={t.id} style={typy.style(t.id)}>
+                    {t.short}
+                  </span>{' '}
+                  {t.label}
+                </button>
+              ))}
               <button
                 className="tree-menu-item"
                 onClick={wstaw(() => onAddHeading(1, afterId, beforeId))}
@@ -2142,6 +2211,11 @@ function CanvasInner({
   // płynność przeciągania kafelków — patrz komentarz przy useMemo niżej)
   const dlgRef = useRef(dlg)
   dlgRef.current = dlg
+  const typy = useBlockTypes()
+  /** Rodzaje kafelków, które mieszkają w ścieżce — przykłady, zadania.
+   *  Lista jest w rękach użytkownika (edytor rodzajów), więc przyciski
+   *  „nowy tutejszy" biorą się właśnie stąd, a nie z nazwy wpisanej w kod. */
+  const tutejszeRodzaje = typy.choices.filter((t) => t.wSciezce)
   const [name, setName] = useState('')
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
@@ -2366,6 +2440,40 @@ function CanvasInner({
       loadedRef.current = true
     })()
   }, [pathId])
+
+  /** Wszystko, co to płótno kiedykolwiek miało u siebie. Dzięki temu kafelek
+   *  usunięty przed autozapisem nie wraca zza grobu, a naprawdę nowy — wraca
+   *  do gry (patrz niżej). */
+  const kiedysZnaneRef = useRef<Set<string>>(new Set())
+  for (const n of rfNodes) kiedysZnaneRef.current.add(n.id)
+
+  // Kafelek może dojść z zewnątrz: upuszczeniem na ścieżkę w liście po lewej.
+  // Płótno trzyma swój stan w pamięci, więc bez tego taki kafelek przepadałby
+  // przy najbliższym autozapisie — nadpisywalibyśmy bazę tym, co mamy u siebie.
+  const zBazy = useLiveQuery(() => db.paths.get(pathId), [pathId])
+  useEffect(() => {
+    if (!loadedRef.current || !zBazy) return
+    const nowe = zBazy.nodes.filter((n) => !kiedysZnaneRef.current.has(n.id))
+    if (!nowe.length) return
+    const noweId = new Set(nowe.map((n) => n.id))
+    setRfNodes((ns) => [...ns, ...nowe.map(toRfNode)])
+    setRfEdges((es) => {
+      const znane = new Set(es.map((e) => e.id))
+      const doda = zBazy.edges.filter(
+        (e) => !znane.has(e.id) && (noweId.has(e.from) || noweId.has(e.to)),
+      )
+      if (!doda.length) return es
+      // Kafelek wstawiony POMIĘDZY rozcina dawną strzałkę a→b. Płótno wciąż ją
+      // ma u siebie, więc bez tego kafelek stałby w dwóch miejscach naraz.
+      const mostki = new Set<string>()
+      for (const id of noweId) {
+        const przed = zBazy.edges.find((e) => e.to === id)?.from
+        const po = zBazy.edges.find((e) => e.from === id)?.to
+        if (przed && po) mostki.add(`${przed}→${po}`)
+      }
+      return [...es.filter((e) => !mostki.has(`${e.source}→${e.target}`)), ...doda.map(toRfEdge)]
+    })
+  }, [zBazy])
 
   // autozapis
   useEffect(() => {
@@ -2634,6 +2742,27 @@ function CanvasInner({
     ])
   }
 
+  /** Kafelek należący do ścieżki (przykład, zadanie…). Rodzi się tutaj, tutaj
+   *  mieszka i nie pokazuje się w bibliotece — ścieżka jest jego folderem. */
+  const nowyTutejszy = async (typeId: string) => {
+    const conceptId = await createConcept(typeId, pathId)
+    await updateConcept(conceptId, { name: typy.label(typeId) })
+    return conceptId
+  }
+
+  const addExampleAt = async (fx: number, fy: number, typeId: string) => {
+    const conceptId = await nowyTutejszy(typeId)
+    setRfNodes((ns) => [
+      ...ns,
+      {
+        id: crypto.randomUUID(),
+        type: 'block',
+        position: { x: fx, y: fy },
+        data: { conceptId, versionId: null },
+      },
+    ])
+  }
+
   const handleAddText = () => {
     const rect = wrapRef.current?.getBoundingClientRect()
     const pos = screenToFlowPosition({
@@ -2680,8 +2809,42 @@ function CanvasInner({
     ])
   }
 
+  /** Kafelki należące do tej ścieżki — przykłady zrobione w jej środku.
+   *  Nie ma ich w bibliotece po lewej, więc ścieżka jest ich jedynym domem. */
+  const wlasneKlockiRef = useRef<Set<string>>(new Set())
+  wlasneKlockiRef.current = new Set(
+    allConcepts.filter((c) => c.pathId === pathId).map((c) => c.id),
+  )
+
+  /** Klocki, których dotyka segment (fuzja ma po jednym na składnik). */
+  const klockiSegmentu = (n: Node | undefined): string[] => {
+    if (!n) return []
+    const lista: string[] = []
+    if (typeof n.data.conceptId === 'string') lista.push(n.data.conceptId)
+    for (const p of (n.data.parts as FusionPart[] | undefined) ?? []) lista.push(p.conceptId)
+    return lista
+  }
+
+  /** Przykład wyjęty ze ścieżki wraca do biblioteki. Nie kasujemy go — po
+   *  usunięciu z jedynego miejsca, w którym był widoczny, zniknąłby na dobre. */
+  const wypuscZeSciezki = useCallback((usuwane: string[]) => {
+    const zostaja = new Set(
+      nodesRef.current
+        .filter((n) => !usuwane.includes(n.id))
+        .flatMap((n) => klockiSegmentu(n)),
+    )
+    const doBiblioteki = new Set(
+      usuwane
+        .flatMap((id) => klockiSegmentu(nodesRef.current.find((n) => n.id === id)))
+        .filter((c) => wlasneKlockiRef.current.has(c) && !zostaja.has(c)),
+    )
+    for (const c of doBiblioteki) releaseConceptToLibrary(c)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   /** Usuwa kafelek ze ścieżki (klocek zostaje w bazie) wraz z jego strzałkami. */
   const removeNode = (id: string) => {
+    wypuscZeSciezki([id])
     setRfNodes((ns) => ns.filter((n) => n.id !== id))
     setRfEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
   }
@@ -2774,6 +2937,7 @@ function CanvasInner({
 
   /** Usuwa segment i zszywa łańcuch (poprzednik → następnik). */
   const removeSegmentHeal = (id: string) => {
+    wypuscZeSciezki([id])
     setRfEdges((es) => {
       const inc = es.filter((e) => e.target === id).map((e) => e.source)
       const outs = es.filter((e) => e.source === id).map((e) => e.target)
@@ -2877,6 +3041,30 @@ function CanvasInner({
     [odloz],
   )
 
+  /** Rozstrzyga, dokąd idzie pisanie w kafelku.
+   *
+   *  Zwykły klocek: do ścieżki (biblioteka jest nietykalna — patrz zasada
+   *  „ścieżka nie rusza klocka"). Przykład należący do TEJ ścieżki: prosto do
+   *  klocka, bo nie ma go nigdzie indziej — tekst zapisany „obok" zostawiłby
+   *  pusty kafelek, który po wyjęciu do biblioteki byłby czystą kartką. */
+  const zapiszTresc = (
+    nodeId: string,
+    versionId: string,
+    subpageId: string | null,
+    md: string,
+  ) => {
+    const n = nodesRef.current.find((x) => x.id === nodeId)
+    const cid = typeof n?.data.conceptId === 'string' ? n.data.conceptId : null
+    if (cid && wlasneKlockiRef.current.has(cid)) {
+      odloz(`${nodeId}|klocek|${versionId}|${subpageId ?? ''}`, () => {
+        if (subpageId) updateSubpage(subpageId, { content: md })
+        else updateVersion(versionId, { content: md })
+      })
+      return
+    }
+    zapiszWlasna(nodeId, kluczWlasnej(versionId, subpageId), md)
+  }
+
   const zapiszWlasnaCzesci = useCallback(
     (nodeId: string, index: number, klucz: string, md: string) => {
       odloz(`${nodeId}|${index}|${klucz}`, () =>
@@ -2945,6 +3133,8 @@ function CanvasInner({
   }
 
   const linearDropConcept = (conceptId: string, afterId: string | null, beforeId: string | null) => {
+    // przeciągnięcie wprost w skrypt to też wkładanie do ścieżki
+    zadomowKafelek(pathId, conceptId)
     chainInsert(
       {
         id: crypto.randomUUID(),
@@ -2972,6 +3162,25 @@ function CanvasInner({
         type: 'heading',
         position: positionBetween(afterId, beforeId),
         data: { text: text.trim(), level },
+      },
+      afterId,
+      beforeId,
+    )
+  }
+
+  /** Wstawiony wprost w łańcuch Linii — bez chodzenia do biblioteki. */
+  const linearAddExample = async (
+    typeId: string,
+    afterId: string | null,
+    beforeId: string | null,
+  ) => {
+    const conceptId = await nowyTutejszy(typeId)
+    chainInsert(
+      {
+        id: crypto.randomUUID(),
+        type: 'block',
+        position: positionBetween(afterId, beforeId),
+        data: { conceptId, versionId: null },
       },
       afterId,
       beforeId,
@@ -3041,6 +3250,7 @@ function CanvasInner({
       payload = null
     }
     if (!payload || payload.kind !== 'concept') return
+    zadomowKafelek(pathId, payload.id) // upuszczenie na mapę też wkłada do ścieżki
     const p = screenToFlowPosition({ x: e.clientX, y: e.clientY })
     const pos = freeSpot(p.x, p.y)
     setRfNodes((ns) => [
@@ -3060,8 +3270,14 @@ function CanvasInner({
 
   // React Flow wymaga zmemoizowanych handlerów — inaczej wpada w pętlę renderowania.
   const onNodesChange = useCallback(
-    (chs: NodeChange[]) => setRfNodes((ns) => applyNodeChanges(chs, ns)),
-    [],
+    (chs: NodeChange[]) => {
+      // klawisz Delete też jest wyjęciem ze ścieżki — przykłady mają wtedy
+      // wrócić do biblioteki, a nie zostać bezdomne
+      const kasowane = chs.filter((c) => c.type === 'remove').map((c) => c.id)
+      if (kasowane.length) wypuscZeSciezki(kasowane)
+      setRfNodes((ns) => applyNodeChanges(chs, ns))
+    },
+    [wypuscZeSciezki],
   )
   const onEdgesChange = useCallback(
     // strzałki powiązań są tylko pokazywane — nie należą do ścieżki,
@@ -3162,6 +3378,16 @@ function CanvasInner({
     [],
   )
 
+  /** Ile tutejszych kafelków tej ścieżki wciąż widać w bibliotece — czyli ile
+   *  zrobiono, zanim ścieżka umiała je przygarnąć. */
+  const doSchowania = (() => {
+    const rodzaje = new Set(typy.all.filter((t) => t.wSciezce).map((t) => t.id))
+    const uzyte = new Set(rfNodes.flatMap((n) => klockiSegmentu(n)))
+    return allConcepts.filter(
+      (c) => rodzaje.has(c.type) && !c.pathId && uzyte.has(c.id),
+    ).length
+  })()
+
   return (
     <section className="path-canvas">
       <header className="path-toolbar">
@@ -3186,6 +3412,32 @@ function CanvasInner({
           >
             <Icon name={zakryte ? 'odkryj' : 'zakryj'} size={1} />
             <span className="btn-napis">{zakryte ? 'Odkryj' : 'Zakryj'}</span>
+          </button>
+        )}
+        {/* Przykłady i zadania zrobione dawniej siedzą jeszcze w bibliotece.
+            Jeden przycisk chowa je wszystkie w ścieżce — pokazuje się tylko
+            wtedy, gdy jest co chować. */}
+        {doSchowania > 0 && (
+          <button
+            className="btn"
+            title={
+              'Przykłady i zadania z tej ścieżki znikną z listy po lewej ' +
+              'i będą mieszkać tutaj'
+            }
+            onClick={async () => {
+              const ile = await examplesToClaim(pathId)
+              const ok = await dlg.confirm({
+                title: `Schować w ścieżce (${ile})?`,
+                message:
+                  'Te kafelki znikną z listy po lewej i będą widoczne tylko tutaj. ' +
+                  'W każdej chwili możesz odesłać je z powrotem — przyciskiem ' +
+                  '„tylko tutaj" w edytorze kafelka.',
+                confirmLabel: 'Schowaj w ścieżce',
+              })
+              if (ok) await claimExamplesForPath(pathId)
+            }}
+          >
+            <span className="btn-napis">Schowaj w ścieżce ({doSchowania})</span>
           </button>
         )}
         {onZakotwicz && (
@@ -3324,6 +3576,10 @@ function CanvasInner({
           onMoveSegment={moveSegment}
           onMoveSegments={moveSegments}
           onAddNote={linearAddNote}
+          onAddExample={linearAddExample}
+          onKeepHere={(conceptId, tutaj) =>
+            tutaj ? keepConceptInPath(pathId, conceptId) : releaseConceptToLibrary(conceptId)
+          }
           onRemove={removeSegmentHeal}
           onEdit={(n) => {
             if (n.kind === 'block') onOpenConcept(n.conceptId)
@@ -3334,7 +3590,7 @@ function CanvasInner({
              zachowuje swoją treść — poprawiona tutaj definicja nie zmienia
              tamtej i nie rozjeżdża innych ścieżek. */
           onEditBlock={(nodeId, versionId, subpageId, md) =>
-            zapiszWlasna(nodeId, kluczWlasnej(versionId, subpageId), md)
+            zapiszTresc(nodeId, versionId, subpageId, md)
           }
           onEditPart={(nodeId, index, versionId, subpageId, md) =>
             zapiszWlasnaCzesci(nodeId, index, kluczWlasnej(versionId, subpageId), md)
@@ -3454,6 +3710,22 @@ function CanvasInner({
             >
               🧱 Nowy klocek tutaj
             </button>
+            {tutejszeRodzaje.map((t) => (
+              <button
+                key={t.id}
+                className="path-ctxmenu-item"
+                title={`${t.label} mieszka w tej ścieżce — nie ma go w liście po lewej`}
+                onClick={() => {
+                  addExampleAt(ctxMenu.fx, ctxMenu.fy, t.id)
+                  setCtxMenu(null)
+                }}
+              >
+                <span className="type-mini menu-mini" data-typ={t.id} style={typy.style(t.id)}>
+                  {t.short}
+                </span>{' '}
+                Nowy — {t.label.toLowerCase()}
+              </button>
+            ))}
             <button
               className="path-ctxmenu-item"
               onClick={() => {
@@ -3567,6 +3839,7 @@ function CanvasInner({
         <ConceptPicker
           title="⧉ Dołóż klocek do scalonego bloku"
           onPick={(c: { id: string }) => {
+            zadomowKafelek(pathId, c.id) // dołożony do fuzji też wchodzi do ścieżki
             setRfNodes((ns) =>
               ns.map((n) => {
                 if (n.id !== fusionTarget) return n
