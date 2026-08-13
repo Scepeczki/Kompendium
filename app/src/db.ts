@@ -746,35 +746,8 @@ export async function addConceptToPath(pathId: string, conceptId: string) {
     await zadomowKafelek(pathId, conceptId)
     return
   }
-  await wstawKlocekWSciezke(pathId, conceptId, null)
-}
-
-/** Wstawia klocek do ścieżki TUŻ ZA podanym węzłem (`null` = na końcu)
- *  i zszywa łańcuch: poprzednik → nowy → następnik. Tą drogą kafelek trafia
- *  w wybrane miejsce wykładu, a nie zawsze na sam dół. */
-export async function wstawKlocekWSciezke(
-  pathId: string,
-  conceptId: string,
-  poWezle: string | null,
-) {
-  const p = await db.paths.get(pathId)
-  if (!p) return
-  // Kafelek, który już tam stoi, ma się tylko zadomowić — nie zdublować.
-  const juzJest = p.nodes.some(
-    (n) =>
-      (n.kind === 'block' && n.conceptId === conceptId) ||
-      (n.kind === 'fusion' && n.parts.some((c) => c.conceptId === conceptId)),
-  )
-  if (juzJest) {
-    await zadomowKafelek(pathId, conceptId)
-    return
-  }
   const kolejnosc = topoOrder(p.nodes, p.edges)
   const ostatni = kolejnosc[kolejnosc.length - 1] ?? null
-  const poprzednik = poWezle ? (p.nodes.find((n) => n.id === poWezle) ?? ostatni) : ostatni
-  const nastepnikId = poprzednik
-    ? (p.edges.find((e) => e.from === poprzednik.id)?.to ?? null)
-    : null
   const id = uid()
   const wezel: PathNode = {
     id,
@@ -782,42 +755,15 @@ export async function wstawKlocekWSciezke(
     conceptId,
     versionId: null,
     subpageId: null,
-    x: poprzednik?.x ?? 120,
-    y: (poprzednik?.y ?? -160) + 160,
+    x: ostatni?.x ?? 120,
+    y: (ostatni?.y ?? -160) + 160,
   }
-  const edges = p.edges.filter(
-    (e) => !(poprzednik && nastepnikId && e.from === poprzednik.id && e.to === nastepnikId),
-  )
-  if (poprzednik) edges.push({ id: uid(), from: poprzednik.id, to: id })
-  if (nastepnikId) edges.push({ id: uid(), from: id, to: nastepnikId })
   await db.paths.update(pathId, {
     nodes: [...p.nodes, wezel],
-    edges,
+    edges: ostatni ? [...p.edges, { id: uid(), from: ostatni.id, to: id }] : p.edges,
     updatedAt: now(),
   })
   await zadomowKafelek(pathId, conceptId)
-}
-
-/** Miejsca, w które da się wstawić kafelek — koniec ścieżki i każdy rozdział.
- *  Do okienka „gdzie w ścieżce?". */
-export async function pathInsertSpots(
-  pathId: string,
-): Promise<{ id: string; label: string; hint?: string }[]> {
-  const p = await db.paths.get(pathId)
-  if (!p) return []
-  const kolejnosc = topoOrder(p.nodes, p.edges)
-  const spots: { id: string; label: string; hint?: string }[] = [
-    { id: '', label: 'Na końcu ścieżki' },
-  ]
-  for (const n of kolejnosc) {
-    if (n.kind !== 'heading') continue
-    spots.push({
-      id: n.id,
-      label: `Zaraz po: ${n.text}`,
-      hint: n.level === 1 ? 'rozdział' : n.level === 2 ? 'podrozdział' : 'sekcja',
-    })
-  }
-  return spots
 }
 
 /** Kafelek rodzaju „mieszka w ścieżce" (przykład, zadanie) wrzucony do ścieżki

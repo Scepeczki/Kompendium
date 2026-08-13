@@ -140,11 +140,11 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
    nich. Definicje i twierdzenia zostają w bibliotece, bo bywają w kilku
    wykładach naraz.
 
-   **Droga główna: nadanie rodzaju.** Nadanie kafelkowi rodzaju ścieżkowego
-   w edytorze pyta, do której ścieżki ma trafić i w które miejsce (koniec albo
-   „zaraz po" wybranym rozdziale), wstawia go tam i przypisuje. Kafelek stojący
-   już w jednej ścieżce po prostu się w niej zadomawia. Rodzaj zwyczajny odsyła
-   go z powrotem do listy, nie ruszając samej ścieżki.
+   **O pojedynczym kafelku decyduje się ręcznie.** W ścieżce, pod prawym
+   przyciskiem: „⌂ Trzymaj tylko tutaj" / „↗ Odeślij do biblioteki". Działa dla
+   każdego kafelka, także zwyczajnej definicji, i nie pyta o nic. Sama zmiana
+   rodzaju nikogo nigdzie nie przenosi — rodzaj rozstrzyga tylko to, co dzieje
+   się przy wejściu kafelka do ścieżki.
 
    **Nic przez to nie ginie.** Wyjęcie ze ścieżki, skasowanie ścieżki, przycisk
    „tylko tutaj" w edytorze albo „↗ Odeślij do biblioteki" pod prawym

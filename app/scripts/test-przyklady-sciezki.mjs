@@ -5,7 +5,7 @@
 // znaczy jednak, że wolno im przepaść — wyjęty ze ścieżki przykład ma wrócić
 // do listy, a napisany w nim tekst ma siedzieć w samym klocku.
 import { chromium } from 'playwright'
-import { nowaSciezka, podaj, potwierdz } from './lib.mjs'
+import { nowaSciezka, potwierdz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -105,10 +105,6 @@ await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Stary przykład')
 await page.selectOption('.type-select', 'przyklad')
-// kafelka nie ma jeszcze w żadnej ścieżce, więc program pyta, do której —
-// tutaj chcemy sprawdzić przeciąganie, więc zostawiamy go na razie w liście
-await page.waitForSelector('.ask-lista')
-await page.click('.ask-foot .btn')
 await page.waitForTimeout(500)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 await page.waitForTimeout(400)
@@ -143,8 +139,6 @@ await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Przykład sprzed zmiany')
 await page.selectOption('.type-select', 'przyklad')
-await page.waitForSelector('.ask-lista')
-await page.click('.ask-foot .btn') // zostaw na razie w liście
 await page.waitForTimeout(500)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 await page.waitForTimeout(400)
@@ -220,57 +214,49 @@ await page.waitForTimeout(900)
 check('skasowanie ścieżki wypuszcza jej przykłady do biblioteki',
   (await wBibliotece('Stary przykład')) && (await wBibliotece('Przykład sprzed zmiany')))
 
-// --- droga główna: robisz kafelek w liście i nadajesz mu rodzaj ścieżkowy ---
+// --- decyzja o pojedynczym kafelku: „trzymaj tutaj" / „odeślij" ---
 //
-// Wtedy program pyta, DO KTÓREJ ścieżki i W KTÓRE miejsce, przenosi go tam
-// i kafelek znika z listy. Bez przeciągania, bez celowania myszą.
+// Rodzaj załatwia zwykły przypadek, ale o każdym kafelku musi dać się
+// zdecydować ręcznie, bez chodzenia do ustawień i bez pytań przy zmianie
+// rodzaju. Zwykła definicja też może zostać w ścieżce, jeśli tak chcesz.
 await nowaSciezka(page, 'Wykład drugi')
 await page.waitForSelector('.path-canvas')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
-await page.click('.linear-append-actions .btn:has-text("Rozdział")')
-await podaj(page, 'Zadania z wykładu')
-await page.waitForTimeout(700)
-const segPrzed = await page.locator('.linear-seg').count()
-
 await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
-await page.fill('.editor-name', 'Zadanie 1 rozwiązane')
+await page.fill('.editor-name', 'Tylko na ten wykład')
 await page.waitForTimeout(500)
-await page.selectOption('.type-select', 'zadanie')
-await page.waitForSelector('.ask-lista')
-check('nadanie rodzaju ścieżkowego pyta o ścieżkę',
-  (await page.locator('.ask-lista-poz:has-text("Wykład drugi")').count()) === 1)
-await page.click('.ask-lista-poz:has-text("Wykład drugi")')
-await page.waitForSelector('.ask-title:has-text("W którym miejscu")')
-check('a potem o miejsce w ścieżce — po rozdziałach',
-  (await page.locator('.ask-lista-poz:has-text("Zadania z wykładu")').count()) === 1)
-await page.click('.ask-lista-poz:has-text("Zadania z wykładu")')
-await page.waitForTimeout(900)
-check('kafelek znika z listy po lewej', !(await wBibliotece('Zadanie 1 rozwiązane')))
 await page.click('.btn-close[title*="Zamknij klocek"]')
-await page.click('.path-item:has-text("Wykład drugi")')
-await page.waitForSelector('.linear-seg')
+await page.waitForTimeout(400)
+await page.dragAndDrop('.concept-item:has-text("Tylko na ten wykład")', '.linear-append')
+await page.waitForTimeout(900)
+check('definicja przeciągnięta w skrypt zostaje w bibliotece',
+  await wBibliotece('Tylko na ten wykład'))
+await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 8 } })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Trzymaj tylko tutaj")')
 await page.waitForTimeout(800)
-check('i staje w ścieżce',
-  (await page.locator('.linear-seg').count()) === segPrzed + 1,
-  `${segPrzed} → ${await page.locator('.linear-seg').count()}`)
-// nazwy rozdziałów i kafelków siedzą w polach tekstowych, więc sam innerText
-// bywa pusty — bierzemy jedno i drugie
-const kolejnosc = await page.evaluate(() =>
-  [...document.querySelectorAll('.linear-seg')].map((s) =>
-    [
-      ...[...s.querySelectorAll('input')].map((i) => i.value),
-      s.innerText,
-    ]
-      .join(' ')
-      .slice(0, 40),
-  ),
-)
-const iRozdzial = kolejnosc.findIndex((t) => t.includes('Zadania z wykładu'))
-check('dokładnie w wybranym miejscu — zaraz po rozdziale',
-  iRozdzial >= 0 && kolejnosc[iRozdzial + 1]?.includes('Zadanie 1'),
-  kolejnosc.join(' | '))
+check('„Trzymaj tylko tutaj" zabiera ją z listy',
+  !(await wBibliotece('Tylko na ten wykład')))
+await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 8 } })
+await page.waitForSelector('.tree-menu')
+check('a menu proponuje teraz drogę powrotną',
+  (await page.locator('.tree-menu-item:has-text("Odeślij do biblioteki")').count()) === 1)
+await page.click('.tree-menu-item:has-text("Odeślij do biblioteki")')
+await page.waitForTimeout(800)
+check('odesłana wraca do listy, zostając w ścieżce',
+  (await wBibliotece('Tylko na ten wykład')) &&
+    (await page.locator('.linear-seg').count()) === 1,
+  `segmentów: ${await page.locator('.linear-seg').count()}`)
+
+// zmiana rodzaju o nic nie pyta — sam rodzaj nikogo nigdzie nie przenosi
+await page.click('.concept-item:has-text("Tylko na ten wykład")')
+await page.waitForSelector('.type-select')
+await page.selectOption('.type-select', 'zadanie')
+await page.waitForTimeout(700)
+check('nadanie rodzaju ścieżkowego niczego nie pyta',
+  (await page.locator('.modal-backdrop').count()) === 0)
 
 // --- stara baza: rodzaje sprzed tej zmiany dostają „w ścieżce" przy starcie ---
 //

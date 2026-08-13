@@ -4015,41 +4015,6 @@ button.version-pill.new {
   background: var(--accent-soft);
 }
 
-/* lista wyboru w okienku pytania — „do której ścieżki?" */
-.ask-lista {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 4px 0 14px;
-  max-height: 46vh;
-  overflow-y: auto;
-}
-
-.ask-lista-poz {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: flex-start;
-  text-align: left;
-  font: inherit;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.ask-lista-poz:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.ask-lista-opis {
-  font-size: var(--fs-3);
-  color: var(--muted);
-}
-
 /* „tylko tutaj" — kafelek należący do ścieżki, poza biblioteką. Barwa
    przykładu, bo to prawie zawsze przykład. */
 .editor-sciezka-wlasny {
