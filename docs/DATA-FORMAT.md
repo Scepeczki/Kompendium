@@ -132,28 +132,29 @@ scalanie miało zlewać klocki. Zostaje, bo siedzi w zapisanych ścieżkach.
    `Concept.pathId` i nie istnieje poza nią, więc pisanie w nim idzie **prosto
    do klocka** — inaczej tekst zostałby „obok", a sam kafelek byłby pusty.
    Zasada z punktu 6 chroni bibliotekę; tutaj biblioteki nie ma czego chronić.
-7. **Rodzaj decyduje, gdzie kafelek mieszka.** `BlockTypeDef.wSciezce` znaczy
-   „kafelki tego rodzaju należą do ścieżki, w której powstały". Fabrycznie mają
-   to Przykład i Zadanie; przełącznik „w ścieżce" w edytorze rodzajów pozwala
-   dołożyć własne. Taki kafelek dostaje `Concept.pathId` i **znika z listy po
-   lewej** — biblioteka ma być listą pojęć, a nie wysypiskiem przykładów do
-   nich. Definicje i twierdzenia zostają w bibliotece, bo bywają w kilku
-   wykładach naraz.
+7. **Kafelek może mieszkać w ścieżce zamiast w bibliotece.** `Concept.pathId`
+   znaczy „ten kafelek należy do tego wykładu" — **znika wtedy z listy po
+   lewej**. Tak trzyma się przykłady i rozwiązane zadania: biblioteka ma być
+   listą pojęć, a nie wysypiskiem przykładów do nich.
 
-   **O pojedynczym kafelku decyduje się ręcznie.** W ścieżce, pod prawym
+   **Decyduje się o tym ręcznie, kafelek po kafelku**, w ścieżce pod prawym
    przyciskiem: „⌂ Trzymaj tylko tutaj" / „↗ Odeślij do biblioteki". Działa dla
-   każdego kafelka, także zwyczajnej definicji, i nie pyta o nic. Sama zmiana
-   rodzaju nikogo nigdzie nie przenosi — rodzaj rozstrzyga tylko to, co dzieje
-   się przy wejściu kafelka do ścieżki.
+   każdego kafelka, także zwyczajnej definicji, i nie pyta o nic. **Nic innego
+   `pathId` nie ustawia** (poza kafelkiem od razu napisanym w ścieżce, punkt
+   niżej) — wciągnięcie kafelka do ścieżki to tylko układanie wykładu i nie
+   rusza tego, gdzie on mieszka.
 
-   **Nic przez to nie ginie.** Wyjęcie ze ścieżki, skasowanie ścieżki, przycisk
-   „tylko tutaj" w edytorze albo „↗ Odeślij do biblioteki" pod prawym
-   przyciskiem kasują `pathId` i kafelek wraca do listy. Przypisanie zdarza się
-   też przy każdym innym wejściu do ścieżki: przeciągnięciu w skrypt, na mapę,
-   na wiersz ścieżki w liście i przy dołożeniu do scalonego bloku. Kafelek już
-   obecny w ścieżce nigdy się przy tym nie dubluje.
-8. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
-9. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
+   **Nic nie ginie.** Wyjęcie ze ścieżki, skasowanie ścieżki albo „↗ Odeślij do
+   biblioteki" kasują `pathId` i kafelek wraca do listy. Kafelek już obecny
+   w ścieżce nigdy się przy wkładaniu nie dubluje.
+8. **`BlockTypeDef.wSciezce` to co innego** — „ten rodzaj da się napisać wprost
+   w ścieżce". Takie rodzaje dostają w Linii i w menu mapy przycisk „nowy
+   ‹rodzaj›", a kafelek tak zrobiony rodzi się od razu z `pathId` swojej
+   ścieżki. Fabrycznie mają to Przykład i Zadanie; przełącznik „nowy w ścieżce"
+   w edytorze rodzajów pozwala dołożyć własne. O tym, gdzie kafelek mieszka,
+   rodzaj nie mówi nic.
+9. **Chronologia** — `createdAt` klocka to punkt na osi zdobywania wiedzy.
+10. **Znaczek to nazwa, nie obrazek** — `icon` (klocka, folderu, ścieżki) trzyma
    nazwę z zestawu Lucide, np. `"sigma"`, a `iconColor` barwę `#rrggbb`. Nieznana
    nazwa jest po cichu ignorowana i wraca domyślny wygląd, więc kopia zapasowa
    z przyszłej wersji nic nie psuje.

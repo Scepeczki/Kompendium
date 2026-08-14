@@ -100,10 +100,10 @@ export function TypeEditor() {
           <label
             className="type-row-hide"
             title={
-              'Kafelki tego rodzaju mieszkają w ścieżce, w której powstały, ' +
-              'i nie zajmują miejsca w liście po lewej. Tak trzyma się przykłady ' +
-              'i rozwiązane zadania. Definicje i twierdzenia zostaw w bibliotece — ' +
-              'te bywają w kilku wykładach naraz.'
+              'Czy w ścieżce ma być przycisk „nowy ‹ten rodzaj›" — do pisania ' +
+              'przykładów i zadań na miejscu, bez zakładania kafelka w liście. ' +
+              'To, czy kafelek zostaje w liście po lewej, jest osobną sprawą: ' +
+              'decydujesz o tym w ścieżce, kafelek po kafelku.'
             }
           >
             <input
@@ -111,7 +111,7 @@ export function TypeEditor() {
               checked={!!t.wSciezce}
               onChange={(e) => updateBlockType(t.id, { wSciezce: e.target.checked })}
             />
-            w ścieżce
+            nowy w ścieżce
           </label>
           <button
             className="type-row-del"

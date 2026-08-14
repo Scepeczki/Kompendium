@@ -100,29 +100,28 @@ await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Usuń ze ścieżki")')
 await page.waitForTimeout(900)
 
-// --- przykład zrobiony wcześniej w bibliotece też da się schować w ścieżce ---
+// --- kafelek z listy wciągnięty do ścieżki ZOSTAJE w liście ---
+//
+// Rodzaj nie przesądza już, gdzie kafelek mieszka. Wciągnięcie do ścieżki to
+// tylko ułożenie wykładu; o tym, czy kafelek znika z listy, decydujesz osobno.
 await page.click('.sidebar-create-btn[title="Nowy klocek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Stary przykład')
 await page.selectOption('.type-select', 'przyklad')
 await page.waitForTimeout(500)
+check('zmiana rodzaju o nic nie pyta',
+  (await page.locator('.modal-backdrop').count()) === 0)
 await page.click('.btn-close[title*="Zamknij klocek"]')
 await page.waitForTimeout(400)
-check('nowy przykład startuje w bibliotece', await wBibliotece('Stary przykład'))
-// upuszczenie na ścieżkę w liście po lewej — ścieżka zachowuje się jak folder
-await page.dragAndDrop(
-  '.concept-item:has-text("Stary przykład")',
-  '.path-item:has-text("Wykład")',
-  { targetPosition: { x: 90, y: 11 } },
-)
+await page.dragAndDrop('.concept-item:has-text("Stary przykład")', '.linear-append')
 await page.waitForTimeout(900)
-check('upuszczony na ścieżkę przykład znika z biblioteki',
-  !(await wBibliotece('Stary przykład')))
-check('a stoi w ścieżce',
+check('wciągnięty do skryptu przykład zostaje w liście',
+  await wBibliotece('Stary przykład'))
+check('i stoi w ścieżce',
   (await page.locator('.linear-seg').count()) === 2,
   `segmentów: ${await page.locator('.linear-seg').count()}`)
 
-// Upuszczenie na ścieżkę to „włóż do folderu", nie „dołóż jeszcze raz":
+// Upuszczenie na wiersz ścieżki to „włóż do folderu", nie „dołóż jeszcze raz":
 // kafelek, który już tam stoi, nie może zrobić sobie kopii na dole.
 await page.dragAndDrop(
   '.concept-item:has-text("Zbiór")',
@@ -134,91 +133,33 @@ check('kafelek już obecny w ścieżce nie robi sobie kopii',
   (await page.locator('.linear-seg').count()) === 2,
   `segmentów: ${await page.locator('.linear-seg').count()}`)
 
-// --- przeciągnięcie WPROST W SKRYPT też wkłada do ścieżki ---
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
-await page.waitForSelector('.editor-name')
-await page.fill('.editor-name', 'Przykład sprzed zmiany')
-await page.selectOption('.type-select', 'przyklad')
-await page.waitForTimeout(500)
-await page.click('.btn-close[title*="Zamknij klocek"]')
-await page.waitForTimeout(400)
-await page.dragAndDrop('.concept-item:has-text("Przykład sprzed zmiany")', '.linear-append')
-await page.waitForTimeout(900)
-// To jest droga, którą się naprawdę pracuje: chwyta się kafelek w liście
-// i wrzuca WPROST W SKRYPT. Musi znikać z listy tak samo, jak przy upuszczeniu
-// na wiersz ścieżki — dawniej ta droga omijała zadomawianie.
-check('przeciągnięty wprost w skrypt też znika z biblioteki',
-  !(await wBibliotece('Przykład sprzed zmiany')))
-check('i stoi w ścieżce',
-  (await page.locator('.linear-seg').count()) === 3,
-  `segmentów: ${await page.locator('.linear-seg').count()}`)
-// --- przycisk „Schowaj w ścieżce" sprząta to, co zostało z dawnych czasów ---
-//
-// Przykłady zrobione przed tą zmianą stoją w ścieżce, ale nie są do niej
-// przypisane, więc dalej sterczą w liście. Udajemy taki stan, odpinając
-// przypisanie wprost w bazie — inaczej nie da się go już zrobić z ekranu.
-check('zanim jest co sprzątać, przycisku nie ma',
-  (await page.locator('.path-toolbar .btn:has-text("Schowaj w ścieżce")').count()) === 0)
-await page.evaluate(
-  () =>
-    new Promise((res, rej) => {
-      const req = indexedDB.open('kompendium')
-      req.onerror = () => rej(req.error)
-      req.onsuccess = () => {
-        const d = req.result
-        const tx = d.transaction('concepts', 'readwrite')
-        const st = tx.objectStore('concepts')
-        st.getAll().onsuccess = (e) => {
-          for (const c of e.target.result) {
-            if (c.name === 'Przykład sprzed zmiany') {
-              delete c.pathId
-              st.put(c)
-            }
-          }
-        }
-        tx.oncomplete = () => {
-          d.close()
-          res()
-        }
-        tx.onerror = () => rej(tx.error)
-      }
-    }),
-)
-await page.reload()
-await page.waitForSelector('text=Kompendium')
-await page.click('.path-item:has-text("Wykład")')
-await page.waitForSelector('.path-canvas')
-await page.click('.view-switch button:has-text("Linia")')
-await page.waitForTimeout(900)
-check('odpięty przykład wraca do listy po lewej',
-  await wBibliotece('Przykład sprzed zmiany'))
-check('pasek ścieżki proponuje sprzątanie',
-  (await page.locator('.path-toolbar .btn:has-text("Schowaj w ścieżce")').count()) === 1)
-await page.click('.path-toolbar .btn:has-text("Schowaj w ścieżce")')
-await potwierdz(page)
-await page.waitForTimeout(700)
-check('po schowaniu znika z biblioteki', !(await wBibliotece('Przykład sprzed zmiany')))
-check('a przycisk się chowa, bo nie ma już czego sprzątać',
-  (await page.locator('.path-toolbar .btn:has-text("Schowaj w ścieżce")').count()) === 0)
+// i dopiero ręczna decyzja zabiera go z listy
+await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 8 } })
+await page.waitForSelector('.tree-menu')
+await page.click('.tree-menu-item:has-text("Trzymaj tylko tutaj")')
+await page.waitForTimeout(800)
+check('dopiero „Trzymaj tylko tutaj" zabiera go z listy',
+  !(await wBibliotece('Stary przykład')))
+check('a zwykły klocek zostaje w liście', await wBibliotece('Zbiór'))
 
 // --- skasowanie ścieżki też nie może połknąć przykładu ---
 await page.click('.linear-append-actions .btn:has-text("Przykład")')
 await page.waitForTimeout(700)
 check('przed skasowaniem ścieżki przykładów nie widać',
-  !(await wBibliotece('Stary przykład')) && !(await wBibliotece('Przykład sprzed zmiany')))
+  !(await wBibliotece('Stary przykład')))
 await page.locator('.path-item:has-text("Wykład")').click({ button: 'right' })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Usuń")')
 await potwierdz(page)
 await page.waitForTimeout(900)
 check('skasowanie ścieżki wypuszcza jej przykłady do biblioteki',
-  (await wBibliotece('Stary przykład')) && (await wBibliotece('Przykład sprzed zmiany')))
+  await wBibliotece('Stary przykład'))
 
 // --- decyzja o pojedynczym kafelku: „trzymaj tutaj" / „odeślij" ---
 //
-// Rodzaj załatwia zwykły przypadek, ale o każdym kafelku musi dać się
-// zdecydować ręcznie, bez chodzenia do ustawień i bez pytań przy zmianie
-// rodzaju. Zwykła definicja też może zostać w ścieżce, jeśli tak chcesz.
+// To jest jedyny sposób, w jaki kafelek znika z listy — i działa dla KAŻDEGO
+// rodzaju, także zwykłej definicji. Rodzaj rozstrzyga tylko to, czy w ścieżce
+// jest przycisk „nowy ‹rodzaj›".
 await nowaSciezka(page, 'Wykład drugi')
 await page.waitForSelector('.path-canvas')
 await page.click('.view-switch button:has-text("Linia")')
@@ -250,19 +191,20 @@ check('odesłana wraca do listy, zostając w ścieżce',
     (await page.locator('.linear-seg').count()) === 1,
   `segmentów: ${await page.locator('.linear-seg').count()}`)
 
-// zmiana rodzaju o nic nie pyta — sam rodzaj nikogo nigdzie nie przenosi
+// zmiana rodzaju niczego nie przenosi — kafelek zostaje tam, gdzie był
 await page.click('.concept-item:has-text("Tylko na ten wykład")')
 await page.waitForSelector('.type-select')
 await page.selectOption('.type-select', 'zadanie')
 await page.waitForTimeout(700)
-check('nadanie rodzaju ścieżkowego niczego nie pyta',
-  (await page.locator('.modal-backdrop').count()) === 0)
+check('zmiana rodzaju nie rusza kafelka z listy',
+  (await page.locator('.modal-backdrop').count()) === 0 &&
+    (await wBibliotece('Tylko na ten wykład')))
 
-// --- stara baza: rodzaje sprzed tej zmiany dostają „w ścieżce" przy starcie ---
+// --- stara baza: rodzaje sprzed tej zmiany dostają „nowy w ścieżce" ---
 //
 // Baza założona wcześniej ma „Przykład" bez tej cechy i nie zna „Zadania".
-// Bez dosypania przy starcie wkładanie do ścieżki nic by nie robiło —
-// kafelek wchodziłby do ścieżki i dalej sterczał w liście po lewej.
+// Bez dosypania przy starcie w ścieżce zabrakłoby przycisków do pisania
+// przykładów i zadań na miejscu.
 await page.evaluate(
   () =>
     new Promise((res, rej) => {
@@ -308,7 +250,7 @@ const rodzaje = await page.evaluate(
       }
     }),
 )
-check('stara baza dostaje „w ścieżce" dla przykładu i zadania',
+check('stara baza dostaje „nowy w ścieżce" dla przykładu i zadania',
   rodzaje.length === 2 && rodzaje.includes('przyklad') && rodzaje.includes('zadanie'),
   rodzaje.join(' · '))
 

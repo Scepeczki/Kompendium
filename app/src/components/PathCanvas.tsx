@@ -41,17 +41,14 @@ import { RichEditor, RichToolbar } from './RichEditor'
 import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  claimExamplesForPath,
   createConcept,
   db,
-  examplesToClaim,
   keepConceptInPath,
   releaseConceptToLibrary,
   updateConcept,
   updatePath,
   updateSubpage,
   updateVersion,
-  zadomowKafelek,
 } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
@@ -1575,33 +1572,46 @@ function LinearView({
     }
   }
 
-  /** Spis treści: rozdziały, a pod nimi to, co w nich stoi — definicje,
-   *  twierdzenia, przykłady. Rozdział bez rozwinięcia wygląda jak dotąd,
-   *  a rozwinięty pozwala skoczyć wprost do konkretnego kafelka. */
-  const outline: OutlineItem[] = ordered
-    .filter((n) => n.kind === 'heading' || n.kind === 'block' || n.kind === 'fusion')
-    .map((n) => {
-      if (n.kind === 'heading') {
-        return { domId: outlineId(n.id), text: n.text, level: n.level }
-      }
-      if (n.kind === 'fusion') {
-        return {
-          domId: n.id,
-          text: n.name,
-          level: 'kafelek' as const,
-          znak: n.type ? typy.short(n.type) : '⧉',
-          barwa: n.type ? typy.def(n.type).color : undefined,
-        }
-      }
-      const c = mapy.klocki.get(n.conceptId)
+  /** Spis treści: rozdziały, a pod nimi wszystko, co w nich stoi — definicje,
+   *  twierdzenia, przykłady i notatki. Rozdział bez rozwinięcia wygląda jak
+   *  dotąd, a rozwinięty pozwala skoczyć wprost do konkretnej pozycji i
+   *  przestawić ją przeciągnięciem. */
+  const outline: OutlineItem[] = ordered.map((n) => {
+    if (n.kind === 'heading') {
+      return { domId: outlineId(n.id), nodeId: n.id, text: n.text, level: n.level }
+    }
+    if (n.kind === 'text' || n.kind === 'comment') {
+      // notatka nie ma nazwy — bierzemy jej pierwszą linijkę, żeby dało się
+      // ją poznać, a gdy jest pusta, zostaje samo słowo
+      const pierwsza = (n.text ?? '').split('\n').find((w) => w.trim() !== '')?.trim()
       return {
         domId: n.id,
-        text: n.nazwa ?? c?.name ?? '(usunięty klocek)',
+        nodeId: n.id,
+        text: pierwsza ? pierwsza.slice(0, 60) : 'Notatka',
         level: 'kafelek' as const,
-        znak: c ? typy.short(c.type) : undefined,
-        barwa: c ? typy.def(c.type).color : undefined,
+        znak: n.kind === 'comment' ? '💬' : '✎',
       }
-    })
+    }
+    if (n.kind === 'fusion') {
+      return {
+        domId: n.id,
+        nodeId: n.id,
+        text: n.name,
+        level: 'kafelek' as const,
+        znak: n.type ? typy.short(n.type) : '⧉',
+        barwa: n.type ? typy.def(n.type).color : undefined,
+      }
+    }
+    const c = mapy.klocki.get(n.conceptId)
+    return {
+      domId: n.id,
+      nodeId: n.id,
+      text: n.nazwa ?? c?.name ?? '(usunięty klocek)',
+      level: 'kafelek' as const,
+      znak: c ? typy.short(c.type) : undefined,
+      barwa: c ? typy.def(c.type).color : undefined,
+    }
+  })
 
   return (
     <div
@@ -1615,7 +1625,7 @@ function LinearView({
         if (zazSeg.size > 0) setZazSeg(new Set())
       }}
     >
-      <Outline items={outline} />
+      <Outline items={outline} onMove={onMoveSegment} />
       {/* Pasek i kolumna razem w jednej kolumnie układu — inaczej pasek
           wchodziłby jako trzecia kolumna obok spisu treści i spychał tekst. */}
       <div className="linear-main">
@@ -3133,8 +3143,6 @@ function CanvasInner({
   }
 
   const linearDropConcept = (conceptId: string, afterId: string | null, beforeId: string | null) => {
-    // przeciągnięcie wprost w skrypt to też wkładanie do ścieżki
-    zadomowKafelek(pathId, conceptId)
     chainInsert(
       {
         id: crypto.randomUUID(),
@@ -3250,7 +3258,6 @@ function CanvasInner({
       payload = null
     }
     if (!payload || payload.kind !== 'concept') return
-    zadomowKafelek(pathId, payload.id) // upuszczenie na mapę też wkłada do ścieżki
     const p = screenToFlowPosition({ x: e.clientX, y: e.clientY })
     const pos = freeSpot(p.x, p.y)
     setRfNodes((ns) => [
@@ -3378,16 +3385,6 @@ function CanvasInner({
     [],
   )
 
-  /** Ile tutejszych kafelków tej ścieżki wciąż widać w bibliotece — czyli ile
-   *  zrobiono, zanim ścieżka umiała je przygarnąć. */
-  const doSchowania = (() => {
-    const rodzaje = new Set(typy.all.filter((t) => t.wSciezce).map((t) => t.id))
-    const uzyte = new Set(rfNodes.flatMap((n) => klockiSegmentu(n)))
-    return allConcepts.filter(
-      (c) => rodzaje.has(c.type) && !c.pathId && uzyte.has(c.id),
-    ).length
-  })()
-
   return (
     <section className="path-canvas">
       <header className="path-toolbar">
@@ -3412,32 +3409,6 @@ function CanvasInner({
           >
             <Icon name={zakryte ? 'odkryj' : 'zakryj'} size={1} />
             <span className="btn-napis">{zakryte ? 'Odkryj' : 'Zakryj'}</span>
-          </button>
-        )}
-        {/* Przykłady i zadania zrobione dawniej siedzą jeszcze w bibliotece.
-            Jeden przycisk chowa je wszystkie w ścieżce — pokazuje się tylko
-            wtedy, gdy jest co chować. */}
-        {doSchowania > 0 && (
-          <button
-            className="btn"
-            title={
-              'Przykłady i zadania z tej ścieżki znikną z listy po lewej ' +
-              'i będą mieszkać tutaj'
-            }
-            onClick={async () => {
-              const ile = await examplesToClaim(pathId)
-              const ok = await dlg.confirm({
-                title: `Schować w ścieżce (${ile})?`,
-                message:
-                  'Te kafelki znikną z listy po lewej i będą widoczne tylko tutaj. ' +
-                  'W każdej chwili możesz odesłać je z powrotem — przyciskiem ' +
-                  '„tylko tutaj" w edytorze kafelka.',
-                confirmLabel: 'Schowaj w ścieżce',
-              })
-              if (ok) await claimExamplesForPath(pathId)
-            }}
-          >
-            <span className="btn-napis">Schowaj w ścieżce ({doSchowania})</span>
           </button>
         )}
         {onZakotwicz && (
@@ -3839,7 +3810,6 @@ function CanvasInner({
         <ConceptPicker
           title="⧉ Dołóż klocek do scalonego bloku"
           onPick={(c: { id: string }) => {
-            zadomowKafelek(pathId, c.id) // dołożony do fuzji też wchodzi do ścieżki
             setRfNodes((ns) =>
               ns.map((n) => {
                 if (n.id !== fusionTarget) return n

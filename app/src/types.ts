@@ -25,12 +25,12 @@ export interface BlockTypeDef {
   /** Schowany z listy wyboru. Istniejące klocki takiego typu działają
    *  normalnie; po prostu nie proponujemy go przy nowych. */
   hidden?: boolean
-  /** Kafelki tego rodzaju mieszkają w ścieżce, a nie w bibliotece.
+  /** Ten rodzaj da się utworzyć wprost w ścieżce — dostaje przycisk „nowy
+   *  ‹rodzaj›" w Linii i w menu mapy. Tak pisze się przykłady i zadania: na
+   *  miejscu, bez zakładania kafelka w liście po lewej.
    *
-   *  Przykłady i zadania należą do wykładu, w którym powstały: w liście po
-   *  lewej byłyby setką wierszy, przez które nie widać pojęć. Definicje
-   *  i twierdzenia zostają w bibliotece — te żyją własnym życiem i bywają
-   *  w kilku wykładach naraz. */
+   *  Nie mówi nic o tym, gdzie kafelek mieszka — o tym rozstrzyga
+   *  `Concept.pathId`, ustawiany ręcznie, kafelek po kafelku. */
   wSciezce?: boolean
 }
 

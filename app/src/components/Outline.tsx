@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 export interface OutlineItem {
   /** id elementu nagłówka w dokumencie (do przewijania). */
   domId: string
+  /** id węzła ścieżki — po nim przestawiamy kolejność przeciąganiem. */
+  nodeId: string
   text: string
   /** 1–3 = rozdział i podrozdziały; 'kafelek' = pozycja pod rozdziałem. */
   level: 1 | 2 | 3 | 'kafelek'
@@ -11,6 +13,10 @@ export interface OutlineItem {
   /** Kolor rodzaju — żeby definicje odróżniały się od twierdzeń wzrokiem. */
   barwa?: string
 }
+
+/** Przeciąganie pozycji spisu — własny typ, żeby nie mieszać się z klockami
+ *  ciągniętymi z listy po lewej. */
+const MIME = 'text/x-komp-spis'
 
 /** Identyfikator elementu nagłówka — wspólny dla spisu i samego dokumentu. */
 export const outlineId = (nodeId: string) => `outline-${nodeId}`
@@ -32,16 +38,65 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
 
 interface Props {
   items: OutlineItem[]
+  /** Przestawienie kolejności przeciąganiem w spisie. Bez tego spis jest
+   *  tylko do czytania (tak działa Skrypt). */
+  onMove?: (nodeId: string, afterId: string | null, beforeId: string | null) => void
 }
+
+const SZEROKOSC = 'ui.outlineWidth'
+const MIN_SZER = 160
+const MAX_SZER = 560
 
 /** Spis treści ścieżki (jak konspekt w Google Docs): lista rozdziałów po
  *  lewej, klik przewija do miejsca, bieżący rozdział jest podświetlony.
  *  Panel można schować — wybór jest zapamiętywany. */
-export function Outline({ items }: Props) {
+export function Outline({ items, onMove }: Props) {
   const [open, setOpen] = useState(() => localStorage.getItem('ui.outline') !== '0')
   useEffect(() => {
     localStorage.setItem('ui.outline', open ? '1' : '0')
   }, [open])
+
+  /** Szerokość spisu — długie nazwy twierdzeń nie mieszczą się w 210 px,
+   *  a przy krótkich szkoda miejsca na tekst. Wybór zostaje zapamiętany. */
+  const [szer, setSzer] = useState(() => {
+    const z = Number(localStorage.getItem(SZEROKOSC))
+    return z >= MIN_SZER && z <= MAX_SZER ? z : 210
+  })
+  // Liczymy PRZESUNIĘCIE myszy, a nie jej pozycję na ekranie: spis nie zaczyna
+  // się przy krawędzi okna (po lewej stoi lista klocków), więc sama pozycja
+  // dawałaby szerokość powiększoną o wszystko, co jest przed spisem.
+  const ciagnieRef = useRef<{ x: number; szer: number } | null>(null)
+  useEffect(() => {
+    const rusz = (e: MouseEvent) => {
+      const start = ciagnieRef.current
+      if (!start) return
+      e.preventDefault()
+      const chce = start.szer + (e.clientX - start.x)
+      setSzer(Math.min(MAX_SZER, Math.max(MIN_SZER, chce)))
+    }
+    const puszcz = () => {
+      if (!ciagnieRef.current) return
+      ciagnieRef.current = null
+      document.body.classList.remove('ciagne-szerokosc')
+    }
+    window.addEventListener('mousemove', rusz)
+    window.addEventListener('mouseup', puszcz)
+    return () => {
+      window.removeEventListener('mousemove', rusz)
+      window.removeEventListener('mouseup', puszcz)
+    }
+  }, [])
+  useEffect(() => {
+    localStorage.setItem(SZEROKOSC, String(szer))
+  }, [szer])
+
+  /** Przeciąganie w spisie: co jedzie i gdzie wyląduje.
+   *  `pos` liczymy jak w Linii — górna połowa wiersza znaczy „przed", dolna
+   *  „po" — żeby jedna szczelina miała jeden opis. */
+  const ciagniety = useRef<string | null>(null)
+  const [wskaz, setWskaz] = useState<{ nodeId: string; pos: 'before' | 'after' } | null>(
+    null,
+  )
 
   const [active, setActive] = useState<string | null>(null)
   /** Rozwinięte rozdziały — pod nimi widać kafelki. */
@@ -131,6 +186,44 @@ export function Outline({ items }: Props) {
     for (let j = i + 1; j < items.length && items[j].level === 'kafelek'; j++) n++
     return n
   }
+  /** Sąsiedzi wybranej szczeliny — liczone na PEŁNEJ liście, także po
+   *  zwiniętych rozdziałach. Dzięki temu upuszczenie tuż pod nagłówkiem
+   *  zwiniętego rozdziału wkłada kafelek do jego środka, a nie za nim. */
+  const upusc = (i: number, pos: 'before' | 'after') => {
+    const id = ciagniety.current
+    ciagniety.current = null
+    setWskaz(null)
+    if (!id || !onMove) return
+    const afterId = pos === 'before' ? (items[i - 1]?.nodeId ?? null) : items[i].nodeId
+    const beforeId = pos === 'before' ? items[i].nodeId : (items[i + 1]?.nodeId ?? null)
+    if (id === afterId || id === beforeId) return
+    onMove(id, afterId, beforeId)
+  }
+
+  /** Wspólne zachowanie wiersza jako celu upuszczenia. */
+  const cel = (it: OutlineItem, i: number) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!ciagniety.current) return
+      e.preventDefault()
+      e.stopPropagation()
+      const r = e.currentTarget.getBoundingClientRect()
+      setWskaz({
+        nodeId: it.nodeId,
+        pos: e.clientY - r.top < r.height / 2 ? 'before' : 'after',
+      })
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const r = e.currentTarget.getBoundingClientRect()
+      upusc(i, e.clientY - r.top < r.height / 2 ? 'before' : 'after')
+    },
+  })
+
+  /** Klasa rysująca kreskę „tu wyląduje" — ta sama, co w Linii. */
+  const kreska = (nodeId: string) =>
+    wskaz?.nodeId !== nodeId ? '' : wskaz.pos === 'before' ? 'drop-before' : 'drop-after'
+
   const przelacz = (domId: string) =>
     setRozwiniete((prev) => {
       const next = new Set(prev)
@@ -154,7 +247,28 @@ export function Outline({ items }: Props) {
   }
 
   return (
-    <nav className="outline">
+    <nav
+      className="outline"
+      style={{ width: szer }}
+      onDragEnd={() => {
+        ciagniety.current = null
+        setWskaz(null)
+      }}
+      onDragLeave={(e) => {
+        // wyjście poza cały spis, nie tylko z wiersza na wiersz
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setWskaz(null)
+      }}
+    >
+      <div
+        className="outline-uchwyt"
+        title="Przeciągnij, aby zmienić szerokość spisu"
+        onMouseDown={(e) => {
+          e.preventDefault()
+          ciagnieRef.current = { x: e.clientX, szer }
+          document.body.classList.add('ciagne-szerokosc')
+        }}
+        onDoubleClick={() => setSzer(210)}
+      />
       <div className="outline-head">
         <span className="outline-title">Spis treści</span>
         <button
@@ -191,10 +305,17 @@ export function Outline({ items }: Props) {
             return (
               <li key={it.domId}>
                 <button
-                  className={`outline-item outline-kafelek ${
+                  className={`outline-item outline-kafelek ${kreska(it.nodeId)} ${
                     active === it.domId ? 'active' : ''
                   }`}
-                  title={it.text}
+                  title={onMove ? `${it.text} — przeciągnij, aby przestawić` : it.text}
+                  draggable={!!onMove}
+                  onDragStart={(e) => {
+                    ciagniety.current = it.nodeId
+                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.setData(MIME, it.nodeId)
+                  }}
+                  {...cel(it, i)}
                   onClick={() => goTo(it.domId)}
                 >
                   {it.znak && (
@@ -223,11 +344,15 @@ export function Outline({ items }: Props) {
                 ) : (
                   <span className="outline-chev pusty" />
                 )}
+                {/* Rozdziału się nie ciągnie — jest szkieletem wykładu. Ale
+                    jest celem: upuszczenie tuż pod nim przenosi kafelek do
+                    tego rozdziału, i tak przechodzi się między rozdziałami. */}
                 <button
-                  className={`outline-item level-${it.level} ${
+                  className={`outline-item level-${it.level} ${kreska(it.nodeId)} ${
                     active === it.domId ? 'active' : ''
                   }`}
                   title={it.text}
+                  {...cel(it, i)}
                   onClick={() => goTo(it.domId)}
                 >
                   {it.text || '(bez nazwy)'}

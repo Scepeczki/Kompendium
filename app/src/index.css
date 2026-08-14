@@ -3414,9 +3414,15 @@ button.version-pill.new {
   top: 0;
   align-self: flex-start;
   flex: none;
-  width: 210px;
+  /* szerokość ustawia sam składnik (zapamiętana), stąd tylko widełki */
+  min-width: 160px;
+  max-width: 560px;
   max-height: 100%;
-  overflow-y: auto;
+  /* przewija się sama lista, nie cały panel — inaczej uchwyt szerokości
+     odjeżdżałby w górę razem z treścią */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 16px 10px 20px 14px;
   border-right: 1px solid var(--line);
 }
@@ -3441,6 +3447,9 @@ button.version-pill.new {
   list-style: none;
   margin: 0;
   padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .outline-item {
@@ -3479,6 +3488,52 @@ button.version-pill.new {
   padding-left: 32px;
   font-size: var(--fs-2);
   font-style: italic;
+}
+
+/* Uchwyt szerokości — niewidoczny pasek na krawędzi spisu, który zapala się
+   dopiero pod kursorem. Dwuklik wraca do szerokości domyślnej. */
+.outline-uchwyt {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.outline-uchwyt:hover {
+  background: linear-gradient(
+    to right,
+    transparent 2px,
+    var(--accent) 2px,
+    var(--accent) 4px,
+    transparent 4px
+  );
+}
+
+/* w trakcie ciągnięcia kursor ma zostać ten sam nad całą stroną */
+body.ciagne-szerokosc,
+body.ciagne-szerokosc * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+/* „tu wyląduje" — ta sama kreska co przy przeciąganiu w Linii */
+.outline-item.drop-before {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.outline-item.drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+.outline-item[draggable='true'] {
+  cursor: grab;
+}
+
+.outline-item[draggable='true']:active {
+  cursor: grabbing;
 }
 
 /* schowany spis — wąski przycisk przy krawędzi */

@@ -67,7 +67,7 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
   const ordered = topoOrder(path.nodes, path.edges)
   const outline: OutlineItem[] = ordered
     .filter((n) => n.kind === 'heading')
-    .map((n) => ({ domId: outlineId(n.id), text: n.text, level: n.level }))
+    .map((n) => ({ domId: outlineId(n.id), nodeId: n.id, text: n.text, level: n.level }))
 
   return (
     <div className="script-embed">

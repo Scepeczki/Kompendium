@@ -57,14 +57,14 @@ check('sześć typów proponowanych przy klocku', doWyboru === 6, `${doWyboru}`)
 check('każdy typ da się usunąć, także fabryczny',
   (await page.locator('.type-row-del:disabled').count()) === 0)
 
-// 2a. „w ścieżce" — to ono decyduje, że kafelki danego rodzaju mieszkają
-// w ścieżce, a nie w bibliotece. Fabrycznie: przykład i zadanie.
+// 2a. „nowy w ścieżce" — te rodzaje dostają w wykładzie przycisk do pisania
+// kafelka na miejscu. Fabrycznie: przykład i zadanie.
 const wSciezce = await page.evaluate(() =>
   [...document.querySelectorAll('.type-row')]
     .filter((r) => r.querySelectorAll('input[type=checkbox]')[1].checked)
     .map((r) => r.querySelector('.type-row-name').value),
 )
-check('fabrycznie w ścieżce mieszkają przykład i zadanie',
+check('fabrycznie wprost w ścieżce pisze się przykład i zadanie',
   wSciezce.length === 2 && wSciezce.includes('Przykład') && wSciezce.includes('Zadanie'),
   wSciezce.join(' · '))
 
