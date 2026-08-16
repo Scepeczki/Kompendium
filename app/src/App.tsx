@@ -104,7 +104,12 @@ function Widok() {
   const effectiveVersionId = shownVersionId ?? concept?.currentVersionId
   const version = versions.find((v) => v.id === effectiveVersionId)
 
+  /** Telefon: lista wjeżdża z boku i chowa się, gdy coś z niej wybierzesz.
+   *  Na dużym ekranie ten stan nic nie robi — lista stoi tam na stałe. */
+  const [szuflada, setSzuflada] = useState(false)
+
   const selectConcept = (id: string) => {
+    setSzuflada(false)
     // jeśli kafelek otwierany jest z poziomu ścieżki — zapamiętaj, dokąd wrócić
     setReturnPathId(openPathId)
     setSelectedId(id)
@@ -120,6 +125,7 @@ function Widok() {
   /** Otwiera ścieżkę; z drugim argumentem od razu skacze do miejsca, w którym
    *  siedzi w niej ten kafelek (przycisk „w ścieżkach" w edytorze). */
   const openPath = (id: string, conceptId?: string) => {
+    setSzuflada(false)
     setOpenPathId(id)
     setCelKlocka(conceptId ?? null)
     setReturnPathId(null)
@@ -219,7 +225,21 @@ function Widok() {
   else cols.push('30px')
 
   return (
-    <div className="app" style={{ gridTemplateColumns: cols.join(' ') }}>
+    <div
+      className={`app ${szuflada ? 'szuflada-otwarta' : ''}`}
+      style={{ gridTemplateColumns: cols.join(' ') }}
+    >
+      {/* Telefon: lista nie mieści się obok treści, więc wjeżdża z boku.
+          Na dużym ekranie tych dwóch rzeczy w ogóle nie widać. */}
+      <button
+        className="szuflada-przycisk"
+        title="Pokaż listę"
+        aria-label="Pokaż listę"
+        onClick={() => setSzuflada(true)}
+      >
+        ☰
+      </button>
+      <div className="szuflada-cien" onClick={() => setSzuflada(false)} />
       <Sidebar
         selectedId={selectedId}
         onSelect={selectConcept}

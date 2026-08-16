@@ -29,6 +29,17 @@ initUiSettings()
 // ktokolwiek o nie zapyta (widoki i tak czekają na dane z Dexie)
 seedBlockTypes()
 
+// Tryb offline i samoaktualizacja — tylko w wersji zbudowanej. W trybie pracy
+// pracownik serwisowy podawałby zapamiętane pliki zamiast świeżych i zmiany
+// w kodzie przestawałyby być widoczne.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
+      // brak trybu offline to nie powód, żeby program nie wstał
+    })
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

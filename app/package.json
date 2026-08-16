@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "start": "vite build && vite preview --port 5173 --strictPort"
+    "start": "vite build && vite preview --port 5173 --strictPort",
+    "build:web": "tsc -b && vite build --base=/Kompendium/ --outDir dist-web"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

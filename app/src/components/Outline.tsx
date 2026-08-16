@@ -51,7 +51,15 @@ const MAX_SZER = 560
  *  lewej, klik przewija do miejsca, bieżący rozdział jest podświetlony.
  *  Panel można schować — wybór jest zapamiętywany. */
 export function Outline({ items, onMove }: Props) {
-  const [open, setOpen] = useState(() => localStorage.getItem('ui.outline') !== '0')
+  const [open, setOpen] = useState(() => {
+    const zapamietane = localStorage.getItem('ui.outline')
+    if (zapamietane === '0') return false
+    if (zapamietane === '1') return true
+    // Pierwszy raz na tym urządzeniu. Na dużym ekranie spis stoi obok treści
+    // i pomaga; na telefonie jest szufladą, która zasłania to, co się czyta —
+    // więc tam startuje schowany i wyjeżdża dopiero na życzenie.
+    return !window.matchMedia('(max-width: 760px)').matches
+  })
   useEffect(() => {
     localStorage.setItem('ui.outline', open ? '1' : '0')
   }, [open])
@@ -142,7 +150,15 @@ export function Outline({ items, onMove }: Props) {
   /** Przewija do nagłówka i przez chwilę trzyma go na miejscu: treść nad nim
    *  (wzory, podglądy stron) dorasta już po przewinięciu i zepchnęłaby cel
    *  w dół. Przypinanie kończy się, gdy użytkownik sam przewinie. */
+  /** Na telefonie spis jest szufladą na wierzchu treści: po wybraniu miejsca
+   *  ma zejść z drogi, tak samo jak lista kafelków. Na dużym ekranie stoi
+   *  obok i nikomu nie przeszkadza, więc zostaje otwarty. */
+  const waskoRef = useRef(false)
+  waskoRef.current =
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches
+
   const goTo = (domId: string) => {
+    if (waskoRef.current) setOpen(false)
     // Poprzedni skok kończymy natychmiast. Bez tego przeskakiwanie po spisie
     // zostawiało za sobą kilka dociągań naraz — każde do innego kafelka —
     // a widok latał między nimi jak oszalały, dopóki wszystkie nie wygasły.
