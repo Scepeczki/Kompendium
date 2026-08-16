@@ -40,7 +40,7 @@ const selectText = async (needle) => {
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.rich-content .tiptap')
 await page.fill('.editor-name', 'Rozmiary')
 await page.click('.rich-content .tiptap')

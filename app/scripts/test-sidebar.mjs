@@ -26,12 +26,12 @@ for (const [n, t] of [
   ['Twierdzenie o trzech ciagach', 'twierdzenie'],
   ['Przyklad rozbiezny', 'przyklad'],
 ]) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.selectOption('.type-select', t)
   await page.waitForTimeout(350)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 // 1. na starcie nie ma dużego pola szukania ani listy typów
@@ -54,7 +54,7 @@ await page.keyboard.press('Escape')
 await page.waitForTimeout(400)
 check('Escape chowa szukanie',
   (await page.locator('.sidebar-filters input[type=search]').count()) === 0)
-check('po schowaniu widać znów wszystkie klocki',
+check('po schowaniu widać znów wszystkie kafelki',
   (await page.locator('.concept-item').count()) === 3,
   `${await page.locator('.concept-item').count()}`)
 
@@ -86,7 +86,7 @@ check('powrót do wszystkich typów',
 
 // 7. rząd tworzenia nad drzewem i dolny pasek
 const create = await page.locator('.sidebar-create-btn').allTextContents()
-check('rząd tworzenia: klocek, folder, ścieżka', create.length === 3,
+check('rząd tworzenia: kafelek, folder, ścieżka', create.length === 3,
   create.map((s) => s.trim()).join(' · '))
 const footer = await page.evaluate(() => ({
   graf: !!document.querySelector('.sidebar-foot-btn[title*="Graf"]'),

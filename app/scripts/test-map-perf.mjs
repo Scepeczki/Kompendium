@@ -22,28 +22,28 @@ page.on('dialog', (d) => d.accept('Sciezka'))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// dziesięć klocków z realistyczną treścią (wzory = najdroższe renderowanie)
+// dziesięć kafelków z realistyczną treścią (wzory = najdroższe renderowanie)
 const N = 10
 for (let i = 1; i <= N; i++) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
-  await page.fill('.editor-name', `Klocek ${i}`)
+  await page.fill('.editor-name', `Kafelek ${i}`)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
   await page.keyboard.type(
     `Definicja numer ${i}: dla $x \\in \\mathbb{R}$ zachodzi\n\n$$\\sum_{k=1}^{n} k^2 = \\frac{n(n+1)(2n+1)}{6}$$\n\noraz $\\lim_{n \\to \\infty} a_n = g$.`,
   )
   await page.waitForTimeout(350)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Sciezka")
 await page.waitForSelector('.path-canvas')
 
-// wszystkie klocki w to samo miejsce — sprawdzamy, czy się rozsuwają
+// wszystkie kafelki w to samo miejsce — sprawdzamy, czy się rozsuwają
 for (let i = 1; i <= N; i++) {
-  await page.dragAndDrop(`.concept-item:has-text("Klocek ${i}")`, '.path-flow', {
+  await page.dragAndDrop(`.concept-item:has-text("Kafelek ${i}")`, '.path-flow', {
     targetPosition: { x: 400, y: 200 },
   })
   await page.waitForTimeout(250)

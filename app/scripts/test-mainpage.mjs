@@ -1,4 +1,4 @@
-﻿// Test nazwy strony głównej klocka oraz źródeł wspólnych dla wszystkich stron:
+﻿// Test nazwy strony głównej kafelka oraz źródeł wspólnych dla wszystkich stron:
 // źródło można podpiąć z dowolnej strony i nie zmienia się przy ich przełączaniu.
 import { chromium } from 'playwright'
 import { nazwij, podaj } from './lib.mjs'
@@ -18,7 +18,7 @@ page.on('dialog', (d) => d.accept(answers.shift() ?? 'X'))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.rich-content .tiptap')
 await page.fill('.editor-name', 'Twierdzenie o stronach')
 await page.click('.rich-content .tiptap')
@@ -107,7 +107,7 @@ console.log(
 )
 
 // 6. własna nazwa strony głównej widoczna w ścieżce (Skrypt)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Ścieżka")
 await page.waitForSelector('.path-canvas')

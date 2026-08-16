@@ -1,4 +1,4 @@
-﻿// Test: wspólna kolejność folderów i klocków, prowadnice, grupy źródeł.
+﻿// Test: wspólna kolejność folderów i kafelków, prowadnice, grupy źródeł.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { nowyFolder, podaj } from './lib.mjs'
@@ -36,30 +36,30 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
-// window.prompt zostaje przy grupach źródeł; folder klocków ma własne okienko
+// window.prompt zostaje przy grupach źródeł; folder kafelków ma własne okienko
 const answers = ['Rysunki']
 page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// klocki A i B
-for (const name of ['Klocek A', 'Klocek B']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// kafelki A i B
+for (const name of ['Kafelek A', 'Kafelek B']) {
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.waitForTimeout(150)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 // folder X (ląduje na końcu: A, B, X)
 await nowyFolder(page, 'Folder X')
 await page.waitForSelector('.folder-row:has-text("Folder X")')
 
-// 1. WSPÓLNA KOLEJNOŚĆ: przeciągnij Folder X nad Klocek B (górna połowa = przed)
+// 1. WSPÓLNA KOLEJNOŚĆ: przeciągnij Folder X nad Kafelek B (górna połowa = przed)
 await page.dragAndDrop(
   '.folder-row:has-text("Folder X")',
-  '.concept-item:has-text("Klocek B")',
+  '.concept-item:has-text("Kafelek B")',
   { targetPosition: { x: 60, y: 4 } },
 )
 await page.waitForTimeout(300)
@@ -68,19 +68,19 @@ const rootOrder = await page.$$eval('.concept-list > li > *:first-child', (els) 
 )
 console.log('✓ wspólna kolejność (oczekiwane A | Folder X | B):', rootOrder.join(' | '))
 
-// 2. PROWADNICA: zagnieżdżony folder + klocek w środku → widoczna linia
+// 2. PROWADNICA: zagnieżdżony folder + kafelek w środku → widoczna linia
 await page.click('.folder-row:has-text("Folder X")') // rozwiń
 await page.waitForSelector('.folder-children')
 await page.dragAndDrop(
-  '.concept-item:has-text("Klocek A")',
+  '.concept-item:has-text("Kafelek A")',
   '.folder-row:has-text("Folder X")',
   { targetPosition: { x: 60, y: 14 } }, // środek = do środka
 )
-await page.waitForSelector('.folder-children .concept-item:has-text("Klocek A")')
-console.log('✓ klocek w folderze, prowadnica renderowana (screenshot)')
+await page.waitForSelector('.folder-children .concept-item:has-text("Kafelek A")')
+console.log('✓ kafelek w folderze, prowadnica renderowana (screenshot)')
 
 // 3. GRUPY ŹRÓDEŁ: podepnij źródło i przypisz grupę „Rysunki"
-await page.click('.folder-children .concept-item:has-text("Klocek A")')
+await page.click('.folder-children .concept-item:has-text("Kafelek A")')
 await page.waitForSelector('.editor-name')
 await page.setInputFiles('input[type=file]', 'scripts/test.pdf')
 await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })

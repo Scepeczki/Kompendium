@@ -52,7 +52,7 @@ type Section = 'wyglad' | 'tekst' | 'typy' | 'dane'
 const SECTIONS: { id: Section; label: string; hint: string }[] = [
   { id: 'wyglad', label: 'Wygląd', hint: 'Motyw, wielkość list, szerokość strony' },
   { id: 'tekst', label: 'Tekst', hint: 'Odstępy, wzory, linijka' },
-  { id: 'typy', label: 'Typy klocków', hint: 'Nazwy, skróty, barwy, własne typy' },
+  { id: 'typy', label: 'Typy kafelków', hint: 'Nazwy, skróty, barwy, własne typy' },
   { id: 'dane', label: 'Dane', hint: 'Kopia zapasowa i gdzie to wszystko siedzi' },
 ]
 
@@ -130,7 +130,7 @@ export function SettingsPage({ onClose }: Props) {
     const ok = await dlg.confirm({
       title: 'Wczytać kopię zapasową?',
       message:
-        'Klocki, wersje, foldery, ścieżki, typy i PDF-y o tych samych ' +
+        'Kafelki, wersje, foldery, ścieżki, typy i PDF-y o tych samych ' +
         'identyfikatorach co w kopii zostaną nadpisane. Reszta danych zostaje ' +
         'bez zmian. Wrócą też ustawienia wyglądu zapisane w kopii.',
       confirmLabel: 'Wczytaj kopię',
@@ -144,7 +144,7 @@ export function SettingsPage({ onClose }: Props) {
     try {
       const s = await importBackup(file)
       setStatus(
-        `Wczytano: ${s.concepts} klocków, ${s.versions} wersji, ${s.folders} folderów, ` +
+        `Wczytano: ${s.concepts} kafelków, ${s.versions} wersji, ${s.folders} folderów, ` +
           `${s.paths} ścieżek, ${s.pdfs} PDF-ów.`,
       )
     } catch (e) {
@@ -242,7 +242,7 @@ export function SettingsPage({ onClose }: Props) {
 
               <div className="settings-row">
                 <span className="settings-label">
-                  Wielkość tekstu w liście klocków i folderów
+                  Wielkość tekstu w liście kafelków i folderów
                   <span className="settings-value">{treeSize}px</span>
                 </span>
                 <input
@@ -255,7 +255,7 @@ export function SettingsPage({ onClose }: Props) {
                   onChange={(e) => setTreeSize(Number(e.target.value))}
                 />
                 <p className="settings-hint">
-                  Dotyczy paska bocznego — listy klocków, folderów i ścieżek.
+                  Dotyczy paska bocznego — listy kafelków, folderów i ścieżek.
                 </p>
               </div>
 
@@ -334,7 +334,7 @@ export function SettingsPage({ onClose }: Props) {
                   )}
                 </div>
                 <p className="settings-hint">
-                  Dotyczy tylko treści klocków — edytora, Linii i Skryptu. Interfejs
+                  Dotyczy tylko treści kafelków — edytora, Linii i Skryptu. Interfejs
                   zostaje bezszeryfowy. Szeryfowy krój lepiej trzyma towarzystwo wzorom,
                   bo KaTeX też jest szeryfowy.
                 </p>
@@ -382,12 +382,12 @@ export function SettingsPage({ onClose }: Props) {
           {section === 'typy' && (
             <>
               <div className="settings-row">
-                <span className="settings-label">Typy klocków</span>
+                <span className="settings-label">Typy kafelków</span>
                 <TypeEditor />
                 <p className="settings-hint">
                   Typy są zapisane w bazie, więc jadą razem z kopią zapasową.
                   Każdy da się przemianować, przemalować, schować z listy wyboru
-                  i usunąć — usunięcie pyta, ile klocków zmieni typ, i przepisuje
+                  i usunąć — usunięcie pyta, ile kafelków zmieni typ, i przepisuje
                   je na inny, więc nic nie ginie. Musi zostać przynajmniej jeden
                   typ; skasowane fabryczne wraca przyciskiem „Przywróć fabryczne".
                 </p>
@@ -440,7 +440,7 @@ export function SettingsPage({ onClose }: Props) {
                 </div>
                 {status && <p className="settings-hint settings-status">{status}</p>}
                 <p className="settings-hint">
-                  Eksport zapisuje wszystko — klocki, wersje, strony, powiązania,
+                  Eksport zapisuje wszystko — kafelki, wersje, strony, powiązania,
                   ścieżki i PDF-y — do jednego pliku <code>.zip</code>.
                 </p>
               </div>

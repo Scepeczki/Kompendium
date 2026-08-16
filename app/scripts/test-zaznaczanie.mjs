@@ -22,22 +22,22 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 for (const n of ['Alfa', 'Beta', 'Gamma', 'Delta']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.waitForTimeout(200)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await nowyFolder(page, 'Worek')
 
-// 1. Ctrl+klik dokłada do zaznaczenia i nie otwiera klocka
+// 1. Ctrl+klik dokłada do zaznaczenia i nie otwiera kafelka
 await page.click('.concept-item:has-text("Alfa")', { modifiers: ['Control'] })
 await page.click('.concept-item:has-text("Gamma")', { modifiers: ['Control'] })
 await page.waitForTimeout(300)
-check('Ctrl+klik zaznacza wiele klocków',
+check('Ctrl+klik zaznacza wiele kafelków',
   (await page.locator('.concept-item.zaznaczony').count()) === 2,
   `${await page.locator('.concept-item.zaznaczony').count()}`)
-check('Ctrl+klik nie otwiera klocka',
+check('Ctrl+klik nie otwiera kafelka',
   (await page.locator('.editor-name').count()) === 0)
 
 // 2. przeciągnięcie jednego z zaznaczonych przenosi wszystkie
@@ -56,19 +56,19 @@ check('po przeniesieniu zaznaczenie znika',
 // 3. Shift+klik bierze zakres
 await page.click('.concept-item:has-text("Beta")')
 await page.waitForTimeout(300)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.click('.concept-item:has-text("Beta")')
 await page.waitForTimeout(200)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.click('.concept-item:has-text("Delta")', { modifiers: ['Shift'] })
 await page.waitForTimeout(300)
 const zakres = await page.locator('.zaznaczony').count()
 check('Shift+klik bierze cały zakres', zakres >= 2, `zaznaczonych: ${zakres}`)
 
-// 4. zwykły klik czyści zaznaczenie i otwiera klocek
+// 4. zwykły klik czyści zaznaczenie i otwiera kafelek
 await page.click('.concept-item:has-text("Beta")')
 await page.waitForSelector('.editor-name')
-check('zwykły klik czyści zaznaczenie i otwiera klocek',
+check('zwykły klik czyści zaznaczenie i otwiera kafelek',
   (await page.locator('.zaznaczony').count()) === 0)
 
 // 5. przycisk wzoru wstawia pustą parę z kursorem w środku
@@ -86,12 +86,12 @@ const kod = await page.textContent('.editor-code .cm-content')
 check('przycisk wzoru daje pustą parę, a nie literalne „x"',
   kod.includes('$a^2$') && !kod.includes('x$'), kod)
 
-// 6. puste linie z klocka widać w ścieżce
+// 6. puste linie z kafelka widać w ścieżce
 await page.click('.editor-code .cm-content')
 await page.keyboard.press('Control+a')
 await page.keyboard.type('Pierwszy.\n\n\n\nDrugi po dwoch pustych.')
 await page.waitForTimeout(700)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await nowaSciezka(page, 'Odstepy')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
@@ -102,7 +102,7 @@ const akapity = await page.evaluate(
     document.querySelectorAll('.linear-seg .linear-pole .tiptap > p').length ||
     document.querySelectorAll('.linear-seg .markdown-body > p').length,
 )
-check('puste linie z klocka widać w ścieżce', akapity === 4,
+check('puste linie z kafelka widać w ścieżce', akapity === 4,
   `akapitów w segmencie: ${akapity} (oczekiwane 4: tekst, dwie przerwy, tekst)`)
 
 // 7. zaznaczanie i przenoszenie grupowe w Linii

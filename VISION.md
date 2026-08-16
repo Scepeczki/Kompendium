@@ -43,38 +43,38 @@ Dlatego MVP ma być mały i używalny szybko (patrz [ROADMAP.md](ROADMAP.md)).
 System ma **dwa poziomy**: Magazyn Atomowy (czysta wiedza) i Poziom Przestrzenny
 (komponowanie jej w całość).
 
-### Poziom 1: Baza Atomowa („Magazyn Klocków")
+### Poziom 1: Baza Atomowa („Magazyn Kafelków")
 
-Wiedza rozbita na najmniejsze niezależne jednostki — **Klocki Wiedzy**.
-Każdy klocek to osobny obiekt w bazie:
+Wiedza rozbita na najmniejsze niezależne jednostki — **Kafelki Wiedzy**.
+Każdy kafelek to osobny obiekt w bazie:
 
 | Element | Opis |
 |---|---|
-| **Typ klocka** | Ścisła kategoryzacja: `Definicja`, `Twierdzenie`, `Dowód`, `Przykład` (+ ew. `Lemat`, `Uwaga`, `Intuicja`) |
+| **Typ kafelka** | Ścisła kategoryzacja: `Definicja`, `Twierdzenie`, `Dowód`, `Przykład` (+ ew. `Lemat`, `Uwaga`, `Intuicja`) |
 | **Metadane** | Unikalna nazwa, tagi (np. `#matematyka`, `#topologia`), data utworzenia |
 | **Wersjonowanie** | Wiele wersji tego samego pojęcia — np. v1 na bazie Książki A, v2 uzupełniona po Książce B. System rejestruje **ewolucję zrozumienia**, stare wersje nie znikają |
 | **Context-Lock (osadzenie w źródle)** | Każde zdanie/dowód można podpiąć bezpośrednio pod materiał źródłowy — precyzyjny wycinek strony PDF (screenshot regionu + odnośnik: plik, strona, współrzędne). Kontekst nigdy nie ginie |
 
 ### Poziom 2: Poziom Przestrzenny (Ścieżki i Kompozycja)
 
-Klocki są surowcem; z nich buduje się **Ścieżki** (skrypty nauki).
+Kafelki są surowcem; z nich buduje się **Ścieżki** (skrypty nauki).
 
 - **Nieskończona tablica (Canvas)** — ścieżki projektuje się przestrzennie:
-  klocki jako kafelki, połączone strzałkami ustalającymi logiczną kolejność.
+  kafelki jako kafelki, połączone strzałkami ustalającymi logiczną kolejność.
   Z gotowej ścieżki system generuje **jeden ciągły tekst** (eksport do PDF / skrypt wykładu).
-- **Tkanka łączna (Intuicja)** — między sztywnymi klockami użytkownik dopisuje na mapie
+- **Tkanka łączna (Intuicja)** — między sztywnymi kafelkami użytkownik dopisuje na mapie
   luźny tekst budujący intuicję i spajający całość. Ten tekst należy do ścieżki,
-  **nie modyfikuje** oryginalnych klocków w bazie.
-- **Fuzja bloków** — kilka klocków na mapie (np. *Definicja Przestrzeni* + *Definicja Metryki*)
+  **nie modyfikuje** oryginalnych kafelków w bazie.
+- **Fuzja bloków** — kilka kafelków na mapie (np. *Definicja Przestrzeni* + *Definicja Metryki*)
   można scalić w danej ścieżce w jeden bloczek (*Przestrzeń Metryczna*),
   **bez niszczenia ich atomowości** w bazie głównej.
-- **Wybór wersji** — ścieżka wskazuje konkretną wersję każdego klocka
+- **Wybór wersji** — ścieżka wskazuje konkretną wersję każdego kafelka
   (np. „w tym skrypcie używam definicji zwartości wg Rudina, nie wg wykładu").
 
 ### Kluczowa zasada
 
-> **Klocek w bazie jest niezmienny przez ścieżki.** Ścieżka to widok/kompozycja,
-> nie edytor treści. Edycja klocka = nowa wersja klocka.
+> **Kafelek w bazie jest niezmienny przez ścieżki.** Ścieżka to widok/kompozycja,
+> nie edytor treści. Edycja kafelka = nowa wersja kafelka.
 
 ### Trzy warstwy (doprecyzowanie po zderzeniu z praktyką)
 
@@ -84,21 +84,21 @@ za mało. Naprawdę są trzy i mylenie ich jest źródłem problemów:
 | Warstwa | Co to jest | Atomowa? |
 |---|---|---|
 | **Źródło** | co autor napisał w jednym miejscu | **nie** — jeden akapit może definiować 3 byty |
-| **Wiedza** | klocek = jeden byt | **tak** |
+| **Wiedza** | kafelek = jeden byt | **tak** |
 | **Kompozycja** | jak to pokazujemy w ścieżce | **nie** — tu się scala i grupuje |
 
 Konsekwencje:
 
-- **Źródłem może być klocek**, nie tylko wycinek PDF. Robiąc podsumowanie,
-  źródłami są własne klocki z wcześniejszych etapów. Powstaje **genealogia
-  wiedzy**: podsumowanie → klocek z książki A → wycinek strony 214.
-- **Autor definiujący 3 byty naraz** → 3 klocki, ten sam wycinek PDF podpięty
+- **Źródłem może być kafelek**, nie tylko wycinek PDF. Robiąc podsumowanie,
+  źródłami są własne kafelki z wcześniejszych etapów. Powstaje **genealogia
+  wiedzy**: podsumowanie → kafelek z książki A → wycinek strony 214.
+- **Autor definiujący 3 byty naraz** → 3 kafelki, ten sam wycinek PDF podpięty
   pod każdy. Atomowość zostaje, źródło się nie dubluje.
 - **Brzydko wygląda osobno w ścieżce** → od tego jest **scalanie**: kilka
-  klocków pokazywanych jako jeden blok danego typu (np. jedno twierdzenie
+  kafelków pokazywanych jako jeden blok danego typu (np. jedno twierdzenie
   z dwóch twierdzeń), bez naruszania atomowości w bazie.
 
-### Powiązania klocków — trzy osie
+### Powiązania kafelków — trzy osie
 
 Wersje mówią „to samo pojęcie, inne ujęcie". Nie wystarczają, gdy różne byty
 mają się do siebie w określony sposób (definicja ogólna a jej przypadki
@@ -109,12 +109,12 @@ konstrukcja obok wersji i wiki-linków — relacje na trzech osiach:
 2. **Skala (taksonomia i wnioskowanie)** — „to jest mocniejsze/szczegółowsze
    od tamtego"; z mocniejszego wynika słabsze.
 3. **Perspektywa (epistemologia)** — „dwa spojrzenia na ten sam zbiór znaczeń";
-   to samo, czym wersje są wewnątrz jednego klocka.
+   to samo, czym wersje są wewnątrz jednego kafelka.
 
-**Relacja może dotyczyć konkretnej wersji**, bo jedna perspektywa klocka bywa
+**Relacja może dotyczyć konkretnej wersji**, bo jedna perspektywa kafelka bywa
 uogólnieniem, a inna nie. Relacje żyją w warstwie wiedzy — raz zapisane, widać
-je wszędzie: w mini-mapie przy klocku, jako przerywane strzałki na mapie ścieżki
-i pod treścią bloku przy czytaniu (klocek ogólny **przykrywa** swoje przypadki
+je wszędzie: w mini-mapie przy kafelku, jako przerywane strzałki na mapie ścieżki
+i pod treścią bloku przy czytaniu (kafelek ogólny **przykrywa** swoje przypadki
 szczególne — są wypisane i rozwijalne w miejscu, bez wchodzenia w ścieżkę).
 
 *Świadomie poza modelem:* prerekwizyt („żeby to zrozumieć, znaj najpierw tamto")
@@ -141,9 +141,9 @@ to oś **dydaktyczna**, nie ontologiczna — do rozważenia osobno przy porządk
    przejrzyste, spokojne typograficznie, bez wizualnego szumu. To nie dodatek — to powód,
    dla którego będzie się chciało do niego wracać.
 5. **Praca z PDF (Context-Lock, doprecyzowane)** — wrzucamy PDF do aplikacji
-   (albo linkujemy własny). Podczas tworzenia klocka zaznaczamy w PDF-ie fragment
+   (albo linkujemy własny). Podczas tworzenia kafelka zaznaczamy w PDF-ie fragment
    **prostokątem** — celowo nie zaznaczeniem tekstu, bo PDF może być zbiorem skanów/zdjęć
-   bez warstwy tekstowej. Z klocka można z takiego linku **bezpośrednio skoczyć**
+   bez warstwy tekstowej. Z kafelka można z takiego linku **bezpośrednio skoczyć**
    do zaznaczonego miejsca w PDF-ie (właściwa strona + podświetlony prostokąt).
 
 ---

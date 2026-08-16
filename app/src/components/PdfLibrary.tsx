@@ -85,7 +85,7 @@ export function PdfLibrary({ currentId, onOpen, onDeleted }: Props) {
     if (name && name !== p.title) await renamePdf(p.id, name)
   }
 
-  /** Usuwa PDF wraz z plikiem. Ostrzega, jeśli jakieś klocki mają w nim źródła —
+  /** Usuwa PDF wraz z plikiem. Ostrzega, jeśli jakieś kafelki mają w nim źródła —
    *  odnośniki do niego przestaną działać. */
   const handleDeletePdf = async (p: PdfDoc) => {
     const versions = await db.versions.toArray()
@@ -96,9 +96,9 @@ export function PdfLibrary({ currentId, onOpen, onDeleted }: Props) {
       title: `Usunąć „${p.title}" z biblioteki?`,
       message: used
         ? `Plik zniknie z programu na stałe. UWAGA: ${used} ${
-            used === 1 ? 'wersja klocka ma' : 'wersji klocków ma'
+            used === 1 ? 'wersja kafelka ma' : 'wersji kafelków ma'
           } podpięte źródła z tego PDF-a — te odnośniki przestaną działać.`
-        : 'Plik zniknie z programu na stałe. Żaden klocek nie ma z niego źródeł.',
+        : 'Plik zniknie z programu na stałe. Żaden kafelek nie ma z niego źródeł.',
       confirmLabel: 'Usuń PDF',
       danger: true,
     })

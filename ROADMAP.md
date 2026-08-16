@@ -13,12 +13,12 @@
 Aplikacja jest **w codziennym użyciu** — trwa przenoszenie własnych notatek.
 Poniżej to, co działa, pogrupowane tak, jak się z tego korzysta.
 
-### Klocki i treść
+### Kafelki i treść
 
-- [x] Klocki z typem, nazwą, tagami; lista z wyszukiwarką i filtrem typu.
-- [x] Foldery (drzewo, przeciąganie, wspólna kolejność klocków i ścieżek).
-- [x] Wersje klocka z etykietą, zmianą nazwy, kolejności i usuwaniem.
-- [x] Strony klocka (dowolna liczba, dowolne nazwy — najczęściej „Dowód");
+- [x] Kafelki z typem, nazwą, tagami; lista z wyszukiwarką i filtrem typu.
+- [x] Foldery (drzewo, przeciąganie, wspólna kolejność kafelków i ścieżek).
+- [x] Wersje kafelka z etykietą, zmianą nazwy, kolejności i usuwaniem.
+- [x] Strony kafelka (dowolna liczba, dowolne nazwy — najczęściej „Dowód");
       nazwę strony głównej też można zmienić.
 - [x] Hybrydowy edytor: **Wizualny** (TipTap) ↔ **Kod** (CodeMirror) ↔ **Podział**;
       źródłem prawdy zawsze Markdown + LaTeX.
@@ -32,10 +32,10 @@ Poniżej to, co działa, pogrupowane tak, jak się z tego korzysta.
 
 - [x] Import PDF do bazy lokalnej; biblioteka z folderami, zmianą nazwy i usuwaniem.
 - [x] Czytnik PDF: wszystkie strony w pionie, zoom, skok do strony, leniwe rysowanie.
-- [x] Podpięcie źródła prostokątem (działa na skanach); skok z klocka do miejsca w PDF.
-- [x] **Źródłem może być inny klocek** → genealogia wiedzy aż do strony w książce.
+- [x] Podpięcie źródła prostokątem (działa na skanach); skok z kafelka do miejsca w PDF.
+- [x] **Źródłem może być inny kafelek** → genealogia wiedzy aż do strony w książce.
 - [x] Lista źródeł pod treścią bloku z podglądem fragmentu po najechaniu.
-- [x] Mapa wykorzystanych fragmentów na stronach PDF (klik otwiera klocek).
+- [x] Mapa wykorzystanych fragmentów na stronach PDF (klik otwiera kafelek).
 
 ### Powiązania
 
@@ -51,7 +51,7 @@ Poniżej to, co działa, pogrupowane tak, jak się z tego korzysta.
 - [x] Kafelki z wyborem wersji i strony; strzałki kolejności z priorytetem gałęzi.
 - [x] Rozdziały, podrozdziały i sekcje + klikalny spis treści (można schować).
 - [x] Notatki i komentarze (komentarz nie trafia do skryptu).
-- [x] Grupy: kilka klocków jako jeden blok wybranego typu; scalanie na mapie
+- [x] Grupy: kilka kafelków jako jeden blok wybranego typu; scalanie na mapie
       i w linii, edycja nazwy i typu, rozgrupowanie.
 - [x] Generowanie skryptu (porządek topologiczny) → druk / zapis PDF.
 - [x] Układanie kafelków: unikanie nakładania przy dodawaniu + przycisk „Ułóż".
@@ -81,13 +81,13 @@ Poniżej to, co działa, pogrupowane tak, jak się z tego korzysta.
 ## Decyzje rozstrzygnięte
 
 - **2026-08-03 — Grupowanie.** Scalanie to zabieg **estetyczny**: grupa czyta się
-  jak jeden blok wybranego typu, a klocki w środku tracą własne ramki i tytuły.
-  W bazie pozostają osobnymi klockami.
+  jak jeden blok wybranego typu, a kafelki w środku tracą własne ramki i tytuły.
+  W bazie pozostają osobnymi kafelkami.
 - **2026-08-02/03 — Synteza wielu źródeł.** Trzy warstwy (źródło / wiedza /
-  kompozycja), źródłem może być klocek, jeden klocek = jeden byt, powiązania na
+  kompozycja), źródłem może być kafelek, jeden kafelek = jeden byt, powiązania na
   trzech osiach z zawężeniem do wersji, uogólnienie przykrywa przypadki szczególne.
   Szczegóły: [VISION.md](VISION.md) §2.
-- **2026-07-31 — Dowody.** Nie osobny typ klocka, tylko **strona klocka** o dowolnej
+- **2026-07-31 — Dowody.** Nie osobny typ kafelka, tylko **strona kafelka** o dowolnej
   nazwie. W ścieżce wybiera się stronę pokazywaną bazowo; w skrypcie można je
   przełączać podczas czytania.
 - **2026-07-30 — Kopia zapasowa zamiast plików na dysku.** Interfejs dostępu do
@@ -131,6 +131,6 @@ się zbyt toporny, alternatywą jest własny mini-serwer kompilacji.
 
 ## Pomysły na później (świadomie odłożone)
 
-- Automatyczne fiszki z klocków (tryb „zakryj dowód"), powtórki rozłożone w czasie.
+- Automatyczne fiszki z kafelków (tryb „zakryj dowód"), powtórki rozłożone w czasie.
 - Eksport ścieżki do pełnego LaTeX-a (gotowy skrypt akademicki).
 - Współdzielenie ścieżek z innymi.

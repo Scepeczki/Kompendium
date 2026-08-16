@@ -1,4 +1,4 @@
-// Test grafu powiązań: klik otwiera klocek, przeciąganie NIE otwiera,
+// Test grafu powiązań: klik otwiera kafelek, przeciąganie NIE otwiera,
 // samo naciśnięcie nie rusza układu, dopasowanie widoku mieści całość.
 import { chromium } from 'playwright'
 
@@ -20,16 +20,16 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// trzy klocki połączone wiki-linkami
+// trzy kafelki połączone wiki-linkami
 const mk = async (name, tresc) => {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
   await page.keyboard.type(tresc)
   await page.waitForTimeout(500)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await mk('Zbior', 'Podstawa wszystkiego.')
 await mk('Funkcja', 'Przyporzadkowanie miedzy [[Zbior]]ami.')
@@ -90,14 +90,14 @@ const ruch = Math.max(
 )
 check('samo naciśnięcie nie rozjeżdża grafu', ruch < 3, `największe drgnięcie: ${ruch.toFixed(1)}px`)
 
-// 2. puszczenie bez ruchu = klik → otwiera klocek
+// 2. puszczenie bez ruchu = klik → otwiera kafelek
 await page.mouse.up()
 await page.waitForSelector('.editor-name', { timeout: 5000 })
 const otwarty = await page.inputValue('.editor-name')
-check('klik w węzeł otwiera klocek', otwarty.length > 0, otwarty)
+check('klik w węzeł otwiera kafelek', otwarty.length > 0, otwarty)
 
-// 3. przeciągnięcie węzła NIE otwiera klocka
-await page.click('.btn-close[title*="Zamknij klocek"]')
+// 3. przeciągnięcie węzła NIE otwiera kafelka
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.click('.sidebar-foot-btn[title*="Graf"]')
 await page.waitForSelector('.graph-node')
 await page.waitForTimeout(1600)
@@ -116,7 +116,7 @@ check('przeciąganie prowadzi węzeł za kursorem', przesuniecie > 80,
 
 await page.mouse.up()
 await page.waitForTimeout(500)
-check('przeciąganie węzła nie otwiera klocka',
+check('przeciąganie węzła nie otwiera kafelka',
   (await page.locator('.editor-name').count()) === 0 &&
     (await page.locator('.graph-node').count()) > 0)
 
@@ -135,16 +135,16 @@ const miesci = await page.evaluate(() => {
 check('„Dopasuj" mieści cały graf w oknie', miesci)
 
 // 6. GŁÓWNY BŁĄD ZE ZGŁOSZENIA: trzymanie kropki nie może rozdmuchiwać grafu.
-// Klocki bez odnośników tylko się odpychają, więc dawniej graf pęczniał tak
+// Kafelki bez odnośników tylko się odpychają, więc dawniej graf pęczniał tak
 // długo, jak długo trwało trzymanie. Sprawdzamy to na rzadkim grafie, bo przy
-// pięciu połączonych klockach odnośniki same trzymają układ w ryzach.
+// pięciu połączonych kafelkach odnośniki same trzymają układ w ryzach.
 await page.click('.sidebar-foot-btn[title*="Graf"]') // zamknij graf
 for (let i = 1; i <= 18; i++) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', `Samotny ${i}`)
   await page.waitForTimeout(120)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await page.click('.sidebar-foot-btn[title*="Graf"]')
 await page.waitForSelector('.graph-node')

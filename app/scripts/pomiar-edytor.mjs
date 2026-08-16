@@ -1,4 +1,4 @@
-// Płynność pisania w edytorze klocka przy dużej treści (długie dowody).
+// Płynność pisania w edytorze kafelka przy dużej treści (długie dowody).
 // Użycie: node scripts/pomiar-edytor.mjs [ile akapitów]
 import { chromium } from 'playwright'
 
@@ -12,7 +12,7 @@ page.on('pageerror', (e) => console.log('BŁĄD:', String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Dlugi dowod')
 await page.waitForTimeout(700)

@@ -21,8 +21,8 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// klocek 1: treść + strona „Dowód" + źródło z PDF
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// kafelek 1: treść + strona „Dowód" + źródło z PDF
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Kres gorny')
 await page.click('.view-switch button:has-text("Kod")')
@@ -45,17 +45,17 @@ await page.mouse.move(c.x + 200, c.y + 90, { steps: 5 })
 await page.mouse.up()
 await page.waitForSelector('.source-chip')
 await page.waitForTimeout(400)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
-// klocek 2
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// kafelek 2
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Notacja kresu')
 await page.click('.view-switch button:has-text("Kod")')
 await page.click('.editor-code .cm-content')
 await page.keyboard.type('Piszemy sup A.')
 await page.waitForTimeout(400)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 await nowaSciezka(page, 'Fuzje')
 await page.click('.view-switch button:has-text("Linia")')

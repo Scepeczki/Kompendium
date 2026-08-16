@@ -13,7 +13,7 @@ import { useBlockTypes } from '../blockTypes'
 
 interface Props {
   refs: SourceRef[]
-  /** Skok do źródła: wycinek PDF albo klocek (klik w pozycję listy). */
+  /** Skok do źródła: wycinek PDF albo kafelek (klik w pozycję listy). */
   onJump?: (ref: SourceRef) => void
 }
 
@@ -47,7 +47,7 @@ function PdfPreview({ refItem }: { refItem: PdfSourceRef }) {
   )
 }
 
-/** Podgląd treści klocka będącego źródłem. */
+/** Podgląd treści kafelka będącego źródłem. */
 function BlockPreview({ refItem }: { refItem: BlockSourceRef }) {
   const typy = useBlockTypes()
   const concept = useLiveQuery(
@@ -62,7 +62,7 @@ function BlockPreview({ refItem }: { refItem: BlockSourceRef }) {
   if (!concept) {
     return (
       <div className="source-preview">
-        <span className="source-preview-status">Klocek został usunięty.</span>
+        <span className="source-preview-status">Kafelek został usunięty.</span>
       </div>
     )
   }
@@ -88,7 +88,7 @@ function BlockPreview({ refItem }: { refItem: BlockSourceRef }) {
 
 /** Lista źródeł pod treścią bloku: zwijana, z podglądem po najechaniu
  *  i skokiem do źródła po kliknięciu. Źródłem może być wycinek PDF
- *  albo inny klocek — stąd genealogia wiedzy aż do strony w książce. */
+ *  albo inny kafelek — stąd genealogia wiedzy aż do strony w książce. */
 export function SourceList({ refs, onJump }: Props) {
   const [open, setOpen] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
@@ -101,7 +101,7 @@ export function SourceList({ refs, onJump }: Props) {
   if (refs.length === 0) return null
   const pdfTitle = (id: string) => pdfs.find((p) => p.id === id)?.title ?? 'PDF (usunięty)'
   const blockTitle = (id: string) =>
-    concepts.find((c) => c.id === id)?.name ?? 'klocek (usunięty)'
+    concepts.find((c) => c.id === id)?.name ?? 'kafelek (usunięty)'
 
   /** Krótka zwłoka, żeby podgląd nie migał przy przejeżdżaniu myszą. */
   const enter = (id: string) => {
@@ -117,7 +117,7 @@ export function SourceList({ refs, onJump }: Props) {
     <div className="source-list">
       <button
         className="source-list-toggle"
-        title="Skąd to wiem: miejsca w PDF-ach i klocki, na których oparty jest ten klocek"
+        title="Skąd to wiem: miejsca w PDF-ach i kafelki, na których oparty jest ten kafelek"
         onClick={() => setOpen((o) => !o)}
       >
         {/* bez znaku +/− — sam napis „Źródła” jest przyciskiem, a dwa
@@ -137,7 +137,7 @@ export function SourceList({ refs, onJump }: Props) {
               <button
                 className="source-jump"
                 title={
-                  isPdfSource(r) ? 'Pokaż to miejsce w PDF' : 'Otwórz klocek będący źródłem'
+                  isPdfSource(r) ? 'Pokaż to miejsce w PDF' : 'Otwórz kafelek będący źródłem'
                 }
                 onClick={() => onJump?.(r)}
               >

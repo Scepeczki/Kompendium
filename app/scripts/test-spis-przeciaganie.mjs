@@ -26,11 +26,11 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 for (const n of ['Alfa', 'Beta', 'Gamma', 'Delta']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.waitForTimeout(350)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 await nowaSciezka(page, 'Wykład')
@@ -116,9 +116,10 @@ check('przeciągnięcie na samą górę też działa',
 // --- szerokość spisu: rozciąga się i zostaje taka po przeładowaniu ---
 const szerPrzed = (await spis.boundingBox()).width
 const uchwyt = await spis.locator('.outline-uchwyt').boundingBox()
-await page.mouse.move(uchwyt.x + 3, uchwyt.y + 200)
+const y = uchwyt.y + uchwyt.height / 2
+await page.mouse.move(uchwyt.x + 3, y)
 await page.mouse.down()
-await page.mouse.move(uchwyt.x + 143, uchwyt.y + 200, { steps: 8 })
+await page.mouse.move(uchwyt.x + 143, y, { steps: 8 })
 await page.mouse.up()
 await page.waitForTimeout(400)
 const szerPo = (await spis.boundingBox()).width

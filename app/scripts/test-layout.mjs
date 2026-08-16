@@ -1,4 +1,4 @@
-﻿// Test układu: zamykanie klocka, chowanie/pokazywanie panelu PDF,
+﻿// Test układu: zamykanie kafelka, chowanie/pokazywanie panelu PDF,
 // przeciąganie krawędzi paneli.
 import { chromium } from 'playwright'
 
@@ -14,12 +14,12 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// 1. Nowy klocek → zamknij go przyciskiem ✕ → wraca ekran startowy
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// 1. Nowy kafelek → zamknij go przyciskiem ✕ → wraca ekran startowy
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForSelector('text=Zacznij budować kompendium')
-console.log('✓ zamykanie klocka działa')
+console.log('✓ zamykanie kafelka działa')
 
 // 2. Schowaj panel PDF → pojawia się wąski pasek 📖 PDF
 await page.click('.pdf-toolbar .btn-close')

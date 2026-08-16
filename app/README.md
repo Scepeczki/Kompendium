@@ -33,7 +33,7 @@ dokumenty z niewbudowanymi czcionkami tracą tekst. Katalog jest w `.gitignore`.
 ## Gdzie są dane
 
 Wszystko siedzi lokalnie w **IndexedDB przeglądarki** (baza `kompendium`):
-klocki, wersje, strony, powiązania, ścieżki, foldery i pliki PDF.
+kafelki, wersje, strony, powiązania, ścieżki, foldery i pliki PDF.
 
 **Dane są związane z przeglądarką i profilem.** Otwarcie aplikacji w innej
 przeglądarce pokaże pustą bazę — to nie jest utrata danych. Przenoszenie

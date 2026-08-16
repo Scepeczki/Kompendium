@@ -104,10 +104,10 @@ await page.waitForSelector('.note-modal')
 const remembered = await page.locator('.note-modal .editor-preview').count()
 console.log(`✓ tryb zapamiętany (Podział): ${remembered > 0 ? 'ok' : 'BRAK!'}`)
 
-// 8. to samo zawijanie w widoku Kod klocka
+// 8. to samo zawijanie w widoku Kod kafelka
 await page.keyboard.press('Escape')
 await page.click('.path-canvas .btn-close')
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.click('.view-switch button:has-text("Kod")')
 await page.click('.editor-code .cm-content')
@@ -117,7 +117,7 @@ const blockCode = await page.evaluate(() => {
   const s = document.querySelector('.editor-code .cm-scroller')
   return s.scrollWidth - s.clientWidth
 })
-console.log(`✓ widok Kod klocka też zawija: przewijanie w bok ${blockCode}px (oczekiwane 0)`)
+console.log(`✓ widok Kod kafelka też zawija: przewijanie w bok ${blockCode}px (oczekiwane 0)`)
 
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

@@ -18,7 +18,7 @@ import {
 } from '../uiSettings'
 
 /** Menu odstępów tekstu (globalne): interlinia + odstęp między akapitami.
- *  Ustawienia działają wszędzie, gdzie renderuje się treść klocków. */
+ *  Ustawienia działają wszędzie, gdzie renderuje się treść kafelków. */
 export function SpacingMenu() {
   const [open, setOpen] = useState(false)
   const [line, setLine] = useState(getLineSpacing)

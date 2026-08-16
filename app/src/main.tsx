@@ -25,7 +25,7 @@ document.documentElement.dataset.theme =
 // zapamiętane ustawienia wyglądu tekstu (szerokość strony, interlinia, akapity)
 initUiSettings()
 
-// typy klocków są danymi — świeża baza musi dostać fabryczne, zanim
+// typy kafelków są danymi — świeża baza musi dostać fabryczne, zanim
 // ktokolwiek o nie zapyta (widoki i tak czekają na dane z Dexie)
 seedBlockTypes()
 

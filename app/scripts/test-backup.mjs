@@ -1,5 +1,5 @@
 ﻿// Test kopii zapasowej: eksport zip, wyczyszczenie bazy, import, odzyskanie
-// klocków / ścieżek / PDF-a. Sprawdza też odporność na osierocony folderId.
+// kafelków / ścieżek / PDF-a. Sprawdza też odporność na osierocony folderId.
 import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { nazwij, potwierdz } from './lib.mjs'
@@ -17,8 +17,8 @@ page.on('dialog', (d) => d.accept('Testowa ścieżka'))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// dane: klocek, PDF, ścieżka
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// dane: kafelek, PDF, ścieżka
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Do kopii zapasowej')
 await page.setInputFiles('input[type=file][accept="application/pdf"]', {
@@ -29,7 +29,7 @@ await page.setInputFiles('input[type=file][accept="application/pdf"]', {
   ),
 })
 await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Testowa ścieżka")
@@ -39,7 +39,7 @@ await page.click('.path-canvas .btn-close[title*="Zamknij ścieżkę"]')
 // własny typ i zmienione ustawienie — mają wrócić razem z danymi
 await page.click('button[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
-await page.click('.settings-nav-item:has-text("Typy klocków")')
+await page.click('.settings-nav-item:has-text("Typy kafelków")')
 await page.waitForSelector('.type-row')
 await page.click('.type-add')
 await page.fill('.type-row-nowy .type-row-name', 'Aksjomat')
@@ -71,7 +71,7 @@ await page.click('.settings-page-head button:has-text("Wróć")')
 await page.reload()
 await page.waitForSelector('text=Kompendium')
 const emptyBefore = await page.locator('.concept-item').count()
-console.log(`✓ baza wyczyszczona (klocków widocznych: ${emptyBefore})`)
+console.log(`✓ baza wyczyszczona (kafelków widocznych: ${emptyBefore})`)
 
 // import
 await page.click('button[title="Ustawienia"]')
@@ -84,10 +84,10 @@ const summary = await page.textContent('.settings-status')
 console.log(`✓ import: ${summary.trim()}`)
 await page.click('.settings-page-head button:has-text("Wróć")')
 
-// weryfikacja: klocek, ścieżka i PDF wróciły
+// weryfikacja: kafelek, ścieżka i PDF wróciły
 await page.waitForSelector('.concept-item:has-text("Do kopii zapasowej")')
 await page.waitForSelector('.path-item')
-console.log('✓ klocek i ścieżka odzyskane po imporcie')
+console.log('✓ kafelek i ścieżka odzyskane po imporcie')
 
 await page.click('.concept-item:has-text("Do kopii zapasowej")')
 await page.click('.pdf-lib-toggle')
@@ -97,7 +97,7 @@ console.log('✓ PDF odzyskany w bibliotece po imporcie')
 // własny typ i ustawienie wyglądu też wróciły
 await page.click('button[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
-await page.click('.settings-nav-item:has-text("Typy klocków")')
+await page.click('.settings-nav-item:has-text("Typy kafelków")')
 await page.waitForSelector('.type-row')
 const typy = await page.evaluate(() =>
   [...document.querySelectorAll('.type-row-name')].map((i) => i.value),

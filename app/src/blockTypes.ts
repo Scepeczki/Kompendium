@@ -1,4 +1,4 @@
-/** Dostęp do typów klocków dla widoków.
+/** Dostęp do typów kafelków dla widoków.
  *
  *  Typy są danymi, więc każdy widok musi je czytać z bazy, a nie ze stałej
  *  w kodzie. Ten hook robi z tego jedną rzecz do zaimportowania: lista do
@@ -18,9 +18,9 @@ export const typeStyle = (def: BlockTypeDef): React.CSSProperties =>
 export interface BlockTypes {
   /** Wszystkie typy w kolejności — także schowane. */
   all: BlockTypeDef[]
-  /** Typy proponowane przy nowym klocku (bez schowanych). */
+  /** Typy proponowane przy nowym kafelku (bez schowanych). */
   choices: BlockTypeDef[]
-  /** Opis typu; dla nieznanego id awaryjny, żeby klocek nie zniknął. */
+  /** Opis typu; dla nieznanego id awaryjny, żeby kafelek nie zniknął. */
   def: (id: BlockType) => BlockTypeDef
   label: (id: BlockType) => string
   short: (id: BlockType) => string

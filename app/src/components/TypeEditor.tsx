@@ -10,7 +10,7 @@ import { useBlockTypes } from '../blockTypes'
 import { BUILTIN_BLOCK_TYPES } from '../types'
 import { useDialogs } from './Dialogs'
 
-/** Edytor typów klocków.
+/** Edytor typów kafelków.
  *
  *  Typy przestały być zamkniętą listą w kodzie, bo każdy uczy się czego
  *  innego: komuś brakuje „Aksjomatu", komuś „Kontrprzykładu", a komuś
@@ -36,7 +36,7 @@ export function TypeEditor() {
 
   const usun = async (id: string, label: string) => {
     const ile = await countBlocksOfType(id)
-    // klocki nie mogą zostać z typem, którego nie ma — muszą dostać inny
+    // kafelki nie mogą zostać z typem, którego nie ma — muszą dostać inny
     const zamiennik = typy.all.find((t) => t.id !== id)
     if (!zamiennik) {
       setBlad('To ostatni typ — musi zostać przynajmniej jeden.')
@@ -46,8 +46,8 @@ export function TypeEditor() {
       title: `Usunąć typ „${label}"?`,
       message:
         ile === 0
-          ? 'Nie używa go żaden klocek.'
-          : `${ile} ${ile === 1 ? 'klocek dostanie typ' : 'klocków dostanie typ'} ` +
+          ? 'Nie używa go żaden kafelek.'
+          : `${ile} ${ile === 1 ? 'kafelek dostanie typ' : 'kafelków dostanie typ'} ` +
             `„${zamiennik.label}". Treść i wersje zostają nietknięte.`,
       confirmLabel: 'Usuń typ',
       danger: true,
@@ -89,7 +89,7 @@ export function TypeEditor() {
             title="Skrót na plakietce"
             onChange={(e) => updateBlockType(t.id, { short: e.target.value.toUpperCase() })}
           />
-          <label className="type-row-hide" title="Czy proponować ten typ przy nowym klocku">
+          <label className="type-row-hide" title="Czy proponować ten typ przy nowym kafelku">
             <input
               type="checkbox"
               checked={!t.hidden}

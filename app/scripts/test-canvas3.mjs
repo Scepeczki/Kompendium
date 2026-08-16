@@ -1,4 +1,4 @@
-﻿// Test: komentarze do ścieżki, menu kafelka, zarządzanie wersjami klocka.
+﻿// Test: komentarze do ścieżki, menu kafelka, zarządzanie wersjami kafelka.
 import { chromium } from 'playwright'
 import { nazwij, podaj, potwierdz } from './lib.mjs'
 
@@ -17,8 +17,8 @@ page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// --- WERSJE KLOCKA ---
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// --- WERSJE KAFELKA ---
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Pojęcie W')
 
@@ -66,7 +66,7 @@ await page.waitForFunction(() => {
 })
 const pills = await page.locator('.version-pill:not(.new)').count()
 console.log(`✓ usuwanie wersji działa (zostało pigułek: ${pills})`)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 // --- KOMENTARZE I MENU KAFELKA NA ŚCIEŻCE ---
 await page.click('button[title*="Nowa ścieżka"]')
@@ -90,12 +90,12 @@ await page.click('.note-modal .btn-close')
 await page.waitForSelector('.path-node-comment:has-text("KOMENTARZ-META")')
 console.log('✓ komentarz utworzony i edytowany w oknie')
 
-// klocek na mapie + skrypt: komentarz NIE wchodzi do skryptu
+// kafelek na mapie + skrypt: komentarz NIE wchodzi do skryptu
 await page.mouse.click(flow.x + flow.width * 0.4, flow.y + flow.height * 0.7, {
   button: 'right',
 })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=🧱 Nowy klocek tutaj')
+await page.click('text=🧱 Nowy kafelek tutaj')
 await page.waitForSelector('.path-node-head')
 await page.waitForTimeout(800) // autozapis ścieżki
 await page.click('.view-switch button:has-text("Skrypt")')
@@ -115,12 +115,12 @@ await page.click('text=🗑 Usuń ze ścieżki')
 await page.waitForFunction(() => !document.querySelector('.path-node-comment'))
 console.log('✓ menu kafelka: usuwanie ze ścieżki działa')
 
-// menu kafelka na klocku: Edytuj otwiera edytor
+// menu kafelka na kafelku: Edytuj otwiera edytor
 await page.click('.path-node-head', { button: 'right' })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=✏ Edytuj klocek')
+await page.click('text=✏ Edytuj kafelek')
 await page.waitForSelector('.editor-name')
-console.log('✓ menu kafelka: edycja klocka otwiera edytor')
+console.log('✓ menu kafelka: edycja kafelka otwiera edytor')
 
 await page.screenshot({ path: 'scripts/shot-14-canvas3.png' })
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))

@@ -1,4 +1,4 @@
-﻿// Test folderów: tworzenie, przeciąganie klocków do folderów, zmiana
+﻿// Test folderów: tworzenie, przeciąganie kafelków do folderów, zmiana
 // kolejności przeciąganiem, foldery w bibliotece PDF.
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
@@ -39,39 +39,39 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 
 // kolejka odpowiedzi na window.prompt (biblioteka PDF nadal go używa;
-// folder klocków ma własne okienko nazwy — patrz nazwij())
+// folder kafelków ma własne okienko nazwy — patrz nazwij())
 const answers = ['Zbiory']
 page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// trzy klocki: A, B, C
-for (const name of ['Klocek A', 'Klocek B', 'Klocek C']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// trzy kafelki: A, B, C
+for (const name of ['Kafelek A', 'Kafelek B', 'Kafelek C']) {
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.waitForTimeout(150)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
-// folder na klocki
+// folder na kafelki
 await nowyFolder(page, 'Topologia')
 await page.waitForSelector('.folder-row:has-text("Topologia")')
 console.log('✓ folder utworzony')
 
-// przeciągnij Klocek A do folderu
+// przeciągnij Kafelek A do folderu
 await page.dragAndDrop(
-  '.concept-item:has-text("Klocek A")',
+  '.concept-item:has-text("Kafelek A")',
   '.folder-row:has-text("Topologia")',
 )
-await page.waitForSelector('.folder-children .concept-item:has-text("Klocek A")')
-console.log('✓ klocek przeciągnięty do folderu (folder sam się rozwinął)')
+await page.waitForSelector('.folder-children .concept-item:has-text("Kafelek A")')
+console.log('✓ kafelek przeciągnięty do folderu (folder sam się rozwinął)')
 
 // zmiana kolejności: przeciągnij C nad B (górna połowa = przed)
 await page.dragAndDrop(
-  '.concept-item:has-text("Klocek C")',
-  '.concept-item:has-text("Klocek B")',
+  '.concept-item:has-text("Kafelek C")',
+  '.concept-item:has-text("Kafelek B")',
   { targetPosition: { x: 60, y: 5 } },
 )
 await page.waitForTimeout(300)

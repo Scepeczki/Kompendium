@@ -46,8 +46,8 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// klocek
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// kafelek
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.fill('.editor-name', 'Metryka — test źródła')
 
 // import PDF

@@ -3,7 +3,7 @@
 // Ścieżka jest folderem na przykłady: robi się je w środku, mieszkają tam
 // i nie zaśmiecają listy pojęć po lewej. Że nie widać ich w bibliotece, nie
 // znaczy jednak, że wolno im przepaść — wyjęty ze ścieżki przykład ma wrócić
-// do listy, a napisany w nim tekst ma siedzieć w samym klocku.
+// do listy, a napisany w nim tekst ma siedzieć w samym kafelku.
 import { chromium } from 'playwright'
 import { nowaSciezka, potwierdz } from './lib.mjs'
 
@@ -25,12 +25,12 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// zwykły klocek w bibliotece — punkt odniesienia
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// zwykły kafelek w bibliotece — punkt odniesienia
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Zbiór')
 await page.waitForTimeout(400)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 await nowaSciezka(page, 'Wykład')
 await page.click('.view-switch button:has-text("Linia")')
@@ -48,13 +48,13 @@ check('przykład wskakuje do ścieżki',
   (await page.locator('.linear-seg').count()) === 2,
   `segmentów: ${await page.locator('.linear-seg').count()}`)
 check('i nie pokazuje się w bibliotece po lewej', !(await wBibliotece('Przykład')))
-check('zwykły klocek dalej jest w bibliotece', await wBibliotece('Zbiór'))
+check('zwykły kafelek dalej jest w bibliotece', await wBibliotece('Zbiór'))
 
-// --- tekst pisany w przykładzie siedzi w samym klocku ---
+// --- tekst pisany w przykładzie siedzi w samym kafelku ---
 await page.locator('.linear-seg').nth(1).locator('.tiptap').click()
 await page.keyboard.type('Zbior liczb parzystych.')
 await page.waitForTimeout(900)
-// przeładowanie: gdyby tekst został tylko „obok", w klocku byłaby pustka
+// przeładowanie: gdyby tekst został tylko „obok", w kafelku byłaby pustka
 await page.reload()
 await page.waitForSelector('text=Kompendium')
 await page.click('.path-item:has-text("Wykład")')
@@ -67,17 +67,17 @@ check('napisany tekst zostaje po przeładowaniu', tresc.includes('parzystych'), 
 
 await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 8 } })
 await page.waitForSelector('.tree-menu')
-await page.click('.tree-menu-item:has-text("Otwórz klocek w edytorze")')
+await page.click('.tree-menu-item:has-text("Otwórz kafelek w edytorze")')
 await page.waitForSelector('.editor-name')
 await page.waitForTimeout(700)
 const wKlocku = await page.locator('.editor-body').innerText()
-check('to jest treść klocka, a nie tekst dopisany obok niego',
+check('to jest treść kafelka, a nie tekst dopisany obok niego',
   wKlocku.includes('parzystych'), wKlocku.slice(0, 60))
 check('edytor mówi, że kafelek mieszka tylko w ścieżce',
   (await page.locator('.editor-sciezka-wlasny').count()) === 1)
 
 // --- wyjęty ze ścieżki wraca do biblioteki ---
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForTimeout(400)
 await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 8 } })
 await page.waitForSelector('.tree-menu')
@@ -104,14 +104,14 @@ await page.waitForTimeout(900)
 //
 // Rodzaj nie przesądza już, gdzie kafelek mieszka. Wciągnięcie do ścieżki to
 // tylko ułożenie wykładu; o tym, czy kafelek znika z listy, decydujesz osobno.
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Stary przykład')
 await page.selectOption('.type-select', 'przyklad')
 await page.waitForTimeout(500)
 check('zmiana rodzaju o nic nie pyta',
   (await page.locator('.modal-backdrop').count()) === 0)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForTimeout(400)
 await page.dragAndDrop('.concept-item:has-text("Stary przykład")', '.linear-append')
 await page.waitForTimeout(900)
@@ -140,7 +140,7 @@ await page.click('.tree-menu-item:has-text("Trzymaj tylko tutaj")')
 await page.waitForTimeout(800)
 check('dopiero „Trzymaj tylko tutaj" zabiera go z listy',
   !(await wBibliotece('Stary przykład')))
-check('a zwykły klocek zostaje w liście', await wBibliotece('Zbiór'))
+check('a zwykły kafelek zostaje w liście', await wBibliotece('Zbiór'))
 
 // --- skasowanie ścieżki też nie może połknąć przykładu ---
 await page.click('.linear-append-actions .btn:has-text("Przykład")')
@@ -164,11 +164,11 @@ await nowaSciezka(page, 'Wykład drugi')
 await page.waitForSelector('.path-canvas')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Tylko na ten wykład')
 await page.waitForTimeout(500)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForTimeout(400)
 await page.dragAndDrop('.concept-item:has-text("Tylko na ten wykład")', '.linear-append')
 await page.waitForTimeout(900)

@@ -1,5 +1,5 @@
 ﻿// Test warstwy danych powiązań: trzy osie, zawężenie do wersji, kasowanie
-// razem z klockiem i przetrwanie kopii zapasowej.
+// razem z kafelkiem i przetrwanie kopii zapasowej.
 // (Interfejs tworzenia powiązań jest przebudowywany — panel w edytorze
 // został wycofany, docelowo ma to być osobna mapa pojęć.)
 import { chromium } from 'playwright'
@@ -19,7 +19,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 const mk = async (name, twoVersions = false) => {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.waitForTimeout(400)
@@ -28,7 +28,7 @@ const mk = async (name, twoVersions = false) => {
     await podaj(page, 'druga')
     await page.waitForTimeout(400)
   }
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await mk('Jezyk n-tego rzedu', true)
 await mk('Jezyk 1 rzedu')
@@ -62,7 +62,7 @@ const written = await page.evaluate(async () => {
     ...extra,
   })
   // skala: jezyk 1 rzedu jest mocniejszy (uszczegolowieniem) — i dotyczy
-  // tylko drugiej wersji klocka ogolnego
+  // tylko drugiej wersji kafelka ogolnego
   st.add(mk(id('1 rzedu'), ogolny, 'skala', { toVersionId: drugaWersja.id, note: 'n = 1' }))
   st.add(mk(ogolny, id('Sygnatura'), 'zawieranie'))
   st.add(mk(ogolny, id('1 rzedu'), 'perspektywa'))
@@ -111,7 +111,7 @@ const zip = readFileSync(zipPath)
 // obecność nazwy pola (pełne rozpakowanie robi test-backup)
 console.log(`✓ kopia zapasowa pobrana: ${zip.length} B`)
 
-// 2. usunięcie klocka kasuje jego powiązania (a nie zostawia sierot)
+// 2. usunięcie kafelka kasuje jego powiązania (a nie zostawia sierot)
 await page.click('.concept-item:has-text("Sygnatura")')
 await page.waitForSelector('.editor-name')
 await page.click('.editor-header button:has-text("Usuń")')
@@ -135,7 +135,7 @@ const after = await page.evaluate(async () => {
   }
 })
 console.log(
-  `✓ po usunięciu klocka: powiązań ${after.relacje} (było 3), osieroconych ${after.sieroty} (oczekiwane 0)`,
+  `✓ po usunięciu kafelka: powiązań ${after.relacje} (było 3), osieroconych ${after.sieroty} (oczekiwane 0)`,
 )
 
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))

@@ -33,7 +33,7 @@ class KompendiumDB extends Dexie {
       versions: 'id, conceptId, [conceptId+version], createdAt',
       pdfs: 'id, title, addedAt',
     })
-    // v2: foldery + ręczna kolejność klocków. Istniejące dane dostają
+    // v2: foldery + ręczna kolejność kafelków. Istniejące dane dostają
     // folderId=null (poziom główny) i kolejność wg daty utworzenia.
     this.version(2)
       .stores({
@@ -58,8 +58,8 @@ class KompendiumDB extends Dexie {
             p.folderId = null
           })
       })
-    // v3: foldery dostają wspólną kolejność z klockami (przeplatanie).
-    // Istniejące foldery lądują przed klockami (kolejność ujemna), jak dotąd.
+    // v3: foldery dostają wspólną kolejność z kafelkami (przeplatanie).
+    // Istniejące foldery lądują przed kafelkami (kolejność ujemna), jak dotąd.
     this.version(3)
       .stores({
         concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
@@ -89,7 +89,7 @@ class KompendiumDB extends Dexie {
       folders: 'id, kind, parentId, name',
       paths: 'id, name, folderId, createdAt, updatedAt',
     })
-    // v5: strony klocka (dowody itp. — dodatkowe treści pojęcia).
+    // v5: strony kafelka (dowody itp. — dodatkowe treści pojęcia).
     this.version(5).stores({
       concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
       versions: 'id, conceptId, [conceptId+version], createdAt',
@@ -98,7 +98,7 @@ class KompendiumDB extends Dexie {
       paths: 'id, name, folderId, createdAt, updatedAt',
       subpages: 'id, conceptId',
     })
-    // v6: relacje między klockami (uogólnienie, równoważność, część, wymaganie).
+    // v6: relacje między kafelkami (uogólnienie, równoważność, część, wymaganie).
     this.version(6).stores({
       concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
       versions: 'id, conceptId, [conceptId+version], createdAt',
@@ -108,7 +108,7 @@ class KompendiumDB extends Dexie {
       subpages: 'id, conceptId',
       relations: 'id, fromId, toId, kind',
     })
-    // v7: typy klocków jako dane, a nie zamknięta lista w kodzie.
+    // v7: typy kafelków jako dane, a nie zamknięta lista w kodzie.
     this.version(7)
       .stores({
         concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',
@@ -180,7 +180,7 @@ const now = () => new Date().toISOString()
 const uid = () => crypto.randomUUID()
 
 // ---------------------------------------------------------------------------
-// Typy klocków (dane, nie kod)
+// Typy kafelków (dane, nie kod)
 // ---------------------------------------------------------------------------
 
 /** Wsypuje fabryczne typy do pustej tabeli. Świeża baza nie przechodzi przez
@@ -244,12 +244,12 @@ export async function updateBlockType(
   await db.blockTypes.update(id, patch)
 }
 
-/** Ile klocków używa danego typu — usuwanie musi o tym powiedzieć. */
+/** Ile kafelków używa danego typu — usuwanie musi o tym powiedzieć. */
 export async function countBlocksOfType(id: string): Promise<number> {
   return db.concepts.where('type').equals(id).count()
 }
 
-/** Usuwa typ — także fabryczny. Klocki, które go używały, dostają `zamiennik`,
+/** Usuwa typ — także fabryczny. Kafelki, które go używały, dostają `zamiennik`,
  *  więc nigdy nie zostają z typem, którego nie ma (plakietka pokazywałaby
  *  wtedy surowe id). Jedyna granica: musi zostać przynajmniej jeden typ.
  *  Skasowane fabryczne wraca `restoreBuiltinBlockTypes()`. */
@@ -281,7 +281,7 @@ export async function reorderBlockTypes(orderedIds: string[]): Promise<void> {
   })
 }
 
-/** Kolejność „na końcu" danego folderu — wspólna dla klocków, ścieżek i podfolderów. */
+/** Kolejność „na końcu" danego folderu — wspólna dla kafelków, ścieżek i podfolderów. */
 export async function nextConceptOrder(folderId: string | null): Promise<number> {
   const concepts = await db.concepts.toArray()
   const folders = await db.folders.where('kind').equals('concepts').toArray()
@@ -301,7 +301,7 @@ export async function nextConceptOrder(folderId: string | null): Promise<number>
 }
 
 /** Tworzy nowe pojęcie z pustą wersją v1 i zwraca jego id. */
-/** Tworzy klocek. `pathId` robi z niego własność ścieżki: taki kafelek nie
+/** Tworzy kafelek. `pathId` robi z niego własność ścieżki: taki kafelek nie
  *  pokazuje się w bibliotece po lewej (tak trzymamy przykłady przy wykładzie,
  *  do którego należą). */
 export async function createConcept(
@@ -363,7 +363,7 @@ export async function updateConcept(
   await db.concepts.update(id, { ...patch, updatedAt: now() })
 }
 
-/** Przenosi klocek do folderu (i/lub na podaną pozycję). Nie zmienia updatedAt —
+/** Przenosi kafelek do folderu (i/lub na podaną pozycję). Nie zmienia updatedAt —
  *  porządkowanie to nie edycja treści. */
 export async function moveConcept(
   id: string,
@@ -488,10 +488,10 @@ function copyName(base: string, taken: string[]): string {
   }
 }
 
-/** Powiela klocek z całą historią: wszystkie wersje, wszystkie strony.
+/** Powiela kafelek z całą historią: wszystkie wersje, wszystkie strony.
  *  Kopia ląduje tuż obok pierwowzoru, w tym samym folderze.
  *
- *  Powiązań (relacji) celowo nie kopiujemy: mówią o konkretnym klocku,
+ *  Powiązań (relacji) celowo nie kopiujemy: mówią o konkretnym kafelku,
  *  a nie o jego treści — świeża kopia zaczyna bez cudzych zobowiązań. */
 export async function duplicateConcept(id: string): Promise<string | null> {
   const src = await db.concepts.get(id)
@@ -548,7 +548,7 @@ export async function duplicateConcept(id: string): Promise<string | null> {
   return newId
 }
 
-/** Powiela ścieżkę razem z układem kafelków. Klocki zostają te same —
+/** Powiela ścieżkę razem z układem kafelków. Kafelki zostają te same —
  *  ścieżka jest tylko sposobem ich ułożenia, a nie ich właścicielem. */
 export async function duplicatePath(id: string): Promise<string | null> {
   const src = await db.paths.get(id)
@@ -574,8 +574,8 @@ export async function duplicatePath(id: string): Promise<string | null> {
   return newId
 }
 
-/** Powiela folder z całą zawartością: podfolderami, klockami i ścieżkami.
- *  Kopie klocków powstają przez duplicateConcept, więc mają własne wersje
+/** Powiela folder z całą zawartością: podfolderami, kafelkami i ścieżkami.
+ *  Kopie kafelków powstają przez duplicateConcept, więc mają własne wersje
  *  i strony — zmiana w kopii nie rusza pierwowzoru. */
 export async function duplicateFolder(id: string): Promise<string | null> {
   const src = await db.folders.get(id)
@@ -616,7 +616,7 @@ export async function duplicateFolder(id: string): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------------
-// Relacje między klockami
+// Relacje między kafelkami
 // ---------------------------------------------------------------------------
 
 /** Dodaje relację `from --kind--> to`. Nie duplikuje istniejącej pary
@@ -675,14 +675,14 @@ export async function flipRelation(id: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Strony klocka (dowody itp.)
+// Strony kafelka (dowody itp.)
 // ---------------------------------------------------------------------------
 
-/** Nazwa strony głównej klocka — domyślnie „Treść". */
+/** Nazwa strony głównej kafelka — domyślnie „Treść". */
 export const mainPageName = (c: { mainPageName?: string }) =>
   c.mainPageName?.trim() || 'Treść'
 
-/** Dodaje nową stronę (np. dowód) do KONKRETNEJ WERSJI klocka i zwraca jej id. */
+/** Dodaje nową stronę (np. dowód) do KONKRETNEJ WERSJI kafelka i zwraca jej id. */
 export async function createSubpage(
   conceptId: string,
   versionId: string,
@@ -710,7 +710,7 @@ export async function createSubpage(
   return id
 }
 
-/** Dokleja klocek na koniec ścieżki — tak samo, jakby go tam przeciągnąć
+/** Dokleja kafelek na koniec ścieżki — tak samo, jakby go tam przeciągnąć
  *  w widoku Linia. Dzięki temu w liście po lewej ścieżka zachowuje się jak
  *  folder: upuszczasz na nią kafelek i on do niej wchodzi. */
 export async function addConceptToPath(pathId: string, conceptId: string) {
@@ -745,8 +745,8 @@ export async function addConceptToPath(pathId: string, conceptId: string) {
 }
 
 
-/** Ścieżki, w których ten klocek występuje (także jako składnik scalonego
- *  bloku) — edytor klocka pokazuje, gdzie on właściwie pracuje. */
+/** Ścieżki, w których ten kafelek występuje (także jako składnik scalonego
+ *  bloku) — edytor kafelka pokazuje, gdzie on właściwie pracuje. */
 export async function pathsWithConcept(conceptId: string): Promise<LearningPath[]> {
   const wszystkie = await db.paths.toArray()
   return wszystkie.filter((p) =>
@@ -798,7 +798,7 @@ export async function createFolder(
   return id
 }
 
-/** Przenosi folder klocków (i/lub ustawia jego pozycję we wspólnej kolejności). */
+/** Przenosi folder kafelków (i/lub ustawia jego pozycję we wspólnej kolejności). */
 export async function moveFolder(
   id: string,
   parentId: string | null,
@@ -820,7 +820,7 @@ export async function updateFolder(
   await db.folders.update(id, patch)
 }
 
-/** Usuwa folder; jego zawartość (podfoldery, klocki, ścieżki, PDF-y) przechodzi do rodzica. */
+/** Usuwa folder; jego zawartość (podfoldery, kafelki, ścieżki, PDF-y) przechodzi do rodzica. */
 export async function deleteFolder(id: string) {
   await db.transaction('rw', db.folders, db.concepts, db.pdfs, db.paths, async () => {
     const f = await db.folders.get(id)
@@ -920,7 +920,7 @@ export async function renamePdf(id: string, title: string) {
   await db.pdfs.update(id, { title })
 }
 
-/** Usuwa PDF z biblioteki (wraz z plikiem). Podpięte źródła w klockach
+/** Usuwa PDF z biblioteki (wraz z plikiem). Podpięte źródła w kafelkach
  *  zostają — to odnośniki, nie kopie treści; przestają tylko prowadzić do pliku. */
 export async function deletePdf(id: string) {
   await db.pdfs.delete(id)

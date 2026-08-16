@@ -5,10 +5,10 @@
  *  proporcje, ta sama kreska, kolor dziedziczony po tekście.
  *
  *  Dwie grupy nazw i to celowo:
- *  — po polsku (`klocek`, `ustawienia`) to role w interfejsie; kiedyś zmienimy
+ *  — po polsku (`kafelek`, `ustawienia`) to role w interfejsie; kiedyś zmienimy
  *    rodzinę znaczków i podmieni się tylko ta mapa, a widoki zostaną bez zmian;
  *  — po angielsku (`sigma`, `book-open`) to znaczki do wyboru przez użytkownika.
- *    Ich nazwy lądują w bazie przy klockach i folderach, więc muszą być stabilne
+ *    Ich nazwy lądują w bazie przy kafelkach i folderach, więc muszą być stabilne
  *    — stąd oryginalne nazwy z Lucide, a nie nasze tłumaczenia. */
 
 import {
@@ -94,7 +94,7 @@ import {
 
 const ICONS = {
   // role w interfejsie
-  klocek: FilePlus2,
+  kafelek: FilePlus2,
   folder: FolderPlus,
   folderZwykly: Folder,
   sciezka: Route,

@@ -34,13 +34,13 @@ await page.evaluate(async (ile) => {
     const cid = `perf-c-${i}`
     const vid = `perf-v-${i}`
     tx.objectStore('concepts').put({
-      id: cid, name: `Klocek ${i}`, type: 'definicja', tags: [], folderId: null,
+      id: cid, name: `Kafelek ${i}`, type: 'definicja', tags: [], folderId: null,
       order: i, createdAt: teraz, updatedAt: teraz, currentVersionId: vid,
     })
     tx.objectStore('versions').put({
       id: vid, conceptId: cid, version: 1,
       content:
-        `Tresc klocka ${i}. Niech $(a_n)$ bedzie ciagiem o wyrazach $a_n = ${i}/n$. ` +
+        `Tresc kafelka ${i}. Niech $(a_n)$ bedzie ciagiem o wyrazach $a_n = ${i}/n$. ` +
         `Wowczas $\\lim_{n \\to \\infty} a_n = 0$, co wynika z definicji granicy: ` +
         `dla kazdego $\\varepsilon > 0$ istnieje $N$ takie, ze $|a_n| < \\varepsilon$ dla $n > N$.`,
       sourceRefs: [], createdAt: teraz, updatedAt: teraz,

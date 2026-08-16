@@ -19,7 +19,7 @@ interface Props {
   onRegionSelected: (ref: Omit<PdfSourceRef, 'id'>) => void
   target: PdfTarget | null
   onHide: () => void
-  /** Otwarcie klocka po kliknięciu w użyty fragment strony. */
+  /** Otwarcie kafelka po kliknięciu w użyty fragment strony. */
   onOpenConcept?: (id: string) => void
 }
 
@@ -63,7 +63,7 @@ export function PdfPanel({
     localStorage.setItem('ui.pdfShowUsed', showUsed ? '1' : '0')
   }, [showUsed])
 
-  // Wszystkie źródła wskazujące na otwarty PDF — z nazwą klocka, do etykiet.
+  // Wszystkie źródła wskazujące na otwarty PDF — z nazwą kafelka, do etykiet.
   const concepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const versions = useLiveQuery(() => db.versions.toArray(), []) ?? []
   /** Fragmenty ze WSZYSTKICH wersji, nie tylko bieżących.
@@ -74,8 +74,8 @@ export function PdfPanel({
    *  przy wpinaniu do innego kafelka.
    *
    *  Nowa wersja dostaje kopie źródeł poprzedniej, więc ten sam prostokąt
-   *  siedziałby na stronie tyle razy, ile wersji ma klocek — dlatego jeden
-   *  klocek pokazujemy w danym miejscu raz. */
+   *  siedziałby na stronie tyle razy, ile wersji ma kafelek — dlatego jeden
+   *  kafelek pokazujemy w danym miejscu raz. */
   const usedRects = pdfId
     ? (() => {
         const widziane = new Set<string>()
@@ -97,7 +97,7 @@ export function PdfPanel({
       })()
     : []
 
-  /** Ten sam fragment bywa źródłem kilku klocków — wtedy zamiast zgadywać,
+  /** Ten sam fragment bywa źródłem kilku kafelków — wtedy zamiast zgadywać,
    *  pokazujemy listę. „Ten sam" znaczy: prostokąty niemal się pokrywają. */
   const wSpolneRects = (u: (typeof usedRects)[number]) =>
     usedRects.filter(
@@ -376,7 +376,7 @@ export function PdfPanel({
             <span className="pdf-page-info">/ {pageCount}</span>
             <button
               className={`btn ${showUsed ? 'btn-active' : ''}`}
-              title={`Pokaż fragmenty użyte w klockach (${usedRects.length})`}
+              title={`Pokaż fragmenty użyte w kafelkach (${usedRects.length})`}
               onClick={() => setShowUsed((s) => !s)}
             >
               ▣ {usedRects.length}
@@ -414,7 +414,7 @@ export function PdfPanel({
         {!doc && (
           <div className="pdf-empty">
             <p>Wrzuć książkę lub skrypt w PDF,</p>
-            <p>żeby budować klocki oparte na źródle.</p>
+            <p>żeby budować kafelki oparte na źródle.</p>
           </div>
         )}
         {doc &&
@@ -471,7 +471,7 @@ export function PdfPanel({
                           })
                           return
                         }
-                        // Poza tym trybem klik prowadzi do klocka. Jeśli ten
+                        // Poza tym trybem klik prowadzi do kafelka. Jeśli ten
                         // sam fragment ma kilku właścicieli — najpierw pytamy,
                         // do którego.
                         const tuz = wSpolneRects(u)

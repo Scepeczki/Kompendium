@@ -22,14 +22,14 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 for (const n of ['Alfa', 'Beta', 'Gamma']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
   await page.keyboard.type(`Tresc ${n}.`)
   await page.waitForTimeout(350)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await nowaSciezka(page, 'Cofanie')
 await page.click('.view-switch button:has-text("Linia")')

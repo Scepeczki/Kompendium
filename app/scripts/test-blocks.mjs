@@ -16,8 +16,8 @@ page.on('dialog', (d) => d.accept('Ścieżka'))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// klocek typu Twierdzenie + ścieżka z nim
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// kafelek typu Twierdzenie + ścieżka z nim
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Blok testowy')
 await page.selectOption('.type-select', 'twierdzenie')
@@ -25,7 +25,7 @@ await page.click('.view-switch button:has-text("Kod")')
 await page.click('.editor-code .cm-content')
 await page.keyboard.type('Treść twierdzenia $a^2$.')
 await page.waitForTimeout(500)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Ścieżka")
@@ -84,7 +84,7 @@ console.log(
 // więc zapis w bazie, a wygląd po powrocie do Skryptu.
 await page.click('button[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
-await page.click('.settings-nav-item:has-text("Typy klocków")')
+await page.click('.settings-nav-item:has-text("Typy kafelków")')
 await page.waitForSelector('.type-row')
 await page.fill('.type-row:has(input[value="Twierdzenie"]) .type-row-color', '#c81e4a')
 await page.waitForTimeout(400)
@@ -146,12 +146,12 @@ console.log(
   })`,
 )
 
-// 6. przycisk ↗ w nagłówku otwiera klocek w edytorze
+// 6. przycisk ↗ w nagłówku otwiera kafelek w edytorze
 await page.waitForSelector('.script-block-open')
 await page.click('.script-block-open')
 await page.waitForSelector('.editor-name')
 const openedName = await page.inputValue('.editor-name')
-console.log(`✓ ↗ otwiera klocek: „${openedName}" (oczekiwane „Blok testowy")`)
+console.log(`✓ ↗ otwiera kafelek: „${openedName}" (oczekiwane „Blok testowy")`)
 
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

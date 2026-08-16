@@ -30,12 +30,12 @@ interface Props {
   onRename?: (name: string) => void
   edytor?: React.ReactNode
   onStartEdit?: () => void
-  /** Klocki/wersje/strony podane z zewnątrz. Linia ma je już wczytane dla
+  /** Kafelki/wersje/strony podane z zewnątrz. Linia ma je już wczytane dla
    *  całej ścieżki; bez tego każdy scalony blok czytałby trzy całe tabele. */
   zewn?: { concepts: Concept[]; versions: BlockVersion[]; subpages: Subpage[] }
   /** Pole do pisania dla POJEDYNCZEGO składnika. Dzięki niemu scalony blok
    *  bez własnej treści nie jest tylko do czytania: pisze się w nim po każdym
-   *  klocku z osobna, a tekst idzie do tego klocka w bazie. */
+   *  kafelku z osobna, a tekst idzie do tego kafelka w bazie. */
   edytorCzesci?: (
     i: number,
     dane: {
@@ -50,9 +50,9 @@ interface Props {
   bezPaskaWersji?: boolean
 }
 
-/** Grupa klocków pokazana jako JEDEN blok: pasek nagłówka z nazwą nadaną
- *  w ścieżce, a w środku same treści klocków jedna pod drugą — bez ich
- *  własnych ramek i tytułów. W bazie to nadal osobne klocki. */
+/** Grupa kafelków pokazana jako JEDEN blok: pasek nagłówka z nazwą nadaną
+ *  w ścieżce, a w środku same treści kafelków jedna pod drugą — bez ich
+ *  własnych ramek i tytułów. W bazie to nadal osobne kafelki. */
 export function GroupShell({
   name,
   type,
@@ -178,7 +178,7 @@ export function GroupShell({
                 <div className="block-pages group-part-pages">
                   <button
                     className={`block-page ${r.strona ? '' : 'active'}`}
-                    title={`Strona główna klocka „${r.concept?.name ?? ''}"`}
+                    title={`Strona główna kafelka „${r.concept?.name ?? ''}"`}
                     onClick={() => onSubpageChange(i, null)}
                   >
                     {mainPageName(r.concept ?? {})}
@@ -202,7 +202,7 @@ export function GroupShell({
                       value={r.version.id}
                       title={
                         pickHint ??
-                        `Wersja klocka „${r.concept?.name ?? ''}" w tej grupie`
+                        `Wersja kafelka „${r.concept?.name ?? ''}" w tej grupie`
                       }
                       onChange={(e) =>
                         onVersionChange(
@@ -235,7 +235,7 @@ export function GroupShell({
                 <div
                   className="markdown-body"
                   dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(r.concept ? r.tresc : '(usunięty klocek)'),
+                    __html: renderMarkdown(r.concept ? r.tresc : '(usunięty kafelek)'),
                   }}
                 />
               )}

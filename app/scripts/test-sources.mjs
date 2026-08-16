@@ -16,8 +16,8 @@ page.on('dialog', (d) => d.accept('Ścieżka ze źródłami'))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// klocek + PDF + dwa podpięte źródła
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// kafelek + PDF + dwa podpięte źródła
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Definicja ze źródłem')
 await page.click('.view-switch button:has-text("Kod")')
@@ -61,13 +61,13 @@ console.log(`✓ przełącznik chowa fragmenty: ${afterHide} (oczekiwane 0)`)
 await toggle.click()
 await page.waitForTimeout(300)
 
-// 3. klik w prostokąt otwiera klocek
-await page.click('.btn-close[title*="Zamknij klocek"]')
+// 3. klik w prostokąt otwiera kafelek
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForTimeout(300)
 await page.click('.pdf-used')
 await page.waitForSelector('.editor-name')
 console.log(
-  `✓ klik w użyty fragment otwiera klocek: „${await page.inputValue('.editor-name')}"`,
+  `✓ klik w użyty fragment otwiera kafelek: „${await page.inputValue('.editor-name')}"`,
 )
 
 // 4. lista źródeł w Skrypcie ścieżki

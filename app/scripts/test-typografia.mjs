@@ -21,14 +21,14 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Granica ciągu')
 await page.click('.view-switch button:has-text("Kod")')
 await page.click('.editor-code .cm-content')
 await page.keyboard.type('## Nagłówek\n\nTreść z wzorem $a_n$.')
 await page.waitForTimeout(500)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForTimeout(300)
 
 // 1. dowieziony krój faktycznie się wczytał (a nie tylko stoi w deklaracji)
@@ -43,14 +43,14 @@ const fonts = await page.evaluate(async () => {
 check('krój interfejsu wczytany (Inter)', fonts.interLoaded, fonts.body)
 check('krój do czytania wczytany (Source Serif)', fonts.serifLoaded)
 
-// 2. nazwa klocka w edytorze nie jest już szeryfowa
+// 2. nazwa kafelka w edytorze nie jest już szeryfowa
 await page.click('.concept-item:has-text("Granica ciągu")')
 await page.waitForSelector('.editor-name')
 const nameFont = await page.evaluate(
   () => getComputedStyle(document.querySelector('.editor-name')).fontFamily,
 )
-check('nazwa klocka bezszeryfowa', nameFont.includes('Inter'), nameFont)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+check('nazwa kafelka bezszeryfowa', nameFont.includes('Inter'), nameFont)
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 // 3. żaden napis w interfejsie nie jest mniejszy niż 11px
 const tooSmall = await page.evaluate(() =>
@@ -90,7 +90,7 @@ check('jedna grubość kreski w całym pasku', icons.grubosci.length === 1,
 check('znaczki biorą kolor z tekstu', icons.kolory.every((k) => k === 'currentColor'),
   icons.kolory.join(', '))
 
-// 6. wielkość listy z Ustawień naprawdę zmienia nazwy klocków
+// 6. wielkość listy z Ustawień naprawdę zmienia nazwy kafelków
 const before = await page.evaluate(
   () => getComputedStyle(document.querySelector('.concept-name')).fontSize,
 )
@@ -102,7 +102,7 @@ await page.waitForTimeout(400)
 const after = await page.evaluate(
   () => getComputedStyle(document.querySelector('.concept-name')).fontSize,
 )
-check('suwak wielkości listy zmienia nazwy klocków', before === '15px' && after === '19px',
+check('suwak wielkości listy zmienia nazwy kafelków', before === '15px' && after === '19px',
   `${before} → ${after}`)
 
 // 7. krój treści przełączalny i dotyczy tylko treści, nie interfejsu

@@ -27,14 +27,14 @@ for (const [n, t] of [
   ['Kres gorny', 'Najmniejsze ograniczenie gorne zbioru.'],
   ['Notacja', 'Piszemy sup A.'],
 ]) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
   await page.keyboard.type(t)
   await page.waitForTimeout(400)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 await nowaSciezka(page, 'Kresy')

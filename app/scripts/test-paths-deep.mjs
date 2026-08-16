@@ -1,6 +1,6 @@
 ﻿// Głęboki test poprawności ścieżek: wszystkie rodzaje kafelków, strzałki,
 // kolejność, grupowanie/rozgrupowanie, tryb liniowy, skrypt, trwałość
-// i odporność na usunięte klocki. Zgłasza każdą niezgodność jako BŁĄD.
+// i odporność na usunięte kafelki. Zgłasza każdą niezgodność jako BŁĄD.
 import { chromium } from 'playwright'
 import { nazwij, podaj, potwierdz } from './lib.mjs'
 
@@ -73,29 +73,29 @@ const conceptNames = () =>
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// --- przygotowanie: cztery klocki ---
+// --- przygotowanie: cztery kafelki ---
 for (const [name, type] of [
   ['Alfa', 'definicja'],
   ['Beta', 'definicja'],
   ['Gamma', 'twierdzenie'],
   ['Delta', 'przyklad'],
 ]) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.selectOption('.type-select', type)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
-  await page.keyboard.type(`Tresc klocka ${name}.`)
+  await page.keyboard.type(`Tresc kafelka ${name}.`)
   await page.waitForTimeout(400)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Sciezka testowa")
 await page.waitForSelector('.path-canvas')
 
-// --- 1. przeciąganie klocków na mapę (rozstawione, żeby się nie nakładały) ---
+// --- 1. przeciąganie kafelków na mapę (rozstawione, żeby się nie nakładały) ---
 const spots = [
   { x: 200, y: 120 },
   { x: 200, y: 480 },
@@ -130,7 +130,7 @@ await settle()
 st = await readPath()
 check('strzałka kolejności zapisana w ścieżce', st.krawedzie === 1, `krawędzi: ${st.krawedzie}`)
 
-// --- 3. grupowanie dwóch klocków ---
+// --- 3. grupowanie dwóch kafelków ---
 await clickNode('Alfa')
 await page.keyboard.down('Control')
 await clickNode('Beta')
@@ -142,7 +142,7 @@ await settle()
 st = await readPath()
 const nazwy = await conceptNames()
 const wGrupie = (st.grupy[0]?.czesciId ?? []).map((i) => nazwy[i]).sort()
-check('grupa utworzona z dwóch klocków', st.grupy.length === 1 && st.grupy[0].czesci === 2,
+check('grupa utworzona z dwóch kafelków', st.grupy.length === 1 && st.grupy[0].czesci === 2,
   JSON.stringify(st.grupy?.[0]?.czesci))
 check('zgrupowane zostały właśnie Alfa i Beta', wGrupie.join(',') === 'Alfa,Beta',
   `w grupie: ${wGrupie.join(', ')}`)
@@ -151,20 +151,20 @@ check('typ grupy przejęty z jednakowych części (obie definicje)',
 check('strzałka Alfa→Beta zniknęła po zgrupowaniu obu końców',
   st.krawedzie === 0, `krawędzi: ${st.krawedzie} (${st.krawedzieId.join(', ')})`)
 
-// --- 4. dołożenie i wyjęcie klocka z grupy ---
-await page.click('.path-node-group button[title*="Dodaj klocek"]')
+// --- 4. dołożenie i wyjęcie kafelka z grupy ---
+await page.click('.path-node-group button[title*="Dodaj kafelek"]')
 await page.waitForSelector('.picker-modal')
 await page.fill('.picker-search', 'Delta')
 await page.waitForTimeout(300)
 await page.click('.picker-item:has-text("Delta")')
 await settle()
 st = await readPath()
-check('dołożenie klocka do grupy', st.grupy[0]?.czesci === 3, `części: ${st.grupy[0]?.czesci}`)
+check('dołożenie kafelka do grupy', st.grupy[0]?.czesci === 3, `części: ${st.grupy[0]?.czesci}`)
 await page.hover('.group-member:last-child')
 await page.click('.group-member:last-child .folder-action', { force: true })
 await settle()
 st = await readPath()
-check('wyjęcie klocka z grupy', st.grupy[0]?.czesci === 2, `części: ${st.grupy[0]?.czesci}`)
+check('wyjęcie kafelka z grupy', st.grupy[0]?.czesci === 2, `części: ${st.grupy[0]?.czesci}`)
 
 // --- 5. rozdział i notatka (po grupowaniu, żeby nie zasłaniały kafelków) ---
 await page.click('button:has-text("+ § Rozdział")')
@@ -221,10 +221,10 @@ const script = await page.evaluate(() => ({
   zagniezdzone: document.querySelectorAll('.script-group-block .script-block').length,
 }))
 check('skrypt: grupa jako jeden blok', script.grupy === 1, JSON.stringify(script))
-check('skrypt: klocki w grupie bez własnych ramek', script.zagniezdzone === 0,
+check('skrypt: kafelki w grupie bez własnych ramek', script.zagniezdzone === 0,
   `zagnieżdżonych: ${script.zagniezdzone}`)
 check('skrypt: obie treści w grupie', script.czesciWGrupie === 2, `części: ${script.czesciWGrupie}`)
-check('skrypt: pozostałe klocki osobno', script.bloki === 2, `bloków: ${script.bloki}`)
+check('skrypt: pozostałe kafelki osobno', script.bloki === 2, `bloków: ${script.bloki}`)
 
 // --- 9. trwałość po przeładowaniu ---
 await page.reload()
@@ -249,11 +249,11 @@ await settle()
 const ungrouped = await readPath()
 check('rozgrupowanie usuwa kafelek grupy', ungrouped.grupy.length === 0,
   `grup: ${ungrouped.grupy.length}`)
-check('rozgrupowanie przywraca oba klocki jako osobne kafelki',
+check('rozgrupowanie przywraca oba kafelki jako osobne kafelki',
   ungrouped.wezly.filter((k) => k === 'block').length === 4,
   `bloków: ${ungrouped.wezly.filter((k) => k === 'block').length}, węzły: ${ungrouped.wezly.join(',')}`)
 
-// --- 11. usunięcie klocka z bazy nie wywraca ścieżki ---
+// --- 11. usunięcie kafelka z bazy nie wywraca ścieżki ---
 await page.click('.concept-item:has-text("Gamma")')
 await page.waitForSelector('.editor-name')
 await page.click('.editor-header button:has-text("Usuń")')
@@ -263,12 +263,12 @@ await page.click('.concept-item:has-text("Sciezka testowa")')
 await page.waitForSelector('.path-canvas')
 await page.waitForTimeout(700)
 const missing = await page.locator('.path-node-missing').count()
-check('usunięty klocek pokazany jako brakujący, ścieżka działa', missing === 1,
+check('usunięty kafelek pokazany jako brakujący, ścieżka działa', missing === 1,
   `kafelków „usunięte": ${missing}`)
 await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-body')
 await page.waitForTimeout(500)
-check('skrypt nie wywala się po usunięciu klocka',
+check('skrypt nie wywala się po usunięciu kafelka',
   (await page.locator('.script-body').count()) === 1)
 
 // --- 12. strzałki powiązań nie trafiają do zapisu ---

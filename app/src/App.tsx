@@ -57,13 +57,13 @@ function Widok() {
   const [shownVersionId, setShownVersionId] = useState<string | null>(null)
   const [selecting, setSelecting] = useState(false)
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null)
-  /** Widok środkowego panelu: edytor klocka albo graf powiązań. */
+  /** Widok środkowego panelu: edytor kafelka albo graf powiązań. */
   const [showGraph, setShowGraph] = useState(false)
   /** Otwarta ścieżka (canvas). */
   const [openPathId, setOpenPathId] = useState<string | null>(null)
-  /** Klocek, do którego ścieżka ma podskoczyć zaraz po otwarciu. */
+  /** Kafelek, do którego ścieżka ma podskoczyć zaraz po otwarciu. */
   const [celKlocka, setCelKlocka] = useState<string | null>(null)
-  /** Ścieżka, do której wracamy po zamknięciu klocka otwartego z jej poziomu. */
+  /** Ścieżka, do której wracamy po zamknięciu kafelka otwartego z jej poziomu. */
   const [returnPathId, setReturnPathId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
 
@@ -105,7 +105,7 @@ function Widok() {
   const version = versions.find((v) => v.id === effectiveVersionId)
 
   const selectConcept = (id: string) => {
-    // jeśli klocek otwierany jest z poziomu ścieżki — zapamiętaj, dokąd wrócić
+    // jeśli kafelek otwierany jest z poziomu ścieżki — zapamiętaj, dokąd wrócić
     setReturnPathId(openPathId)
     setSelectedId(id)
     setShownVersionId(null)
@@ -113,12 +113,12 @@ function Widok() {
     setShowGraph(false)
     setOpenPathId(null)
     // Ustawienia zajmują cały środkowy panel, więc wybór czegokolwiek
-    // z listy musi je zamknąć — inaczej klik w klocek nic nie robi.
+    // z listy musi je zamknąć — inaczej klik w kafelek nic nie robi.
     setShowSettings(false)
   }
 
   /** Otwiera ścieżkę; z drugim argumentem od razu skacze do miejsca, w którym
-   *  siedzi w niej ten klocek (przycisk „w ścieżkach" w edytorze). */
+   *  siedzi w niej ten kafelek (przycisk „w ścieżkach" w edytorze). */
   const openPath = (id: string, conceptId?: string) => {
     setOpenPathId(id)
     setCelKlocka(conceptId ?? null)
@@ -130,7 +130,7 @@ function Widok() {
 
   /** Zakotwiczona ścieżka: ta, do której chce się wracać.
    *
-   *  Pracuje się przy niej długo — zaglądasz do klocka, do innej ścieżki, do
+   *  Pracuje się przy niej długo — zaglądasz do kafelka, do innej ścieżki, do
    *  PDF-u — i za każdym razem trzeba było jej szukać na liście. Kotwica
    *  trzyma jedną ścieżkę pod ręką: przycisk w lewym górnym rogu i Alt+Z. */
   const [zakotwiczona, setZakotwiczona] = useState<string | null>(
@@ -183,7 +183,7 @@ function Widok() {
     }
   }
 
-  /** Skok do źródła: wycinek PDF pokazujemy w panelu, a źródło-klocek
+  /** Skok do źródła: wycinek PDF pokazujemy w panelu, a źródło-kafelek
    *  otwieramy w edytorze (tak wędruje się w górę genealogii wiedzy). */
   const jumpToSource = (ref: SourceRef) => {
     if (isPdfSource(ref)) {
@@ -281,7 +281,7 @@ function Widok() {
           <div>
             <h2>Zacznij budować kompendium</h2>
             <p>
-              Utwórz pierwszy <strong>klocek wiedzy</strong> przyciskiem po lewej,
+              Utwórz pierwszy <strong>kafelek wiedzy</strong> przyciskiem po lewej,
               wrzuć <strong>PDF</strong> po prawej i podpinaj treść pod źródło.
             </p>
             <p className="hint">

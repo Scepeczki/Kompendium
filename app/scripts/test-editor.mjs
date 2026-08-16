@@ -14,7 +14,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Hybryda')
 
@@ -130,25 +130,25 @@ console.log(
   }`,
 )
 
-// 9. przełączanie między klockami w trybie wizualnym odświeża treść
+// 9. przełączanie między kafelkami w trybie wizualnym odświeża treść
 await page.click('.view-switch button:has-text("Wizualny")')
-await page.click('.btn-close[title*="Zamknij klocek"]')
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
-await page.fill('.editor-name', 'Drugi klocek')
+await page.fill('.editor-name', 'Drugi kafelek')
 await page.click('.rich-content .tiptap')
 await page.keyboard.type('TREŚĆ-DRUGIEGO')
 await page.waitForTimeout(700)
-// przełącz na pierwszy klocek i z powrotem
+// przełącz na pierwszy kafelek i z powrotem
 await page.click('.concept-item:has-text("Hybryda")')
 await page.waitForFunction(() =>
   document.querySelector('.rich-content .tiptap')?.textContent.includes('Zbiór'),
 )
-await page.click('.concept-item:has-text("Drugi klocek")')
+await page.click('.concept-item:has-text("Drugi kafelek")')
 await page.waitForFunction(() =>
   document.querySelector('.rich-content .tiptap')?.textContent.includes('TREŚĆ-DRUGIEGO'),
 )
-console.log('✓ przełączanie klocków odświeża tryb wizualny')
+console.log('✓ przełączanie kafelków odświeża tryb wizualny')
 
 // 10. kolumna tekstu ograniczona (jak w Google Docs)
 const widths = await page.evaluate(() => {

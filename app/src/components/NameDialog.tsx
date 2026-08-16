@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon, PICK_GROUPS, isIconName, type IconName } from './Icon'
 
-/** Barwy znaczka. Te same, którymi malowane są typy klocków, plus akcent
+/** Barwy znaczka. Te same, którymi malowane są typy kafelków, plus akcent
  *  i szarość — żeby drzewo nie zaczęło świecić przypadkowymi kolorami. */
 const BARWY: { hex: string; nazwa: string }[] = [
   { hex: '#31619e', nazwa: 'Niebieski' },

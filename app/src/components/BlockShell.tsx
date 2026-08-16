@@ -12,16 +12,16 @@ interface Props {
   /** Wybrana wersja; null = bieżąca. */
   versionId: string | null
   onVersionChange?: (id: string | null) => void
-  /** Wybrana strona klocka; null = główna treść. */
+  /** Wybrana strona kafelka; null = główna treść. */
   subpageId: string | null
   onSubpageChange?: (id: string | null) => void
   onOpenConcept?: (id: string) => void
   onJumpToSource?: (ref: SourceRef) => void
   /** Dymki wyjaśniające, co oznacza wybór w danym widoku. */
   pickHint?: string
-  /** Strony klocka podane z zewnątrz — oszczędza osobne zapytanie na blok. */
+  /** Strony kafelka podane z zewnątrz — oszczędza osobne zapytanie na blok. */
   subsZewn?: Subpage[]
-  /** Strzałka „otwórz klocek" w nagłówku. W Linii zbędna — tam menu pod
+  /** Strzałka „otwórz kafelek" w nagłówku. W Linii zbędna — tam menu pod
    *  prawym przyciskiem robi to samo, a dwa wejścia mieszają. */
   showOpen?: boolean
 
@@ -35,9 +35,9 @@ interface Props {
   /** Powód, dla którego pisać nie wolno (np. starsza wersja) — pokazywany
    *  jako dymek, zamiast milczącego braku reakcji. */
   blokada?: string
-  /** Nazwa nadana kafelkowi w ścieżce — zamiast nazwy klocka. */
+  /** Nazwa nadana kafelkowi w ścieżce — zamiast nazwy kafelka. */
   nazwaWlasna?: string
-  /** Treść napisana w ścieżce — zamiast treści klocka. */
+  /** Treść napisana w ścieżce — zamiast treści kafelka. */
   trescWlasna?: string
   /** Bez paska nad treścią (wersja, plakietka własnego tekstu). W Linii
    *  jedno i drugie siedzi pod prawym przyciskiem, żeby kafelek pokazywał
@@ -45,7 +45,7 @@ interface Props {
   bezPaskaWersji?: boolean
 }
 
-/** Blok klocka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
+/** Blok kafelka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
  *  żeby oba wyglądały dokładnie tak samo. Kolejność elementów:
  *  pasek nagłówka → wersja → strony i treść → stopka ze źródłami. */
 export function BlockShell({
@@ -91,7 +91,7 @@ export function BlockShell({
   // strony należą do wersji — z zewnątrz przychodzą wszystkie, więc odsiewamy
   const subs = (subsZewn ?? pobrane).filter((s) => s.versionId === version?.id)
   const sub = subs.find((s) => s.id === subpageId) ?? null
-  // Tekst napisany w ścieżce ma pierwszeństwo przed tekstem klocka.
+  // Tekst napisany w ścieżce ma pierwszeństwo przed tekstem kafelka.
   const content = trescWlasna ?? (sub ? sub.content : (version?.content ?? ''))
   const versionName = (v: BlockVersion) => v.label ?? `wr.${v.version}`
 
@@ -104,7 +104,7 @@ export function BlockShell({
             <input
               className="inline-title"
               value={nazwaWlasna ?? concept.name}
-              title="Nazwa kafelka w tej ścieżce — klocek w bibliotece zostaje bez zmian"
+              title="Nazwa kafelka w tej ścieżce — kafelek w bibliotece zostaje bez zmian"
               onChange={(e) => onRename(e.target.value)}
               onClick={(e) => e.stopPropagation()}
             />
@@ -115,7 +115,7 @@ export function BlockShell({
         {onOpenConcept && showOpen && (
           <button
             className="script-block-open"
-            title="Otwórz klocek w edytorze"
+            title="Otwórz kafelek w edytorze"
             onClick={() => onOpenConcept(concept.id)}
           >
             ↗
@@ -133,7 +133,7 @@ export function BlockShell({
                 <select
                   className="block-pick-select"
                   value={version.id}
-                  title={pickHint ?? 'Wersja klocka'}
+                  title={pickHint ?? 'Wersja kafelka'}
                   onChange={(e) =>
                     onVersionChange(
                       e.target.value === concept.currentVersionId ? null : e.target.value,
@@ -163,7 +163,7 @@ export function BlockShell({
             <div className="block-pages">
               <button
                 className={`block-page ${!sub ? 'active' : ''}`}
-                title={pickHint ?? 'Strona klocka'}
+                title={pickHint ?? 'Strona kafelka'}
                 onClick={() => onSubpageChange?.(null)}
               >
                 {mainPageName(concept)}
@@ -172,7 +172,7 @@ export function BlockShell({
                 <button
                   key={s.id}
                   className={`block-page ${sub?.id === s.id ? 'active' : ''}`}
-                  title={pickHint ?? 'Strona klocka'}
+                  title={pickHint ?? 'Strona kafelka'}
                   onClick={() => onSubpageChange?.(s.id)}
                 >
                   {s.name}

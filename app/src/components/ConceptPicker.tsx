@@ -6,13 +6,13 @@ import { useBlockTypes } from '../blockTypes'
 
 interface Props {
   title: string
-  /** Klocki wykluczone z listy (np. sam edytowany klocek). */
+  /** Kafelki wykluczone z listy (np. sam edytowany kafelek). */
   excludeIds?: string[]
   onPick: (concept: Concept) => void
   onClose: () => void
 }
 
-/** Okno wyboru klocka — używane przy wskazywaniu źródła-klocka
+/** Okno wyboru kafelka — używane przy wskazywaniu źródła-kafelka
  *  i przy dodawaniu relacji między pojęciami. */
 export function ConceptPicker({ title, excludeIds = [], onPick, onClose }: Props) {
   const typy = useBlockTypes()
@@ -45,7 +45,7 @@ export function ConceptPicker({ title, excludeIds = [], onPick, onClose }: Props
           className="input picker-search"
           autoFocus
           value={q}
-          placeholder="Szukaj klocka po nazwie…"
+          placeholder="Szukaj kafelka po nazwie…"
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && found.length > 0) onPick(found[0])

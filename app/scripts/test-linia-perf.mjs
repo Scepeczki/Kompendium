@@ -20,25 +20,25 @@ await page.waitForSelector('text=Kompendium')
 
 const ILE = Number(process.argv[2] ?? 25)
 for (let i = 1; i <= ILE; i++) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
-  await page.fill('.editor-name', `Klocek ${i}`)
+  await page.fill('.editor-name', `Kafelek ${i}`)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
   // treść jak w prawdziwym skrypcie: kilka zdań i wzory, nie jedna linijka
   await page.keyboard.type(
-    `Tresc klocka ${i}. Niech $(a_n)$ bedzie ciagiem o wyrazach $a_n = ${i}/n$. ` +
+    `Tresc kafelka ${i}. Niech $(a_n)$ bedzie ciagiem o wyrazach $a_n = ${i}/n$. ` +
       `Wowczas $\\lim_{n \\to \\infty} a_n = 0$, co wynika z definicji granicy: ` +
       `dla kazdego $\\varepsilon > 0$ istnieje $N$ takie, ze $|a_n| < \\varepsilon$ dla $n > N$.`,
   )
   await page.waitForTimeout(80)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await nowaSciezka(page, 'Duza')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 for (let i = 1; i <= ILE; i++) {
-  await page.dragAndDrop(`.concept-item:has-text("Klocek ${i}")`, '.linear-append')
+  await page.dragAndDrop(`.concept-item:has-text("Kafelek ${i}")`, '.linear-append')
   await page.waitForTimeout(120)
 }
 await page.waitForTimeout(1200)

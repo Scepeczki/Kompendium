@@ -42,15 +42,15 @@ await page.mouse.click(700, 500)
 await page.waitForTimeout(200)
 check('klik poza menu zamyka', (await page.locator('.tree-menu').count()) === 0)
 
-// 4. „Nowy klocek" z menu tworzy klocek na poziomie głównym i go otwiera
+// 4. „Nowy kafelek" z menu tworzy kafelek na poziomie głównym i go otwiera
 await page.click('.concept-list', { button: 'right', position: { x: 100, y: 220 } })
 await page.waitForSelector('.tree-menu')
-await page.click('.tree-menu-item:has-text("Nowy klocek")')
+await page.click('.tree-menu-item:has-text("Nowy kafelek")')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Z menu')
 await page.waitForTimeout(400)
-await page.click('.btn-close[title*="Zamknij klocek"]')
-check('klocek z menu powstał i otworzył się',
+await page.click('.btn-close[title*="Zamknij kafelek"]')
+check('kafelek z menu powstał i otworzył się',
   (await page.locator('.concept-item:has-text("Z menu")').count()) === 1)
 
 // 5. folder + prawy przycisk w jego wnętrzu → tworzy w tym folderze
@@ -64,23 +64,23 @@ await page.waitForSelector('.tree-menu')
 check('menu rozpoznaje folder, w którym kliknięto',
   (await page.locator('.tree-menu-where').textContent()).includes('Algebra'),
   await page.locator('.tree-menu-where').textContent())
-await page.click('.tree-menu-item:has-text("Nowy klocek")')
+await page.click('.tree-menu-item:has-text("Nowy kafelek")')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'W folderze')
 await page.waitForTimeout(500)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 const inFolder = await page.evaluate(() => {
   const ul = document.querySelector('.folder-children')
   return [...ul.querySelectorAll('.concept-name')].map((n) => n.textContent)
 })
-check('klocek powstał wewnątrz folderu', inFolder.includes('W folderze'),
+check('kafelek powstał wewnątrz folderu', inFolder.includes('W folderze'),
   inFolder.join(' | '))
 
-// 6. prawy przycisk na klocku daje inne menu niż na pustym tle
+// 6. prawy przycisk na kafelku daje inne menu niż na pustym tle
 await page.click('.concept-item:has-text("Z menu")', { button: 'right' })
 await page.waitForSelector('.tree-menu')
 const naRzeczy = await page.locator('.tree-menu-item').allTextContents()
-check('prawy przycisk na klocku nie proponuje tworzenia',
+check('prawy przycisk na kafelku nie proponuje tworzenia',
   !naRzeczy.join('|').includes('Nowy'),
   naRzeczy.map((s) => s.trim()).join(' · '))
 await page.keyboard.press('Escape')
@@ -96,11 +96,11 @@ check('menu nie wychodzi poza okno', fits)
 
 // -- menu na konkretnej rzeczy: zmiana nazwy, powielenie, usunięcie --
 
-// 8. na klocku menu pokazuje działania, nie tworzenie
+// 8. na kafelku menu pokazuje działania, nie tworzenie
 await page.click('.concept-item:has-text("Z menu")', { button: 'right' })
 await page.waitForSelector('.tree-menu')
 const naKlocku = await page.locator('.tree-menu-item').allTextContents()
-check('menu klocka: nazwa, powielenie, usunięcie',
+check('menu kafelka: nazwa, powielenie, usunięcie',
   naKlocku.length === 3 && naKlocku.join('|').includes('Powiel'),
   naKlocku.map((s) => s.trim()).join(' · '))
 // menu rzeczy nie powtarza już jej nazwy — widać ją w wierszu, na który
@@ -114,14 +114,14 @@ await nazwij(page, 'Przezwany')
 check('zmiana nazwy z menu działa',
   (await page.locator('.concept-item:has-text("Przezwany")').count()) === 1)
 
-// 10. powielenie klocka: kopia obok pierwowzoru, z treścią, i od razu otwarta
+// 10. powielenie kafelka: kopia obok pierwowzoru, z treścią, i od razu otwarta
 await page.click('.concept-item:has-text("Przezwany")')
 await page.waitForSelector('.view-switch')
 await page.click('.view-switch button:has-text("Kod")')
 await page.click('.editor-code .cm-content')
 await page.keyboard.type('Treść pierwowzoru $a^2$.')
 await page.waitForTimeout(600)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 await page.click('.concept-item:has-text("Przezwany")', { button: 'right' })
 await page.waitForSelector('.tree-menu')
@@ -142,7 +142,7 @@ await page.waitForTimeout(600)
 const oryginal = await page.textContent('.editor-code .cm-content')
 check('pierwowzór nietknięty przez zmianę w kopii',
   !oryginal.includes('DOPISEK-W-KOPII'), oryginal)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 // 12. powielenie folderu bierze zawartość
 await page.click('.folder-row:has-text("Algebra")', { button: 'right' })

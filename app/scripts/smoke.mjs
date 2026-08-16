@@ -1,5 +1,5 @@
 ﻿// Test dymny: uruchamia aplikację w headless Edge, klika przez podstawowy
-// przepływ (nowy klocek → wpisanie treści z LaTeX-em) i robi zrzuty ekranu.
+// przepływ (nowy kafelek → wpisanie treści z LaTeX-em) i robi zrzuty ekranu.
 import { chromium } from 'playwright'
 
 const errors = []
@@ -17,8 +17,8 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium', { timeout: 20000 })
 await page.screenshot({ path: 'scripts/shot-1-start.png' })
 
-// Nowy klocek
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// Nowy kafelek
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name', { timeout: 10000 })
 
 // Nazwa

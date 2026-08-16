@@ -23,7 +23,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // --- 4. dolary obejmują zaznaczenie (tryb kodu) ---
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Kres gorny')
 await page.click('.view-switch button:has-text("Kod")')
@@ -59,7 +59,7 @@ check('w trybie wizualnym $ też obejmuje zaznaczenie',
   wizualny.includes('$x^2$'), wizualny)
 
 // --- 1. przy jednej stronie jej nazwa NIE zabiera miejsca w ścieżce ---
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await nowaSciezka(page, 'Drobiazgi')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
@@ -74,7 +74,7 @@ await page.waitForSelector('.editor-name')
 await page.click('button:has-text("+ strona")')
 await podaj(page, 'Dowod')
 await page.waitForTimeout(800)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.click('.concept-item:has-text("Drobiazgi")')
 await page.waitForSelector('.linear-seg')
 await page.waitForTimeout(1500)

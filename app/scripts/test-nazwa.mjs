@@ -87,13 +87,13 @@ await page.waitForTimeout(400)
 check('cofnięcie do domyślnego znaczka',
   (await page.locator('.folder-row:has-text("Algebra") .folder-icon').count()) === 0)
 
-// 7. klocek: znaczek zastępuje plakietkę typu
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// 7. kafelek: znaczek zastępuje plakietkę typu
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Granica')
 await page.waitForTimeout(400)
-await page.click('.btn-close[title*="Zamknij klocek"]')
-check('bez znaczka klocek pokazuje plakietkę typu',
+await page.click('.btn-close[title*="Zamknij kafelek"]')
+check('bez znaczka kafelek pokazuje plakietkę typu',
   (await page.locator('.concept-item:has-text("Granica") .type-mini').count()) === 1)
 await page.click('.concept-item:has-text("Granica")', { button: 'right' })
 await page.waitForSelector('.tree-menu')
@@ -170,11 +170,11 @@ await page.mouse.click(wnetrze.x + wnetrze.width / 2, wnetrze.y + wnetrze.height
   button: 'right',
 })
 await page.waitForSelector('.tree-menu')
-await page.click('.tree-menu-item:has-text("Nowy klocek")')
+await page.click('.tree-menu-item:has-text("Nowy kafelek")')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'W środku')
 await page.waitForTimeout(400)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForSelector('.folder-children')
 const geometria = await page.evaluate(() => {
   const row = [...document.querySelectorAll('.folder-row')].find((r) =>
@@ -193,7 +193,7 @@ check('prowadnica pod środkiem znaczka folderu',
   `znaczek ${geometria.srodekZnaczka.toFixed(1)} vs linia ${geometria.linia.toFixed(1)}`)
 check('znaczek stoi zamiast strzałki, nie obok', !geometria.strzalka)
 
-// 11. kopia klocka niesie jego znaczek
+// 11. kopia kafelka niesie jego znaczek
 await page.click('.concept-item:has-text("Granica ciągu")', { button: 'right' })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Powiel")')

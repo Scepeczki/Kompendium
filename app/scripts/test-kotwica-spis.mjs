@@ -34,13 +34,13 @@ await page.evaluate(async () => {
     const cid = `k-c-${i}`
     const vid = `k-v-${i}`
     tx.objectStore('concepts').put({
-      id: cid, name: `Klocek ${i}`, type: i % 2 ? 'definicja' : 'twierdzenie',
+      id: cid, name: `Kafelek ${i}`, type: i % 2 ? 'definicja' : 'twierdzenie',
       tags: [], folderId: null, order: i, createdAt: teraz, updatedAt: teraz,
       currentVersionId: vid,
     })
     tx.objectStore('versions').put({
       id: vid, conceptId: cid, version: 1,
-      content: `Tresc klocka ${i}. Dosc dluga, zeby zajac troche wysokosci na ekranie ` +
+      content: `Tresc kafelka ${i}. Dosc dluga, zeby zajac troche wysokosci na ekranie ` +
         `i dalo sie w tej sciezce naprawde przewijac w dol i w gore.`,
       sourceRefs: [], createdAt: teraz, updatedAt: teraz,
     })
@@ -54,7 +54,7 @@ await nowaSciezka(page, 'Dluga')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 for (let i = 1; i <= 20; i++) {
-  await page.dragAndDrop(`.concept-item:has-text("Klocek ${i}")`, '.linear-append')
+  await page.dragAndDrop(`.concept-item:has-text("Kafelek ${i}")`, '.linear-append')
   await page.waitForTimeout(160)
 }
 // rozdział na początku
@@ -88,7 +88,7 @@ check('klik w kafelek w spisie przewija do niego', poSkoku > 200, `scrollTop: ${
 // --- 1. pamięć miejsca ---
 await page.evaluate((s) => document.querySelector(s).scrollTo(0, 900), widok)
 await page.waitForTimeout(900)
-await page.click('.concept-item:has-text("Klocek 1")')
+await page.click('.concept-item:has-text("Kafelek 1")')
 await page.waitForSelector('.editor-name')
 await page.waitForTimeout(500)
 await page.click('.concept-item:has-text("Dluga")')
@@ -98,12 +98,89 @@ const poPowrocie = await page.evaluate((s) => document.querySelector(s).scrollTo
 check('ścieżka wraca tam, gdzie się skończyło', poPowrocie > 400,
   `scrollTop po powrocie: ${poPowrocie}`)
 
+// --- 1a. skok ze spisu w trakcie odtwarzania miejsca nie szarpie widokiem ---
+//
+// Ścieżka dociąga zapamiętane miejsce jeszcze przez chwilę po wejściu, bo
+// kafelki poza oknem mają dopiero zgadywaną wysokość. Klik w spisie dociąga
+// swój cel tak samo. Gdy robiły to naraz, widok latał w górę i w dół, dopóki
+// jedno nie odpuściło. Wchodzimy więc do ścieżki i klikamy OD RAZU.
+// zapamiętane miejsce ma być DALEKO od celu kliknięcia — inaczej nie ma o co
+// się bić i test niczego nie sprawdza
+await page.evaluate((s) => document.querySelector(s).scrollTo(0, 3000), widok)
+await page.waitForTimeout(700)
+await page.click('.concept-item:has-text("Kafelek 1")')
+await page.waitForSelector('.editor-name')
+await page.waitForTimeout(400)
+await page.click('.concept-item:has-text("Dluga")')
+await page.waitForSelector('.outline')
+await page.waitForTimeout(100)
+// „Początek" — kafelki stojące przed pierwszym rozdziałem, czyli sama góra
+await page.locator('.outline-chev').first().click()
+await page.locator('.outline-kafelek').first().click()
+const szarpanie = await page.evaluate(async (s) => {
+  const el = document.querySelector(s)
+  const proby = []
+  for (let i = 0; i < 16; i++) {
+    proby.push(el.scrollTop)
+    await new Promise((r) => setTimeout(r, 110))
+  }
+  let zwroty = 0
+  for (let i = 2; i < proby.length; i++) {
+    const a = proby[i - 1] - proby[i - 2]
+    const b = proby[i] - proby[i - 1]
+    if (Math.abs(a) > 20 && Math.abs(b) > 20 && Math.sign(a) !== Math.sign(b)) zwroty++
+  }
+  return { zwroty, ruch: Math.max(...proby) - Math.min(...proby), proby }
+}, widok)
+check('skok ze spisu nie walczy z pamięcią miejsca', szarpanie.zwroty === 0,
+  `zwrotów: ${szarpanie.zwroty}, próbki: ${szarpanie.proby.join(', ')}`)
+check('i to skok wygrywa — widok zostaje na górze',
+  szarpanie.proby[szarpanie.proby.length - 1] < 400,
+  `koniec: ${szarpanie.proby[szarpanie.proby.length - 1]}`)
+
+// --- 1b. przeskakiwanie po spisie: liczy się ostatnie kliknięcie ---
+//
+// Każdy skok dociąga swój cel jeszcze przez chwilę po przewinięciu. Gdy klika
+// się szybko po kolejnych kafelkach, tych dociągań robiło się kilka naraz —
+// każde do czego innego — i widok latał między nimi.
+const kafelkiSpisu = page.locator('.outline-kafelek')
+await kafelkiSpisu.nth(14).click()
+await page.waitForTimeout(150)
+await kafelkiSpisu.nth(2).click()
+await page.waitForTimeout(150)
+await kafelkiSpisu.nth(9).click()
+const przeskoki = await page.evaluate(async (s) => {
+  const el = document.querySelector(s)
+  const proby = []
+  for (let i = 0; i < 16; i++) {
+    proby.push(el.scrollTop)
+    await new Promise((r) => setTimeout(r, 110))
+  }
+  let zwroty = 0
+  for (let i = 2; i < proby.length; i++) {
+    const a = proby[i - 1] - proby[i - 2]
+    const b = proby[i] - proby[i - 1]
+    if (Math.abs(a) > 20 && Math.abs(b) > 20 && Math.sign(a) !== Math.sign(b)) zwroty++
+  }
+  // ile ostatnich próbek stoi w miejscu — po skoku widok ma się uspokoić
+  let spokoj = 0
+  for (let i = proby.length - 1; i > 0; i--) {
+    if (Math.abs(proby[i] - proby[i - 1]) > 4) break
+    spokoj++
+  }
+  return { zwroty, spokoj, proby }
+}, widok)
+check('szybkie przeskakiwanie po spisie nie szarpie widokiem',
+  przeskoki.zwroty === 0, `zwrotów: ${przeskoki.zwroty}, próbki: ${przeskoki.proby.join(', ')}`)
+check('widok uspokaja się po ostatnim kliknięciu', przeskoki.spokoj >= 8,
+  `spokojnych próbek: ${przeskoki.spokoj}`)
+
 // --- 3. kotwica ---
 check('przycisku powrotu nie ma, dopóki nie zakotwiczysz',
   (await page.locator('.kotwica-powrot').count()) === 0)
 await page.click('.path-toolbar button[title*="Zakotwicz"]')
 await page.waitForTimeout(400)
-await page.click('.concept-item:has-text("Klocek 3")')
+await page.click('.concept-item:has-text("Kafelek 3")')
 await page.waitForSelector('.editor-name')
 await page.waitForTimeout(500)
 check('poza ścieżką widać przycisk powrotu',
@@ -118,7 +195,7 @@ check('w samej ścieżce przycisku nie ma',
   (await page.locator('.kotwica-powrot').count()) === 0)
 
 // skrót Alt+Z
-await page.click('.concept-item:has-text("Klocek 5")')
+await page.click('.concept-item:has-text("Kafelek 5")')
 await page.waitForSelector('.editor-name')
 await page.waitForTimeout(400)
 await page.keyboard.press('Alt+z')
@@ -130,7 +207,7 @@ check('Alt+Z wraca do zakotwiczonej ścieżki',
 // zdjęcie kotwicy
 await page.click('.path-toolbar button[title*="Zdejmij kotwicę"]')
 await page.waitForTimeout(300)
-await page.click('.concept-item:has-text("Klocek 7")')
+await page.click('.concept-item:has-text("Kafelek 7")')
 await page.waitForSelector('.editor-name')
 await page.waitForTimeout(400)
 check('po zdjęciu kotwicy przycisk znika',

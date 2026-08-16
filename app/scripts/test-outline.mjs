@@ -22,16 +22,16 @@ page.on('dialog', (d) => d.accept(answers.shift() ?? 'X'))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// kilka klocków, żeby skrypt był dłuższy niż ekran
+// kilka kafelków, żeby skrypt był dłuższy niż ekran
 for (const n of ['Alfa', 'Beta', 'Gamma']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
-  await page.keyboard.type(`Treść klocka ${n}.\n\n`.repeat(6))
+  await page.keyboard.type(`Treść kafelka ${n}.\n\n`.repeat(6))
   await page.waitForTimeout(400)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 await page.click('button[title*="Nowa ścieżka"]')
@@ -40,7 +40,7 @@ await page.waitForSelector('.path-canvas')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 
-// rozdział → klocek → podrozdział → klocek → rozdział → klocek
+// rozdział → kafelek → podrozdział → kafelek → rozdział → kafelek
 await page.click('.linear-append button:has-text("+ § Rozdział")')
 await podaj(page, 'Rozdział I: Liczby')
 await page.dragAndDrop('.concept-item:has-text("Alfa")', '.linear-append')

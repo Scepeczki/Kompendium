@@ -269,7 +269,7 @@ function BlockNode({ id, data, selected }: NodeProps) {
         <span className="path-node-name">{concept.name}</span>
         <button
           className="path-node-open nodrag"
-          title="Otwórz klocek w edytorze"
+          title="Otwórz kafelek w edytorze"
           onClick={() => ctx.openConcept(concept.id)}
         >
           ↗
@@ -306,7 +306,7 @@ function BlockNode({ id, data, selected }: NodeProps) {
 }
 
 /** Wspólny wygląd notatki (tkanka/intuicja) i komentarza — treść renderowana
- *  jak w klocku (Markdown+LaTeX); edycja przez podwójny klik / menu. */
+ *  jak w kafelku (Markdown+LaTeX); edycja przez podwójny klik / menu. */
 function NoteBody({
   data,
   selected,
@@ -437,16 +437,16 @@ interface LinearViewProps {
   onToggleSide: (id: string) => void
   onSetSubpage: (segId: string, subpageId: string | null) => void
   onSetVersion: (segId: string, versionId: string | null) => void
-  /** Wersja pojedynczego klocka w grupie. */
+  /** Wersja pojedynczego kafelka w grupie. */
   onSetPartVersion: (segId: string, index: number, versionId: string | null) => void
-  /** Strona pojedynczego klocka w grupie. */
+  /** Strona pojedynczego kafelka w grupie. */
   onSetPartSubpage: (segId: string, index: number, subpageId: string | null) => void
   onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
   /** Scala segment z następnym (albo dokłada następny do grupy). */
   onGroupWithNext: (segId: string) => void
   /** Scala zaznaczone kafelki — także takie, które nie sąsiadują ze sobą. */
   onFuseSelected: (ids: string[]) => void
-  /** Klocek, do którego trzeba podskoczyć po otwarciu ścieżki. */
+  /** Kafelek, do którego trzeba podskoczyć po otwarciu ścieżki. */
   celKlocek?: string | null
   /** Do zapamiętania miejsca czytania — osobno dla każdej ścieżki. */
   pathId: string
@@ -457,10 +457,10 @@ interface LinearViewProps {
 
   // ---- pisanie wprost w ścieżce (Linia jest warsztatem, Skrypt czytelnią) ----
   //
-  // Wszystko poniżej zapisuje się W ŚCIEŻCE. Klocek w bibliotece zostaje
+  // Wszystko poniżej zapisuje się W ŚCIEŻCE. Kafelek w bibliotece zostaje
   // nietknięty — ścieżka jest miejscem pracy nad tekstem, a nie zdalnym
   // pilotem do biblioteki.
-  /** Nazwa kafelka w tej ścieżce (klocek zachowuje swoją). */
+  /** Nazwa kafelka w tej ścieżce (kafelek zachowuje swoją). */
   onRenameSegment?: (nodeId: string, nazwa: string) => void
   /** Treść kafelka w tej ścieżce, dla danej wersji i strony. */
   onEditBlock?: (
@@ -477,7 +477,7 @@ interface LinearViewProps {
     subpageId: string | null,
     md: string,
   ) => void
-  /** Porzucenie własnego tekstu — kafelek wraca do pokazywania klocka. */
+  /** Porzucenie własnego tekstu — kafelek wraca do pokazywania kafelka. */
   onWrocDoKlocka?: (nodeId: string, versionId: string, subpageId: string | null) => void
   onWrocDoCzesci?: (
     nodeId: string,
@@ -493,7 +493,7 @@ interface LinearViewProps {
 
 /** Treść jednego segmentu, przerysowywana tylko wtedy, gdy naprawdę się zmieni.
  *
- *  Zapis treści klocka budzi żywe zapytania i cała Linia renderuje się od nowa.
+ *  Zapis treści kafelka budzi żywe zapytania i cała Linia renderuje się od nowa.
  *  Przy sześćdziesięciu kafelkach to było ~300 ms na jeden zapis — widoczne
  *  jako zacięcie, także w środku przewijania. `sygnatura` zbiera wszystko, od
  *  czego zależy wygląd segmentu; jeśli się nie zmieniła, React pomija poddrzewo. */
@@ -645,8 +645,8 @@ const RamkaSegmentu = memo(
                 className="folder-action"
                 title={
                   n.kind === 'fusion'
-                    ? 'Dołącz następny klocek do tej grupy'
-                    : 'Scal z następnym klockiem w jedną grupę'
+                    ? 'Dołącz następny kafelek do tej grupy'
+                    : 'Scal z następnym kafelkiem w jedną grupę'
                 }
                 onClick={() => api.scal(n.id)}
               >
@@ -790,7 +790,7 @@ const PoleTresci = memo(function PoleTresci({
          *  do edytora i zapisany z powrotem nie zawsze wraca znak w znak
          *  (np. zagnieżdżone listy). Bez tej bramki każdy kafelek, na który
          *  ktoś tylko spojrzał, robił sobie własną kopię tekstu i po cichu
-         *  odcinał się od klocka w bibliotece. */
+         *  odcinał się od kafelka w bibliotece. */
         onChange={(md) => {
           if (!dotknieteRef.current) return
           zapisz(md)
@@ -963,13 +963,36 @@ function LinearView({
     }
     // Kafelki poza oknem mają dopiero zgadywaną wysokość, więc pierwszy skok
     // bywa niecelny — poprawiamy go jeszcze przez chwilę, aż treść się ułoży.
+    //
+    // Ale tylko dopóki nikt inny nie przewija: klik w spisie treści też
+    // dociąga swój cel przez ponad sekundę, a dwa przewijania naraz szarpały
+    // widokiem w górę i w dół, aż jedno się skończyło. Kto przewija celowo
+    // (spis albo sam użytkownik), ten wygrywa — my odpuszczamy.
     let n = 0
+    let t = 0
+    /** Samo posprzątanie — bez ogłaszania, że odtwarzanie się udało.
+     *  Efekt uruchamia się ponownie, gdy doczytają się kafelki, i wtedy
+     *  odtwarzanie ma zacząć się od nowa, a nie zostać uznane za zrobione. */
+    const sprzataj = () => {
+      window.clearTimeout(t)
+      el.removeEventListener('wheel', poddaj)
+      el.removeEventListener('touchstart', poddaj)
+    }
+    /** Koniec na dobre: albo dojechaliśmy, albo ktoś przewija po swojemu. */
+    function poddaj() {
+      sprzataj()
+      przywroconoRef.current = true
+    }
+    el.addEventListener('wheel', poddaj, { passive: true })
+    el.addEventListener('touchstart', poddaj, { passive: true })
     const skocz = () => {
+      if (el.dataset.skok === '1') return poddaj()
       el.scrollTop = zapisane
-      if (++n < 12) window.setTimeout(skocz, 90)
-      else przywroconoRef.current = true
+      if (++n < 12) t = window.setTimeout(skocz, 90)
+      else poddaj()
     }
     skocz()
+    return sprzataj
   }, [kluczMiejsca, celKlocek, ordered.length])
   useEffect(() => {
     const el = widokRef.current
@@ -1118,8 +1141,8 @@ function LinearView({
       window.removeEventListener('keydown', klawisz)
     }
   }, [segMenu])
-  // Tylko klocki użyte w tej ścieżce. Czytanie całych tabel oznaczało, że
-  // przy dużej bazie każdy zapis kopiował treść wszystkich klocków świata,
+  // Tylko kafelki użyte w tej ścieżce. Czytanie całych tabel oznaczało, że
+  // przy dużej bazie każdy zapis kopiował treść wszystkich kafelków świata,
   // żeby narysować kilkadziesiąt z nich.
   const uzyte = useMemo(() => {
     const s = new Set<string>()
@@ -1133,10 +1156,10 @@ function LinearView({
   const klucz = uzyte.join(',')
   /** Jedno zapytanie, które NIESIE ZE SOBĄ swój klucz.
    *
-   *  Bez tego nie da się odróżnić „dane jeszcze nie doszły" od „klocka
+   *  Bez tego nie da się odróżnić „dane jeszcze nie doszły" od „kafelka
    *  naprawdę nie ma": po dołożeniu kafelka żywe zapytanie oddaje przez
    *  chwilę poprzedni wynik, a on wygląda zupełnie normalnie — tyle że nie
-   *  ma w nim nowego klocka. Kafelek mrugał wtedy napisem „(usunięte
+   *  ma w nim nowego kafelka. Kafelek mrugał wtedy napisem „(usunięte
    *  pojęcie)". Skoro wynik mówi, dla jakiego zestawu powstał, wiadomo. */
   const wynik = useLiveQuery(async () => {
     const [concepts, versions, subpages] = await Promise.all([
@@ -1151,14 +1174,14 @@ function LinearView({
     concepts: [] as Concept[],
     versions: [] as BlockVersion[],
     subpages: [] as Subpage[],
-    /** Dla jakiego zestawu klocków te dane są — patrz `daneAktualne`. */
+    /** Dla jakiego zestawu kafelków te dane są — patrz `daneAktualne`. */
     klucz: '',
   })
   /** Nowe dane bierzemy tylko wtedy, gdy naprawdę są i są dla tego zestawu. */
   if (wynik && wynik.klucz === klucz) mrozoneRef.current = wynik
   const { concepts, versions, subpages } = mrozoneRef.current
   /** Czy trzymane dane opisują dokładnie ten zestaw kafelków, który mamy
-   *  narysować. Po dołożeniu kafelka przez chwilę nie — i wtedy brak klocka
+   *  narysować. Po dołożeniu kafelka przez chwilę nie — i wtedy brak kafelka
    *  w mapie znaczy „jeszcze nie doszedł", a nie „skasowany". */
   const daneAktualne = mrozoneRef.current.klucz === klucz
 
@@ -1316,8 +1339,8 @@ function LinearView({
   /** Wszystko, od czego zależy wygląd segmentu, w jednym napisie. */
   const sygnatura = (n: PathNode): string => {
     if (n.kind === 'fusion') {
-      // treść składników siedzi w klockach, nie w węźle ścieżki — bez niej
-      // scalony blok nie odświeżałby się po zmianie któregoś z klocków
+      // treść składników siedzi w kafelkach, nie w węźle ścieżki — bez niej
+      // scalony blok nie odświeżałby się po zmianie któregoś z kafelków
       const czesci = n.parts
         .map((p) => {
           const c = mapy.klocki.get(p.conceptId)
@@ -1365,7 +1388,7 @@ function LinearView({
   const segmentContent = (n: PathNode) => {
     if (n.kind === 'block') {
       const c = conceptById(n.conceptId)
-      // pusta ramka, dopóki klocek nie doszedł z bazy — napis o usunięciu
+      // pusta ramka, dopóki kafelek nie doszedł z bazy — napis o usunięciu
       // należy się tylko temu, którego naprawdę nie ma
       if (!c) {
         return daneAktualne ? (
@@ -1379,12 +1402,12 @@ function LinearView({
         wersje.find((v) => v.id === n.versionId) ??
         wersje.find((v) => v.id === c.currentVersionId)
       const strona = (n.subpageId ? mapy.strony.get(n.subpageId) : null) ?? null
-      // Wszystko w ścieżce jest do pisania — także starsza wersja klocka.
+      // Wszystko w ścieżce jest do pisania — także starsza wersja kafelka.
       // Wersje to u nas różne ujęcia tej samej rzeczy („wg Rudina"), a nie
       // zamknięta historia, więc nie ma czego bronić przed poprawianiem.
       const wolno = !!onEditBlock && !!wersja
       // Tekst napisany w ścieżce ma pierwszeństwo. Brak takiego = pokazujemy
-      // klocek żywcem, razem z każdą późniejszą poprawką z biblioteki.
+      // kafelek żywcem, razem z każdą późniejszą poprawką z biblioteki.
       const klucz = wersja ? kluczWlasnej(wersja.id, strona?.id) : ''
       const wlasna = wersja ? n.wlasneTresci?.[klucz] : undefined
       const tresc = wlasna ?? (strona ? strona.content : (wersja?.content ?? ''))
@@ -1405,10 +1428,10 @@ function LinearView({
           trescWlasna={wlasna}
           bezPaskaWersji
           onRename={onRenameSegment ? (name) => onRenameSegment(n.id, name) : undefined}
-          // jedyny przypadek, w którym nie ma gdzie pisać: klocek bez żadnej
+          // jedyny przypadek, w którym nie ma gdzie pisać: kafelek bez żadnej
           // wersji. Niech to widać, zamiast cicho pokazywać sam tekst.
           blokada={
-            wersja ? undefined : 'Ten klocek nie ma jeszcze żadnej wersji — otwórz go i dodaj treść'
+            wersja ? undefined : 'Ten kafelek nie ma jeszcze żadnej wersji — otwórz go i dodaj treść'
           }
           edytor={
             wolno && wersja
@@ -1567,7 +1590,7 @@ function LinearView({
     const c = mapy.klocki.get(n.conceptId)
     return {
       znak: c ? typy.short(c.type) : '',
-      nazwa: n.nazwa ?? c?.name ?? '(usunięty klocek)',
+      nazwa: n.nazwa ?? c?.name ?? '(usunięty kafelek)',
       barwa: c ? typy.def(c.type).color : undefined,
     }
   }
@@ -1606,7 +1629,7 @@ function LinearView({
     return {
       domId: n.id,
       nodeId: n.id,
-      text: n.nazwa ?? c?.name ?? '(usunięty klocek)',
+      text: n.nazwa ?? c?.name ?? '(usunięty kafelek)',
       level: 'kafelek' as const,
       znak: c ? typy.short(c.type) : undefined,
       barwa: c ? typy.def(c.type).color : undefined,
@@ -1718,7 +1741,7 @@ function LinearView({
           onDragLeave={() => setEndHint(false)}
           onDrop={(e) => handleDrop(e, last?.id ?? null, null)}
         >
-          <p>Przeciągnij klocek z listy po lewej, aby dokleić go do skryptu…</p>
+          <p>Przeciągnij kafelek z listy po lewej, aby dokleić go do skryptu…</p>
           <div className="linear-append-actions">
             {tutejszeRodzaje.map((t) => (
               <button
@@ -1772,7 +1795,7 @@ function LinearView({
               : n.kind === 'heading'
                 ? n.text || 'rozdział'
                 : n.kind === 'block'
-                  ? (conceptById(n.conceptId)?.name ?? 'klocek')
+                  ? (conceptById(n.conceptId)?.name ?? 'kafelek')
                   : n.kind === 'fusion'
                     ? n.name
                     : n.kind === 'comment'
@@ -1843,15 +1866,15 @@ function LinearView({
                 <button
                   key={`${tytul}-wroc`}
                   className="tree-menu-item"
-                  title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść klocka"
+                  title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść z biblioteki"
                   onClick={wstaw(wlasny)}
                 >
-                  ↺ Przywróć treść klocka{dopisek}
+                  ↺ Przywróć treść z biblioteki{dopisek}
                 </button>,
               )
             }
           }
-          /** Scalony blok ma po składniku na każdy klocek — wtedy przy każdej
+          /** Scalony blok ma po składniku na każdy kafelek — wtedy przy każdej
            *  pozycji trzeba dopisać, o który z nich chodzi. */
           const wieluCzesci = sasiad?.kind === 'fusion' && sasiad.parts.length > 1
           if (sasiad?.kind === 'block') {
@@ -1946,7 +1969,7 @@ function LinearView({
                       className="tree-menu-item"
                       onClick={wstaw(() => onOpenConcept(sasiad.conceptId))}
                     >
-                      Otwórz klocek w edytorze
+                      Otwórz kafelek w edytorze
                     </button>
                   )}
                   {/* Rodzaje załatwiają zwykły przypadek (przykład, zadanie),
@@ -2036,7 +2059,7 @@ function LinearView({
   )
 }
 
-/** Pojedynczy klocek w grupie — z własnym wyborem wersji i treścią. */
+/** Pojedynczy kafelek w grupie — z własnym wyborem wersji i treścią. */
 function GroupMember({
   groupId,
   index,
@@ -2056,7 +2079,7 @@ function GroupMember({
       () => db.versions.where('conceptId').equals(conceptId).toArray(),
       [conceptId],
     ) ?? []
-  if (!concept) return <div className="group-member">(usunięty klocek)</div>
+  if (!concept) return <div className="group-member">(usunięty kafelek)</div>
   const sorted = [...versions].sort((a, b) => a.version - b.version)
   const version =
     sorted.find((v) => v.id === versionId) ??
@@ -2083,7 +2106,7 @@ function GroupMember({
         </select>
         <button
           className="folder-action nodrag"
-          title="Wyjmij ten klocek z grupy"
+          title="Wyjmij ten kafelek z grupy"
           onClick={() => ctx.removeFusionPart(groupId, index)}
         >
           ×
@@ -2094,8 +2117,8 @@ function GroupMember({
   )
 }
 
-/** Grupa: kilka klocków pokazanych razem pod wspólną nazwą nadaną w tej
- *  ścieżce. W bazie to nadal osobne klocki — grupa jest tylko formą pokazania. */
+/** Grupa: kilka kafelków pokazanych razem pod wspólną nazwą nadaną w tej
+ *  ścieżce. W bazie to nadal osobne kafelki — grupa jest tylko formą pokazania. */
 function FusionNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
   const typy = useBlockTypes()
@@ -2129,7 +2152,7 @@ function FusionNode({ id, data, selected }: NodeProps) {
         </span>
         <button
           className="path-node-open nodrag"
-          title="Dodaj klocek do grupy"
+          title="Dodaj kafelek do grupy"
           onClick={() => ctx.addFusionPart(id)}
         >
           +
@@ -2199,8 +2222,8 @@ interface Props {
   onOpenConcept: (id: string) => void
   /** Skok do miejsca w PDF (klik w źródło pod treścią bloku). */
   onJumpToSource?: (ref: SourceRef) => void
-  /** Klocek, do którego ścieżka ma podskoczyć zaraz po otwarciu — z paska
-   *  „w ścieżkach" w edytorze klocka. */
+  /** Kafelek, do którego ścieżka ma podskoczyć zaraz po otwarciu — z paska
+   *  „w ścieżkach" w edytorze kafelka. */
   celKlocek?: string | null
   /** Czy to ta ścieżka jest zakotwiczona (przycisk powrotu w rogu). */
   zakotwiczona?: boolean
@@ -2254,7 +2277,7 @@ function CanvasInner({
     }
   }, [])
 
-  // pokazywanie powiązań między klockami (relacje z warstwy wiedzy)
+  // pokazywanie powiązań między kafelkami (relacje z warstwy wiedzy)
   const [showRelations, setShowRelations] = useState(
     () => localStorage.getItem('ui.pathRelations') !== '0',
   )
@@ -2281,11 +2304,11 @@ function CanvasInner({
 
   // edytowana notatka/komentarz (okno edycji)
   const [editingNote, setEditingNote] = useState<string | null>(null)
-  /** Fuzja, do której dokładamy klocek (otwiera okno wyboru). */
+  /** Fuzja, do której dokładamy kafelek (otwiera okno wyboru). */
   const [fusionTarget, setFusionTarget] = useState<string | null>(null)
   /** Edytowana grupa (nazwa + czym ma być). */
   const [editingGroup, setEditingGroup] = useState<string | null>(null)
-  // tryb pisania w oknie notatki — jak w edytorze klocka
+  // tryb pisania w oknie notatki — jak w edytorze kafelka
   const [noteView, setNoteView] = useState<'wizualny' | 'kod' | 'podzial'>(() => {
     const v = localStorage.getItem('ui.noteView')
     return v === 'kod' || v === 'podzial' ? v : 'wizualny'
@@ -2298,7 +2321,7 @@ function CanvasInner({
   const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   // Wersje i strony wczytujemy tylko wtedy, gdy naprawdę są potrzebne (okno
   // edycji grupy). Stałe `useLiveQuery` na całych tabelach kazało kanwie
-  // przerysować się przy każdym uderzeniu w klawisz w dowolnym klocku —
+  // przerysować się przy każdym uderzeniu w klawisz w dowolnym kafelku —
   // stąd lagi przy pisaniu i przeciąganiu.
   const czesciGrupy = useLiveQuery(async () => {
     if (!editingGroup) return null
@@ -2368,7 +2391,7 @@ function CanvasInner({
    *  wszystko, co ścieżka ma własnego: usunięcie kafelka, scalenie i
    *  rozdzielenie, przeniesienie, dołożenie rozdziału czy notatki, a od
    *  kiedy tekst mieszka w ścieżce — także pisanie. NIE obejmuje zmian w
-   *  bibliotece; tam klocki żyją własnym życiem.
+   *  bibliotece; tam kafelki żyją własnym życiem.
    *
    *  Zdjęcia robimy z opóźnieniem, żeby całe zdanie było jednym krokiem, a
    *  nie trzydziestoma. */
@@ -2542,7 +2565,7 @@ function CanvasInner({
           title: `Rozdzielić „${(f.data.name as string) ?? 'grupę'}"?`,
           message:
             'Ta grupa ma własną, przepisaną treść — przy rozdzieleniu przepadnie ' +
-            'i wrócą osobne klocki z ich własnymi tekstami. Same klocki są nietknięte.',
+            'i wrócą osobne kafelki z ich własnymi tekstami. Same kafelki są nietknięte.',
           confirmLabel: 'Rozdziel i porzuć tekst',
           danger: true,
         })
@@ -2563,7 +2586,7 @@ function CanvasInner({
       }))
       setRfNodes((ns) => [...ns.filter((n) => n.id !== id), ...blocks])
       // Łańcuch trzeba zszyć: poprzednik → uwolnione po kolei → następnik.
-      // Bez tego uwolnione klocki zostawały bez strzałek i wypadały z kolejności.
+      // Bez tego uwolnione kafelki zostawały bez strzałek i wypadały z kolejności.
       setRfEdges((es) => {
         const przed = es.filter((e) => e.target === id).map((e) => e.source)
         const po = es.filter((e) => e.source === id).map((e) => e.target)
@@ -2604,7 +2627,7 @@ function CanvasInner({
     openConcept: onOpenConcept,
   }), [onOpenConcept])
 
-  /** Części klocka albo grupy — do składania grup z jednego i drugiego. */
+  /** Części kafelka albo grupy — do składania grup z jednego i drugiego. */
   /** Składniki kafelka przed scaleniem. Kafelek wnosi ze sobą WSZYSTKO, co
    *  ma własnego — wybraną stronę i tekst napisany w ścieżce. Bez tego
    *  scalenie po cichu zjadałoby to, co użytkownik zdążył napisać. */
@@ -2622,8 +2645,8 @@ function CanvasInner({
           ]
         : []
 
-  /** Scala wskazane kafelki (klocki i istniejące grupy) w jedną grupę,
-   *  zachowując podaną kolejność. Klocki w bazie zostają nietknięte. */
+  /** Scala wskazane kafelki (kafelki i istniejące grupy) w jedną grupę,
+   *  zachowując podaną kolejność. Kafelki w bazie zostają nietknięte. */
   const groupNodes = async (orderedIds: string[]) => {
     const chosen = orderedIds
       .map((id) => rfNodes.find((n) => n.id === id))
@@ -2637,7 +2660,7 @@ function CanvasInner({
       : await dlg.prompt({
           title: 'Nazwa grupy',
           message:
-            'Grupa istnieje tylko w tej ścieżce — klocki zostają osobnymi klockami.',
+            'Grupa istnieje tylko w tej ścieżce — kafelki zostają osobnymi kafelkami.',
           placeholder: 'np. Kresy zbiorów',
           confirmLabel: 'Scal',
         })
@@ -2650,7 +2673,7 @@ function CanvasInner({
       }
     }
 
-    // typ całości: z grupy, a przy nowej — gdy wszystkie klocki są jednakowe
+    // typ całości: z grupy, a przy nowej — gdy wszystkie kafelki są jednakowe
     const partTypes = parts.map(
       (p) => allConcepts.find((c) => c.id === p.conceptId)?.type,
     )
@@ -2826,7 +2849,7 @@ function CanvasInner({
     allConcepts.filter((c) => c.pathId === pathId).map((c) => c.id),
   )
 
-  /** Klocki, których dotyka segment (fuzja ma po jednym na składnik). */
+  /** Kafelki, których dotyka segment (fuzja ma po jednym na składnik). */
   const klockiSegmentu = (n: Node | undefined): string[] => {
     if (!n) return []
     const lista: string[] = []
@@ -2852,7 +2875,7 @@ function CanvasInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** Usuwa kafelek ze ścieżki (klocek zostaje w bazie) wraz z jego strzałkami. */
+  /** Usuwa kafelek ze ścieżki (kafelek zostaje w bazie) wraz z jego strzałkami. */
   const removeNode = (id: string) => {
     wypuscZeSciezki([id])
     setRfNodes((ns) => ns.filter((n) => n.id !== id))
@@ -2993,7 +3016,7 @@ function CanvasInner({
     setRfNodes((ns) => ns.map((n) => (n.id === segId ? { ...n, position: pos } : n)))
   }
 
-  /** Tekst pisany w ścieżce ląduje w WĘŹLE ŚCIEŻKI, nie w klocku.
+  /** Tekst pisany w ścieżce ląduje w WĘŹLE ŚCIEŻKI, nie w kafelku.
    *
    *  Zmieniamy przez funkcję, a nie przez gotowy obiekt: przy szybkim pisaniu
    *  i przełączaniu wersji zapis zbudowany z danych sprzed chwili potrafiłby
@@ -3053,9 +3076,9 @@ function CanvasInner({
 
   /** Rozstrzyga, dokąd idzie pisanie w kafelku.
    *
-   *  Zwykły klocek: do ścieżki (biblioteka jest nietykalna — patrz zasada
-   *  „ścieżka nie rusza klocka"). Przykład należący do TEJ ścieżki: prosto do
-   *  klocka, bo nie ma go nigdzie indziej — tekst zapisany „obok" zostawiłby
+   *  Zwykły kafelek: do ścieżki (biblioteka jest nietykalna — patrz zasada
+   *  „ścieżka nie rusza kafelka"). Przykład należący do TEJ ścieżki: prosto do
+   *  kafelka, bo nie ma go nigdzie indziej — tekst zapisany „obok" zostawiłby
    *  pusty kafelek, który po wyjęciu do biblioteki byłby czystą kartką. */
   const zapiszTresc = (
     nodeId: string,
@@ -3066,7 +3089,7 @@ function CanvasInner({
     const n = nodesRef.current.find((x) => x.id === nodeId)
     const cid = typeof n?.data.conceptId === 'string' ? n.data.conceptId : null
     if (cid && wlasneKlockiRef.current.has(cid)) {
-      odloz(`${nodeId}|klocek|${versionId}|${subpageId ?? ''}`, () => {
+      odloz(`${nodeId}|kafelek|${versionId}|${subpageId ?? ''}`, () => {
         if (subpageId) updateSubpage(subpageId, { content: md })
         else updateVersion(versionId, { content: md })
       })
@@ -3098,11 +3121,11 @@ function CanvasInner({
   const wrocDoKlocka = useCallback(
     async (nodeId: string, klucz: string, index?: number) => {
       const ok = await dlgRef.current.confirm({
-        title: 'Wrócić do treści klocka?',
+        title: 'Wrócić do treści kafelka?',
         message:
           'Tekst napisany w tej ścieżce zostanie porzucony, a kafelek zacznie ' +
-          'pokazywać treść klocka z biblioteki. Klocka to nie zmienia.',
-        confirmLabel: 'Wróć do klocka',
+          'pokazywać treść z biblioteki. Samego kafelka to nie zmienia.',
+        confirmLabel: 'Wróć do treści z biblioteki',
         danger: true,
       })
       if (!ok) return
@@ -3329,7 +3352,7 @@ function CanvasInner({
   const relationEdges: Edge[] = useMemo(() => {
     if (!showRelations) return []
     const rfNodes = nodesRef.current
-    // kafelki (także klocki schowane w grupie) wskazujące na dane pojęcie
+    // kafelki (także kafelki schowane w grupie) wskazujące na dane pojęcie
     const nodesByConcept = new Map<string, string[]>()
     for (const n of rfNodes) {
       const ids =
@@ -3500,7 +3523,7 @@ function CanvasInner({
           <button
             className={`btn ${showRelations ? 'btn-active' : ''}`}
             onClick={() => setShowRelations((r) => !r)}
-            title="Pokaż powiązania między klockami (zawieranie, skala, perspektywa) jako przerywane strzałki"
+            title="Pokaż powiązania między kafelkami (zawieranie, skala, perspektywa) jako przerywane strzałki"
           >
             ⇢ Powiązania
           </button>
@@ -3515,7 +3538,7 @@ function CanvasInner({
             className="btn"
             onClick={handleFuse}
             disabled={selectedBlocks < 2}
-            title="Scal zaznaczone klocki w jeden bloczek (w tej ścieżce)"
+            title="Scal zaznaczone kafelki w jeden bloczek (w tej ścieżce)"
           >
             ⧉ Scal ({selectedBlocks})
           </button>
@@ -3526,7 +3549,7 @@ function CanvasInner({
       {mode !== 'linear' && (
         <div className="path-hint">
           {mode === 'map'
-            ? 'Przeciągnij klocki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy klocek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
+            ? 'Przeciągnij kafelki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy kafelek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
             : 'Gotowy skrypt ścieżki (tylko odczyt) — edytuj na Mapie albo w Linii'}
         </div>
       )}
@@ -3557,7 +3580,7 @@ function CanvasInner({
             else if (n.kind === 'fusion') setEditingGroup(n.id)
           }}
           onRenameSegment={(nodeId, nazwa) => api.updateData(nodeId, { nazwa })}
-          /* Tekst pisany w ścieżce zostaje w ścieżce. Klocek w bibliotece
+          /* Tekst pisany w ścieżce zostaje w ścieżce. Kafelek w bibliotece
              zachowuje swoją treść — poprawiona tutaj definicja nie zmienia
              tamtej i nie rozjeżdża innych ścieżek. */
           onEditBlock={(nodeId, versionId, subpageId, md) =>
@@ -3679,7 +3702,7 @@ function CanvasInner({
                 setCtxMenu(null)
               }}
             >
-              🧱 Nowy klocek tutaj
+              🧱 Nowy kafelek tutaj
             </button>
             {tutejszeRodzaje.map((t) => (
               <button
@@ -3751,7 +3774,7 @@ function CanvasInner({
                   setNodeMenu(null)
                 }}
               >
-                ✏ Edytuj klocek
+                ✏ Edytuj kafelek
               </button>
             )}
             {(nodeMenu.nodeType === 'text' || nodeMenu.nodeType === 'comment') && (
@@ -3808,7 +3831,7 @@ function CanvasInner({
 
       {fusionTarget && (
         <ConceptPicker
-          title="⧉ Dołóż klocek do scalonego bloku"
+          title="⧉ Dołóż kafelek do scalonego bloku"
           onPick={(c: { id: string }) => {
             setRfNodes((ns) =>
               ns.map((n) => {

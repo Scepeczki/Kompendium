@@ -1,4 +1,4 @@
-// Test odporności: klocek/PDF z folderId wskazującym na nieistniejący folder
+// Test odporności: kafelek/PDF z folderId wskazującym na nieistniejący folder
 // (dokładnie taki problem, jaki wystąpił w praniu) musi być widoczny na
 // poziomie głównym zamiast znikać.
 import { chromium } from 'playwright'
@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// wstrzyknij bezpośrednio do IndexedDB klocek i PDF z folderId-widmem
+// wstrzyknij bezpośrednio do IndexedDB kafelek i PDF z folderId-widmem
 await page.evaluate(async () => {
   const req = indexedDB.open('kompendium')
   await new Promise((res, rej) => {
@@ -27,7 +27,7 @@ await page.evaluate(async () => {
   const tx = db.transaction(['concepts', 'versions', 'pdfs'], 'readwrite')
   tx.objectStore('concepts').add({
     id: 'orphan-concept',
-    name: 'Osierocony klocek',
+    name: 'Osierocony kafelek',
     type: 'definicja',
     tags: [],
     folderId: 'folder-ktorego-nie-ma',
@@ -62,10 +62,10 @@ await page.evaluate(async () => {
 await page.reload()
 await page.waitForSelector('text=Kompendium')
 
-await page.waitForSelector('.concept-item:has-text("Osierocony klocek")')
-console.log('✓ klocek z widmowym folderId widoczny na poziomie głównym')
+await page.waitForSelector('.concept-item:has-text("Osierocony kafelek")')
+console.log('✓ kafelek z widmowym folderId widoczny na poziomie głównym')
 
-await page.click('.concept-item:has-text("Osierocony klocek")')
+await page.click('.concept-item:has-text("Osierocony kafelek")')
 await page.click('.pdf-lib-toggle')
 await page.waitForSelector('.pdflib-item:has-text("Osierocony PDF")')
 console.log('✓ PDF z widmowym folderId widoczny w bibliotece (poziom główny)')

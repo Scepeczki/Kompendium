@@ -1,5 +1,5 @@
 ﻿// Test pokazywania powiązań z warstwy wiedzy na mapie ścieżki.
-// (Grupowanie klocków ma własny test: test-group.mjs)
+// (Grupowanie kafelków ma własny test: test-group.mjs)
 import { chromium } from 'playwright'
 import { nazwij } from './lib.mjs'
 
@@ -17,7 +17,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 const mk = async (name, type) => {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.selectOption('.type-select', type)
@@ -25,7 +25,7 @@ const mk = async (name, type) => {
   await page.click('.editor-code .cm-content')
   await page.keyboard.type(`Tresc: ${name}.`)
   await page.waitForTimeout(400)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await mk('Istnienie rozkladu', 'twierdzenie')
 await mk('Lemat Euklidesa', 'lemat')

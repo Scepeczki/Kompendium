@@ -23,14 +23,14 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 for (const n of ['Definicja', 'Przyklad', 'Notacja']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
   await page.keyboard.type(`Tresc ${n}.`)
   await page.waitForTimeout(350)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 await nowaSciezka(page, 'Scalanie')
@@ -123,7 +123,7 @@ await page.waitForTimeout(1500)
 
 // 3. wynik: jeden scalony blok z dwoma składnikami, Przyklad osobno
 check('powstał scalony blok', (await page.locator('.script-group-block').count()) === 1)
-check('scalony blok ma oba zaznaczone klocki',
+check('scalony blok ma oba zaznaczone kafelki',
   (await page.locator('.script-group-block .group-part').count()) === 2,
   `składników: ${await page.locator('.script-group-block .group-part').count()}`)
 const nazwy = await nazwyKafelkow()
@@ -144,9 +144,9 @@ check('tekst napisany przed scaleniem przetrwał', cala.includes('TEKST-PRZED-SC
 check('widać go też na ekranie',
   (await page.textContent('.linear-column')).includes('TEKST-PRZED-SCALENIEM'))
 
-// 6. klocki w bibliotece zostały nietknięte — scalenie to sposób pokazania
+// 6. kafelki w bibliotece zostały nietknięte — scalenie to sposób pokazania
 const klocki = await zBazy('concepts')
-check('scalenie nie usunęło ani nie zmieniło klocków',
+check('scalenie nie usunęło ani nie zmieniło kafelków',
   klocki.filter((c) => ['Definicja', 'Przyklad', 'Notacja'].includes(c.name)).length === 3,
   klocki.map((c) => c.name).join(' | '))
 

@@ -1,4 +1,4 @@
-﻿// Test trybu liniowego: doklejanie klocków, notatka między segmentami,
+﻿// Test trybu liniowego: doklejanie kafelków, notatka między segmentami,
 // zmiana kolejności uchwytem, spójność ze skryptem i mapą.
 import { chromium } from 'playwright'
 import { nazwij } from './lib.mjs'
@@ -17,19 +17,19 @@ page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// dwa klocki z treścią
+// dwa kafelki z treścią
 for (const [name, content] of [
   ['Alfa', 'Treść alfa $a^2$.'],
   ['Beta', 'Treść beta $b^2$.'],
 ]) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.click('.view-switch button:has-text("Podział")')
   await page.click('.cm-content')
   await page.keyboard.type(content)
   await page.waitForTimeout(600)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 // nowa ścieżka → tryb Linia
@@ -45,7 +45,7 @@ await page.dragAndDrop('.concept-item:has-text("Alfa")', '.linear-append')
 await page.waitForSelector('.linear-seg .script-block:has-text("Alfa")')
 await page.dragAndDrop('.concept-item:has-text("Beta")', '.linear-append')
 await page.waitForSelector('.linear-seg .script-block:has-text("Beta")')
-console.log('✓ klocki doklejone do linii (forma jak w skrypcie)')
+console.log('✓ kafelki doklejone do linii (forma jak w skrypcie)')
 
 // notatka na końcu (otwiera od razu okno edycji) — wpisz i zamknij
 await page.click('.linear-append button:has-text("+ Notatka")')
@@ -57,9 +57,9 @@ await page.click('.linear-note .tiptap')
 await page.keyboard.type('NOTATKA-POD-BETĄ')
 await page.waitForTimeout(600)
 await page.waitForSelector('.linear-note:has-text("NOTATKA-POD-BETĄ")')
-console.log('✓ notatka dopisana pod klockiem')
+console.log('✓ notatka dopisana pod kafelkiem')
 
-// wstaw klocek MIĘDZY segmenty: przeciągnij Alfa (z listy) nad segment Beta (górna połowa)
+// wstaw kafelek MIĘDZY segmenty: przeciągnij Alfa (z listy) nad segment Beta (górna połowa)
 // — czyli duplikat Alfy między Alfa a Beta? Zamiast tego: zmiana kolejności uchwytem:
 // przeciągnij segment Beta nad segment Alfa (górna połowa = przed)
 const betaGrip = page.locator('.linear-seg:has-text("Beta") .linear-grip')
@@ -123,17 +123,17 @@ await page.click('.folder-action[title*="drugą stronę"]')
 await page.waitForSelector('.linear-sidenote.side-left:has-text("BOCZNY")')
 console.log('✓ przełożenie komentarza na lewą stronę działa')
 
-// powrót do ścieżki: otwórz klocek z linii (menu pod prawym przyciskiem)
+// powrót do ścieżki: otwórz kafelek z linii (menu pod prawym przyciskiem)
 // i zamknij edytor → wracamy do ścieżki
 const betaSegLeft = page.locator('.linear-seg:has-text("Treść beta")')
 const pudBeta = await betaSegLeft.boundingBox()
 await page.mouse.click(pudBeta.x + pudBeta.width / 2, pudBeta.y + 6, { button: 'right' })
 await page.waitForSelector('.linear-menu')
-await page.click('.linear-menu .tree-menu-item:has-text("Otwórz klocek")')
+await page.click('.linear-menu .tree-menu-item:has-text("Otwórz kafelek")')
 await page.waitForSelector('.editor-name')
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForSelector('.path-canvas')
-console.log('✓ zamknięcie klocka wraca do ścieżki (nie do ekranu startowego)')
+console.log('✓ zamknięcie kafelka wraca do ścieżki (nie do ekranu startowego)')
 
 // powrót z PDF do biblioteki strzałką ←
 await page.setInputFiles('input[type=file]', 'scripts/test.pdf').catch(() => {})

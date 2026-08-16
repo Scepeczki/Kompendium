@@ -17,19 +17,19 @@ page.on('dialog', (d) => d.accept(answers.shift() ?? ''))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// dwa klocki z treścią
+// dwa kafelki z treścią
 for (const [name, content] of [
   ['Metryka', 'Funkcja $d: X \\times X \\to [0,\\infty)$.'],
   ['Przestrzeń', 'Zbiór $X$ z metryką.'],
 ]) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.click('.view-switch button:has-text("Podział")')
   await page.click('.cm-content')
   await page.keyboard.type(content)
   await page.waitForTimeout(600)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 // nowa ścieżka
@@ -38,7 +38,7 @@ await nazwij(page, "Analiza — wykład 1")
 await page.waitForSelector('.path-canvas')
 console.log('✓ ścieżka utworzona, canvas otwarty')
 
-// przeciągnij oba klocki na canvas
+// przeciągnij oba kafelki na canvas
 await page.dragAndDrop('.concept-item:has-text("Metryka")', '.path-flow', {
   targetPosition: { x: 250, y: 100 },
 })
@@ -87,7 +87,7 @@ await page.click('.note-modal .btn-close')
 await page.waitForSelector('.path-node-text:has-text("Intuicja")')
 console.log('✓ tkanka łączna dodana i wypełniona (okno edycji)')
 
-// grupowanie: zaznacz oba kafelki klocków (Ctrl+klik) i scal w grupę
+// grupowanie: zaznacz oba kafelki kafelków (Ctrl+klik) i scal w grupę
 await page.click('.react-flow__node:has-text("Metryka")')
 await page.keyboard.down('Control')
 await page.click('.react-flow__node:has-text("Przestrzeń")')

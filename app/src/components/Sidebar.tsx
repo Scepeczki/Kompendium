@@ -46,7 +46,7 @@ type DragPayload =
   | { kind: 'concept' | 'folder' | 'path'; id: string }
   | { kind: 'wiele'; items: { kind: 'concept' | 'folder' | 'path'; id: string }[] }
 
-/** Element wspólnej listy dzieci folderu (foldery, klocki i ścieżki przeplatają się). */
+/** Element wspólnej listy dzieci folderu (foldery, kafelki i ścieżki przeplatają się). */
 type TreeNode =
   | { kind: 'folder'; id: string; order: number; folder: Folder }
   | { kind: 'concept'; id: string; order: number; concept: Concept }
@@ -180,7 +180,7 @@ export function Sidebar({
     if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
   }
 
-  /** Prawy przycisk na pustym miejscu listy (nie na klocku, folderze, ścieżce). */
+  /** Prawy przycisk na pustym miejscu listy (nie na kafelku, folderze, ścieżce). */
   const openMenu = (e: React.MouseEvent) => {
     const el = e.target as Element
     if (el.closest('.concept-item, .folder-row')) return
@@ -229,7 +229,7 @@ export function Sidebar({
     else if (menu.cel.kind === 'path') handleRenamePath(menu.cel.path)
   }
 
-  /** Wkłada do ścieżki klocek spod prawego przycisku — a jeśli kliknięto
+  /** Wkłada do ścieżki kafelek spod prawego przycisku — a jeśli kliknięto
    *  jeden z zaznaczonych, to całe zaznaczenie. Przykłady i zadania od razu
    *  się w niej zadomawiają (znikają z tej listy); reszta zostaje. */
   const wlozDoSciezki = async (pathId: string) => {
@@ -248,7 +248,7 @@ export function Sidebar({
     else if (menu.cel.kind === 'path') handleDeletePath(menu.cel.path)
   }
 
-  /** Powielenie. Kopia klocka od razu się otwiera — zwykle powiela się po to,
+  /** Powielenie. Kopia kafelka od razu się otwiera — zwykle powiela się po to,
    *  żeby coś w kopii zmienić. Folder tylko się rozwija, bo w środku może
    *  być tego dużo i nie wiadomo, co miałoby się otworzyć. */
   const handleMenuDuplicate = async () => {
@@ -281,7 +281,7 @@ export function Sidebar({
   const folderIds = new Set(folders.map((f) => f.id))
   const effectiveParent = (id: string | null) => (id && folderIds.has(id) ? id : null)
 
-  /** Dzieci rodzica: foldery, klocki i ścieżki we wspólnej, ręcznej kolejności. */
+  /** Dzieci rodzica: foldery, kafelki i ścieżki we wspólnej, ręcznej kolejności. */
   const children = (parentId: string | null): TreeNode[] => {
     const fs: TreeNode[] = folders
       .filter((f) => effectiveParent(f.parentId ?? null) === parentId)
@@ -309,7 +309,7 @@ export function Sidebar({
   }
 
   /** Klik w wiersz z klawiszem: Ctrl dokłada, Shift bierze zakres.
-   *  Zwraca true, jeśli obsłużył klik — wtedy nie otwieramy klocka. */
+   *  Zwraca true, jeśli obsłużył klik — wtedy nie otwieramy kafelka. */
   const klikZaznaczeniem = (e: React.MouseEvent, id: string): boolean => {
     if (e.ctrlKey || e.metaKey) {
       setZaznaczone((prev) => {
@@ -499,7 +499,7 @@ export function Sidebar({
     const ok = await dlg.confirm({
       title: `Usunąć ścieżkę „${p.name}"?`,
       message:
-        'Klocki zostają w bazie — znika tylko sposób ich ułożenia.' +
+        'Kafelki zostają w bazie — znika tylko sposób ich ułożenia.' +
         (wlasne.length
           ? ` Przykłady zrobione w tej ścieżce (${wlasne.length}) wrócą do listy po lewej.`
           : ''),
@@ -552,10 +552,10 @@ export function Sidebar({
 
   const handleDeleteConcept = async (c: Concept) => {
     const ok = await dlg.confirm({
-      title: `Usunąć klocek „${c.name}"?`,
+      title: `Usunąć kafelek „${c.name}"?`,
       message:
         'Znikną wszystkie jego wersje, strony i powiązania. Tego nie da się cofnąć.',
-      confirmLabel: 'Usuń klocek',
+      confirmLabel: 'Usuń kafelek',
       danger: true,
     })
     if (ok) await deleteConcept(c.id)
@@ -725,7 +725,7 @@ export function Sidebar({
             e.stopPropagation()
             const rect = e.currentTarget.getBoundingClientRect()
             const y = e.clientY - rect.top
-            // Ścieżka zachowuje się jak folder: upuszczony na nią klocek
+            // Ścieżka zachowuje się jak folder: upuszczony na nią kafelek
             // wchodzi do środka, a same krawędzie zmieniają kolejność listy.
             // Pole „do środka" jest szerokie, bo o to chodzi dziewięć razy
             // na dziesięć — celowanie w kilkanaście pikseli było za trudne.
@@ -896,10 +896,10 @@ export function Sidebar({
       <div className="sidebar-create">
         <button
           className="sidebar-create-btn"
-          title="Nowy klocek"
+          title="Nowy kafelek"
           onClick={() => handleNew()}
         >
-          <Icon name="klocek" />
+          <Icon name="kafelek" />
         </button>
         <button
           className="sidebar-create-btn"
@@ -957,7 +957,7 @@ export function Sidebar({
           }}
         >
           {folders.length === 0 && concepts.length === 0 && (
-            <li className="concept-empty">Brak klocków. Utwórz pierwszy!</li>
+            <li className="concept-empty">Brak kafelków. Utwórz pierwszy!</li>
           )}
           {children(null).map((n) => renderNode(n, null))}
         </ul>
@@ -997,7 +997,7 @@ export function Sidebar({
                     }"`
                   : 'na poziomie głównym'}
               </div>
-              {menuItem('klocek', 'Nowy klocek', () => handleNew(menuParent))}
+              {menuItem('kafelek', 'Nowy kafelek', () => handleNew(menuParent))}
               {menuItem('folder', 'Nowy folder', () => handleNewFolder(menuParent))}
               {menuItem('sciezka', 'Nowa ścieżka', () => handleNewPath(menuParent))}
             </>
@@ -1054,7 +1054,7 @@ export function Sidebar({
           <Icon name="graf" />
           <span>Graf</span>
         </button>
-        <span className="sidebar-counts" title="Liczba klocków i ścieżek">
+        <span className="sidebar-counts" title="Liczba kafelków i ścieżek">
           {concepts.length} · {paths.length}
         </span>
         <button

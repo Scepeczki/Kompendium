@@ -14,7 +14,7 @@ export interface OutlineItem {
   barwa?: string
 }
 
-/** Przeciąganie pozycji spisu — własny typ, żeby nie mieszać się z klockami
+/** Przeciąganie pozycji spisu — własny typ, żeby nie mieszać się z kafelkami
  *  ciągniętymi z listy po lewej. */
 const MIME = 'text/x-komp-spis'
 
@@ -63,7 +63,7 @@ export function Outline({ items, onMove }: Props) {
     return z >= MIN_SZER && z <= MAX_SZER ? z : 210
   })
   // Liczymy PRZESUNIĘCIE myszy, a nie jej pozycję na ekranie: spis nie zaczyna
-  // się przy krawędzi okna (po lewej stoi lista klocków), więc sama pozycja
+  // się przy krawędzi okna (po lewej stoi lista kafelków), więc sama pozycja
   // dawałaby szerokość powiększoną o wszystko, co jest przed spisem.
   const ciagnieRef = useRef<{ x: number; szer: number } | null>(null)
   useEffect(() => {
@@ -135,10 +135,18 @@ export function Outline({ items, onMove }: Props) {
     return () => io.disconnect()
   }, [open, items])
 
+  /** Zatrzymanie trwającego skoku — w danej chwili może być tylko jeden. */
+  const przerwijSkok = useRef<(() => void) | null>(null)
+  useEffect(() => () => przerwijSkok.current?.(), [])
+
   /** Przewija do nagłówka i przez chwilę trzyma go na miejscu: treść nad nim
    *  (wzory, podglądy stron) dorasta już po przewinięciu i zepchnęłaby cel
    *  w dół. Przypinanie kończy się, gdy użytkownik sam przewinie. */
   const goTo = (domId: string) => {
+    // Poprzedni skok kończymy natychmiast. Bez tego przeskakiwanie po spisie
+    // zostawiało za sobą kilka dociągań naraz — każde do innego kafelka —
+    // a widok latał między nimi jak oszalały, dopóki wszystkie nie wygasły.
+    przerwijSkok.current?.()
     const first = znajdz(domId)
     if (!first) return
     const scroller = scrollParent(first)
@@ -146,30 +154,45 @@ export function Outline({ items, onMove }: Props) {
       first.scrollIntoView({ block: 'start' })
       return
     }
+    // Znacznik „ktoś tu przewija celowo". Widok ścieżki sam dociąga zapamiętane
+    // miejsce czytania i te dwa przewijania szarpały ekranem w górę i w dół,
+    // dopóki jedno się nie skończyło. Ten skok jest ważniejszy — właśnie
+    // kliknąłeś, gdzie chcesz być.
+    scroller.dataset.skok = '1'
     let stop = false
-    const cancel = () => {
+    const koniec = () => {
       stop = true
+      delete scroller.dataset.skok
+      scroller.removeEventListener('wheel', koniec)
+      scroller.removeEventListener('touchstart', koniec)
+      if (przerwijSkok.current === koniec) przerwijSkok.current = null
     }
-    scroller.addEventListener('wheel', cancel, { passive: true })
-    scroller.addEventListener('touchstart', cancel, { passive: true })
+    przerwijSkok.current = koniec
+    scroller.addEventListener('wheel', koniec, { passive: true })
+    scroller.addEventListener('touchstart', koniec, { passive: true })
 
+    /** Zwraca, o ile jeszcze cel jest nie na miejscu. */
     const align = () => {
       const el = znajdz(domId)
-      if (!el) return
+      if (!el) return 0
       const delta =
         el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12
       if (Math.abs(delta) > 2) scroller.scrollTop += delta
+      return Math.abs(delta)
     }
     align()
 
+    // Kończymy, gdy treść nad celem przestanie dorastać — trzy spokojne
+    // sprawdzenia z rzędu. Bez tego poprawialiśmy przez pełne półtorej sekundy,
+    // choć wszystko stało już od dawna w miejscu.
+    let spokoj = 0
     const until = performance.now() + 1500
     const tick = () => {
-      if (stop || performance.now() > until) {
-        scroller.removeEventListener('wheel', cancel)
-        scroller.removeEventListener('touchstart', cancel)
-        return
-      }
-      align()
+      if (stop || performance.now() > until) return koniec()
+      const d = align()
+      if (d <= 2) {
+        if (++spokoj >= 3) return koniec()
+      } else spokoj = 0
       window.setTimeout(tick, 100)
     }
     window.setTimeout(tick, 60)

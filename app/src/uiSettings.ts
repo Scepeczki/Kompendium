@@ -15,7 +15,7 @@ export const IND_OFFSET_DEFAULT = 14
 export const IND_OFFSET_MIN = 0
 export const IND_OFFSET_MAX = 40
 
-/** Rozmiar tekstu w liście klocków i folderów (pasek boczny).
+/** Rozmiar tekstu w liście kafelków i folderów (pasek boczny).
  *  Domyślnie tyle, ile dziedziczy z reszty interfejsu, żeby włączenie
  *  ustawienia niczego nie zmieniało bez wyraźnej decyzji. */
 export const TREE_SIZE_DEFAULT = 15
@@ -62,7 +62,7 @@ export const BG_PATTERN_OPTIONS: { value: BgPattern; label: string }[] = [
   { value: 'ukosne', label: 'Ukośne' },
 ]
 
-/** Krój pisma treści klocków. Interfejs zostaje bezszeryfowy zawsze —
+/** Krój pisma treści kafelków. Interfejs zostaje bezszeryfowy zawsze —
  *  wybór dotyczy tylko powierzchni do czytania (edytor, Skrypt, Linia). */
 export type ContentFont = 'bez' | 'szeryf'
 export const CONTENT_FONT_DEFAULT: ContentFont = 'bez'

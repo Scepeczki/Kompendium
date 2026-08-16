@@ -1,14 +1,14 @@
 // Podstawowe typy danych Kompendium.
 // Pełny opis formatu: docs/DATA-FORMAT.md w katalogu głównym repo.
 
-/** Identyfikator typu klocka. Kiedyś była to zamknięta lista siedmiu nazw;
+/** Identyfikator typu kafelka. Kiedyś była to zamknięta lista siedmiu nazw;
  *  teraz typy są danymi (tabela `blockTypes`), bo każdy uczy się czego innego
  *  i „Aksjomat" albo „Kontrprzykład" nie mają prawa być przywilejem autora
  *  programu. Wbudowane typy zachowały swoje dawne identyfikatory, więc stare
- *  klocki działają bez migracji. */
+ *  kafelki działają bez migracji. */
 export type BlockType = string
 
-/** Typ klocka: nazwa, skrót do plakietki, barwa. */
+/** Typ kafelka: nazwa, skrót do plakietki, barwa. */
 export interface BlockTypeDef {
   /** Trafia do `Concept.type` — nie zmienia się przy zmianie nazwy. */
   id: string
@@ -22,7 +22,7 @@ export interface BlockTypeDef {
    *  („Przywróć fabryczne"). Nie chroni przed usunięciem: to typ użytkownika,
    *  a nie własność programu. */
   builtin?: boolean
-  /** Schowany z listy wyboru. Istniejące klocki takiego typu działają
+  /** Schowany z listy wyboru. Istniejące kafelki takiego typu działają
    *  normalnie; po prostu nie proponujemy go przy nowych. */
   hidden?: boolean
   /** Ten rodzaj da się utworzyć wprost w ścieżce — dostaje przycisk „nowy
@@ -36,7 +36,7 @@ export interface BlockTypeDef {
 
 /** Fabryczne typy. Barwy te same, co dawniej w arkuszu stylów.
  *  „dowód" i „intuicja" startują schowane — tak było przed edytorem typów
- *  (dowody mają własne strony klocka, intuicję zastąpiły notatki na ścieżce),
+ *  (dowody mają własne strony kafelka, intuicję zastąpiły notatki na ścieżce),
  *  ale teraz można je odsłonić jednym kliknięciem zamiast zmieniać kod. */
 export const BUILTIN_BLOCK_TYPES: BlockTypeDef[] = [
   { id: 'definicja', label: 'Definicja', short: 'DEF', color: '#31619e', order: 1, builtin: true },
@@ -50,7 +50,7 @@ export const BUILTIN_BLOCK_TYPES: BlockTypeDef[] = [
 ]
 
 /** Awaryjny opis typu, którego nie ma już w tabeli (np. po wczytaniu kopii
- *  z innego zestawu typów). Klocek ma się pokazać, a nie zniknąć. */
+ *  z innego zestawu typów). Kafelek ma się pokazać, a nie zniknąć. */
 export const unknownType = (id: string): BlockTypeDef => ({
   id,
   label: id,
@@ -70,12 +70,12 @@ export interface Rect {
 
 interface SourceRefBase {
   id: string
-  /** Nazwa grupy źródeł w obrębie klocka (proste folderowanie chipów). */
+  /** Nazwa grupy źródeł w obrębie kafelka (proste folderowanie chipów). */
   group?: string
   note?: string
 }
 
-/** Context-Lock: odnośnik z treści klocka do konkretnego miejsca w PDF. */
+/** Context-Lock: odnośnik z treści kafelka do konkretnego miejsca w PDF. */
 export interface PdfSourceRef extends SourceRefBase {
   /** Brak pola = źródło z PDF (zgodność ze starszymi danymi). */
   kind?: 'pdf'
@@ -85,8 +85,8 @@ export interface PdfSourceRef extends SourceRefBase {
   rect: Rect
 }
 
-/** Źródłem może być też inny klocek — tak powstaje genealogia wiedzy:
- *  klocek podsumowujący → klocki z książek → wycinki stron. */
+/** Źródłem może być też inny kafelek — tak powstaje genealogia wiedzy:
+ *  kafelek podsumowujący → kafelki z książek → wycinki stron. */
 export interface BlockSourceRef extends SourceRefBase {
   kind: 'block'
   conceptId: string
@@ -102,10 +102,10 @@ export const isPdfSource = (r: SourceRef): r is PdfSourceRef =>
 export const isBlockSource = (r: SourceRef): r is BlockSourceRef =>
   (r as BlockSourceRef).conceptId !== undefined
 
-/** Rodzaj folderu: na klocki (drzewo) albo na PDF-y (jeden poziom). */
+/** Rodzaj folderu: na kafelki (drzewo) albo na PDF-y (jeden poziom). */
 export type FolderKind = 'concepts' | 'pdfs'
 
-/** Folder organizujący klocki lub PDF-y. */
+/** Folder organizujący kafelki lub PDF-y. */
 export interface Folder {
   id: string
   kind: FolderKind
@@ -119,25 +119,25 @@ export interface Folder {
   iconText?: string
   /** null = poziom główny. Dla kind='pdfs' zawsze null (bez zagnieżdżania). */
   parentId: string | null
-  /** Wspólna kolejność z klockami w obrębie rodzica (foldery i klocki się przeplatają). */
+  /** Wspólna kolejność z kafelkami w obrębie rodzica (foldery i kafelki się przeplatają). */
   order: number
   createdAt: string
 }
 
-/** Pojęcie — klocek wiedzy. Treść żyje wyłącznie w wersjach (BlockVersion). */
+/** Pojęcie — kafelek wiedzy. Treść żyje wyłącznie w wersjach (BlockVersion). */
 export interface Concept {
   id: string
   name: string
   type: BlockType
   tags: string[]
-  /** Nazwa strony głównej klocka (domyślnie „Treść"). Same strony dodatkowe
+  /** Nazwa strony głównej kafelka (domyślnie „Treść"). Same strony dodatkowe
    *  są w tabeli subpages; źródła należą do wersji, więc są wspólne dla
    *  wszystkich stron. */
   mainPageName?: string
   /** Własny znaczek w drzewie (nazwa z zestawu Lucide, np. „sigma").
    *  Brak = plakietka typu (DEF / TW …). */
   icon?: string
-  /** Barwa znaczka (#rrggbb). Brak = kolor typu klocka. */
+  /** Barwa znaczka (#rrggbb). Brak = kolor typu kafelka. */
   iconColor?: string
   /** Własna plakietka: do trzech znaków na barwnym tle, zamiast znaczka.
    *  Ma pierwszeństwo przed `icon`. */
@@ -174,20 +174,20 @@ export interface BlockVersion {
 }
 
 // ---------------------------------------------------------------------------
-// Relacje między klockami — warstwa wiedzy, niezależna od ścieżek.
+// Relacje między kafelkami — warstwa wiedzy, niezależna od ścieżek.
 // Wersje mówią „to samo pojęcie, inne ujęcie"; relacje mówią, jak różne
 // pojęcia mają się do siebie (uogólnienie, równoważność, część, wymaganie).
 // ---------------------------------------------------------------------------
 
-/** Trzy osie powiązań między klockami:
+/** Trzy osie powiązań między kafelkami:
  *  - `zawieranie` (mereologia) — to jest częścią tamtego,
  *  - `skala` (taksonomia i wnioskowanie) — to jest mocniejsze/szczegółowsze
  *    od tamtego; z mocniejszego wynika słabsze,
  *  - `perspektywa` (epistemologia) — dwa spojrzenia na ten sam zbiór znaczeń
- *    (odpowiednik wersji, tyle że między osobnymi klockami). */
+ *    (odpowiednik wersji, tyle że między osobnymi kafelkami). */
 export type RelationKind = 'zawieranie' | 'skala' | 'perspektywa'
 
-/** Etykiety relacji widziane „od strony" klocka źródłowego i docelowego. */
+/** Etykiety relacji widziane „od strony" kafelka źródłowego i docelowego. */
 export const RELATION_LABELS: Record<
   RelationKind,
   { forward: string; backward: string; hint: string }
@@ -195,7 +195,7 @@ export const RELATION_LABELS: Record<
   zawieranie: {
     forward: 'zawiera',
     backward: 'jest częścią',
-    hint: 'Mereologia: tamten klocek jest pojęciową częścią tego',
+    hint: 'Mereologia: tamten kafelek jest pojęciową częścią tego',
   },
   skala: {
     forward: 'mocniejsze niż',
@@ -212,7 +212,7 @@ export const RELATION_LABELS: Record<
 export const RELATION_KINDS = Object.keys(RELATION_LABELS) as RelationKind[]
 
 /** Nazwa grupy sąsiadów przy czytaniu: opisuje, czym są SĄSIEDZI względem
- *  bieżącego klocka („przypadki szczególne"), a nie czym jest on sam. */
+ *  bieżącego kafelka („przypadki szczególne"), a nie czym jest on sam. */
 export function neighborGroupLabel(kind: RelationKind, outgoing: boolean): string {
   if (kind === 'perspektywa') return 'inne perspektywy'
   if (kind === 'zawieranie') return outgoing ? 'części' : 'całości'
@@ -223,8 +223,8 @@ export function neighborGroupLabel(kind: RelationKind, outgoing: boolean): strin
 export const isSymmetricRelation = (k: RelationKind) => k === 'perspektywa'
 
 /** Skierowana relacja: `from` --kind--> `to`.
- *  Końce mogą wskazywać konkretną wersję — bo jedna perspektywa klocka
- *  bywa uogólnieniem, a inna nie. Brak wersji = klocek jako całość. */
+ *  Końce mogą wskazywać konkretną wersję — bo jedna perspektywa kafelka
+ *  bywa uogólnieniem, a inna nie. Brak wersji = kafelek jako całość. */
 export interface Relation {
   id: string
   fromId: string
@@ -237,12 +237,12 @@ export interface Relation {
   createdAt: string
 }
 
-/** Dodatkowa strona klocka (najczęściej dowód — nazwa dowolna).
+/** Dodatkowa strona kafelka (najczęściej dowód — nazwa dowolna).
  *  Strony są wspólne dla wszystkich wersji pojęcia. */
 export interface Subpage {
   id: string
   conceptId: string
-  /** Do której WERSJI klocka należy ta strona.
+  /** Do której WERSJI kafelka należy ta strona.
    *
    *  Wersje są niezależne: mogą mieć różną liczbę stron i różne źródła. Do
    *  schematu v8 strony wisiały przy samym pojęciu, więc usunięcie strony
@@ -253,19 +253,19 @@ export interface Subpage {
   name: string
   /** Markdown + LaTeX. */
   content: string
-  /** Kolejność na liście stron klocka. */
+  /** Kolejność na liście stron kafelka. */
   order: number
   createdAt: string
   updatedAt: string
 }
 
 // ---------------------------------------------------------------------------
-// Ścieżki (Poziom Przestrzenny) — komponowanie klocków w skrypty nauki
+// Ścieżki (Poziom Przestrzenny) — komponowanie kafelków w skrypty nauki
 // ---------------------------------------------------------------------------
 
-/** Kafelek klocka na mapie ścieżki. */
-/** Tekst napisany W ŚCIEŻCE, osobno dla każdej wersji i strony klocka.
- *  Klucz robi `kluczWlasnej`. Brak wpisu = kafelek pokazuje to, co w klocku,
+/** Kafelek kafelka na mapie ścieżki. */
+/** Tekst napisany W ŚCIEŻCE, osobno dla każdej wersji i strony kafelka.
+ *  Klucz robi `kluczWlasnej`. Brak wpisu = kafelek pokazuje to, co w kafelku,
  *  i widzi wszystkie późniejsze poprawki zrobione w bibliotece. */
 export type WlasneTresci = Record<string, string>
 
@@ -280,11 +280,11 @@ export interface PathNodeBlock {
   conceptId: string
   /** Konkretna wersja użyta w tej ścieżce; null = zawsze bieżąca. */
   versionId: string | null
-  /** Strona klocka pokazywana bazowo przy oglądaniu (null = główna treść). */
+  /** Strona kafelka pokazywana bazowo przy oglądaniu (null = główna treść). */
   subpageId?: string | null
-  /** Nazwa nadana kafelkowi w tej ścieżce. Brak = nazwa klocka. */
+  /** Nazwa nadana kafelkowi w tej ścieżce. Brak = nazwa kafelka. */
   nazwa?: string
-  /** Treść napisana w tej ścieżce — klocek zostaje nietknięty. */
+  /** Treść napisana w tej ścieżce — kafelek zostaje nietknięty. */
   wlasneTresci?: WlasneTresci
   x: number
   y: number
@@ -310,16 +310,16 @@ export interface PathNodeComment {
   y: number
 }
 
-/** Fuzja: kilka klocków scalonych w jeden kafelek w obrębie tej ścieżki.
- *  Klocki w bazie zostają atomowe — to jest wyłącznie sposób pokazania. */
-/** Jeden klocek wewnątrz scalonej całości: która wersja i która strona. */
+/** Fuzja: kilka kafelków scalonych w jeden kafelek w obrębie tej ścieżki.
+ *  Kafelki w bazie zostają atomowe — to jest wyłącznie sposób pokazania. */
+/** Jeden kafelek wewnątrz scalonej całości: która wersja i która strona. */
 export interface FusionPart {
   conceptId: string
   versionId: string | null
-  /** Strona klocka (null / brak = strona główna). */
+  /** Strona kafelka (null / brak = strona główna). */
   subpageId?: string | null
   /** Treść napisana w tej ścieżce dla tego składnika — jak w zwykłym
-   *  kafelku, klocek w bazie zostaje nietknięty. */
+   *  kafelku, kafelek w bazie zostaje nietknięty. */
   wlasneTresci?: WlasneTresci
 }
 
@@ -333,7 +333,7 @@ export interface PathNodeFusion {
   parts: FusionPart[]
   /** Własna treść całości. Scalone definicje rzadko czytają się gładko jedna
    *  po drugiej — tu można je przepisać na jeden tekst. Brak = pokazujemy
-   *  treści składników po kolei, jak dotąd. Klocki w bazie zostają nietknięte,
+   *  treści składników po kolei, jak dotąd. Kafelki w bazie zostają nietknięte,
    *  ten tekst żyje wyłącznie w tej ścieżce. */
   content?: string
   x: number
@@ -368,8 +368,8 @@ export interface PathEdge {
   priority?: number
 }
 
-/** Ścieżka nauki — przestrzenna kompozycja klocków. Żyje w tym samym
- *  drzewie folderów co klocki (wspólna kolejność). */
+/** Ścieżka nauki — przestrzenna kompozycja kafelków. Żyje w tym samym
+ *  drzewie folderów co kafelki (wspólna kolejność). */
 export interface LearningPath {
   id: string
   name: string

@@ -16,7 +16,7 @@ interface Props {
   onClose: () => void
 }
 
-/** Okno edycji grupy klocków: nazwa nadana w tej ścieżce i to, czym grupa
+/** Okno edycji grupy kafelków: nazwa nadana w tej ścieżce i to, czym grupa
  *  ma być (definicja, twierdzenie…) — od tego zależy etykieta i kolor. */
 export function GroupEditor({
   name,
@@ -40,7 +40,7 @@ export function GroupEditor({
     <div className="note-modal-backdrop" onClick={onClose}>
       <div className="picker-modal group-editor" onClick={(e) => e.stopPropagation()}>
         <header className="note-modal-head">
-          <h3>⧉ Grupa klocków</h3>
+          <h3>⧉ Grupa kafelków</h3>
           <button className="btn btn-close" title="Zamknij (Escape)" onClick={onClose}>
             ✕
           </button>
@@ -80,7 +80,7 @@ export function GroupEditor({
             </div>
             <p className="settings-hint">
               Grupa wygląda wtedy jak zwykły blok tego typu — z takim nagłówkiem
-              i kolorem. Klocki w środku zostają osobnymi klockami w bazie.
+              i kolorem. Kafelki w środku zostają osobnymi kafelkami w bazie.
             </p>
           </div>
 
@@ -96,7 +96,7 @@ export function GroupEditor({
                       title: 'Porzucić przepisaną treść?',
                       message:
                         'Grupa wróci do pokazywania treści składników jedna po drugiej. ' +
-                        'Tekst, który tu napisałeś, przepadnie. Same klocki są nietknięte.',
+                        'Tekst, który tu napisałeś, przepadnie. Same kafelki są nietknięte.',
                       confirmLabel: 'Porzuć tekst',
                       danger: true,
                     })
@@ -116,7 +116,7 @@ export function GroupEditor({
                   Dwie definicje sklejone jedna po drugiej rzadko czytają się
                   gładko — a bywa, że jedna ma wejść w środek drugiej. Tutaj
                   dostajesz ich treści razem i piszesz z nich jedną całość.
-                  Klocki w bazie zostają nietknięte; ten tekst żyje tylko w tej
+                  Kafelki w bazie zostają nietknięte; ten tekst żyje tylko w tej
                   ścieżce.
                 </p>
               </>

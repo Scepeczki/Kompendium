@@ -40,7 +40,7 @@ const zasiej = async (page, ile) =>
       const vid = `perf-v-${i}`
       concepts.push({
         id: cid,
-        name: `Klocek ${i}`,
+        name: `Kafelek ${i}`,
         type: 'definicja',
         tags: [],
         folderId: null,
@@ -54,7 +54,7 @@ const zasiej = async (page, ile) =>
         conceptId: cid,
         version: 1,
         content:
-          `Tresc klocka ${i}. Niech $(a_n)$ bedzie ciagiem o wyrazach $a_n = ${i}/n$. ` +
+          `Tresc kafelka ${i}. Niech $(a_n)$ bedzie ciagiem o wyrazach $a_n = ${i}/n$. ` +
           `Wowczas $\\lim_{n \\to \\infty} a_n = 0$, co wynika z definicji granicy: ` +
           `dla kazdego $\\varepsilon > 0$ istnieje $N$ takie, ze $|a_n| < \\varepsilon$ dla $n > N$.`,
         sourceRefs: [],

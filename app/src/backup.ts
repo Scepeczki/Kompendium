@@ -22,11 +22,11 @@ interface BackupData {
   folders: Folder[]
   paths: LearningPath[]
   pdfs: Omit<PdfDoc, 'data'>[]
-  /** Strony klocków (dowody itp.) — brak w starszych kopiach. */
+  /** Strony kafelków (dowody itp.) — brak w starszych kopiach. */
   subpages?: Subpage[]
-  /** Relacje między klockami — brak w starszych kopiach. */
+  /** Relacje między kafelkami — brak w starszych kopiach. */
   relations?: Relation[]
-  /** Typy klocków — brak w kopiach sprzed edytora typów. */
+  /** Typy kafelków — brak w kopiach sprzed edytora typów. */
   blockTypes?: BlockTypeDef[]
   /** Ustawienia wyglądu (localStorage, klucze ui.*). Nie są danymi, ale
    *  kopia zapasowa ma odtworzyć program takim, jakim się go zostawiło. */
@@ -51,7 +51,7 @@ function backupFileName(): string {
   return `kompendium-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.zip`
 }
 
-/** Eksportuje całą bazę (klocki, wersje, foldery, ścieżki, PDF-y) do jednego
+/** Eksportuje całą bazę (kafelki, wersje, foldery, ścieżki, PDF-y) do jednego
  *  pliku .zip i uruchamia jego pobranie w przeglądarce. */
 export async function exportBackup(): Promise<void> {
   const [concepts, versions, folders, paths, pdfs, subpages, relations] =

@@ -1,5 +1,5 @@
-﻿// Test scalania klocków w widoku Linia: przycisk ⧉ scala segment z następnym,
-// kolejne kliknięcia dokładają następne klocki do tej samej grupy.
+﻿// Test scalania kafelków w widoku Linia: przycisk ⧉ scala segment z następnym,
+// kolejne kliknięcia dokładają następne kafelki do tej samej grupy.
 import { chromium } from 'playwright'
 import { nazwij, podaj } from './lib.mjs'
 
@@ -49,14 +49,14 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 for (const n of ['Kres gorny', 'Kres dolny', 'Supremum ciagu']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
   await page.keyboard.type(`Tresc: ${n}.`)
   await page.waitForTimeout(400)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 
 await page.click('button[title*="Nowa ścieżka"]')
@@ -86,14 +86,14 @@ await page.click('.linear-seg:first-child .folder-action[title*="Scal z następn
 await podaj(page, 'Kresy zbiorow')
 await settle()
 let st = await readGroups()
-check('scalenie w Linii tworzy grupę z dwóch klocków',
+check('scalenie w Linii tworzy grupę z dwóch kafelków',
   st.grupy.length === 1 && st.grupy[0].czesci.length === 2,
   JSON.stringify(st.grupy[0]))
 check('grupa ma nazwę podaną w oknie', st.grupy[0]?.nazwa === 'Kresy zbiorow',
   `nazwa: ${st.grupy[0]?.nazwa}`)
 check('kolejność części zachowana', st.grupy[0]?.czesci.join(' + ') === 'Kres gorny + Kres dolny',
   st.grupy[0]?.czesci.join(' + '))
-check('typ przejęty z jednakowych klocków', st.grupy[0]?.typ === 'definicja',
+check('typ przejęty z jednakowych kafelków', st.grupy[0]?.typ === 'definicja',
   `typ: ${st.grupy[0]?.typ}`)
 
 // 3. grupa widoczna w Linii jako jeden blok
@@ -102,14 +102,14 @@ const segs = await page.evaluate(() =>
     s.querySelector('.script-group-block') ? 'grupa' : 'blok',
   ),
 )
-check('Linia pokazuje grupę i pozostały klocek', segs.join(',') === 'grupa,blok', segs.join(','))
+check('Linia pokazuje grupę i pozostały kafelek', segs.join(',') === 'grupa,blok', segs.join(','))
 
-// 4. dołożenie trzeciego klocka do istniejącej grupy (bez pytania o nazwę)
+// 4. dołożenie trzeciego kafelka do istniejącej grupy (bez pytania o nazwę)
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Dołącz następny"]')
 await settle()
 st = await readGroups()
-check('dołączenie następnego klocka do grupy',
+check('dołączenie następnego kafelka do grupy',
   st.grupy[0]?.czesci.length === 3, JSON.stringify(st.grupy[0]?.czesci))
 check('nazwa grupy bez zmian po dołączeniu', st.grupy[0]?.nazwa === 'Kresy zbiorow',
   `nazwa: ${st.grupy[0]?.nazwa}`)
@@ -149,7 +149,7 @@ await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Rozdziel"]')
 await settle()
 st = await readGroups()
-check('rozgrupowanie w Linii przywraca osobne klocki',
+check('rozgrupowanie w Linii przywraca osobne kafelki',
   st.grupy.length === 0 && st.wezly.filter((k) => k === 'block').length === 3,
   `węzły: ${st.wezly.join(',')}`)
 

@@ -1,5 +1,5 @@
-﻿// Test grupowania klocków w ścieżce: kilka klocków pod jedną nazwą, ale nadal
-// jako osobne pełne klocki (własny wybór wersji), w jednej ramce.
+﻿// Test grupowania kafelków w ścieżce: kilka kafelków pod jedną nazwą, ale nadal
+// jako osobne pełne kafelki (własny wybór wersji), w jednej ramce.
 import { chromium } from 'playwright'
 import { nazwij, podaj } from './lib.mjs'
 
@@ -19,7 +19,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 const mk = async (name, content, twoVersions = false) => {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', name)
   await page.click('.view-switch button:has-text("Kod")')
@@ -31,7 +31,7 @@ const mk = async (name, content, twoVersions = false) => {
     await podaj(page, 'wg Ksiazki B')
     await page.waitForTimeout(500)
   }
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await mk('Zbior', 'Kolekcja obiektow traktowana jako calosc.', true)
 await mk('Element', 'Obiekt nalezacy do zbioru.')
@@ -58,7 +58,7 @@ await podaj(page, 'Poczatki teorii mnogosci')
 await page.waitForSelector('.path-node-group')
 await page.waitForTimeout(600)
 
-// 1. na mapie: jeden pseudo-kafelek z nazwą i pełnymi klockami w środku
+// 1. na mapie: jeden pseudo-kafelek z nazwą i pełnymi kafelkami w środku
 const onMap = await page.evaluate(() => {
   const g = document.querySelector('.path-node-group')
   return {
@@ -77,7 +77,7 @@ for (const c of onMap.czlonkowie) {
 
 // 2. wybór wersji członka działa niezależnie (członkowie idą w kolejności
 // od góry mapy, więc szukamy po nazwie, a nie po pozycji na liście)
-// dopasowanie po samej nazwie klocka — treść drugiego zawiera słowo „zbioru"
+// dopasowanie po samej nazwie kafelka — treść drugiego zawiera słowo „zbioru"
 const zbiorMember = page.locator('.group-member:has(.group-member-name:text-is("Zbior"))')
 const opts = await zbiorMember.locator('option').allTextContents()
 console.log(`✓ wersje członka „Zbior": ${opts.join(' | ')}`)
@@ -129,13 +129,13 @@ const inScript = await page.evaluate(() => {
 console.log(`✓ grupa jako blok: „${inScript.naglowek}" (barwiona jak definicja: ${inScript.typBloku})`)
 for (const c of inScript.czesci) console.log(`   • [${c.wersja}] „${c.tresc}"`)
 console.log(
-  `✓ klocki w środku bez własnych ramek i tytułów: zagnieżdżonych bloków ${inScript.zagniezdzoneBloki} (oczekiwane 0)`,
+  `✓ kafelki w środku bez własnych ramek i tytułów: zagnieżdżonych bloków ${inScript.zagniezdzoneBloki} (oczekiwane 0)`,
 )
 console.log(
   `✓ jedna wspólna stopka źródeł: ${inScript.zrodlaRazem} (oczekiwane 0 przy braku źródeł)`,
 )
 
-// 4. klocki w bazie pozostają osobne
+// 4. kafelki w bazie pozostają osobne
 const base = await page.evaluate(async () => {
   const req = indexedDB.open('kompendium')
   await new Promise((res) => (req.onsuccess = res))
@@ -145,7 +145,7 @@ const base = await page.evaluate(async () => {
     r.onsuccess = () => res(r.result.map((c) => c.name))
   })
 })
-console.log(`✓ w bazie nadal osobne klocki: ${base.join(', ')}`)
+console.log(`✓ w bazie nadal osobne kafelki: ${base.join(', ')}`)
 
 // 5. rozgrupowanie przywraca osobne kafelki
 await page.click('.view-switch button:has-text("Mapa")')

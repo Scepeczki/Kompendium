@@ -19,16 +19,16 @@ await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Ścieżka testowa")
 await page.waitForSelector('.path-canvas')
 
-// 1. MENU PRAWEGO PRZYCISKU: nowy klocek i nowy tekst w miejscu kliknięcia
+// 1. MENU PRAWEGO PRZYCISKU: nowy kafelek i nowy tekst w miejscu kliknięcia
 const flow = await page.locator('.path-flow').boundingBox()
 const at = (fx, fy) => ({ x: flow.x + flow.width * fx, y: flow.y + flow.height * fy })
 
 const p1 = at(0.45, 0.15)
 await page.mouse.click(p1.x, p1.y, { button: 'right' })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=🧱 Nowy klocek tutaj')
+await page.click('text=🧱 Nowy kafelek tutaj')
 await page.waitForSelector('.path-node:has-text("Nowe pojęcie")')
-console.log('✓ prawy przycisk → nowy klocek na mapie (i w bazie)')
+console.log('✓ prawy przycisk → nowy kafelek na mapie (i w bazie)')
 
 const p2 = at(0.15, 0.75)
 await page.mouse.click(p2.x, p2.y, { button: 'right' })
@@ -56,7 +56,7 @@ await page.click('button:has-text("⊞ Siatka")')
 await page.waitForSelector('.react-flow__background')
 console.log('✓ siatka włączona przełącznikiem')
 
-// przesuń klocek z Shiftem — pozycja powinna trafić na wielokrotność 20
+// przesuń kafelek z Shiftem — pozycja powinna trafić na wielokrotność 20
 const node = await page.locator('.path-node:has-text("Nowe pojęcie")').boundingBox()
 await page.keyboard.down('Shift')
 await page.mouse.move(node.x + 60, node.y + 15) // za nagłówek
@@ -78,7 +78,7 @@ const snapped = await page.$eval(
 )
 console.log('✓ Shift-snap do siatki:', JSON.stringify(snapped))
 
-// 4. KOLEJNOŚĆ GAŁĘZI: klocek → dwa teksty; numerki; klik zmienia kolejność
+// 4. KOLEJNOŚĆ GAŁĘZI: kafelek → dwa teksty; numerki; klik zmienia kolejność
 // dodaj drugi tekst
 const p3 = at(0.85, 0.92)
 await page.mouse.click(p3.x, p3.y, { button: 'right' })
@@ -96,7 +96,7 @@ for (const [i, txt] of [[0, 'TEKST-PIERWSZY'], [1, 'TEKST-DRUGI']]) {
   await page.click('.note-modal .btn-close')
 }
 
-// połącz klocek z oboma tekstami
+// połącz kafelek z oboma tekstami
 async function connect(fromSel, toSel) {
   // ponawianie — pomiary układu bywają chwilowo nieaktualne
   for (let attempt = 1; attempt <= 4; attempt++) {

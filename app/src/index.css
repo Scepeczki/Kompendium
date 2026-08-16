@@ -18,7 +18,7 @@
   --accent-soft: #e5eee8;
   --danger: #a8452f;
 
-  /* kolory typów klocków (spokojne, akademickie) */
+  /* kolory typów kafelków (spokojne, akademickie) */
   --c-definicja: #31619e;
   --c-twierdzenie: #6d4a9e;
   --c-lemat: #8a5fb0;
@@ -33,7 +33,7 @@
   --font-ui: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
   --font-read: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;
   --font-mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
-  /* krój treści klocków — przełączany w Ustawieniach → Tekst */
+  /* krój treści kafelków — przełączany w Ustawieniach → Tekst */
   --font-content: var(--font-ui);
 
   /* Skala rozmiarów: osiem stopni zamiast trzydziestu przypadkowych liczb.
@@ -338,7 +338,7 @@ body.resizing canvas {
   border-color: var(--accent);
 }
 
-/* etykiety typów klocków */
+/* etykiety typów kafelków */
 .type-badge {
   font-size: var(--fs-1);
   font-weight: 600;
@@ -593,7 +593,7 @@ select.type-select {
   background: var(--panel);
 }
 
-/* Zaznaczenie wielu rzeczy (Ctrl / Shift) — inny sygnał niż „otwarty klocek",
+/* Zaznaczenie wielu rzeczy (Ctrl / Shift) — inny sygnał niż „otwarty kafelek",
    bo to dwie różne rzeczy: co czytam kontra co zaraz przeniosę. */
 .concept-item.zaznaczony,
 .folder-row.zaznaczony {
@@ -761,7 +761,7 @@ select.type-select {
   transform: rotate(90deg);
 }
 
-/* nazwa folderu — nieco cięższa niż klocki, bo to poziom wyżej */
+/* nazwa folderu — nieco cięższa niż kafelki, bo to poziom wyżej */
 .folder-name {
   font-size: 1em;
   font-weight: 600;
@@ -954,7 +954,7 @@ select.type-select {
   align-items: center;
 }
 
-/* nazwa klocka — to element interfejsu, nie treść: bezszeryfowa,
+/* nazwa kafelka — to element interfejsu, nie treść: bezszeryfowa,
    półgruba, lekko ściągnięta, żeby długie nazwy nie rozjeżdżały paska */
 .editor-name {
   flex: 1;
@@ -1212,7 +1212,7 @@ button.version-pill.new {
   position: relative;
 }
 
-/* ---- strony klocka (dowody itp.) — pionowa listwa na lewym marginesie ---- */
+/* ---- strony kafelka (dowody itp.) — pionowa listwa na lewym marginesie ---- */
 
 .subpage-rail {
   display: flex;
@@ -1282,7 +1282,7 @@ button.version-pill.new {
   border-color: var(--accent);
 }
 
-/* zakładki stron klocka w kafelkach ścieżek i w Skrypcie */
+/* zakładki stron kafelka w kafelkach ścieżek i w Skrypcie */
 .page-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1311,7 +1311,7 @@ button.version-pill.new {
   color: var(--accent-ink);
 }
 
-/* pierwsza kolumna: listwa stron klocka */
+/* pierwsza kolumna: listwa stron kafelka */
 .editor-body.view-podzial {
   grid-template-columns: auto 1fr 1fr;
 }
@@ -1580,7 +1580,7 @@ button.version-pill.new {
 }
 
 .rich-content .tiptap p.is-editor-empty:first-child::before {
-  content: 'Treść klocka… (wzory: $x^2$ — klik we wzór pokazuje kod)';
+  content: 'Treść kafelka… (wzory: $x^2$ — klik we wzór pokazuje kod)';
   color: var(--muted);
   float: left;
   height: 0;
@@ -1783,7 +1783,7 @@ button.version-pill.new {
   background: #f9ede9;
 }
 
-/* odwołania zwrotne (co linkuje do tego klocka) */
+/* odwołania zwrotne (co linkuje do tego kafelka) */
 .backlinks-row {
   display: flex;
   align-items: center;
@@ -2095,7 +2095,7 @@ button.version-pill.new {
   cursor: crosshair;
 }
 
-/* fragmenty już wykorzystane w klockach */
+/* fragmenty już wykorzystane w kafelkach */
 .pdf-used {
   position: absolute;
   padding: 0;
@@ -2171,7 +2171,7 @@ button.version-pill.new {
    Ścieżki: canvas
    -------------------------------------------------------------------------- */
 
-/* ścieżka nosi znaczek mapy, więc kolor bierze z akcentu, nie z typu klocka */
+/* ścieżka nosi znaczek mapy, więc kolor bierze z akcentu, nie z typu kafelka */
 .type-path {
   --block-color: var(--accent);
   display: inline-flex;
@@ -2909,7 +2909,7 @@ button.version-pill.new {
   padding: 3px 10px;
 }
 
-/* ---- edytor typów klocków ---- */
+/* ---- edytor typów kafelków ---- */
 
 .type-editor {
   display: flex;
@@ -3122,7 +3122,7 @@ button.version-pill.new {
   color: var(--muted);
 }
 
-/* kolory typów klocków */
+/* kolory typów kafelków */
 .settings-colors {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
@@ -3704,7 +3704,7 @@ body.ciagne-szerokosc * {
   white-space: nowrap;
 }
 
-/* przycisk otwarcia klocka — dyskretny, wyraźniejszy po najechaniu */
+/* przycisk otwarcia kafelka — dyskretny, wyraźniejszy po najechaniu */
 .script-block-open {
   font: inherit;
   font-size: var(--fs-3);
@@ -4039,7 +4039,7 @@ body.ciagne-szerokosc * {
   border-radius: 2px;
 }
 
-/* pasek „w ścieżkach" nad edytorem — gdzie ten klocek właściwie pracuje */
+/* pasek „w ścieżkach" nad edytorem — gdzie ten kafelek właściwie pracuje */
 .editor-sciezki {
   display: flex;
   flex-wrap: wrap;
@@ -4096,7 +4096,7 @@ body.ciagne-szerokosc * {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-/* Otulina pola w edytorze klocka — jest tylko po to, żeby złapać wejście
+/* Otulina pola w edytorze kafelka — jest tylko po to, żeby złapać wejście
    kursora do pola. `display: contents` znaczy „nie ma mnie w układzie", więc
    siatka edytora widzi to, co widziała wcześniej. */
 .editor-pole {
@@ -4190,7 +4190,7 @@ body.ciagne-szerokosc * {
   margin-left: 2px;
 }
 
-/* wybór strony klocka — dyskretne etykiety nad treścią */
+/* wybór strony kafelka — dyskretne etykiety nad treścią */
 .block-pages {
   display: flex;
   flex-wrap: wrap;
@@ -4387,7 +4387,7 @@ body.ciagne-szerokosc * {
   background: #fff;
 }
 
-/* podgląd klocka-źródła: nagłówek z typem i nazwą + jego treść */
+/* podgląd kafelka-źródła: nagłówek z typem i nazwą + jego treść */
 .source-preview-block {
   width: 380px;
   max-height: 300px;
@@ -4410,7 +4410,7 @@ body.ciagne-szerokosc * {
 }
 
 /* --------------------------------------------------------------------------
-   Powiązania klocka — lokalna mapa sąsiedztwa
+   Powiązania kafelka — lokalna mapa sąsiedztwa
    -------------------------------------------------------------------------- */
 
 .relations {
@@ -4478,7 +4478,7 @@ body.ciagne-szerokosc * {
   color: var(--muted);
 }
 
-/* mini-mapa: klocek w środku, sąsiedzi pogrupowani po rodzaju relacji */
+/* mini-mapa: kafelek w środku, sąsiedzi pogrupowani po rodzaju relacji */
 .minimap-center {
   display: inline-flex;
   align-items: center;
@@ -4503,12 +4503,12 @@ body.ciagne-szerokosc * {
 }
 
 /* --------------------------------------------------------------------------
-   Grupa klocków — estetyczne zebranie kilku klocków pod jedną nazwą
-   w obrębie ścieżki. W bazie to nadal osobne klocki.
+   Grupa kafelków — estetyczne zebranie kilku kafelków pod jedną nazwą
+   w obrębie ścieżki. W bazie to nadal osobne kafelki.
    -------------------------------------------------------------------------- */
 
 /* Grupa czyta się jak jeden blok: cała oprawa jest ta sama co przy zwykłym
-   klocku (.script-block), a w środku same treści — klocki tracą swoje ramki
+   kafelku (.script-block), a w środku same treści — kafelki tracą swoje ramki
    i tytuły, zostaje tekst oddzielony przerwą podobną do odstępu akapitów. */
 .group-part + .group-part {
   margin-top: 1.2em;
@@ -4836,7 +4836,7 @@ body.ciagne-szerokosc * {
 .relations-add-btn.rel-skala { border-color: var(--c-twierdzenie); }
 .relations-add-btn.rel-perspektywa { border-color: var(--c-definicja); }
 
-/* zakres relacji po stronie tego klocka (cały klocek / konkretna wersja) */
+/* zakres relacji po stronie tego kafelka (cały kafelek / konkretna wersja) */
 .minimap-scope {
   font: inherit;
   font-size: var(--fs-1);
@@ -4914,7 +4914,7 @@ body.ciagne-szerokosc * {
   opacity: 1;
 }
 
-/* okno wyboru klocka (źródło, relacja) */
+/* okno wyboru kafelka (źródło, relacja) */
 .picker-modal {
   width: min(520px, 92vw);
   max-height: min(560px, 84vh);
@@ -5051,7 +5051,7 @@ body.ciagne-szerokosc * {
 }
 
 /* ==========================================================================
-   Barwa typu klocka
+   Barwa typu kafelka
    ==========================================================================
    Typy sa danymi, wiec arkusz nie zna ich z nazwy: barwe wstawia widok jako
    --kolor w atrybucie style, a element dostaje data-typ. Tutaj jest jedyne

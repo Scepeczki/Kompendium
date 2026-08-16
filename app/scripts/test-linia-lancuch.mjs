@@ -22,11 +22,11 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 for (const n of ['Alfa', 'Beta', 'Gamma', 'Delta', 'Epsilon']) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
   await page.fill('.editor-name', n)
   await page.waitForTimeout(200)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await nowaSciezka(page, 'Lancuch')
 await page.waitForSelector('.path-canvas')
@@ -142,7 +142,7 @@ await page.waitForSelector('.path-node')
 await page.click('button[title*="Ułóż"]')
 await page.waitForTimeout(900)
 const kafelki = await page.locator('.react-flow__node-block').all()
-// pierwszy i trzeci klocek na mapie — czyli na pewno nie sąsiedzi w ciągu
+// pierwszy i trzeci kafelek na mapie — czyli na pewno nie sąsiedzi w ciągu
 await kafelki[0].click()
 await page.keyboard.down('Control')
 await kafelki[2].click()

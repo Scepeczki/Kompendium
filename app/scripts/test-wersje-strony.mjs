@@ -1,4 +1,4 @@
-// Dwie umowy edytora klocka:
+// Dwie umowy edytora kafelka:
 //  1. Przełączanie stron i wersji NIE zmienia treści — puste linie zostają.
 //  2. Starsza wersja jest do pisania i ma własne źródła, nie cudze.
 import { chromium } from 'playwright'
@@ -31,8 +31,8 @@ const zBazy = async (tabela) =>
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// klocek z dwiema pustymi liniami w środku
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// kafelek z dwiema pustymi liniami w środku
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Puste linie')
 await page.click('.view-switch button:has-text("Kod")')
@@ -47,10 +47,10 @@ const trescGlownej = async () => {
   return v.find((x) => x.content.includes('Pierwszy akapit'))?.content ?? ''
 }
 const zapisana = await trescGlownej()
-check('puste linie zapisały się w klocku', zapisana.includes('\n\n\n\n'),
+check('puste linie zapisały się w kafelku', zapisana.includes('\n\n\n\n'),
   JSON.stringify(zapisana))
 
-// druga strona klocka
+// druga strona kafelka
 await page.click('button:has-text("+ strona")')
 await podaj(page, 'Dowod')
 await page.waitForTimeout(800)

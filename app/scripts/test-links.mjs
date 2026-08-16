@@ -16,17 +16,17 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // pojęcie „Metryka"
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Metryka')
 await page.click('.view-switch button:has-text("Podział")')
 await page.click('.cm-content')
 await page.keyboard.type('Funkcja odległości $d$.')
 await page.waitForTimeout(600)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 // pojęcie „Przestrzeń metryczna" linkujące do Metryki
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Przestrzeń metryczna')
 await page.click('.view-switch button:has-text("Podział")')
@@ -78,7 +78,7 @@ await page.waitForFunction(() => {
   const el = document.querySelector('.editor-name')
   return el && (el.value === 'Metryka' || el.value === 'Przestrzeń metryczna')
 })
-console.log('✓ klik w węzeł grafu otwiera klocek')
+console.log('✓ klik w węzeł grafu otwiera kafelek')
 
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

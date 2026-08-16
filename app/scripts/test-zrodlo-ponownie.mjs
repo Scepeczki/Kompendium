@@ -23,7 +23,7 @@ await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
 // pierwszy kafelek + źródło obrysowane w PDF
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Pierwszy')
 await page.waitForTimeout(500)
@@ -43,10 +43,10 @@ check('pierwszy kafelek ma źródło',
   (await page.locator('.source-chip').count()) === 1,
   `${await page.locator('.source-chip').count()}`)
 check('fragment widać na stronie PDF', (await page.locator('.pdf-used').count()) >= 1)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 // drugi kafelek — wpinamy TEN SAM fragment jednym kliknięciem
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Drugi')
 await page.waitForTimeout(600)
@@ -64,7 +64,7 @@ check('tryb podpinania się kończy',
   (await page.locator('.pdf-banner').count()) === 0)
 
 // ten sam fragment ma teraz dwóch właścicieli — klik pyta, do którego skoczyć
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForTimeout(600)
 const ile = await page.locator('.pdf-used').count()
 check('fragment jest teraz źródłem dwóch kafelków', ile === 2, `${ile}`)
@@ -86,8 +86,8 @@ check('wybór z listy otwiera ten kafelek',
 
 // --- źródło podpięte do STARSZEJ wersji też widać na stronie ---
 // (dawniej pokazywaliśmy tylko wersje bieżące, więc taki fragment znikał)
-await page.click('.btn-close[title*="Zamknij klocek"]')
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Ze starszej')
 await page.waitForTimeout(600)
@@ -110,7 +110,7 @@ await page.waitForTimeout(1000)
 check('źródło ze starszej wersji widać jako prostokąt',
   (await page.locator('.pdf-used').count()) === ileWczesniej + 1,
   `${ileWczesniej} → ${await page.locator('.pdf-used').count()}`)
-await page.click('.btn-close[title*="Zamknij klocek"]')
+await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForTimeout(700)
 check('widać je też z zewnątrz, po zamknięciu kafelka',
   (await page.locator('.pdf-used').count()) === ileWczesniej + 1,

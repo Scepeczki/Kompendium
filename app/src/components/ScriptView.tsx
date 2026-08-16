@@ -10,7 +10,7 @@ import { kluczWlasnej, type PathNodeBlock, type SourceRef } from '../types'
 
 interface Props {
   pathId: string
-  /** Otwarcie klocka w edytorze (przycisk w nagłówku bloku). */
+  /** Otwarcie kafelka w edytorze (przycisk w nagłówku bloku). */
   onOpenConcept?: (id: string) => void
   /** Skok do miejsca w PDF (klik w źródło pod treścią). */
   onJumpToSource?: (ref: SourceRef) => void
@@ -102,7 +102,7 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
           }
           if (n.kind === 'block') return blockSection(n)
           // grupa czyta się jak jeden blok danego typu: pasek nagłówka
-          // z nazwą nadaną w ścieżce, a w środku same treści klocków
+          // z nazwą nadaną w ścieżce, a w środku same treści kafelków
           return (
             <GroupShell
               key={n.id}

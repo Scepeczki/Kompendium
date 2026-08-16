@@ -1,4 +1,4 @@
-// Strony należą do WERSJI, nie do klocka: usunięcie strony w jednej wersji
+// Strony należą do WERSJI, nie do kafelka: usunięcie strony w jednej wersji
 // nie rusza pozostałych, a wersje mogą mieć różną liczbę stron. Plus zmiana
 // kolejności stron przeciąganiem.
 import { chromium } from 'playwright'
@@ -31,7 +31,7 @@ const strony = async () =>
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.fill('.editor-name', 'Z wersjami')
 await page.waitForTimeout(400)

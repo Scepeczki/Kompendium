@@ -107,7 +107,7 @@ export function GraphView({ onOpen }: Props) {
       .force('charge', forceManyBody().strength(-260))
       // Przyciąganie do środka, a nie forceCenter. Ta druga, wbrew nazwie,
       // niczego nie przyciąga — tylko przesuwa środek ciężkości tam, gdzie
-      // trzeba. Klocki bez odnośników odpychały się więc bez końca i graf
+      // trzeba. Kafelki bez odnośników odpychały się więc bez końca i graf
       // pęczniał tak długo, jak długo symulacja żyła (czyli przy trzymaniu
       // kropki — w nieskończoność). Tu siła rośnie z odległością, więc układ
       // ma skończony rozmiar niezależnie od tego, jak długo się rusza.
@@ -185,7 +185,7 @@ export function GraphView({ onOpen }: Props) {
         dragRef.current = null
         simRef.current?.alphaTarget(0)
       } else {
-        // ręka nie drgnęła — to był klik, więc otwieramy klocek
+        // ręka nie drgnęła — to był klik, więc otwieramy kafelek
         onOpen(press.node.id)
       }
     }
@@ -211,7 +211,7 @@ export function GraphView({ onOpen }: Props) {
     const maxY = Math.max(...ys) + pad
     const w = el.clientWidth
     const h = el.clientHeight
-    // nigdy nie powiększamy ponad 1: pojedynczy klocek ma zostać kropką,
+    // nigdy nie powiększamy ponad 1: pojedynczy kafelek ma zostać kropką,
     // a nie balonem na pół ekranu
     const k = Math.min(1, Math.max(0.25, Math.min(w / (maxX - minX), h / (maxY - minY))))
     setTransform({
@@ -251,7 +251,7 @@ export function GraphView({ onOpen }: Props) {
     <section className="graph-view" ref={containerRef}>
       {nodes.length === 0 ? (
         <div className="graph-empty">
-          <p>Brak klocków do pokazania.</p>
+          <p>Brak kafelków do pokazania.</p>
           <p className="hint">
             Twórz powiązania pisząc w treści <code>[[Nazwa pojęcia]]</code>.
           </p>

@@ -17,7 +17,7 @@ export interface RenderOptions {
  * - Wzory ($...$ i $$...$$) są wycinane przed parsowaniem Markdownu,
  *   renderowane KaTeX-em i wstawiane z powrotem na końcu.
  * - Wiki-linki [[Nazwa]] i [[Nazwa|tekst]] stają się klikalnymi odnośnikami
- *   do innych klocków (obsługa kliknięć w komponencie podglądu).
+ *   do innych kafelków (obsługa kliknięć w komponencie podglądu).
  */
 /** Pamięć podręczna wyników — renderowanie (Markdown + KaTeX + sanityzacja)
  *  jest kosztowne, a te same treści rysujemy wielokrotnie: na mapie, w linii,
@@ -46,7 +46,7 @@ export function renderMarkdown(src: string, opts: RenderOptions = {}): string {
 /** Puste linijki wpisane świadomie mają być widoczne.
  *
  *  Markdown traktuje dowolny ciąg pustych linii jak jeden koniec akapitu, więc
- *  odstęp zrobiony w klocku znikał przy czytaniu w ścieżce. Każdą nadmiarową
+ *  odstęp zrobiony w kafelku znikał przy czytaniu w ścieżce. Każdą nadmiarową
  *  pustą linię zamieniamy na akapit z twardą spacją. Bloki kodu zostawiamy
  *  w spokoju — tam puste linie znaczą dokładnie to, co jest napisane. */
 export function zachowajPusteLinie(src: string): string {

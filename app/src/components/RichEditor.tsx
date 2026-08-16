@@ -30,7 +30,7 @@ import {
 /** Narysowane wzory z pamięcią.
  *
  *  Dekoracje przeliczają się przy KAŻDYM naciśnięciu klawisza, a razem z nimi
- *  rysował się od nowa każdy wzór w całym klocku — przy długim dowodzie to
+ *  rysował się od nowa każdy wzór w całym kafelku — przy długim dowodzie to
  *  było kilkaset milisekund na literę. Wzór zależy tylko od swojego LaTeX-a,
  *  więc wystarczy zapamiętać gotowy HTML. */
 const pamiecWzorow = new Map<string, string>()
@@ -60,7 +60,7 @@ const MathRender = Extension.create({
      *
      *  ProseMirror porównuje dekoracje-widżety po tożsamości elementu: jeśli
      *  oddamy TEN SAM element co poprzednio, nie przerysuje go. Bez tego każde
-     *  naciśnięcie klawisza budowało od nowa wszystkie wzory w klocku — przy
+     *  naciśnięcie klawisza budowało od nowa wszystkie wzory w kafelku — przy
      *  długim dowodzie kilkaset elementów na literę.
      *
      *  Klucz zawiera numer wystąpienia, bo ten sam wzór bywa w tekście wiele
@@ -99,7 +99,7 @@ const MathRender = Extension.create({
             el.className = `math-render${display ? ' math-render-display' : ''}`
             if (size !== null) el.style.fontSize = `${size}px`
             el.innerHTML = zapamietanyWzor(tex, display, m[0])
-            // pamięć bez dna zjadałaby ją przy ogromnych klockach
+            // pamięć bez dna zjadałaby ją przy ogromnych kafelkach
             if (elementy.size > 2000) elementy.clear()
             elementy.set(klucz, el)
           }
@@ -308,8 +308,8 @@ const BlankParagraph = Paragraph.extend({
           index: number | undefined,
         ) {
           // Przerwą jest pusty akapit, który ma coś przed sobą i coś po sobie.
-          // Pusty klocek albo puste linie na końcu to nie „odstęp", tylko brak
-          // treści — inaczej każdy nowy klocek zaczynałby się od &nbsp;.
+          // Pusty kafelek albo puste linie na końcu to nie „odstęp", tylko brak
+          // treści — inaczej każdy nowy kafelek zaczynałby się od &nbsp;.
           const pusty = node.content.size === 0
           const wSrodku =
             pusty && parent !== undefined && index !== undefined
@@ -511,7 +511,7 @@ export function RichToolbar({ editor }: { editor: Editor | null }) {
 
 interface Props {
   /** Treść w Markdownie (źródło prawdy) — wczytywana raz przy montowaniu;
-   *  komponent montuj z key={id wersji}, żeby zmiana klocka przeładowała treść. */
+   *  komponent montuj z key={id wersji}, żeby zmiana kafelka przeładowała treść. */
   value: string
   editable: boolean
   onChange: (markdown: string) => void

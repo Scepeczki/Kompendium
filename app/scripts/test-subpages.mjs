@@ -1,4 +1,4 @@
-﻿// Test stron klocka (dowodów): dodawanie/nazywanie/edycja w edytorze,
+﻿// Test stron kafelka (dowodów): dodawanie/nazywanie/edycja w edytorze,
 // zakładki w kafelku ścieżki (wybór bazowej strony), przełączanie w Skrypcie.
 import { chromium } from 'playwright'
 import { nazwij, podaj } from './lib.mjs'
@@ -30,8 +30,8 @@ const readDb = (store) =>
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
 
-// 1. nowy klocek z treścią główną
-await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+// 1. nowy kafelek z treścią główną
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.rich-content .tiptap')
 await page.fill('.editor-name', 'Twierdzenie testowe')
 await page.click('.rich-content .tiptap')
@@ -72,7 +72,7 @@ await page.keyboard.type('Krótki szkic.')
 await page.waitForTimeout(600)
 console.log('✓ druga strona z dowolną nazwą („Szkic dowodu")')
 
-// 6. nowa ścieżka z tym klockiem
+// 6. nowa ścieżka z tym kafelkiem
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Ścieżka stron")
 await page.waitForSelector('.path-canvas')

@@ -12,8 +12,8 @@ interface Props {
   hint?: string
 }
 
-/** Zakładki stron klocka (Treść + dowody itp.) — pokazują się tylko, gdy
- *  klocek ma dodatkowe strony. Używane w kafelkach ścieżek i w Skrypcie. */
+/** Zakładki stron kafelka (Treść + dowody itp.) — pokazują się tylko, gdy
+ *  kafelek ma dodatkowe strony. Używane w kafelkach ścieżek i w Skrypcie. */
 export function SubpageTabs({ conceptId, versionId, active, onSelect, hint }: Props) {
   const subs =
     useLiveQuery(
@@ -26,7 +26,7 @@ export function SubpageTabs({ conceptId, versionId, active, onSelect, hint }: Pr
     ) ?? []
   const concept = useLiveQuery(() => db.concepts.get(conceptId), [conceptId])
   const activeSub = subs.find((s) => s.id === active) ?? null
-  // Na kafelku mapy przy jednej stronie nie pokazujemy nic: nazwa klocka jest
+  // Na kafelku mapy przy jednej stronie nie pokazujemy nic: nazwa kafelka jest
   // tuż nad, a każdy dodatkowy wiersz podnosi kafelek i psuje rozstawienie.
   // W Linii i Skrypcie nazwa strony jest widoczna zawsze (patrz BlockShell).
   if (subs.length === 0) return null

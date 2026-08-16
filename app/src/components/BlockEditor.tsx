@@ -51,9 +51,9 @@ interface Props {
   selecting: boolean
   onToggleSelecting: () => void
   onJumpToSource: (ref: SourceRef) => void
-  /** Otwiera inny klocek (nawigacja wiki-linkiem / odwołaniem zwrotnym). */
+  /** Otwiera inny kafelek (nawigacja wiki-linkiem / odwołaniem zwrotnym). */
   onOpenConcept: (id: string) => void
-  /** Otwiera ścieżkę i skacze do miejsca, w którym siedzi w niej ten klocek. */
+  /** Otwiera ścieżkę i skacze do miejsca, w którym siedzi w niej ten kafelek. */
   onOpenPath?: (id: string, conceptId?: string) => void
 }
 
@@ -105,7 +105,7 @@ export function BlockEditor({
     }, 300)
   }
 
-  // świeżo utworzony klocek: nazwa od razu zaznaczona do nadpisania
+  // świeżo utworzony kafelek: nazwa od razu zaznaczona do nadpisania
   useEffect(() => {
     if (concept.name === 'Nowe pojęcie') {
       nameRef.current?.focus()
@@ -117,10 +117,10 @@ export function BlockEditor({
   const [srcHint, setSrcHint] = useState<string | null>(null)
 
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
-  /** Ścieżki, w których ten klocek się pojawia (także w scalonych blokach). */
+  /** Ścieżki, w których ten kafelek się pojawia (także w scalonych blokach). */
   const wSciezkach = useLiveQuery(() => pathsWithConcept(concept.id), [concept.id]) ?? []
 
-  // Strony klocka (dowody itp.) — dodatkowe treści obok głównej.
+  // Strony kafelka (dowody itp.) — dodatkowe treści obok głównej.
   const subs =
     useLiveQuery(
       () =>
@@ -134,7 +134,7 @@ export function BlockEditor({
   /** Przeciąganie stron: która jedzie i nad którą wisi. */
   const ciagnietaRef = useRef<string | null>(null)
   const [nadStrona, setNadStrona] = useState<string | null>(null)
-  // zmiana klocka → wróć na główną treść (synchronizacja w trakcie renderu)
+  // zmiana kafelka → wróć na główną treść (synchronizacja w trakcie renderu)
   const [prevConceptId, setPrevConceptId] = useState(concept.id)
   if (prevConceptId !== concept.id) {
     setPrevConceptId(concept.id)
@@ -144,7 +144,7 @@ export function BlockEditor({
 
   const handleAddSubpage = async () => {
     const name = await dlg.prompt({
-      title: 'Nowa strona klocka',
+      title: 'Nowa strona kafelka',
       message: 'Najczęściej „Dowód", ale nazwa jest dowolna.',
       value: 'Dowód',
       confirmLabel: 'Utwórz stronę',
@@ -163,7 +163,7 @@ export function BlockEditor({
   const handleDeleteSubpage = async (id: string, name: string) => {
     const ok = await dlg.confirm({
       title: `Usunąć stronę „${name}"?`,
-      message: 'Jej treść przepadnie. Pozostałe strony klocka zostają.',
+      message: 'Jej treść przepadnie. Pozostałe strony kafelka zostają.',
       confirmLabel: 'Usuń stronę',
       danger: true,
     })
@@ -188,7 +188,7 @@ export function BlockEditor({
   // Wszystkie pojęcia + treści ich bieżących wersji — do wiki-linków i odwołań.
   const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
   const conceptTitle = (id: string) =>
-    allConcepts.find((c) => c.id === id)?.name ?? '(usunięty klocek)'
+    allConcepts.find((c) => c.id === id)?.name ?? '(usunięty kafelek)'
 
   // Rozszerzenia CodeMirror muszą mieć stabilną tożsamość (rekonfiguracja przy
   // każdym renderze psuje m.in. akceptowanie podpowiedzi klawiszem).
@@ -216,7 +216,7 @@ export function BlockEditor({
     )
   }
 
-  /** Klocki, których bieżąca wersja linkuje do tego pojęcia. */
+  /** Kafelki, których bieżąca wersja linkuje do tego pojęcia. */
   const backlinks = allConcepts.filter(
     (c) =>
       c.id !== concept.id &&
@@ -237,9 +237,9 @@ export function BlockEditor({
       return
     }
     const ok = await dlg.confirm({
-      title: `Nie ma jeszcze klocka „${name}"`,
+      title: `Nie ma jeszcze kafelka „${name}"`,
       message: 'Utworzyć go teraz i od razu otworzyć?',
-      confirmLabel: 'Utwórz klocek',
+      confirmLabel: 'Utwórz kafelek',
     })
     if (ok) {
       const id = await createConcept()
@@ -250,12 +250,12 @@ export function BlockEditor({
 
   // Zmiana pokazywanej wersji lub strony → załaduj jej treść do edytora.
   // Synchronizacja w trakcie renderu (nie w efekcie), żeby montowany niżej
-  // edytor wizualny nigdy nie zobaczył treści poprzedniego klocka.
+  // edytor wizualny nigdy nie zobaczył treści poprzedniego kafelka.
   const contentKey = `${version.id}:${activeSub?.id ?? 'main'}`
   const [prevKey, setPrevKey] = useState(contentKey)
   /** Czy ktoś w ogóle postawił kursor w polu od czasu ostatniego przełączenia.
    *
-   *  Bez tego samo przejście na inną stronę klocka zapisywało treść od nowa:
+   *  Bez tego samo przejście na inną stronę kafelka zapisywało treść od nowa:
    *  edytor wizualny wczytuje Markdown i oddaje go z powrotem, a to nie
    *  zawsze wraca znak w znak — puste linie zamieniały się w akapity ze
    *  spacją i po kilku przełączeniach robił się z tekstu jednolity mur.
@@ -282,7 +282,7 @@ export function BlockEditor({
    *  dało się naprawić inaczej niż przez zrobienie z niej bieżącej. */
   const editable = true
 
-  // Autozapis z opóźnieniem (strona klocka albo bieżąca wersja).
+  // Autozapis z opóźnieniem (strona kafelka albo bieżąca wersja).
   const onChange = (val: string) => {
     // Zmiana z samego wczytania treści, a nie spod ręki — ignorujemy ją
     // w całości. Nie tylko zapisu: gdybyśmy wzięli ją choćby do brudnopisu,
@@ -316,7 +316,7 @@ export function BlockEditor({
 
   const handleNewVersion = async () => {
     const label = await dlg.prompt({
-      title: 'Nowa wersja klocka',
+      title: 'Nowa wersja kafelka',
       message: 'Kopiuje bieżącą treść jako kolejną wersję. Etykieta jest opcjonalna.',
       placeholder: 'np. wg Rudina',
       allowEmpty: true,
@@ -341,7 +341,7 @@ export function BlockEditor({
   const handleDeleteVersion = async (v: BlockVersion) => {
     const ok = await dlg.confirm({
       title: `Usunąć wersję v${v.version}${v.label ? ` (${v.label})` : ''}?`,
-      message: 'Jej treść przepadnie. Pozostałe wersje klocka zostają.',
+      message: 'Jej treść przepadnie. Pozostałe wersje kafelka zostają.',
       confirmLabel: 'Usuń wersję',
       danger: true,
     })
@@ -353,10 +353,10 @@ export function BlockEditor({
 
   const handleDelete = async () => {
     const ok = await dlg.confirm({
-      title: `Usunąć klocek „${concept.name}"?`,
+      title: `Usunąć kafelek „${concept.name}"?`,
       message:
         'Znikną wszystkie jego wersje, strony i powiązania. Tego nie da się cofnąć.',
-      confirmLabel: 'Usuń klocek',
+      confirmLabel: 'Usuń kafelek',
       danger: true,
     })
     if (ok) {
@@ -365,10 +365,10 @@ export function BlockEditor({
     }
   }
 
-  /** Okno wyboru klocka-źródła. */
+  /** Okno wyboru kafelka-źródła. */
   const [pickingSource, setPickingSource] = useState(false)
 
-  /** Podpina inny klocek jako źródło tej wersji (genealogia wiedzy). */
+  /** Podpina inny kafelek jako źródło tej wersji (genealogia wiedzy). */
   const addBlockSource = async (source: Concept) => {
     setPickingSource(false)
     const already = version.sourceRefs.some(
@@ -474,7 +474,7 @@ export function BlockEditor({
       <button
         className="source-jump"
         title={
-          isPdfSource(r) ? 'Skocz do miejsca w PDF' : 'Otwórz klocek będący źródłem'
+          isPdfSource(r) ? 'Skocz do miejsca w PDF' : 'Otwórz kafelek będący źródłem'
         }
         onClick={() => onJumpToSource(r)}
       >
@@ -540,7 +540,7 @@ export function BlockEditor({
           </button>
           <button
             className="btn btn-close"
-            title="Zamknij klocek (wróć do widoku startowego)"
+            title="Zamknij kafelek (wróć do widoku startowego)"
             onClick={onClose}
           >
             ✕
@@ -628,7 +628,7 @@ export function BlockEditor({
         </div>
       </header>
 
-      {/* Gdzie ten klocek pracuje. Sama treść nie mówi, czy jest wpleciony
+      {/* Gdzie ten kafelek pracuje. Sama treść nie mówi, czy jest wpleciony
           w jakiś skrypt, a to bywa ważniejsze niż to, co w nim napisano. */}
       {wSciezkach.length > 0 && (
         <div className="editor-sciezki">
@@ -680,9 +680,9 @@ export function BlockEditor({
           <button
             className="btn"
             onClick={() => setPickingSource(true)}
-            title="Wskaż inny klocek jako źródło tego klocka (np. przy podsumowaniu)"
+            title="Wskaż inny kafelek jako źródło tego kafelka (np. przy podsumowaniu)"
           >
-            Klocek jako źródło
+            Kafelek jako źródło
           </button>
           <button
             className="btn"
@@ -788,11 +788,11 @@ export function BlockEditor({
       )}
 
       <div className={`editor-body view-${view}`}>
-        {/* strony klocka: główna treść + dowody itp. — wąska kolumna kart */}
+        {/* strony kafelka: główna treść + dowody itp. — wąska kolumna kart */}
         <div className="subpage-rail nodrag">
           <div
             className={`subpage-item ${!activeSub ? 'active' : ''}`}
-            title="Główna treść klocka"
+            title="Główna treść kafelka"
             onClick={() => setSubId(null)}
           >
             <span className="subpage-name">{mainPageName(concept)}</span>
@@ -871,7 +871,7 @@ export function BlockEditor({
           ))}
           <button
             className="subpage-add"
-            title="Dodaj stronę klocka (np. dowód) — nazwa dowolna"
+            title="Dodaj stronę kafelka (np. dowód) — nazwa dowolna"
             onClick={handleAddSubpage}
           >
             + strona
@@ -905,7 +905,7 @@ export function BlockEditor({
                 onChange={onChange}
                 extensions={cmExtensions}
                 editable={editable}
-                placeholder={'Treść klocka…\n\nMarkdown + LaTeX: $x^2$, $$\\int_a^b f\\,dx$$'}
+                placeholder={'Treść kafelka…\n\nMarkdown + LaTeX: $x^2$, $$\\int_a^b f\\,dx$$'}
                 basicSetup={{ lineNumbers: false, foldGutter: false, autocompletion: false }}
                 style={{ height: '100%' }}
               />
@@ -923,7 +923,7 @@ export function BlockEditor({
 
       {pickingSource && (
         <ConceptPicker
-          title="🧱 Który klocek jest źródłem?"
+          title="🧱 Który kafelek jest źródłem?"
           excludeIds={[concept.id]}
           onPick={addBlockSource}
           onClose={() => setPickingSource(false)}

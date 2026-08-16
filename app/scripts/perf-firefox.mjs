@@ -16,22 +16,22 @@ await page.waitForSelector('text=Kompendium')
 
 const N = 10
 for (let i = 1; i <= N; i++) {
-  await page.click('.sidebar-create-btn[title="Nowy klocek"]')
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
   await page.waitForSelector('.editor-name')
-  await page.fill('.editor-name', `Klocek ${i}`)
+  await page.fill('.editor-name', `Kafelek ${i}`)
   await page.click('.view-switch button:has-text("Kod")')
   await page.click('.editor-code .cm-content')
   await page.keyboard.type(
     `Definicja ${i}: dla $x \\in \\mathbb{R}$\n\n$$\\sum_{k=1}^{n} k^2 = \\frac{n(n+1)(2n+1)}{6}$$\n\noraz $\\lim_{n \\to \\infty} a_n = g$.`,
   )
   await page.waitForTimeout(350)
-  await page.click('.btn-close[title*="Zamknij klocek"]')
+  await page.click('.btn-close[title*="Zamknij kafelek"]')
 }
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Sciezka")
 await page.waitForSelector('.path-canvas')
 for (let i = 1; i <= N; i++) {
-  await page.dragAndDrop(`.concept-item:has-text("Klocek ${i}")`, '.path-flow', {
+  await page.dragAndDrop(`.concept-item:has-text("Kafelek ${i}")`, '.path-flow', {
     targetPosition: { x: 400, y: 200 },
   })
   await page.waitForTimeout(250)
