@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "start": "vite build && vite preview --port 5173 --strictPort",
-    "build:web": "tsc -b && vite build --base=/Kompendium/ --outDir dist-web"
+    "build:web": "tsc -b && vite build --base=/Kompendium-web/ --outDir dist-web",
+    "publikuj": "node scripts/publikuj.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
