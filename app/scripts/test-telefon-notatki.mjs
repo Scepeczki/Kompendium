@@ -171,6 +171,66 @@ await pc.waitForSelector('.settings-status', { timeout: 20000 })
 const drugi = await pc.textContent('.settings-status')
 check('druga wysyłka niesie już trzy kafelki', /3 kafelków/.test(drugi), drugi)
 
+// ============ ta sama migawka, ale plikiem (bez GitHuba) ============
+//
+// GitHub bywa niedostępny akurat wtedy, gdy człowiek chce wyjść z domu, więc
+// druga droga musi działać sama z siebie. Zawartość jest ta sama, więc i tu
+// wczytanie nie może niczego skasować.
+const { promises: fs } = await import('node:fs')
+const os = await import('node:os')
+const path = await import('node:path')
+
+const pobieranie = pc.waitForEvent('download')
+await pc.click('.btn:has-text("Migawka do pliku")')
+const plik = await pobieranie
+const sciezkaPliku = path.join(os.tmpdir(), 'migawka-test.json')
+await plik.saveAs(sciezkaPliku)
+const zawartosc = JSON.parse(await fs.readFile(sciezkaPliku, 'utf8'))
+check('plik migawki powstaje i ma notatki',
+  Array.isArray(zawartosc.concepts) && zawartosc.concepts.length === 3,
+  `kafelków w pliku: ${zawartosc.concepts?.length}`)
+check('nazwa pliku mówi, co to jest', /^notatki-\d{4}-\d{2}-\d{2}\.json$/.test(plik.suggestedFilename()),
+  plik.suggestedFilename())
+
+// trzecie urządzenie: pusta baza, żadnego GitHuba, tylko plik
+const drugiTelefon = await browser.newContext({ viewport: { width: 390, height: 844 } })
+const tel2 = await drugiTelefon.newPage()
+tel2.on('pageerror', (e) => errors.push(`telefon2: ${e}`))
+await tel2.goto('http://localhost:5173')
+await tel2.waitForSelector('text=Kompendium')
+await tel2.click('.szuflada-przycisk')
+await tel2.waitForTimeout(400)
+await tel2.click('.sidebar-create-btn[title="Nowy kafelek"]')
+await tel2.waitForSelector('.editor-name')
+await tel2.fill('.editor-name', 'Zrobione bez internetu')
+await tel2.waitForTimeout(500)
+await tel2.click('.btn-close[title*="Zamknij kafelek"]')
+await tel2.waitForTimeout(300)
+await tel2.click('.szuflada-przycisk')
+await tel2.waitForTimeout(300)
+await tel2.click('.sidebar-foot-btn[title*="Ustawienia"]')
+await tel2.waitForSelector('.settings-page')
+await tel2.click('.settings-nav button:has-text("Dane")')
+await tel2.waitForSelector('.settings-telefon')
+await tel2.setInputFiles('input[type=file][accept*="json"]', sciezkaPliku)
+await tel2.waitForSelector('.ask-dialog')
+await tel2.click('.ask-foot .btn:last-child')
+await tel2.waitForSelector('.settings-status', { timeout: 20000 })
+const wynikPlik = await tel2.textContent('.settings-status')
+check('wczytanie z pliku działa bez GitHuba', wynikPlik.includes('Wczytane z pliku'), wynikPlik)
+await tel2.click('.settings-page-head button:has-text("Wróć")')
+await tel2.waitForTimeout(500)
+await tel2.click('.szuflada-przycisk')
+await tel2.waitForTimeout(400)
+const naDrugim = await tel2.locator('.concept-item').allTextContents()
+check('kafelki z pliku doszły',
+  ['Zbiór', 'Suma zbiorów', 'Iloczyn zbiorów'].every((n) => naDrugim.some((t) => t.includes(n))),
+  naDrugim.join(' | '))
+check('i tu też nic nie zginęło',
+  naDrugim.some((t) => t.includes('Zrobione bez internetu')),
+  naDrugim.join(' | '))
+await fs.unlink(sciezkaPliku).catch(() => {})
+
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
 for (const e of errors.slice(0, 5)) console.log(`   ${String(e).slice(0, 200)}`)

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { exportBackup, importBackup } from '../backup'
 import {
   ileTutaj,
+  migawkaDoPliku,
+  migawkaZPliku,
   ostatnioPobrano,
   ostatnioWyslano,
   pobierzNotatki,
@@ -118,7 +120,9 @@ export function SettingsPage({ onClose }: Props) {
     localStorage.setItem('ui.theme', t)
   }
 
-  const [busy, setBusy] = useState<'export' | 'import' | 'wyslij' | 'pobierz' | null>(null)
+  const [busy, setBusy] = useState<
+    'export' | 'import' | 'wyslij' | 'pobierz' | 'plik-zapis' | 'plik-czyt' | null
+  >(null)
   const [status, setStatus] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -126,6 +130,55 @@ export function SettingsPage({ onClose }: Props) {
   const [token, setToken] = useState(telefonToken)
   const [repo, setRepo] = useState(telefonRepo)
   const [statusTel, setStatusTel] = useState<string | null>(null)
+  const migRef = useRef<HTMLInputElement>(null)
+
+  const handleMigawkaPlik = async () => {
+    setBusy('plik-zapis')
+    setStatusTel(null)
+    try {
+      const w = await migawkaDoPliku()
+      setStatusTel(
+        `Zapisane do pliku: ${w.kafelki} kafelków, ${w.sciezki} ścieżek (${w.rozmiarKB} kB). ` +
+          'Przenieś plik na telefon i tam kliknij „Migawka z pliku".',
+      )
+    } catch (e) {
+      setStatusTel(`Nie zapisano: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const handleMigawkaZPliku = async (plik: File | undefined) => {
+    if (!plik) return
+    const przed = await ileTutaj()
+    const ok = await dlg.confirm({
+      title: 'Wczytać notatki z pliku?',
+      message:
+        `Na tym urządzeniu jest teraz ${przed.kafelki} kafelków i ${przed.sciezki} ścieżek. ` +
+        'Kafelki o tych samych identyfikatorach zostaną nadpisane, a te, których ' +
+        'w pliku nie ma, zostaną nietknięte. Nic nie jest kasowane.',
+      confirmLabel: 'Wczytaj',
+    })
+    if (!ok) {
+      if (migRef.current) migRef.current.value = ''
+      return
+    }
+    setBusy('plik-czyt')
+    setStatusTel(null)
+    try {
+      const w = await migawkaZPliku(plik)
+      const po = await ileTutaj()
+      setStatusTel(
+        `Wczytane z pliku (migawka z ${new Date(w.zDnia).toLocaleString('pl')}): ` +
+          `${w.kafelki} kafelków, ${w.sciezki} ścieżek. Tutaj było ${przed.kafelki}, jest ${po.kafelki}.`,
+      )
+    } catch (e) {
+      setStatusTel(`Nie wczytano: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(null)
+      if (migRef.current) migRef.current.value = ''
+    }
+  }
 
   const handleWyslij = async () => {
     zapiszUstawieniaTelefonu(token, repo)
@@ -541,6 +594,28 @@ export function SettingsPage({ onClose }: Props) {
                     {busy === 'pobierz' ? 'Pobieram…' : '⇩ Pobierz notatki (na telefonie)'}
                   </button>
                 </div>
+                {/* Druga droga, bez GitHuba: ta sama migawka, tylko plikiem.
+                    Działa, gdy nie ma internetu albo gdy nie chce się nikomu
+                    powierzać notatek. */}
+                <div className="settings-backup-actions">
+                  <button className="btn" disabled={busy !== null} onClick={handleMigawkaPlik}>
+                    {busy === 'plik-zapis' ? 'Zapisuję…' : '⬇ Migawka do pliku'}
+                  </button>
+                  <button
+                    className="btn"
+                    disabled={busy !== null}
+                    onClick={() => migRef.current?.click()}
+                  >
+                    {busy === 'plik-czyt' ? 'Wczytuję…' : '⬆ Migawka z pliku'}
+                  </button>
+                  <input
+                    ref={migRef}
+                    type="file"
+                    accept=".json,application/json"
+                    hidden
+                    onChange={(e) => handleMigawkaZPliku(e.target.files?.[0])}
+                  />
+                </div>
                 {statusTel && <p className="settings-hint settings-status">{statusTel}</p>}
                 <p className="settings-hint">
                   Ruch jest jednostronny: komputer wysyła, telefon pobiera. Migawka
@@ -548,6 +623,11 @@ export function SettingsPage({ onClose }: Props) {
                   komputerze zostają nietknięte. Pobranie <strong>nigdy nie kasuje</strong>:
                   nadpisuje to, co ma to samo id, i dokłada nowe. PDF-y zostają na
                   komputerze, bo ważą setki razy więcej niż cała reszta.
+                  <br />
+                  Dolna para przycisków robi to samo <strong>plikiem</strong> — bez
+                  GitHuba i bez internetu. Przydaje się, gdy GitHub ma awarię albo
+                  gdy nie chcesz nikomu powierzać notatek: zapisujesz plik, przenosisz
+                  go na telefon (kablem, Bluetoothem, czymkolwiek) i tam wczytujesz.
                   {ostatnioWyslano() && (
                     <>
                       <br />

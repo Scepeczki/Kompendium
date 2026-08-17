@@ -191,6 +191,50 @@ export async function pobierzNotatki(): Promise<WynikPobrania> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Ta sama migawka, ale plikiem
+//
+// Droga przez GitHuba jest wygodniejsza, ale zależy od cudzego serwera — a ten
+// bywa niedostępny akurat wtedy, gdy człowiek chce wyjść z domu. Plik działa
+// zawsze i nie wychodzi na zewnątrz: przenosi się go kablem, Bluetoothem,
+// czymkolwiek. Zawartość jest identyczna, więc obie drogi zachowują się
+// dokładnie tak samo — w szczególności też nie kasują niczego na telefonie.
+// ---------------------------------------------------------------------------
+
+/** Zapisuje migawkę na dysk (bez PDF-ów, jak przy wysyłaniu). */
+export async function migawkaDoPliku(): Promise<WynikWyslania> {
+  const { dane } = await zbierzDane()
+  const tekst = JSON.stringify(dane)
+  const blob = new Blob([tekst], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  const d = new Date()
+  const dwa = (n: number) => String(n).padStart(2, '0')
+  a.href = url
+  a.download = `notatki-${d.getFullYear()}-${dwa(d.getMonth() + 1)}-${dwa(d.getDate())}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+  return {
+    kafelki: dane.concepts.length,
+    sciezki: dane.paths.length,
+    rozmiarKB: Math.round(new TextEncoder().encode(tekst).length / 1024),
+  }
+}
+
+/** Wczytuje migawkę z pliku zapisanego na komputerze. */
+export async function migawkaZPliku(plik: File): Promise<WynikPobrania> {
+  const dane = JSON.parse(await plik.text()) as BackupData
+  if (dane.version !== 1) throw new Error(`Nieobsługiwana wersja migawki: ${dane.version}`)
+  if (!Array.isArray(dane.concepts)) throw new Error('To nie jest plik migawki notatek.')
+  await wczytajDane(dane, [], false)
+  localStorage.setItem(KLUCZ_POBRANO, new Date().toISOString())
+  return {
+    kafelki: dane.concepts.length,
+    sciezki: dane.paths.length,
+    zDnia: dane.exportedAt,
+  }
+}
+
 /** Ile rzeczy siedzi w bazie tego urządzenia — do pokazania obok przycisków,
  *  żeby było widać, czy pobranie w ogóle coś zmieniło. */
 export async function ileTutaj(): Promise<{ kafelki: number; sciezki: number }> {
