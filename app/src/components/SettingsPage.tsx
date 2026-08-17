@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { exportBackup, importBackup } from '../backup'
 import {
+  ileTutaj,
+  ostatnioPobrano,
+  ostatnioWyslano,
+  pobierzNotatki,
+  telefonRepo,
+  telefonToken,
+  wyslijNotatki,
+  zapiszUstawieniaTelefonu,
+} from '../telefon'
+import {
   BG_PATTERN_OPTIONS,
   BLOCK_TINT_MAX,
   BLOCK_TINT_MIN,
@@ -108,9 +118,60 @@ export function SettingsPage({ onClose }: Props) {
     localStorage.setItem('ui.theme', t)
   }
 
-  const [busy, setBusy] = useState<'export' | 'import' | null>(null)
+  const [busy, setBusy] = useState<'export' | 'import' | 'wyslij' | 'pobierz' | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // ---- notatki na telefonie ----
+  const [token, setToken] = useState(telefonToken)
+  const [repo, setRepo] = useState(telefonRepo)
+  const [statusTel, setStatusTel] = useState<string | null>(null)
+
+  const handleWyslij = async () => {
+    zapiszUstawieniaTelefonu(token, repo)
+    setBusy('wyslij')
+    setStatusTel(null)
+    try {
+      const w = await wyslijNotatki()
+      setStatusTel(
+        `Wysłane: ${w.kafelki} kafelków, ${w.sciezki} ścieżek (${w.rozmiarKB} kB). ` +
+          'Na telefonie kliknij „Pobierz notatki".',
+      )
+    } catch (e) {
+      setStatusTel(`Nie wysłano: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const handlePobierz = async () => {
+    zapiszUstawieniaTelefonu(token, repo)
+    const przed = await ileTutaj()
+    const ok = await dlg.confirm({
+      title: 'Pobrać notatki z komputera?',
+      message:
+        `Na tym urządzeniu jest teraz ${przed.kafelki} kafelków i ${przed.sciezki} ścieżek. ` +
+        'Kafelki o tych samych identyfikatorach zostaną nadpisane treścią z komputera, ' +
+        'a te, których w migawce nie ma, zostaną nietknięte. Nic nie jest kasowane.',
+      confirmLabel: 'Pobierz',
+    })
+    if (!ok) return
+    setBusy('pobierz')
+    setStatusTel(null)
+    try {
+      const w = await pobierzNotatki()
+      const po = await ileTutaj()
+      setStatusTel(
+        `Pobrano migawkę z ${new Date(w.zDnia).toLocaleString('pl')}: ` +
+          `${w.kafelki} kafelków, ${w.sciezki} ścieżek. ` +
+          `Tutaj było ${przed.kafelki}, jest ${po.kafelki}.`,
+      )
+    } catch (e) {
+      setStatusTel(`Nie pobrano: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const handleExport = async () => {
     setBusy('export')
@@ -445,14 +506,71 @@ export function SettingsPage({ onClose }: Props) {
                 </p>
               </div>
 
+              {/* Telefon dostaje program adresem publicznym, ale notatki idą
+                  osobno — do prywatnego repozytorium i tylko stamtąd. */}
+              <div className="settings-row">
+                <span className="settings-label">Notatki na telefonie</span>
+                <div className="settings-telefon">
+                  <label className="settings-pole">
+                    <span>Repozytorium (prywatne)</span>
+                    <input
+                      className="input"
+                      value={repo}
+                      placeholder="Scepeczki/Kompendium"
+                      onChange={(e) => setRepo(e.target.value)}
+                      onBlur={() => zapiszUstawieniaTelefonu(token, repo)}
+                    />
+                  </label>
+                  <label className="settings-pole">
+                    <span>Klucz dostępu</span>
+                    <input
+                      className="input"
+                      type="password"
+                      value={token}
+                      placeholder="github_pat_…"
+                      onChange={(e) => setToken(e.target.value)}
+                      onBlur={() => zapiszUstawieniaTelefonu(token, repo)}
+                    />
+                  </label>
+                </div>
+                <div className="settings-backup-actions">
+                  <button className="btn" disabled={busy !== null} onClick={handleWyslij}>
+                    {busy === 'wyslij' ? 'Wysyłam…' : '⇧ Wyślij notatki (z komputera)'}
+                  </button>
+                  <button className="btn" disabled={busy !== null} onClick={handlePobierz}>
+                    {busy === 'pobierz' ? 'Pobieram…' : '⇩ Pobierz notatki (na telefonie)'}
+                  </button>
+                </div>
+                {statusTel && <p className="settings-hint settings-status">{statusTel}</p>}
+                <p className="settings-hint">
+                  Ruch jest jednostronny: komputer wysyła, telefon pobiera. Migawka
+                  jest kurierem, nie kopią zapasową — nawet gdyby ją zepsuć, dane na
+                  komputerze zostają nietknięte. Pobranie <strong>nigdy nie kasuje</strong>:
+                  nadpisuje to, co ma to samo id, i dokłada nowe. PDF-y zostają na
+                  komputerze, bo ważą setki razy więcej niż cała reszta.
+                  {ostatnioWyslano() && (
+                    <>
+                      <br />
+                      Ostatnio wysłane: {new Date(ostatnioWyslano()).toLocaleString('pl')}
+                    </>
+                  )}
+                  {ostatnioPobrano() && (
+                    <>
+                      <br />
+                      Ostatnio pobrane: {new Date(ostatnioPobrano()).toLocaleString('pl')}
+                    </>
+                  )}
+                </p>
+              </div>
+
               <div className="settings-row">
                 <span className="settings-label">Gdzie są moje dane</span>
                 <p className="settings-hint">
                   Wszystko siedzi lokalnie w tej przeglądarce (IndexedDB, baza
-                  <code> kompendium</code>) — nic nie wychodzi na zewnątrz. Dlatego
-                  otwarcie aplikacji w innej przeglądarce pokazuje pustą bazę; to nie
-                  jest utrata danych. Przenoszenie i zabezpieczenie robi się właśnie
-                  kopią zapasową powyżej.
+                  <code> kompendium</code>) — nic nie wychodzi na zewnątrz samo z siebie.
+                  Dlatego otwarcie aplikacji na telefonie pokazuje pustą bazę; to nie
+                  jest utrata danych. Przenoszenie robi się kopią zapasową albo
+                  wysłaniem notatek powyżej.
                 </p>
               </div>
             </>

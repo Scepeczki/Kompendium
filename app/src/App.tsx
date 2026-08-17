@@ -245,12 +245,18 @@ function Widok() {
         onSelect={selectConcept}
         graphActive={showGraph}
         onToggleGraph={() => {
+          setSzuflada(false)
           setShowGraph((g) => !g)
           setShowSettings(false)
         }}
         openPathId={openPathId}
         onOpenPath={openPath}
-        onOpenSettings={() => setShowSettings(true)}
+        onOpenSettings={() => {
+          // wszystko, co otwiera się na całą szerokość, chowa szufladę —
+          // inaczej lista zostaje na wierzchu i zasłania to, co otwarłeś
+          setSzuflada(false)
+          setShowSettings(true)
+        }}
       />
       <Splitter onDrag={(dx) => setSidebarW((w) => clamp(w + dx, 200, 480))} />
 

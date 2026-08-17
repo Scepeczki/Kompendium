@@ -14,7 +14,7 @@ import type {
 /** Struktura pliku danych wewnątrz archiwum kopii zapasowej. Blob-y PDF-ów
  *  leżą osobno jako prawdziwe pliki .pdf (nie base64 — mniejszy plik,
  *  łatwiej coś z niego odzyskać ręcznie w razie potrzeby). */
-interface BackupData {
+export interface BackupData {
   version: 1
   exportedAt: string
   concepts: Concept[]
@@ -51,10 +51,11 @@ function backupFileName(): string {
   return `kompendium-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.zip`
 }
 
-/** Eksportuje całą bazę (kafelki, wersje, foldery, ścieżki, PDF-y) do jednego
- *  pliku .zip i uruchamia jego pobranie w przeglądarce. */
-export async function exportBackup(): Promise<void> {
-  const [concepts, versions, folders, paths, pdfs, subpages, relations] =
+/** Zbiera całą bazę do jednej struktury — bez blobów PDF-ów, które w kopii
+ *  jadą osobno jako pliki. Wspólne dla kopii zapasowej i dla migawki na
+ *  telefon, żeby nie były dwiema implementacjami tego samego. */
+export async function zbierzDane(): Promise<{ dane: BackupData; pdfy: PdfDoc[] }> {
+  const [concepts, versions, folders, paths, pdfs, subpages, relations, blockTypes] =
     await Promise.all([
       db.concepts.toArray(),
       db.versions.toArray(),
@@ -63,23 +64,74 @@ export async function exportBackup(): Promise<void> {
       db.pdfs.toArray(),
       db.subpages.toArray(),
       db.relations.toArray(),
+      db.blockTypes.toArray(),
     ])
-  const blockTypes = await db.blockTypes.toArray()
-
-  const zip = new JSZip()
-  const data: BackupData = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    concepts,
-    versions,
-    folders,
-    paths,
-    pdfs: pdfs.map(({ data: _blob, ...meta }) => meta),
-    subpages,
-    relations,
-    blockTypes,
-    ustawienia: zbierzUstawienia(),
+  return {
+    dane: {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      concepts,
+      versions,
+      folders,
+      paths,
+      pdfs: pdfs.map(({ data: _blob, ...meta }) => meta),
+      subpages,
+      relations,
+      blockTypes,
+      ustawienia: zbierzUstawienia(),
+    },
+    pdfy: pdfs,
   }
+}
+
+/** Wpisuje zebrane dane do bazy. Rekordy o tym samym id nadpisują istniejące,
+ *  a czego w danych nie ma, to zostaje — więc wczytanie nigdy nie kasuje.
+ *  Wspólne dla kopii zapasowej i migawki na telefon.
+ *
+ *  `zUstawieniami` rozdziela te dwa zastosowania. Kopia zapasowa ma odtworzyć
+ *  program takim, jakim się go zostawiło — więc bierze też wygląd. Migawka na
+ *  telefon nie: szerokości paneli i otwarty spis treści są ustawione pod
+ *  duży ekran i na telefonie tylko zasłaniają treść. */
+export async function wczytajDane(
+  data: BackupData,
+  pdfy: PdfDoc[],
+  zUstawieniami = true,
+): Promise<void> {
+  await db.transaction(
+    'rw',
+    [
+      db.concepts,
+      db.versions,
+      db.folders,
+      db.paths,
+      db.pdfs,
+      db.subpages,
+      db.relations,
+      db.blockTypes,
+    ],
+    async () => {
+      await db.concepts.bulkPut(data.concepts)
+      await db.versions.bulkPut(data.versions)
+      await db.folders.bulkPut(data.folders)
+      await db.paths.bulkPut(data.paths)
+      if (pdfy.length) await db.pdfs.bulkPut(pdfy)
+      await db.subpages.bulkPut(data.subpages ?? [])
+      await db.relations.bulkPut(data.relations ?? [])
+      await db.blockTypes.bulkPut(data.blockTypes ?? [])
+    },
+  )
+  // ustawienia wracają na końcu: to zmiana wyglądu, nie danych, więc nie
+  // ma po co blokować nią transakcji na bazie
+  if (zUstawieniami) {
+    for (const [k, v] of Object.entries(data.ustawienia ?? {})) localStorage.setItem(k, v)
+  }
+}
+
+/** Eksportuje całą bazę (kafelki, wersje, foldery, ścieżki, PDF-y) do jednego
+ *  pliku .zip i uruchamia jego pobranie w przeglądarce. */
+export async function exportBackup(): Promise<void> {
+  const { dane: data, pdfy: pdfs } = await zbierzDane()
+  const zip = new JSZip()
   zip.file('dane.json', JSON.stringify(data, null, 1))
   const pdfFolder = zip.folder('pdfy')!
   for (const p of pdfs) pdfFolder.file(`${p.id}.pdf`, p.data)
@@ -120,33 +172,7 @@ export async function importBackup(file: File): Promise<ImportSummary> {
     pdfs.push({ ...meta, data: blob })
   }
 
-  await db.transaction(
-    'rw',
-    [
-      db.concepts,
-      db.versions,
-      db.folders,
-      db.paths,
-      db.pdfs,
-      db.subpages,
-      db.relations,
-      db.blockTypes,
-    ],
-    async () => {
-      await db.concepts.bulkPut(data.concepts)
-      await db.versions.bulkPut(data.versions)
-      await db.folders.bulkPut(data.folders)
-      await db.paths.bulkPut(data.paths)
-      await db.pdfs.bulkPut(pdfs)
-      await db.subpages.bulkPut(data.subpages ?? [])
-      await db.relations.bulkPut(data.relations ?? [])
-      await db.blockTypes.bulkPut(data.blockTypes ?? [])
-    },
-  )
-
-  // ustawienia wracają na końcu: to zmiana wyglądu, nie danych, więc nie
-  // ma po co blokować nią transakcji na bazie
-  for (const [k, v] of Object.entries(data.ustawienia ?? {})) localStorage.setItem(k, v)
+  await wczytajDane(data, pdfs)
 
   return {
     concepts: data.concepts.length,

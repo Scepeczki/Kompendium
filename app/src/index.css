@@ -5229,4 +5229,67 @@ body.ciagne-szerokosc * {
     padding-left: 10px;
     padding-right: 10px;
   }
+
+  /* ---- Ustawienia ----
+     Dwie kolumny się nie mieszczą, więc spis sekcji idzie na górę jako pasek
+     przesuwany palcem. Te ustawienia SĄ na telefonie potrzebne: właśnie tam
+     siedzi pobieranie notatek z komputera. */
+  .settings-page-body {
+    flex-direction: column;
+  }
+
+  .settings-nav {
+    width: auto;
+    display: flex;
+    gap: 6px;
+    padding: 8px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  /* Na dużym ekranie pozycje spisu zajmują całą szerokość kolumny. W pasku
+     u góry muszą być wąskie — inaczej cztery sztuki robią tysiąc pięćset
+     pikseli i „Dane" leżą daleko za krawędzią ekranu. */
+  .settings-nav-item {
+    flex: none;
+    width: auto;
+    margin-bottom: 0;
+    white-space: nowrap;
+    border-color: var(--line);
+  }
+
+  /* podpowiedź pod nazwą sekcji rozpycha pasek na trzy linijki */
+  .settings-nav-hint {
+    display: none;
+  }
+
+  .settings-page-head {
+    padding-left: 56px;
+  }
+
+  .settings-telefon {
+    flex-direction: column;
+  }
+}
+
+/* pola klucza i repozytorium przy wysyłaniu notatek na telefon */
+.settings-telefon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 2px 0 10px;
+}
+
+.settings-pole {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 220px;
+}
+
+.settings-pole > span {
+  font-size: var(--fs-3);
+  color: var(--muted);
 }
