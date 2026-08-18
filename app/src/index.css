@@ -5083,7 +5083,8 @@ body.ciagne-szerokosc * {
    ========================================================================= */
 
 .szuflada-przycisk,
-.szuflada-cien {
+.szuflada-cien,
+.tylko-telefon {
   display: none;
 }
 
@@ -5101,14 +5102,24 @@ body.ciagne-szerokosc * {
     display: none !important;
   }
 
-  /* ---- lista jako szuflada ---- */
+  .tylko-telefon {
+    display: inline;
+  }
+
+  /* ---- lista jako szuflada ----
+     Wysokość bierzemy z `top: 0; bottom: 0`, a NIE z `100dvh`. Wysokość okna
+     podawana przeglądarce bywa większa niż to, co naprawdę widać (paski
+     przeglądarki, pasek gestów), więc stopka z wejściem w Ustawienia lądowała
+     poza ekranem. Przy `bottom: 0` element kończy się tam, gdzie naprawdę
+     kończy się widok, cokolwiek by przeglądarka opowiadała. */
   .sidebar {
     position: fixed;
     z-index: 40;
     top: 0;
+    bottom: 0;
     left: 0;
     width: min(86vw, 380px);
-    height: 100dvh;
+    height: auto;
     transform: translateX(-101%);
     transition: transform 0.18s ease-out;
     box-shadow: 2px 0 18px rgb(0 0 0 / 0.18);
@@ -5171,10 +5182,11 @@ body.ciagne-szerokosc * {
     position: fixed;
     z-index: 36;
     top: 0;
+    bottom: 0;
     right: 0;
     left: auto;
     width: min(80vw, 340px) !important;
-    height: 100dvh;
+    height: auto;
     max-height: none;
     border-left: 1px solid var(--line);
     border-right: none;
@@ -5223,6 +5235,7 @@ body.ciagne-szerokosc * {
   .sidebar-foot-btn {
     min-width: 44px;
     min-height: 44px;
+    gap: 5px;
   }
 
   /* ---- czytanie ---- */

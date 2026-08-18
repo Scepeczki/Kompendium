@@ -20,12 +20,7 @@ import {
   updateFolder,
   updatePath,
 } from '../db'
-import {
-  type BlockType,
-  type Concept,
-  type Folder,
-  type LearningPath,
-} from '../types'
+import { type Concept, type Folder, type LearningPath } from '../types'
 import { Icon, isIconName, type IconName } from './Icon'
 import { useBlockTypes } from '../blockTypes'
 import { NameDialog } from './NameDialog'
@@ -106,7 +101,11 @@ export function Sidebar({
   const typy = useBlockTypes()
   const dlg = useDialogs()
   const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState<BlockType | 'wszystkie'>('wszystkie')
+  /** Filtr listy. Pusty zbiór = pokaż wszystko. Poza rodzajami kafelków może
+   *  zawierać `SCIEZKI` — ścieżki są w tej liście na równi z kafelkami, więc
+   *  i w filtrze muszą być. Zbiór, a nie jedna wartość, bo szukając czegoś
+   *  chce się zwykle widzieć np. definicje RAZEM z twierdzeniami. */
+  const [wybraneTypy, setWybraneTypy] = useState<Set<string>>(new Set())
   /** Szukanie i filtr chowają się pod ikonami — rozwijane na żądanie. */
   const [searchOpen, setSearchOpen] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -273,7 +272,19 @@ export function Sidebar({
     useLiveQuery(() => db.concepts.filter((c) => !c.pathId).toArray(), []) ?? []
   const paths = useLiveQuery(() => db.paths.toArray(), []) ?? []
 
-  const filtering = search.trim() !== '' || typeFilter !== 'wszystkie'
+  /** Ścieżki mają w filtrze własną pozycję, obok rodzajów kafelków. */
+  const SCIEZKI = ' sciezki'
+  const chceSciezki = wybraneTypy.has(SCIEZKI)
+  const wybraneRodzaje = new Set([...wybraneTypy].filter((t) => t !== SCIEZKI))
+  const przelaczTyp = (id: string) =>
+    setWybraneTypy((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  const filtering = search.trim() !== '' || wybraneTypy.size > 0
 
   // Odporność na osierocone odwołania: jeśli folderId/parentId wskazuje na
   // folder, który już nie istnieje (np. zaszłość ze starszej wersji bazy),
@@ -786,9 +797,15 @@ export function Sidebar({
         : conceptRow(n.concept, parentId, n)
 
   // Widok płaski przy szukaniu / filtrze typu.
+  const pasuje = (tekst: string) => {
+    const q = search.trim().toLowerCase()
+    return !q || tekst.toLowerCase().includes(q)
+  }
   const flatList = concepts
     .filter((c) => {
-      if (typeFilter !== 'wszystkie' && c.type !== typeFilter) return false
+      // same ścieżki w filtrze = kafelków nie pokazujemy wcale
+      if (wybraneRodzaje.size > 0 && !wybraneRodzaje.has(c.type)) return false
+      if (wybraneRodzaje.size === 0 && chceSciezki) return false
       const q = search.trim().toLowerCase()
       if (!q) return true
       return (
@@ -798,14 +815,13 @@ export function Sidebar({
     })
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 
-  // Szukajka znajduje też ścieżki (po nazwie).
-  const flatPaths =
-    typeFilter !== 'wszystkie'
+  // Ścieżki: wybrane w filtrze pokazują się wszystkie, a bez filtru — te,
+  // których nazwa pasuje do szukanego słowa.
+  const flatPaths = chceSciezki
+    ? paths.filter((p) => pasuje(p.name))
+    : wybraneTypy.size > 0
       ? []
-      : paths.filter((p) => {
-          const q = search.trim().toLowerCase()
-          return q && p.name.toLowerCase().includes(q)
-        })
+      : paths.filter((p) => search.trim() !== '' && pasuje(p.name))
 
   return (
     <aside className="sidebar">
@@ -827,38 +843,54 @@ export function Sidebar({
           </button>
           <div className="sidebar-tool-wrap">
             <button
-              className={`sidebar-tool ${typeFilter !== 'wszystkie' ? 'active' : ''}`}
+              className={`sidebar-tool ${wybraneTypy.size > 0 ? 'active' : ''}`}
               title={
-                typeFilter === 'wszystkie'
-                  ? 'Pokaż tylko wybrany typ'
-                  : `Pokazywane tylko: ${typy.label(typeFilter)}`
+                wybraneTypy.size === 0
+                  ? 'Pokaż tylko wybrane rodzaje'
+                  : `Pokazywane: ${[...wybraneTypy]
+                      .map((t) => (t === SCIEZKI ? 'ścieżki' : typy.label(t)))
+                      .join(', ')}`
               }
               onClick={() => setFilterOpen((o) => !o)}
             >
               <Icon name="filtr" />
-              {typeFilter !== 'wszystkie' && (
-                <span className="sidebar-tool-tag">{typy.short(typeFilter)}</span>
+              {wybraneTypy.size === 1 && (
+                <span className="sidebar-tool-tag">
+                  {chceSciezki ? '↝' : typy.short([...wybraneTypy][0])}
+                </span>
+              )}
+              {wybraneTypy.size > 1 && (
+                <span className="sidebar-tool-tag">{wybraneTypy.size}</span>
               )}
             </button>
             {filterOpen && (
+              // Wybór jest wielokrotny, więc okienko zostaje otwarte po
+              // kliknięciu — zamyka je dopiero klik obok albo „Gotowe".
               <div className="sidebar-filter-pop">
                 <button
-                  className={`sidebar-filter-item ${typeFilter === 'wszystkie' ? 'active' : ''}`}
-                  onClick={() => {
-                    setTypeFilter('wszystkie')
-                    setFilterOpen(false)
-                  }}
+                  className={`sidebar-filter-item ${wybraneTypy.size === 0 ? 'active' : ''}`}
+                  onClick={() => setWybraneTypy(new Set())}
                 >
-                  Wszystkie typy
+                  Wszystko
                 </button>
-                {typy.choices.map((t) => (
+                <button
+                  className={`sidebar-filter-item ${chceSciezki ? 'active' : ''}`}
+                  onClick={() => przelaczTyp(SCIEZKI)}
+                >
+                  <span className="tree-icon type-path">
+                    <Icon name="sciezka" size={0.95} />
+                  </span>
+                  Ścieżki
+                </button>
+                <div className="tree-menu-sep" />
+                {/* wszystkie rodzaje, także schowane z listy wyboru i dodane
+                    własnoręcznie — filtruje się to, co się ma, a nie to, co
+                    program proponuje przy nowym kafelku */}
+                {typy.all.map((t) => (
                   <button
                     key={t.id}
-                    className={`sidebar-filter-item ${typeFilter === t.id ? 'active' : ''}`}
-                    onClick={() => {
-                      setTypeFilter(t.id)
-                      setFilterOpen(false)
-                    }}
+                    className={`sidebar-filter-item ${wybraneTypy.has(t.id) ? 'active' : ''}`}
+                    onClick={() => przelaczTyp(t.id)}
                   >
                     <span className="type-mini" data-typ={t.id} style={typy.style(t.id)}>
                       {t.short}
@@ -866,6 +898,13 @@ export function Sidebar({
                     {t.label}
                   </button>
                 ))}
+                <div className="tree-menu-sep" />
+                <button
+                  className="sidebar-filter-item sidebar-filter-gotowe"
+                  onClick={() => setFilterOpen(false)}
+                >
+                  Gotowe
+                </button>
               </div>
             )}
           </div>
@@ -1063,6 +1102,10 @@ export function Sidebar({
           onClick={onOpenSettings}
         >
           <Icon name="ustawienia" />
+          {/* Na telefonie to jedyne wejście do pobierania notatek z komputera,
+              więc nie może być bezimienną ikonką w rogu. Na dużym ekranie
+              podpis chowamy — tam stopka ma być wąska. */}
+          <span className="tylko-telefon">Ustawienia</span>
         </button>
       </footer>
     </aside>
