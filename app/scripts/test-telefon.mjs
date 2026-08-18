@@ -83,6 +83,24 @@ check('nic nie wystaje poza szerokość ekranu', szerokosc.doc <= szerokosc.okno
 await page.click('.szuflada-przycisk')
 await page.waitForTimeout(400)
 check('szuflada wjeżdża', await widoczne('.sidebar'))
+
+// Wejście w Ustawienia musi dać się TRAFIĆ PALCEM. Na dole ekranu telefonu
+// siedzi pasek przeglądarki i pasek gestów, więc przycisk przyklejony do
+// krawędzi jest formalnie widoczny, a w dłoni nieosiągalny.
+const ust = await page.evaluate(() => {
+  const el = document.querySelector('.sidebar-foot-btn[title*="Ustawienia"]')
+  if (!el) return null
+  const r = el.getBoundingClientRect()
+  return {
+    odDolu: Math.round(innerHeight - r.bottom),
+    w: Math.round(r.width),
+    h: Math.round(r.height),
+  }
+})
+check('wejście w Ustawienia nie klei się do dolnej krawędzi',
+  ust !== null && ust.odDolu >= 16, `${ust?.odDolu} px od dołu`)
+check('i jest wielkości palca, nie kursora',
+  ust !== null && ust.w >= 40 && ust.h >= 40, `${ust?.w}×${ust?.h}`)
 await page.click('.concept-item:has-text("Teoria mnogości")')
 await page.waitForTimeout(600)
 check('wybór ścieżki chowa szufladę z powrotem', !(await widoczne('.sidebar')))

@@ -5210,6 +5210,21 @@ body.ciagne-szerokosc * {
     padding-bottom: 8px;
   }
 
+  /* Stopka listy — a w niej wejście w Ustawienia, czyli jedyne miejsce, skąd
+     telefon pobiera notatki z komputera. Na dole ekranu telefonu siedzi pasek
+     przeglądarki i pasek gestów, więc przyciski przyklejone do krawędzi są
+     widoczne, a mimo to nie do trafienia palcem. Stąd zapas na dole i cele
+     wielkości palca, a nie kursora. */
+  .sidebar-footer {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+
+  .sidebar-foot-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   /* ---- czytanie ---- */
   .linear-view,
   .script-embed {
