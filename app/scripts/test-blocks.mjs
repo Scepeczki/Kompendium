@@ -82,7 +82,7 @@ console.log(
 // 3. zmiana barwy typu w edytorze typów przestraja blok.
 // Barwy siedzą w bazie (tabela blockTypes), nie w localStorage — sprawdzamy
 // więc zapis w bazie, a wygląd po powrocie do Skryptu.
-await page.click('button[title="Ustawienia"]')
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.click('.settings-nav-item:has-text("Typy kafelków")')
 await page.waitForSelector('.type-row')

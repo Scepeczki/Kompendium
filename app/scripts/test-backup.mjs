@@ -37,7 +37,7 @@ await page.waitForSelector('.path-canvas')
 await page.click('.path-canvas .btn-close[title*="Zamknij ścieżkę"]')
 
 // własny typ i zmienione ustawienie — mają wrócić razem z danymi
-await page.click('button[title="Ustawienia"]')
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.click('.settings-nav-item:has-text("Typy kafelków")')
 await page.waitForSelector('.type-row')
@@ -74,7 +74,7 @@ const emptyBefore = await page.locator('.concept-item').count()
 console.log(`✓ baza wyczyszczona (kafelków widocznych: ${emptyBefore})`)
 
 // import
-await page.click('button[title="Ustawienia"]')
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.click('.settings-nav-item:has-text("Dane")')
 await page.setInputFiles('.settings-page input[type=file]', backupPath)
@@ -95,7 +95,7 @@ await page.waitForSelector('.pdflib-item:has-text("test")')
 console.log('✓ PDF odzyskany w bibliotece po imporcie')
 
 // własny typ i ustawienie wyglądu też wróciły
-await page.click('button[title="Ustawienia"]')
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.click('.settings-nav-item:has-text("Typy kafelków")')
 await page.waitForSelector('.type-row')

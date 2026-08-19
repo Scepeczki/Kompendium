@@ -69,6 +69,34 @@ const widoczne = (sel) =>
 
 check('lista nie zajmuje ekranu, dopóki jej nie zawołasz', !(await widoczne('.sidebar')))
 check('jest czym ją zawołać', await widoczne('.szuflada-przycisk'))
+
+// Wejście w Ustawienia MUSI być widoczne od razu, bez szukania po stopkach:
+// stamtąd pobiera się notatki z komputera. Sprawdzamy, że stoi w rogu, jest
+// wielkości palca i nie zachodzi na ☰.
+const rogi = await page.evaluate(() => {
+  const p = (s) => {
+    const el = document.querySelector(s)
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), prawa: Math.round(r.right) }
+  }
+  return { menu: p('.szuflada-przycisk'), ust: p('.ustawienia-przycisk') }
+})
+check('Ustawienia mają własne wejście w rogu ekranu',
+  rogi.ust !== null && rogi.ust.y >= 0 && rogi.ust.w >= 36 && rogi.ust.h >= 36,
+  JSON.stringify(rogi.ust))
+check('i nie zachodzi na przycisk listy',
+  rogi.menu !== null && rogi.ust !== null && rogi.ust.x >= rogi.menu.prawa,
+  `☰ kończy się na ${rogi.menu?.prawa}, zębatka zaczyna na ${rogi.ust?.x}`)
+await page.click('.ustawienia-przycisk')
+await page.waitForSelector('.settings-page')
+check('i naprawdę otwiera Ustawienia', (await page.locator('.settings-page').count()) === 1)
+await page.click('.settings-nav button:has-text("Dane")')
+await page.waitForSelector('.settings-telefon')
+check('a w nich sekcję pobierania notatek',
+  (await page.locator('.btn:has-text("Pobierz notatki")').count()) === 1)
+await page.click('.settings-page-head button:has-text("Wróć")')
+await page.waitForTimeout(400)
 check('panel PDF się nie pokazuje', !(await widoczne('.pdf-panel')))
 
 // nic nie może wystawać poza ekran — poziome przewijanie to pierwszy objaw,

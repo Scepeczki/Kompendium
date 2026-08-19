@@ -20,7 +20,22 @@ function copyPdfAssets() {
 }
 copyPdfAssets()
 
+/** Znacznik wersji — data i godzina zbudowania paczki.
+ *
+ *  Po to, żeby dało się jednym spojrzeniem stwierdzić, czy urządzenie ma nową
+ *  wersję, czy trzyma starą kopię. Bez tego każda rozmowa o „nie działa"
+ *  zaczyna się od zgadywania, co ten telefon właściwie pokazuje. */
+const wersja = new Date()
+  .toLocaleString('pl', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  .replace(',', '')
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: { __WERSJA__: JSON.stringify(wersja) },
 })

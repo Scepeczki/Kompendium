@@ -96,7 +96,7 @@ for (const r of shape) {
 }
 
 // 1. kopia zapasowa obejmuje powiązania
-await page.click('button[title="Ustawienia"]')
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.click('.settings-nav-item:has-text("Dane")')
 const dl = page.waitForEvent('download')

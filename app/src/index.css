@@ -5084,6 +5084,7 @@ body.ciagne-szerokosc * {
 
 .szuflada-przycisk,
 .szuflada-cien,
+.ustawienia-przycisk,
 .tylko-telefon {
   display: none;
 }
@@ -5162,8 +5163,37 @@ body.ciagne-szerokosc * {
     box-shadow: 0 1px 6px rgb(0 0 0 / 0.1);
   }
 
-  .app.szuflada-otwarta .szuflada-przycisk {
+  .app.szuflada-otwarta .szuflada-przycisk,
+  .app.szuflada-otwarta .ustawienia-przycisk {
     display: none;
+  }
+
+  /* Wejście w Ustawienia przyklejone do rogu, tuż obok ☰. Stopka listy bywa
+     poza zasięgiem (przeglądarka telefonu podaje wysokość okna większą niż
+     to, co naprawdę widać), a stąd pobiera się notatki z komputera — więc
+     musi być miejsce, którego nic nie przykryje. */
+  .ustawienia-przycisk {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    z-index: 38;
+    left: 54px;
+    top: calc(8px + env(safe-area-inset-top));
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--ink-soft);
+    box-shadow: 0 1px 6px rgb(0 0 0 / 0.1);
+  }
+
+  /* dwa przyciski w rogu — treść musi zaczynać się za nimi */
+  .editor-header,
+  .path-toolbar,
+  .settings-page-head {
+    padding-left: 104px;
   }
 
   /* ---- treść: jedna kolumna, miejsce na przycisk szuflady ---- */
@@ -5320,4 +5350,16 @@ body.ciagne-szerokosc * {
 .settings-pole > span {
   font-size: var(--fs-3);
   color: var(--muted);
+}
+
+/* Data zbudowania paczki obok tytułu — mała, szara, żeby nie rzucała się
+   w oczy, ale zawsze była pod ręką przy pytaniu „czy mam nową wersję". */
+.wersja-budowy {
+  margin-left: 8px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--muted);
+  white-space: nowrap;
 }

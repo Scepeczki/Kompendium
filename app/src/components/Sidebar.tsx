@@ -273,7 +273,7 @@ export function Sidebar({
   const paths = useLiveQuery(() => db.paths.toArray(), []) ?? []
 
   /** Ścieżki mają w filtrze własną pozycję, obok rodzajów kafelków. */
-  const SCIEZKI = ' sciezki'
+  const SCIEZKI = '@sciezki'
   const chceSciezki = wybraneTypy.has(SCIEZKI)
   const wybraneRodzaje = new Set([...wybraneTypy].filter((t) => t !== SCIEZKI))
   const przelaczTyp = (id: string) =>
@@ -826,7 +826,15 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <header className="sidebar-header">
-        <h1 className="app-title">Kompendium</h1>
+        <h1 className="app-title">
+          Kompendium
+          {/* Data zbudowania paczki. Wygląda na drobiazg, ale bez niej każda
+              rozmowa o „nie działa" zaczyna się od zgadywania, czy urządzenie
+              ma nową wersję, czy trzyma starą kopię. */}
+          <span className="wersja-budowy" title="Wersja programu (data zbudowania)">
+            {__WERSJA__}
+          </span>
+        </h1>
         <div className="sidebar-tools">
           <button
             className={`sidebar-tool ${searchOpen || search ? 'active' : ''}`}

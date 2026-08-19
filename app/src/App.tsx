@@ -9,8 +9,28 @@ import { PathCanvas } from './components/PathCanvas'
 import { PdfPanel, type PdfTarget } from './components/PdfPanel'
 import { SettingsPage } from './components/SettingsPage'
 import { DialogProvider } from './components/Dialogs'
+import { Icon } from './components/Icon'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
+
+/** Czy jesteśmy na wąskim ekranie (telefon).
+ *
+ *  Rzeczy przeznaczone tylko na telefon chowaliśmy dotąd arkuszem stylów, ale
+ *  schowany element nadal jest w drzewie — i potrafi przechwycić kliknięcie
+ *  albo podszyć się pod inny w wyszukiwaniu. Lepiej, żeby na dużym ekranie
+ *  po prostu ich nie było. */
+function useTelefon(): boolean {
+  const [waski, setWaski] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 760px)')
+    const zmiana = () => setWaski(mq.matches)
+    mq.addEventListener('change', zmiana)
+    return () => mq.removeEventListener('change', zmiana)
+  }, [])
+  return waski
+}
 
 /** Pionowa krawędź do zmiany szerokości sąsiedniego panelu. */
 function Splitter({ onDrag }: { onDrag: (dx: number) => void }) {
@@ -107,6 +127,7 @@ function Widok() {
   /** Telefon: lista wjeżdża z boku i chowa się, gdy coś z niej wybierzesz.
    *  Na dużym ekranie ten stan nic nie robi — lista stoi tam na stałe. */
   const [szuflada, setSzuflada] = useState(false)
+  const telefon = useTelefon()
 
   const selectConcept = (id: string) => {
     setSzuflada(false)
@@ -239,6 +260,23 @@ function Widok() {
       >
         ☰
       </button>
+      {/* Ustawienia mają na telefonie własne, przyklejone wejście — obok ☰.
+          To stamtąd pobiera się notatki z komputera, więc nie może zależeć od
+          tego, czy stopka listy zmieści się na ekranie: wysokość okna podawana
+          przez przeglądarkę telefonu bywa większa niż to, co naprawdę widać. */}
+      {telefon && (
+        <button
+          className="ustawienia-przycisk"
+          title="Ustawienia"
+          aria-label="Ustawienia"
+          onClick={() => {
+            setSzuflada(false)
+            setShowSettings(true)
+          }}
+        >
+          <Icon name="ustawienia" size={1.05} />
+        </button>
+      )}
       <div className="szuflada-cien" onClick={() => setSzuflada(false)} />
       <Sidebar
         selectedId={selectedId}

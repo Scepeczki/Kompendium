@@ -63,7 +63,7 @@ console.log('✓ powrót do wizualnego: formatowanie zachowane')
 
 // 6. ustawienia: motyw ciemny + szerokość strony
 const bgLight = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
-await page.click('button[title="Ustawienia"]')
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.click('.settings-page button:has-text("Ciemny")')
 await page.fill('.settings-row:has-text("Szerokość strony tekstu") .settings-slider', '1200')

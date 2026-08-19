@@ -265,7 +265,7 @@ console.log(
 )
 
 // 10. suwak w Ustawieniach pokazuje wartość z linijki
-await page.click('button[title="Ustawienia"]')
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 const slider = await page.inputValue(
   '.settings-row:has-text("Szerokość strony tekstu") .settings-slider',
