@@ -83,6 +83,58 @@ function zBase64(b64: string): string {
   return new TextDecoder().decode(bajty)
 }
 
+/** Sprawdza klucz i mówi po ludzku, co widzi.
+ *
+ *  „Nie widzę repozytorium" ma kilka zupełnie różnych przyczyn: zły klucz,
+ *  klucz z innego konta, klucz bez wybranego repozytorium, klucz bez
+ *  uprawnienia Contents, wreszcie literówka w nazwie. GitHub na wszystkie
+ *  odpowiada tak samo, więc pytamy go po kolei o rzeczy, które je rozróżniają,
+ *  zamiast kazać użytkownikowi zgadywać. */
+export async function sprawdzKlucz(): Promise<string> {
+  const token = telefonToken()
+  const repo = telefonRepo()
+  if (!token) return 'Nie ma wklejonego klucza.'
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    return `„${repo}" nie wygląda na nazwę repozytorium — powinno być w postaci ` +
+      'właściciel/nazwa, np. Scepeczki/Kompendium.'
+  }
+
+  let kto: string
+  try {
+    const u = (await api('/user', { token })) as { login?: string }
+    kto = u.login ?? '(bez nazwy)'
+  } catch (e) {
+    return `Klucz nie działa w ogóle: ${e instanceof Error ? e.message : String(e)}`
+  }
+
+  const wlasciciel = repo.split('/')[0]
+  try {
+    const r = (await api(`/repos/${repo}`, { token })) as {
+      full_name?: string
+      private?: boolean
+      permissions?: { push?: boolean }
+    }
+    const zapis = r.permissions?.push
+    return (
+      `Klucz należy do konta „${kto}" i widzi repozytorium „${r.full_name}" ` +
+      `(${r.private ? 'prywatne' : 'publiczne'}). ` +
+      (zapis
+        ? 'Ma prawo zapisu — wszystko gotowe, kliknij „Wyślij notatki".'
+        : 'Ale NIE ma prawa zapisu: w ustawieniach klucza daj Contents: Read and write.')
+    )
+  } catch {
+    return (
+      `Klucz należy do konta „${kto}", ale nie widzi repozytorium „${repo}". ` +
+      (kto.toLowerCase() !== wlasciciel.toLowerCase()
+        ? `Uwaga: repozytorium jest zapisane jako własność „${wlasciciel}", a klucz ` +
+          `jest z konta „${kto}" — to najpewniej ta różnica.`
+        : 'Sprawdź w ustawieniach klucza: Repository access musi obejmować to ' +
+          'repozytorium, a Permissions → Contents być ustawione na Read and write. ' +
+          'Klucz „classic" potrzebuje zaznaczonego zakresu repo.')
+    )
+  }
+}
+
 export interface WynikWyslania {
   kafelki: number
   sciezki: number
@@ -99,6 +151,16 @@ export async function wyslijNotatki(): Promise<WynikWyslania> {
 
   const { dane } = await zbierzDane()
   const tekst = JSON.stringify(dane)
+
+  // Zanim wyślemy kilka megabajtów, sprawdzamy jednym pytaniem, czy klucz
+  // w ogóle widzi repozytorium. Bez tego pierwszy błąd przychodzi w połowie
+  // wysyłki i nie wiadomo, czy problem jest w kluczu, czy w danych.
+  await api(`/repos/${repo}`, { token }).catch(() => {
+    throw new Error(
+      `Klucz nie widzi repozytorium „${repo}". Sprawdź nazwę oraz to, czy ` +
+        'klucz ma do niego dostęp i uprawnienie Contents: Read and write.',
+    )
+  })
 
   const blob = (await api(`/repos/${repo}/git/blobs`, {
     token,
@@ -160,7 +222,27 @@ export async function pobierzNotatki(): Promise<WynikPobrania> {
   const repo = telefonRepo()
   if (!token) throw new Error('Najpierw wklej klucz dostępu.')
 
-  const wpis = (await api(`/repos/${repo}/contents/${PLIK}?ref=${GALAZ}`, { token })) as {
+  // GitHub odpowiada „404" i na brak migawki, i na brak dostępu do
+  // repozytorium (kluczom bez uprawnień celowo nie zdradza, że coś istnieje).
+  // Dla człowieka to dwie zupełnie różne sprawy — więc jak już 404, to
+  // pytamy jeszcze o samo repozytorium i mówimy, co naprawdę poprawić.
+  const wpis = (await api(`/repos/${repo}/contents/${PLIK}?ref=${GALAZ}`, {
+    token,
+  }).catch(async (e: Error) => {
+    if (!/Nie ma takiego repozytorium/.test(e.message)) throw e
+    const widacRepo = await api(`/repos/${repo}`, { token }).then(
+      () => true,
+      () => false,
+    )
+    throw new Error(
+      widacRepo
+        ? 'Repozytorium widzę, ale nie ma w nim jeszcze żadnej migawki. ' +
+          'Na komputerze kliknij „Wyślij notatki" — dopiero to ją tam tworzy.'
+        : `Klucz nie widzi repozytorium „${repo}". Sprawdź, czy nazwa jest ` +
+          'dokładnie taka jak na GitHubie i czy klucz ma do niego dostęp ' +
+          '(Repository access) oraz uprawnienie Contents.',
+    )
+  })) as {
     content?: string
     encoding?: string
     download_url?: string

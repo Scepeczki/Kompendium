@@ -19,6 +19,8 @@ const check = (nazwa, ok, szczegol = '') => {
 /** Migawka „na GitHubie" — jedyne miejsce, w którym coś między urządzeniami
  *  przechodzi. Zaczynamy z pustym, tak jak przy pierwszym wysłaniu. */
 let migawka = null
+/** Czy udawany klucz widzi repozytorium — do sprawdzania komunikatów błędów. */
+let widacRepo = true
 
 /** Udawany GitHub. Odpowiada dokładnie tak, jak potrzebuje src/telefon.ts. */
 async function podstawGitHuba(context) {
@@ -38,6 +40,11 @@ async function podstawGitHuba(context) {
     if (url.pathname.endsWith('/contents/migawka.json')) {
       if (!migawka) return json({ message: 'Not Found' }, 404)
       return json({ content: migawka, encoding: 'base64' })
+    }
+    // samo repozytorium — po tym program rozpoznaje, czy klucz w ogóle widzi
+    // to miejsce, czy tylko nie ma jeszcze migawki
+    if (/^\/repos\/[^/]+\/[^/]+$/.test(url.pathname)) {
+      return widacRepo ? json({ full_name: 'Scepeczki/Kompendium' }) : json({ message: 'Not Found' }, 404)
     }
     return json({ message: `nieobsługiwane w teście: ${req.method()} ${url.pathname}` }, 500)
   })
@@ -194,6 +201,9 @@ check('nazwa pliku mówi, co to jest', /^notatki-\d{4}-\d{2}-\d{2}\.json$/.test(
 
 // trzecie urządzenie: pusta baza, żadnego GitHuba, tylko plik
 const drugiTelefon = await browser.newContext({ viewport: { width: 390, height: 844 } })
+// GitHub podstawiamy też tutaj — droga plikowa go nie dotyka, ale niżej
+// sprawdzamy komunikaty błędów i nie chcemy przy tym pukać do prawdziwego
+await podstawGitHuba(drugiTelefon)
 const tel2 = await drugiTelefon.newPage()
 tel2.on('pageerror', (e) => errors.push(`telefon2: ${e}`))
 await tel2.goto('http://localhost:5173')
@@ -230,6 +240,38 @@ check('i tu też nic nie zginęło',
   naDrugim.some((t) => t.includes('Zrobione bez internetu')),
   naDrugim.join(' | '))
 await fs.unlink(sciezkaPliku).catch(() => {})
+
+// ============ komunikaty błędów mówią, co poprawić ============
+//
+// GitHub na brak migawki i na brak dostępu odpowiada tak samo („404"), a to
+// dwie zupełnie różne sprawy: raz trzeba wysłać z komputera, raz poprawić
+// klucz. Program musi je rozróżniać, bo inaczej zostaje zgadywanie.
+migawka = null
+widacRepo = true
+// szuflada jest w tym miejscu otwarta, więc korzystamy z wejścia w jej stopce
+await tel2.click('.sidebar-foot-btn[title*="Ustawienia"]')
+await tel2.waitForSelector('.settings-page')
+await tel2.click('.settings-nav button:has-text("Dane")')
+await tel2.waitForSelector('.settings-telefon')
+await tel2.fill('.settings-pole:has-text("Repozytorium") input', 'Scepeczki/Kompendium')
+await tel2.fill('.settings-klucz input', 'github_pat_udawany')
+await tel2.click('.settings-label:has-text("Notatki na telefonie")')
+await tel2.click('.btn:has-text("Pobierz notatki")')
+await tel2.waitForSelector('.ask-dialog')
+await tel2.click('.ask-foot .btn:last-child')
+await tel2.waitForSelector('.settings-status', { timeout: 20000 })
+const bezMigawki = await tel2.textContent('.settings-status')
+check('brak migawki: program mówi, żeby wysłać z komputera',
+  bezMigawki.includes('nie ma w nim jeszcze żadnej migawki'), bezMigawki)
+
+widacRepo = false
+await tel2.click('.btn:has-text("Pobierz notatki")')
+await tel2.waitForSelector('.ask-dialog')
+await tel2.click('.ask-foot .btn:last-child')
+await tel2.waitForTimeout(1200)
+const bezDostepu = await tel2.textContent('.settings-status')
+check('brak dostępu: program mówi o kluczu i uprawnieniach',
+  bezDostepu.includes('Klucz nie widzi repozytorium'), bezDostepu)
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

@@ -5380,3 +5380,89 @@ body.ciagne-szerokosc * {
   flex: none;
   padding: 4px 9px;
 }
+
+/* ---------------------------------------------------------------------------
+   USTAWIENIA — czytelność
+   ---------------------------------------------------------------------------
+   Objaśnienia potrafią urosnąć w ścianę tekstu, przez którą nie widać już
+   samych przycisków. Trzy rzeczy to naprawiają: wiersz nie może być za długi
+   (oko gubi początek następnego), podpowiedź ma być cichsza od tego, co
+   objaśnia, a szczegóły potrzebne raz chowają się pod rozwinięciem.
+   ------------------------------------------------------------------------- */
+
+.settings-row {
+  gap: 7px;
+  padding-bottom: 22px;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+}
+
+.settings-label {
+  font-size: var(--fs-4);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.settings-hint {
+  max-width: 62ch;
+  line-height: 1.5;
+}
+
+/* stan po kliknięciu („Wysłane: 85 kafelków…") — to jedyny napis w tej
+   sekcji, który ma zwrócić uwagę, więc jako jedyny nie jest szary */
+.settings-status {
+  color: var(--accent-ink);
+  font-size: var(--fs-3);
+}
+
+/* daty ostatniego wysłania i pobrania — drobiazg, nie zdanie */
+.settings-kiedy {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--panel-alt);
+  font-size: var(--fs-2);
+  white-space: nowrap;
+}
+
+.settings-wiecej {
+  max-width: 62ch;
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.settings-wiecej > summary {
+  cursor: pointer;
+  color: var(--accent-ink);
+  padding: 2px 0;
+  width: fit-content;
+}
+
+.settings-wiecej > p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+.settings-backup-actions {
+  flex-wrap: wrap;
+}
+
+/* dwie drogi przenoszenia notatek — podpis obok, nie nad, żeby nie robić
+   z dwóch wierszy przycisków czterech osobnych akapitów */
+.settings-droga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-droga-nazwa {
+  flex: none;
+  width: 12ch;
+  text-align: right;
+  font-size: var(--fs-2);
+  color: var(--muted);
+}

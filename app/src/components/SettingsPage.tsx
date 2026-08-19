@@ -7,6 +7,7 @@ import {
   ostatnioPobrano,
   ostatnioWyslano,
   pobierzNotatki,
+  sprawdzKlucz,
   telefonRepo,
   telefonToken,
   wyslijNotatki,
@@ -121,7 +122,14 @@ export function SettingsPage({ onClose }: Props) {
   }
 
   const [busy, setBusy] = useState<
-    'export' | 'import' | 'wyslij' | 'pobierz' | 'plik-zapis' | 'plik-czyt' | null
+    | 'export'
+    | 'import'
+    | 'wyslij'
+    | 'pobierz'
+    | 'plik-zapis'
+    | 'plik-czyt'
+    | 'sprawdzam'
+    | null
   >(null)
   const [status, setStatus] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -349,10 +357,7 @@ export function SettingsPage({ onClose }: Props) {
                     </button>
                   ))}
                 </div>
-                <p className="settings-hint">
-                  Rysuje się tylko na marginesach wokół kartki, w tle Skryptu i
-                  biblioteki PDF — nigdy pod samym tekstem.
-                </p>
+                <p className="settings-hint">Tylko na marginesach — nigdy pod tekstem.</p>
               </div>
 
               <div className="settings-row">
@@ -369,9 +374,6 @@ export function SettingsPage({ onClose }: Props) {
                   value={treeSize}
                   onChange={(e) => setTreeSize(Number(e.target.value))}
                 />
-                <p className="settings-hint">
-                  Dotyczy paska bocznego — listy kafelków, folderów i ścieżek.
-                </p>
               </div>
 
               <div className="settings-row">
@@ -388,10 +390,7 @@ export function SettingsPage({ onClose }: Props) {
                   value={width}
                   onChange={(e) => setPageWidth(Number(e.target.value))}
                 />
-                <p className="settings-hint">
-                  Dotyczy edytora, widoku Linia i Skryptu. To samo ustawiają zielone
-                  trójkąciki na linijce nad edytorem.
-                </p>
+                <p className="settings-hint">To samo robią trójkąciki na linijce nad edytorem.</p>
               </div>
 
               <div className="settings-row">
@@ -427,10 +426,7 @@ export function SettingsPage({ onClose }: Props) {
                   value={indOff}
                   onChange={(e) => setIndOffset(Number(e.target.value))}
                 />
-                <p className="settings-hint">
-                  Jest zarazem marginesem tekstu na kartce — niebieskie znaczniki
-                  stoją dokładnie tam, gdzie zaczyna się tekst.
-                </p>
+                <p className="settings-hint">Zarazem margines tekstu na kartce.</p>
               </div>
             </>
           )}
@@ -448,11 +444,11 @@ export function SettingsPage({ onClose }: Props) {
                     (v) => CONTENT_FONT_OPTIONS.find((o) => o.value === v)?.label ?? '',
                   )}
                 </div>
-                <p className="settings-hint">
-                  Dotyczy tylko treści kafelków — edytora, Linii i Skryptu. Interfejs
-                  zostaje bezszeryfowy. Szeryfowy krój lepiej trzyma towarzystwo wzorom,
-                  bo KaTeX też jest szeryfowy.
-                </p>
+                <p className="settings-hint">Dotyczy treści kafelków — interfejs zostaje bezszeryfowy.</p>
+                <details className="settings-wiecej">
+                  <summary>Który krój wybrać</summary>
+                  <p>Szeryfowy lepiej trzyma towarzystwo wzorom, bo KaTeX też jest szeryfowy — tekst i wzór wyglądają wtedy jak jedno pismo.</p>
+                </details>
               </div>
               <div className="settings-row">
                 <span className="settings-label">Interlinia</span>
@@ -474,9 +470,7 @@ export function SettingsPage({ onClose }: Props) {
                 {choice(MATH_SCALE_OPTIONS, mScale, setMathScale, (v) =>
                   `${Math.round(v * 100)}%`,
                 )}
-                <p className="settings-hint">
-                  Przy 100% wzór ma dokładnie rozmiar sąsiedniego tekstu.
-                </p>
+                <p className="settings-hint">Przy 100% wzór jest wielkości sąsiedniego tekstu.</p>
               </div>
               <div className="settings-row">
                 <span className="settings-label">Odstęp wzorów wystawionych ($$)</span>
@@ -487,10 +481,7 @@ export function SettingsPage({ onClose }: Props) {
                   (v) => MATH_GAP_OPTIONS.find((o) => o.value === v)?.label ?? '',
                 )}
               </div>
-              <p className="settings-hint">
-                Te same ustawienia są pod przyciskiem ↕ na pasku edytora — tam
-                wygodniej je dobierać, patrząc na tekst.
-              </p>
+              <p className="settings-hint">To samo jest pod przyciskiem ↕ na pasku edytora.</p>
             </>
           )}
 
@@ -499,13 +490,11 @@ export function SettingsPage({ onClose }: Props) {
               <div className="settings-row">
                 <span className="settings-label">Typy kafelków</span>
                 <TypeEditor />
-                <p className="settings-hint">
-                  Typy są zapisane w bazie, więc jadą razem z kopią zapasową.
-                  Każdy da się przemianować, przemalować, schować z listy wyboru
-                  i usunąć — usunięcie pyta, ile kafelków zmieni typ, i przepisuje
-                  je na inny, więc nic nie ginie. Musi zostać przynajmniej jeden
-                  typ; skasowane fabryczne wraca przyciskiem „Przywróć fabryczne".
-                </p>
+                <p className="settings-hint">Typy jadą razem z kopią zapasową.</p>
+                <details className="settings-wiecej">
+                  <summary>Co można z nimi zrobić</summary>
+                  <p>Każdy da się przemianować, przemalować, schować z listy wyboru i usunąć. Usunięcie pyta, ile kafelków zmieni typ, i przepisuje je na inny — nic nie ginie. Musi zostać przynajmniej jeden typ; skasowany fabryczny wraca przyciskiem „Przywróć fabryczne".</p>
+                </details>
               </div>
 
               <div className="settings-row">
@@ -522,10 +511,7 @@ export function SettingsPage({ onClose }: Props) {
                   value={tint}
                   onChange={(e) => setBlockTint(Number(e.target.value))}
                 />
-                <p className="settings-hint">
-                  Kolor typu barwi pasek nagłówka, tło i kreskę przy treści bloku
-                  w widoku Linia i Skrypt. Przy 0% zostają same kreski i napisy.
-                </p>
+                <p className="settings-hint">Przy 0% zostają same kreski i napisy.</p>
               </div>
             </>
           )}
@@ -555,8 +541,7 @@ export function SettingsPage({ onClose }: Props) {
                 </div>
                 {status && <p className="settings-hint settings-status">{status}</p>}
                 <p className="settings-hint">
-                  Eksport zapisuje wszystko — kafelki, wersje, strony, powiązania,
-                  ścieżki i PDF-y — do jednego pliku <code>.zip</code>.
+                  Wszystko do jednego pliku <code>.zip</code> — razem z PDF-ami.
                 </p>
               </div>
 
@@ -614,75 +599,113 @@ export function SettingsPage({ onClose }: Props) {
                       >
                         ⧉
                       </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        title="Sprawdź, co ten klucz widzi"
+                        disabled={busy !== null}
+                        onClick={async () => {
+                          zapiszUstawieniaTelefonu(token, repo)
+                          setBusy('sprawdzam')
+                          setStatusTel('Sprawdzam klucz…')
+                          try {
+                            setStatusTel(await sprawdzKlucz())
+                          } finally {
+                            setBusy(null)
+                          }
+                        }}
+                      >
+                        Sprawdź
+                      </button>
                     </div>
                   </label>
                 </div>
-                <div className="settings-backup-actions">
-                  <button className="btn" disabled={busy !== null} onClick={handleWyslij}>
-                    {busy === 'wyslij' ? 'Wysyłam…' : '⇧ Wyślij notatki (z komputera)'}
-                  </button>
-                  <button className="btn" disabled={busy !== null} onClick={handlePobierz}>
-                    {busy === 'pobierz' ? 'Pobieram…' : '⇩ Pobierz notatki (na telefonie)'}
-                  </button>
+                {/* Dwie drogi, każda podpisana jednym słowem — bez tego wygląda
+                    to jak cztery przyciski robiące cztery różne rzeczy. */}
+                <div className="settings-droga">
+                  <span className="settings-droga-nazwa">przez GitHub</span>
+                  <div className="settings-backup-actions">
+                    <button className="btn" disabled={busy !== null} onClick={handleWyslij}>
+                      {busy === 'wyslij' ? 'Wysyłam…' : '⇧ Wyślij notatki (z komputera)'}
+                    </button>
+                    <button className="btn" disabled={busy !== null} onClick={handlePobierz}>
+                      {busy === 'pobierz' ? 'Pobieram…' : '⇩ Pobierz notatki (na telefonie)'}
+                    </button>
+                  </div>
                 </div>
                 {/* Druga droga, bez GitHuba: ta sama migawka, tylko plikiem.
                     Działa, gdy nie ma internetu albo gdy nie chce się nikomu
                     powierzać notatek. */}
-                <div className="settings-backup-actions">
-                  <button className="btn" disabled={busy !== null} onClick={handleMigawkaPlik}>
-                    {busy === 'plik-zapis' ? 'Zapisuję…' : '⬇ Migawka do pliku'}
-                  </button>
-                  <button
-                    className="btn"
-                    disabled={busy !== null}
-                    onClick={() => migRef.current?.click()}
-                  >
-                    {busy === 'plik-czyt' ? 'Wczytuję…' : '⬆ Migawka z pliku'}
-                  </button>
-                  <input
-                    ref={migRef}
-                    type="file"
-                    accept=".json,application/json"
-                    hidden
-                    onChange={(e) => handleMigawkaZPliku(e.target.files?.[0])}
-                  />
+                <div className="settings-droga">
+                  <span className="settings-droga-nazwa">plikiem, bez internetu</span>
+                  <div className="settings-backup-actions">
+                    <button className="btn" disabled={busy !== null} onClick={handleMigawkaPlik}>
+                      {busy === 'plik-zapis' ? 'Zapisuję…' : '⬇ Migawka do pliku'}
+                    </button>
+                    <button
+                      className="btn"
+                      disabled={busy !== null}
+                      onClick={() => migRef.current?.click()}
+                    >
+                      {busy === 'plik-czyt' ? 'Wczytuję…' : '⬆ Migawka z pliku'}
+                    </button>
+                    <input
+                      ref={migRef}
+                      type="file"
+                      accept=".json,application/json"
+                      hidden
+                      onChange={(e) => handleMigawkaZPliku(e.target.files?.[0])}
+                    />
+                  </div>
                 </div>
                 {statusTel && <p className="settings-hint settings-status">{statusTel}</p>}
                 <p className="settings-hint">
-                  Ruch jest jednostronny: komputer wysyła, telefon pobiera. Migawka
-                  jest kurierem, nie kopią zapasową — nawet gdyby ją zepsuć, dane na
-                  komputerze zostają nietknięte. Pobranie <strong>nigdy nie kasuje</strong>:
-                  nadpisuje to, co ma to samo id, i dokłada nowe. PDF-y zostają na
-                  komputerze, bo ważą setki razy więcej niż cała reszta.
-                  <br />
-                  Dolna para przycisków robi to samo <strong>plikiem</strong> — bez
-                  GitHuba i bez internetu. Przydaje się, gdy GitHub ma awarię albo
-                  gdy nie chcesz nikomu powierzać notatek: zapisujesz plik, przenosisz
-                  go na telefon (kablem, Bluetoothem, czymkolwiek) i tam wczytujesz.
+                  Komputer wysyła, telefon pobiera. Pobranie nigdy nie kasuje.
                   {ostatnioWyslano() && (
-                    <>
-                      <br />
-                      Ostatnio wysłane: {new Date(ostatnioWyslano()).toLocaleString('pl')}
-                    </>
+                    <span className="settings-kiedy">
+                      wysłane {new Date(ostatnioWyslano()).toLocaleString('pl')}
+                    </span>
                   )}
                   {ostatnioPobrano() && (
-                    <>
-                      <br />
-                      Ostatnio pobrane: {new Date(ostatnioPobrano()).toLocaleString('pl')}
-                    </>
+                    <span className="settings-kiedy">
+                      pobrane {new Date(ostatnioPobrano()).toLocaleString('pl')}
+                    </span>
                   )}
                 </p>
+                {/* Szczegóły są potrzebne raz — przy pierwszym ustawianiu. Na
+                    co dzień tylko zasłaniają przyciski, więc chowamy je pod
+                    rozwinięciem zamiast walić nimi po oczach. */}
+                <details className="settings-wiecej">
+                  <summary>Jak to działa i co jest bezpieczne</summary>
+                  <p>
+                    Migawka jest kurierem, nie kopią zapasową — nawet gdyby ją zepsuć,
+                    dane na komputerze zostają nietknięte. Pobranie nadpisuje to, co ma
+                    to samo id, i dokłada nowe; czego w migawce nie ma, to na telefonie
+                    zostaje. PDF-y nie jadą, bo ważą setki razy więcej niż cała reszta.
+                  </p>
+                  <p>
+                    Dolna para przycisków robi to samo <strong>plikiem</strong> — bez
+                    GitHuba i bez internetu. Zapisujesz plik, przenosisz na telefon
+                    (kablem, Bluetoothem, czymkolwiek) i tam wczytujesz.
+                  </p>
+                </details>
               </div>
 
               <div className="settings-row">
                 <span className="settings-label">Gdzie są moje dane</span>
                 <p className="settings-hint">
-                  Wszystko siedzi lokalnie w tej przeglądarce (IndexedDB, baza
-                  <code> kompendium</code>) — nic nie wychodzi na zewnątrz samo z siebie.
-                  Dlatego otwarcie aplikacji na telefonie pokazuje pustą bazę; to nie
-                  jest utrata danych. Przenoszenie robi się kopią zapasową albo
-                  wysłaniem notatek powyżej.
+                  Lokalnie w tej przeglądarce — nic nie wychodzi na zewnątrz samo
+                  z siebie.
                 </p>
+                <details className="settings-wiecej">
+                  <summary>Dlaczego telefon pokazuje pustą listę</summary>
+                  <p>
+                    Baza <code>kompendium</code> (IndexedDB) należy do przeglądarki
+                    tego urządzenia. Inne urządzenie ma własną, pustą — to nie jest
+                    utrata danych. Notatki przenosi się stąd: kopią zapasową albo
+                    wysłaniem powyżej.
+                  </p>
+                </details>
               </div>
             </>
           )}
