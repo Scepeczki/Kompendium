@@ -5363,3 +5363,20 @@ body.ciagne-szerokosc * {
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* pole klucza z podglądem i kopiowaniem — klucz wpisuje się na komputerze,
+   a jest potrzebny na telefonie, więc musi dać się stąd wyjąć */
+.settings-klucz {
+  display: flex;
+  gap: 4px;
+}
+
+.settings-klucz .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-klucz .btn {
+  flex: none;
+  padding: 4px 9px;
+}

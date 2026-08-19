@@ -130,6 +130,7 @@ export function SettingsPage({ onClose }: Props) {
   const [token, setToken] = useState(telefonToken)
   const [repo, setRepo] = useState(telefonRepo)
   const [statusTel, setStatusTel] = useState<string | null>(null)
+  const [pokazKlucz, setPokazKlucz] = useState(false)
   const migRef = useRef<HTMLInputElement>(null)
 
   const handleMigawkaPlik = async () => {
@@ -574,16 +575,46 @@ export function SettingsPage({ onClose }: Props) {
                       onBlur={() => zapiszUstawieniaTelefonu(token, repo)}
                     />
                   </label>
+                  {/* Klucz trzeba móc STĄD WYJĄĆ: wpisuje się go na
+                      komputerze, a potem jest potrzebny na telefonie. Zakryte
+                      pole bez podglądu i kopiowania to ślepy zaułek. */}
                   <label className="settings-pole">
                     <span>Klucz dostępu</span>
-                    <input
-                      className="input"
-                      type="password"
-                      value={token}
-                      placeholder="github_pat_…"
-                      onChange={(e) => setToken(e.target.value)}
-                      onBlur={() => zapiszUstawieniaTelefonu(token, repo)}
-                    />
+                    <div className="settings-klucz">
+                      <input
+                        className="input"
+                        type={pokazKlucz ? 'text' : 'password'}
+                        value={token}
+                        placeholder="github_pat_…"
+                        onChange={(e) => setToken(e.target.value)}
+                        onBlur={() => zapiszUstawieniaTelefonu(token, repo)}
+                      />
+                      <button
+                        className="btn"
+                        type="button"
+                        title={pokazKlucz ? 'Zakryj klucz' : 'Pokaż klucz'}
+                        onClick={() => setPokazKlucz((p) => !p)}
+                      >
+                        {pokazKlucz ? '🙈' : '👁'}
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        title="Skopiuj klucz do schowka"
+                        disabled={!token}
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(token)
+                            setStatusTel('Klucz skopiowany — wklej go na telefonie.')
+                          } catch {
+                            setPokazKlucz(true)
+                            setStatusTel('Nie udało się skopiować — klucz jest odkryty, zaznacz i skopiuj ręcznie.')
+                          }
+                        }}
+                      >
+                        ⧉
+                      </button>
+                    </div>
                   </label>
                 </div>
                 <div className="settings-backup-actions">
