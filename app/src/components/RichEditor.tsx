@@ -598,7 +598,20 @@ const KOD_MD = /(```[\s\S]*?```|`[^`\n]*`)/g
 const przywrocBackslashe = (md: string) =>
   md
     .split(KOD_MD)
-    .map((cz, i) => (i % 2 ? cz : cz.replace(/\\\\/g, '\\')))
+    .map((cz, i) =>
+      i % 2
+        ? cz
+        : cz
+            .replace(/\\\\/g, '\\')
+            // Myślnik, gwiazdka i kratka na początku wiersza: serializator
+            // zabezpieczał je, żeby zwykły tekst nie stał się przypadkiem
+            // listą albo nagłówkiem. Przy wklejaniu polecenia zadania dawało
+            // to tekst najeżony ukośnikami — a przecież wklejając listę,
+            // człowiek chce listy. Zdejmujemy więc te zabezpieczenia.
+            .replace(/^(\s*)\\([-*+#>])/gm, '$1$2')
+            // to samo dla numeracji: „1\. punkt" wraca do „1. punkt"
+            .replace(/^(\s*\d+)\\\./gm, '$1.')
+    )
     .join('')
 
 /** Tryb wizualny (à la Google Docs): rich text edytowany bezpośrednio,
@@ -614,6 +627,7 @@ export function RichEditor({
   onReady,
   onFocus,
 }: Props) {
+  const edRef = useRef<Editor | null>(null)
   const editor = useEditor({
     extensions: [
       // Bez bloków kodu.
@@ -635,7 +649,18 @@ export function RichEditor({
       IndentRender,
       SizeRender,
       ZamrozoneZaznaczenie,
-      MarkdownBezWciec.configure({ html: false, linkify: false, breaks: false }),
+            // Wklejony tekst czytamy JAK MARKDOWN.
+      //
+      // Bez tego wklejka ladowala jako goly tekst: myslnik na poczatku linii
+      // nie robil listy, tylko dostawal backslash (zeby przypadkiem listy nie
+      // zrobil), gwiazdki tez. Wklejenie polecenia zadania konczylo sie wiec
+      // tekstem najezonym ukosnikami, ktore trzeba bylo usuwac recznie.
+      // Teraz lista wklejona jako lista zostaje lista.
+MarkdownBezWciec.configure({
+        html: false,
+        linkify: false,
+        breaks: false,
+      }),
     ],
     // puste linijki wpisane w trybie kodu też mają być widoczne w edytorze
     // Parser Markdownu w edytorze ma własną regułę „kod przez wcięcie" —
@@ -693,6 +718,8 @@ export function RichEditor({
     oddajRef.current = { ed, t: window.setTimeout(oddajTeraz, 220) }
   }
   useEffect(() => () => oddajTeraz(), [])
+
+  edRef.current = editor
 
   useEffect(() => {
     editor?.setEditable(editable)

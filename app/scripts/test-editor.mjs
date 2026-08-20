@@ -222,5 +222,53 @@ console.log(
 )
 if (ramek !== 0) errors.push('wcięcie robi blok kodu')
 
+// --- wklejona lista punktowa zapisuje sie BEZ ukosnikow ---
+//
+// Wklejka ladowala jako goly tekst, wiec serializator zabezpieczal myslnik
+// na poczatku wiersza (zeby przypadkiem nie zrobil listy) i gwiazdki. Tresc
+// zadania wklejona z PDF-u konczyla sie wiec lasem ukosnikow do recznego
+// sprzatania. Wzory musza przy tym zostac nietkniete — w LaTeX-u backslash
+// przed klamra to nawias zbioru, a nie ozdoba.
+const WKLEJKA = [
+  'Dla dowolnego zbioru $X$, czy prawda jest ze:',
+  '',
+  '- **(a)** rodzina $\\mathcal{A}$, ze $R = \\bigcup \\{A \\times A\\}$;',
+].join(NL)
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'Wklejka')
+await page.waitForTimeout(400)
+await page.click('.editor-body .tiptap')
+await page.evaluate((tekst) => {
+  const dt = new DataTransfer()
+  dt.setData('text/plain', tekst)
+  document.querySelector('.editor-body .tiptap').dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+  )
+}, WKLEJKA)
+await page.waitForTimeout(1300)
+await page.click('.editor-name')
+await page.waitForTimeout(900)
+const poWklejce = await page.evaluate(
+  () =>
+    new Promise((res) => {
+      const r = indexedDB.open('kompendium')
+      r.onsuccess = () => {
+        const d = r.result
+        const st = d.transaction('versions', 'readonly').objectStore('versions')
+        st.getAll().onsuccess = (e) => {
+          d.close()
+          res(e.target.result.map((v) => v.content).find((c) => c && c.includes('Dla dowolnego')) ?? '')
+        }
+      }
+    }),
+)
+console.log(
+  poWklejce === WKLEJKA
+    ? '✓ wklejona lista zapisana znak w znak, bez ukośników'
+    : `✗ BŁĄD: wklejka rozjechana — ${poWklejce}`,
+)
+if (poWklejce !== WKLEJKA) errors.push('wklejanie dodaje ukośniki')
+
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()
