@@ -162,5 +162,65 @@ console.log(
   })`,
 )
 
+// --- LaTeX pisany POZA wzorami zapisuje sie tak, jak go wpisano ---
+//
+// Serializator Markdowna zabezpiecza znak ucieczki, wiec \mathcal{A} pisane
+// w tresci (a nie we wzorze) ladowalo w bazie jako \\mathcal{A}. Wzory byly
+// cale, bo maja wlasne odescapowanie — cierpial zwykly tekst, na przyklad
+// tresc zadania. Wpisujemy doslownie, bo klawiatura zjada backslashe.
+const BS = String.fromCharCode(92)
+const PROBKA =
+  `rodzina ${BS}mathcal{A} ${BS}subseteq ${BS}mathcal{P}(X), R ${BS}bigcup {A ${BS}times A}`
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'Backslashe')
+await page.waitForTimeout(400)
+await page.click('.editor-body .tiptap')
+await page.evaluate((t) => document.execCommand('insertText', false, t), PROBKA)
+await page.waitForTimeout(1200)
+await page.click('.editor-name')
+await page.waitForTimeout(900)
+const zapisane = await page.evaluate(
+  () =>
+    new Promise((res) => {
+      const r = indexedDB.open('kompendium')
+      r.onsuccess = () => {
+        const d = r.result
+        const st = d.transaction('versions', 'readonly').objectStore('versions')
+        st.getAll().onsuccess = (e) => {
+          d.close()
+          res(e.target.result.map((v) => v.content).find((c) => c && c.includes('mathcal')) ?? '')
+        }
+      }
+    }),
+)
+console.log(
+  zapisane === PROBKA
+    ? '✓ LaTeX poza wzorami zapisany bez podwajania backslashy'
+    : `✗ BŁĄD: backslashe rozjechane — ${zapisane}`,
+)
+if (zapisane !== PROBKA) errors.push('podwojone backslashe w zapisie')
+
+// --- wcięty tekst NIE staje się szarą ramką z kodem ---
+//
+// Markdown robi blok kodu z akapitu wciętego o cztery spacje. Przy pisaniu
+// notatek wychodziło to samo z siebie: zdanie zmieniało się w tekst
+// maszynowy w ramce, a LaTeX w środku przestawał być LaTeX-em.
+await page.click('.view-switch button:has-text("Kod")')
+await page.click('.editor-code .cm-content')
+const NL = String.fromCharCode(10)
+const WCIETY = ['Akapit', '', '    wciety o cztery spacje', ''].join(NL)
+await page.evaluate((t) => document.execCommand('insertText', false, t), WCIETY)
+await page.waitForTimeout(1100)
+await page.click('.view-switch button:has-text("Wizualny")')
+await page.waitForTimeout(1100)
+const ramek = await page.locator('.editor-body pre').count()
+console.log(
+  ramek === 0
+    ? '✓ wcięty tekst zostaje tekstem, nie ramką z kodem'
+    : `✗ BŁĄD: wcięcie zrobiło ${ramek} ramek z kodem`,
+)
+if (ramek !== 0) errors.push('wcięcie robi blok kodu')
+
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

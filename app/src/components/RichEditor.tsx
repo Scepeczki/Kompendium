@@ -564,6 +564,43 @@ const unescapeMathAfterSerialize = (md: string) =>
     return delim + clean + delim
   })
 
+/** Markdown bez „kodu przez wcięcie".
+ *
+ *  Reguła musi zniknąć, ZANIM treść zostanie sparsowana — a to dzieje się
+ *  już przy tworzeniu edytora. Hak w onCreate (a nawet onBeforeCreate) jest
+ *  za późny: pierwszy akapit zdążył wtedy stać się szarą ramką. Magazyn
+ *  rozszerzenia powstaje wcześniej, więc wyłączamy ją właśnie tutaj. */
+const MarkdownBezWciec = Markdown.extend({
+  addStorage() {
+    const magazyn = this.parent?.()
+    try {
+      const md = (magazyn as { parser?: { md?: { disable?: (r: string) => void } } })
+        ?.parser?.md
+      md?.disable?.('code')
+    } catch {
+      /* inna wersja biblioteki — reszta i tak działa */
+    }
+    return magazyn
+  },
+})
+
+
+/** Backslashe POZA wzorami.
+ *
+ *  Serializator Markdowna zabezpiecza znak ucieczki: pisząc w treści
+ *  `\mathcal{A}` (a nie we wzorze) dostawało się w zapisie
+ *  `\\mathcal{A}`. W notatkach z matematyki backslash to prawie zawsze
+ *  LaTeX, a nie ucieczka Markdowna, więc go przywracamy.
+ *
+ *  Z pominięciem kodu — tam `\\` bywa naprawdę dwoma backslashami
+ *  i nie nam go poprawiać. */
+const KOD_MD = /(```[\s\S]*?```|`[^`\n]*`)/g
+const przywrocBackslashe = (md: string) =>
+  md
+    .split(KOD_MD)
+    .map((cz, i) => (i % 2 ? cz : cz.replace(/\\\\/g, '\\')))
+    .join('')
+
 /** Tryb wizualny (à la Google Docs): rich text edytowany bezpośrednio,
  *  pod spodem zawsze Markdown+LaTeX. Wzory $...$ renderują się w miejscu
  *  (klik we wzór pokazuje jego kod). */
@@ -579,15 +616,31 @@ export function RichEditor({
 }: Props) {
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ paragraph: false }),
+      // Bez bloków kodu.
+      //
+      // Markdown robi szarą ramkę z kodem z każdego akapitu wciętego
+      // o cztery spacje. W notatkach z matematyki to plaga: wcięte zdanie
+      // albo punkt listy nagle zmienia się w tekst maszynowy w ramce,
+      // a LaTeX przestaje być LaTeX-em. Wyłączenia samej reguły parsera
+      // nie da się tu dosięgnąć na czas (treść jest parsowana już przy
+      // tworzeniu edytora), więc znika cały rodzaj bloku.
+      //
+      // Cena: blok pisany wprost przez ``` po dotknięciu w widoku
+      // wizualnym staje się kodem „w linii". Treść zostaje w całości —
+      // zmienia się tylko sposób pokazania. W notatkach z matematyki to
+      // uczciwa zamiana za brak ramek, które robią się same.
+      StarterKit.configure({ paragraph: false, codeBlock: false }),
       BlankParagraph,
       MathRender,
       IndentRender,
       SizeRender,
       ZamrozoneZaznaczenie,
-      Markdown.configure({ html: false, linkify: false, breaks: false }),
+      MarkdownBezWciec.configure({ html: false, linkify: false, breaks: false }),
     ],
     // puste linijki wpisane w trybie kodu też mają być widoczne w edytorze
+    // Parser Markdownu w edytorze ma własną regułę „kod przez wcięcie" —
+    // ta sama, ktora w podgladzie juz wylaczylismy. Bez tego wciety akapit
+    // dalej zmienialby sie w szara ramke, tyle ze tylko w edytorze.
     content: escapeMathForParse(zachowajPusteLinie(value)),
     editable,
     autofocus: autoFocus ? 'end' : false,
@@ -631,7 +684,9 @@ export function RichEditor({
     if (!czeka) return
     window.clearTimeout(czeka.t)
     oddajRef.current = null
-    onChange(unescapeMathAfterSerialize(czeka.ed.storage.markdown.getMarkdown()))
+    onChange(
+      przywrocBackslashe(unescapeMathAfterSerialize(czeka.ed.storage.markdown.getMarkdown())),
+    )
   }
   const oddajPozniej = (ed: Editor) => {
     if (oddajRef.current) window.clearTimeout(oddajRef.current.t)

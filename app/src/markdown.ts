@@ -4,6 +4,15 @@ import DOMPurify from 'dompurify'
 
 marked.setOptions({ gfm: true, breaks: false })
 
+// Wcięcie to wcięcie, a nie kod.
+//
+// Markdown zamienia każdy akapit wcięty o cztery spacje w blok kodu — szarą
+// ramkę z tekstem pisanym maszyną. W notatkach z matematyki to katastrofa:
+// wystarczy wciąć zdanie albo punkt listy i całość zmienia się w „kod", a LaTeX
+// przestaje się liczyć jako LaTeX. Wyłączamy więc rozpoznawanie kodu po samym
+// wcięciu. Bloki pisane wprost, przez ```, działają jak dotąd.
+marked.use({ tokenizer: { code: () => undefined } })
+
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
