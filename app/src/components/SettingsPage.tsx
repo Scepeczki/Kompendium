@@ -53,6 +53,7 @@ import {
   setParaSpacing,
   setTreeSize,
 } from '../uiSettings'
+import { napraw, policzUszkodzone } from '../naprawa'
 import { TypeEditor } from './TypeEditor'
 import { useDialogs } from './Dialogs'
 
@@ -129,6 +130,7 @@ export function SettingsPage({ onClose }: Props) {
     | 'plik-zapis'
     | 'plik-czyt'
     | 'sprawdzam'
+    | 'naprawiam'
     | null
   >(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -139,6 +141,42 @@ export function SettingsPage({ onClose }: Props) {
   const [repo, setRepo] = useState(telefonRepo)
   const [statusTel, setStatusTel] = useState<string | null>(null)
   const [pokazKlucz, setPokazKlucz] = useState(false)
+  const [statusNaprawy, setStatusNaprawy] = useState<string | null>(null)
+
+  /** Naprawa starych znaków ucieczki — patrz src/naprawa.ts. Ruszamy
+   *  notatki, więc najpierw liczymy i pytamy, a dopiero potem zmieniamy. */
+  const handleNaprawa = async () => {
+    setBusy('naprawiam')
+    setStatusNaprawy(null)
+    try {
+      const ile = await policzUszkodzone()
+      const razem = ile.wersje + ile.strony + ile.sciezki
+      if (razem === 0) {
+        setStatusNaprawy('Nie ma czego naprawiać — wszystko jest w porządku.')
+        return
+      }
+      const ok = await dlg.confirm({
+        title: `Naprawić ${razem} miejsc?`,
+        message:
+          `Ślad dawnego zabezpieczania znalazłem w ${ile.wersje} wersjach treści, ` +
+          `${ile.strony} stronach i ${ile.sciezki} ścieżkach. Naprawa zdejmie warstwę ` +
+          'backslashy, czyli przywróci LaTeX do postaci, w jakiej go pisałeś. Nic nie ' +
+          'jest kasowane, ale to zmiana w treści — zrób wcześniej kopię ' +
+          'zapasową, jeśli chcesz mieć drogę powrotną.',
+        confirmLabel: 'Napraw',
+      })
+      if (!ok) return
+      const zrobione = await napraw()
+      setStatusNaprawy(
+        `Naprawione: ${zrobione.wersje} wersji treści, ${zrobione.strony} stron, ` +
+          `${zrobione.sciezki} ścieżek.`,
+      )
+    } catch (e) {
+      setStatusNaprawy(`Nie udało się: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(null)
+    }
+  }
   const migRef = useRef<HTMLInputElement>(null)
 
   const handleMigawkaPlik = async () => {
@@ -689,6 +727,22 @@ export function SettingsPage({ onClose }: Props) {
                     (kablem, Bluetoothem, czymkolwiek) i tam wczytujesz.
                   </p>
                 </details>
+              </div>
+
+              <div className="settings-row">
+                <span className="settings-label">Stare znaki ucieczki</span>
+                <div className="settings-backup-actions">
+                  <button className="btn" disabled={busy !== null} onClick={handleNaprawa}>
+                    {busy === 'naprawiam' ? 'Sprawdzam…' : '✎ Sprawdź i napraw'}
+                  </button>
+                </div>
+                {statusNaprawy && (
+                  <p className="settings-hint settings-status">{statusNaprawy}</p>
+                )}
+                <p className="settings-hint">
+                  Dawniej zapis podwajał backslashe, przez co LaTeX potrafił się
+                  rozjechać. To przywraca go do postaci, w jakiej go pisałeś.
+                </p>
               </div>
 
               <div className="settings-row">
