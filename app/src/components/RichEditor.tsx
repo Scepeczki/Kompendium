@@ -595,6 +595,24 @@ const MarkdownBezWciec = Markdown.extend({
  *  Z pominięciem kodu — tam `\\` bywa naprawdę dwoma backslashami
  *  i nie nam go poprawiać. */
 const KOD_MD = /(```[\s\S]*?```|`[^`\n]*`)/g
+/** Ścinanie wcięć, które Markdown czyta jako kod.
+ *
+ *  Tekst kopiowany ze skryptu albo z PDF-u przychodzi wcięty — cztery, osiem,
+ *  dwanaście spacji. Dla Markdownu cztery spacje znaczą „to jest kod", więc
+ *  wklejone polecenie zadania zmieniało się w szarą ramkę z surowym LaTeX-em.
+ *
+ *  Ścinamy wcięcie do trzech spacji: Markdown przestaje widzieć kod, a listy
+ *  i ich zagnieżdżenia działają jak dotąd (do trzech spacji to wciąż zwykły
+ *  punkt listy). Wnętrza bloków pisanych wprost nie ruszamy — tam wcięcie
+ *  bywa częścią treści. */
+const scinajWciecia = (md: string) =>
+  md
+    .split(KOD_MD)
+    .map((cz, i) =>
+      i % 2 ? cz : cz.replace(/^ {4,}/gm, '   '),
+    )
+    .join('')
+
 const przywrocBackslashe = (md: string) =>
   md
     .split(KOD_MD)
@@ -666,7 +684,7 @@ MarkdownBezWciec.configure({
     // Parser Markdownu w edytorze ma własną regułę „kod przez wcięcie" —
     // ta sama, ktora w podgladzie juz wylaczylismy. Bez tego wciety akapit
     // dalej zmienialby sie w szara ramke, tyle ze tylko w edytorze.
-    content: escapeMathForParse(zachowajPusteLinie(value)),
+    content: escapeMathForParse(scinajWciecia(zachowajPusteLinie(value))),
     editable,
     autofocus: autoFocus ? 'end' : false,
     onFocus: () => onFocus?.(),
@@ -710,7 +728,9 @@ MarkdownBezWciec.configure({
     window.clearTimeout(czeka.t)
     oddajRef.current = null
     onChange(
-      przywrocBackslashe(unescapeMathAfterSerialize(czeka.ed.storage.markdown.getMarkdown())),
+      scinajWciecia(
+        przywrocBackslashe(unescapeMathAfterSerialize(czeka.ed.storage.markdown.getMarkdown())),
+      ),
     )
   }
   const oddajPozniej = (ed: Editor) => {

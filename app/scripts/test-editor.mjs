@@ -270,5 +270,41 @@ console.log(
 )
 if (poWklejce !== WKLEJKA) errors.push('wklejanie dodaje ukośniki')
 
+// --- wklejka Z WCIECIAMI (tak wychodzi kopiowanie z PDF-u) ---
+//
+// Tekst skopiowany ze skryptu przychodzi wciety o cztery, osiem, dwanascie
+// spacji. Cztery spacje znacza dla Markdownu "to jest kod", wiec polecenie
+// zadania zmienialo sie w szara ramke z surowym LaTeX-em. Scinamy wciecie,
+// zanim Markdown zdazy je tak przeczytac.
+const WCIETA = [
+  'Dla dowolnego zbioru $X$, czy prawda jest ze:',
+  '    ',
+  '    - **(a)** rodzina $\\mathcal{A}$, ze $R = \\bigcup \\{A \\times A\\}$;',
+  '        ',
+  '    - **(b)** i drugi punkt.',
+].join(NL)
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'Wklejka z PDF')
+await page.waitForTimeout(400)
+await page.click('.editor-body .tiptap')
+await page.evaluate((tekst) => {
+  const dt = new DataTransfer()
+  dt.setData('text/plain', tekst)
+  document.querySelector('.editor-body .tiptap').dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+  )
+}, WCIETA)
+await page.waitForTimeout(1400)
+await page.click('.editor-name')
+await page.waitForTimeout(900)
+const kodu = await page.locator('.editor-body pre, .editor-body code').count()
+console.log(
+  kodu === 0
+    ? '✓ wklejka z wcięciami nie robi się ramką z kodem'
+    : `✗ BŁĄD: wcięta wklejka dała ${kodu} kawałków kodu`,
+)
+if (kodu !== 0) errors.push('wcięta wklejka robi kod')
+
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()
