@@ -306,5 +306,57 @@ console.log(
 )
 if (kodu !== 0) errors.push('wcięta wklejka robi kod')
 
+// --- lamanie wiersza we wzorze przezywa zapis ---
+//
+// W LaTeX-u podwojny backslash wewnatrz wzoru znaczy "nowa linia" — tak
+// buduje sie egin{align}. Poprawka od podwajania backslashy w tresci
+// zamieniala je na pojedyncze i rozsypywala kazdy wzor wielowierszowy.
+// Poprawki tekstu musza omijac wzory: te maja wlasne odescapowanie.
+const WZOR = [
+  '$$\\begin{align}',
+  '&T_0 = V \\cup C \\notag\\\\',
+  '&T_{n+1} = T_n \\cup T \\notag\\\\',
+  'T = \\bigcup_n T_n',
+  '\\end{align}$$',
+].join(NL)
+await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'Wzor wielowierszowy')
+await page.waitForTimeout(400)
+await page.click('.view-switch button:has-text("Kod")')
+await page.click('.editor-code .cm-content')
+await page.evaluate((t) => document.execCommand('insertText', false, t), WZOR)
+await page.waitForTimeout(1100)
+await page.click('.view-switch button:has-text("Wizualny")')
+await page.waitForTimeout(1000)
+await page.click('.editor-body .tiptap')
+await page.evaluate(() => document.execCommand('insertText', false, ' '))
+await page.waitForTimeout(1300)
+await page.click('.editor-name')
+await page.waitForTimeout(900)
+const poWzorze = await page.evaluate(
+  () =>
+    new Promise((res) => {
+      const r = indexedDB.open('kompendium')
+      r.onsuccess = () => {
+        const d = r.result
+        const st = d.transaction('versions', 'readonly').objectStore('versions')
+        st.getAll().onsuccess = (e) => {
+          d.close()
+          res(e.target.result.map((v) => v.content).find((c) => c && c.includes('align')) ?? '')
+        }
+      }
+    }),
+)
+// dwa lamania wiersza musza w zapisie zostac podwojnymi backslashami
+const lamania = (poWzorze.match(/\\\\/g) || []).length
+const bledne = await page.locator('.editor-body .katex-error').count()
+console.log(
+  lamania === 2 && bledne === 0
+    ? '✓ łamania wiersza we wzorze przeżywają zapis'
+    : `✗ BŁĄD: łamań ${lamania} (ma być 2), błędnych wzorów ${bledne}`,
+)
+if (lamania !== 2 || bledne !== 0) errors.push('wzór wielowierszowy rozsypany')
+
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await browser.close()

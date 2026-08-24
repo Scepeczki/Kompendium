@@ -594,43 +594,57 @@ const MarkdownBezWciec = Markdown.extend({
  *
  *  Z pominięciem kodu — tam `\\` bywa naprawdę dwoma backslashami
  *  i nie nam go poprawiać. */
-const KOD_MD = /(```[\s\S]*?```|`[^`\n]*`)/g
+/** Fragmenty, których poprawki tekstu NIE MOGĄ dotykać: kod i wzory.
+ *
+ *  We wzorze `\\\\` znaczy „nowa linia" (tak łamie się wiersze
+ *  w `\\begin{align}`), a w bloku kodu podwójny backslash bywa po prostu
+ *  podwójnym backslashem. Poprawianie ich „na ładniej" psuje treść, więc
+ *  wycinamy te kawałki z przetwarzania i wklejamy nietknięte.
+ *
+ *  Wzory mają zresztą własne odescapowanie (unescapeMathAfterSerialize) —
+ *  dwie ręce przy jednym tekście musiałyby sobie przeszkadzać. */
+const NIETYKALNE = new RegExp(
+  ['```[\\s\\S]*?```', '`[^`\\n]*`', '\\$\\$[\\s\\S]+?\\$\\$', '\\$[^\\$\\n]+?\\$'].join('|'),
+  'g',
+)
+
+/** Nakłada poprawkę na tekst, omijając kod i wzory. */
+const pozaWzorami = (md: string, popraw: (cz: string) => string): string => {
+  let out = ''
+  let ostatni = 0
+  for (const m of md.matchAll(NIETYKALNE)) {
+    out += popraw(md.slice(ostatni, m.index)) + m[0]
+    ostatni = m.index + m[0].length
+  }
+  return out + popraw(md.slice(ostatni))
+}
+
 /** Ścinanie wcięć, które Markdown czyta jako kod.
  *
  *  Tekst kopiowany ze skryptu albo z PDF-u przychodzi wcięty — cztery, osiem,
  *  dwanaście spacji. Dla Markdownu cztery spacje znaczą „to jest kod", więc
  *  wklejone polecenie zadania zmieniało się w szarą ramkę z surowym LaTeX-em.
- *
  *  Ścinamy wcięcie do trzech spacji: Markdown przestaje widzieć kod, a listy
- *  i ich zagnieżdżenia działają jak dotąd (do trzech spacji to wciąż zwykły
- *  punkt listy). Wnętrza bloków pisanych wprost nie ruszamy — tam wcięcie
- *  bywa częścią treści. */
+ *  i ich zagnieżdżenia działają jak dotąd. */
 const scinajWciecia = (md: string) =>
-  md
-    .split(KOD_MD)
-    .map((cz, i) =>
-      i % 2 ? cz : cz.replace(/^ {4,}/gm, '   '),
-    )
-    .join('')
+  pozaWzorami(md, (cz) => cz.replace(/^ {4,}/gm, '   '))
 
+/** Backslashe POZA wzorami.
+ *
+ *  Serializator Markdowna zabezpiecza znak ucieczki: pisząc w treści
+ *  `\mathcal{A}` dostawało się w zapisie `\\mathcal{A}`. W notatkach
+ *  z matematyki backslash to prawie zawsze LaTeX, a nie ucieczka Markdowna.
+ *
+ *  Znaki składni na początku wiersza (myślnik, gwiazdka, kratka, numeracja)
+ *  też przestają być zabezpieczane — wklejając listę, człowiek chce listy,
+ *  a nie lasu ukośników. */
 const przywrocBackslashe = (md: string) =>
-  md
-    .split(KOD_MD)
-    .map((cz, i) =>
-      i % 2
-        ? cz
-        : cz
-            .replace(/\\\\/g, '\\')
-            // Myślnik, gwiazdka i kratka na początku wiersza: serializator
-            // zabezpieczał je, żeby zwykły tekst nie stał się przypadkiem
-            // listą albo nagłówkiem. Przy wklejaniu polecenia zadania dawało
-            // to tekst najeżony ukośnikami — a przecież wklejając listę,
-            // człowiek chce listy. Zdejmujemy więc te zabezpieczenia.
-            .replace(/^(\s*)\\([-*+#>])/gm, '$1$2')
-            // to samo dla numeracji: „1\. punkt" wraca do „1. punkt"
-            .replace(/^(\s*\d+)\\\./gm, '$1.')
-    )
-    .join('')
+  pozaWzorami(md, (cz) =>
+    cz
+      .replace(/\\\\/g, '\\')
+      .replace(/^(\s*)\\([-*+#>])/gm, '$1$2')
+      .replace(/^(\s*\d+)\\\./gm, '$1.')
+  )
 
 /** Tryb wizualny (à la Google Docs): rich text edytowany bezpośrednio,
  *  pod spodem zawsze Markdown+LaTeX. Wzory $...$ renderują się w miejscu
