@@ -12,6 +12,9 @@ import {
   type Subpage,
 } from '../types'
 import { useBlockTypes } from '../blockTypes'
+import { useDialogs } from './Dialogs'
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export type GroupPart = FusionPart
 
@@ -45,6 +48,15 @@ interface Props {
       biezaca: boolean
     },
   ) => React.ReactNode
+  /** Gdzie stoją paski stron („TREŚĆ", „Dowód"…) w tym scalonym bloku.
+   *  Domyślnie przy każdym składniku; „jeden" zbiera je w rząd dla całości,
+   *  „brak" chowa zupełnie — wtedy części czytają się jak jeden tekst. */
+  paski?: 'kazdy' | 'jeden' | 'brak'
+  paskiGdzie?: 'gora' | 'dol'
+  onPaskiChange?: (p: 'kazdy' | 'jeden' | 'brak') => void
+  onGdzieChange?: (g: 'gora' | 'dol') => void
+  /** Własny podpis paska dla składnika — tylko w tej ścieżce. */
+  onEtykieta?: (index: number, etykieta: string | undefined) => void
   /** Bez pasków wersji nad składnikami — w Linii wersję i przywracanie
    *  obsługuje menu pod prawym przyciskiem. */
   bezPaskaWersji?: boolean
@@ -68,7 +80,17 @@ export function GroupShell({
   zewn,
   edytorCzesci,
   bezPaskaWersji,
+  paski = 'kazdy',
+  paskiGdzie = 'gora',
+  onPaskiChange,
+  onGdzieChange,
+  onEtykieta,
 }: Props) {
+  const dlg = useDialogs()
+  /** Menu pod prawym przyciskiem na pasku stron (który składnik). */
+  const [menuPaska, setMenuPaska] = useState<{ x: number; y: number; i: number } | null>(
+    null,
+  )
   const wlasneKlocki =
     useLiveQuery(
       () => (zewn ? Promise.resolve([] as Concept[]) : db.concepts.toArray()),
@@ -112,6 +134,55 @@ export function GroupShell({
   const typy = useBlockTypes()
   const refs: SourceRef[] = resolved.flatMap((r) => r.version?.sourceRefs ?? [])
   const versionName = (v: BlockVersion) => v.label ?? `wr.${v.version}`
+
+  /** Pasek stron jednego składnika: podpis albo zakładki, gdy kafelek ma
+   *  dodatkowe strony. Prawy przycisk otwiera menu — wszystko, co w nim
+   *  zmienisz, zostaje W TEJ ŚCIEŻCE; kafelek w bibliotece jest nietknięty. */
+  const pasekStron = (i: number) => {
+    const r = resolved[i]
+    if (!r) return null
+    const podpis = parts[i].etykieta ?? mainPageName(r.concept ?? {})
+    const menu = (e: React.MouseEvent) => {
+      if (!onPaskiChange) return
+      e.preventDefault()
+      e.stopPropagation()
+      setMenuPaska({ x: e.clientX, y: e.clientY, i })
+    }
+    if (r.strony.length === 0 || !onSubpageChange) {
+      return (
+        <div className="block-pages group-part-pages" onContextMenu={menu}>
+          <span className="page-chip-static">{podpis}</span>
+        </div>
+      )
+    }
+    // te same zakładki co w zwykłym kafelku — wcześniej były tu pigułki
+    // w ramkach i scalony blok wyglądał jak coś innego
+    return (
+      <div className="block-pages group-part-pages" onContextMenu={menu}>
+        <button
+          className={`block-page ${r.strona ? '' : 'active'}`}
+          title={`Strona główna kafelka „${r.concept?.name ?? ''}"`}
+          onClick={() => onSubpageChange(i, null)}
+        >
+          {podpis}
+        </button>
+        {r.strony.map((s) => (
+          <button
+            key={s.id}
+            className={`block-page ${r.strona?.id === s.id ? 'active' : ''}`}
+            onClick={() => onSubpageChange(i, s.id)}
+          >
+            {s.name}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  /** Wszystkie paski w jednym rzędzie — dla całego scalonego bloku. */
+  const rzadPaskow = () => (
+    <div className="group-paski-rzad">{resolved.map((_, i) => pasekStron(i))}</div>
+  )
 
   return (
     <section
@@ -163,37 +234,25 @@ export function GroupShell({
           </div>
         ) : (
         <div className="block-content">
+          {paski === 'jeden' && paskiGdzie === 'gora' && rzadPaskow()}
+          {/* Gdy paski są schowane, nie ma czego kliknąć prawym, żeby je
+              odzyskać. Stąd uchwyt: niewidoczny, dopóki nie najedziesz. */}
+          {paski === 'brak' && onPaskiChange && (
+            <button
+              className="group-paski-uchwyt"
+              title="Paski stron (prawy przycisk)"
+              onClick={(e) => setMenuPaska({ x: e.clientX, y: e.clientY, i: 0 })}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setMenuPaska({ x: e.clientX, y: e.clientY, i: 0 })
+              }}
+            >
+              ⋯
+            </button>
+          )}
           {resolved.map((r, i) => (
             <div key={`${parts[i].conceptId}-${i}`} className="group-part">
-              {r.strony.length === 0 && (
-                <div className="block-pages group-part-pages">
-                  <span className="page-chip-static">
-                    {mainPageName(r.concept ?? {})}
-                  </span>
-                </div>
-              )}
-              {r.strony.length > 0 && onSubpageChange && (
-                // te same zakładki co w zwykłym kafelku — wcześniej były tu
-                // pigułki w ramkach i scalony blok wyglądał jak coś innego
-                <div className="block-pages group-part-pages">
-                  <button
-                    className={`block-page ${r.strona ? '' : 'active'}`}
-                    title={`Strona główna kafelka „${r.concept?.name ?? ''}"`}
-                    onClick={() => onSubpageChange(i, null)}
-                  >
-                    {mainPageName(r.concept ?? {})}
-                  </button>
-                  {r.strony.map((s) => (
-                    <button
-                      key={s.id}
-                      className={`block-page ${r.strona?.id === s.id ? 'active' : ''}`}
-                      onClick={() => onSubpageChange(i, s.id)}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {paski === 'kazdy' && pasekStron(i)}
               {r.version && !bezPaskaWersji && (
                 <div className="block-pick block-pick-version">
                   {r.own.length > 1 && onVersionChange ? (
@@ -241,11 +300,80 @@ export function GroupShell({
               )}
             </div>
           ))}
+          {paski === 'jeden' && paskiGdzie === 'dol' && rzadPaskow()}
         </div>
         )}
 
         <SourceList refs={refs} onJump={onJumpToSource} />
       </div>
+
+      {/* Menu paska stron. Wszystko tutaj dotyczy TEJ ścieżki — nazwa strony
+          w bibliotece i sam kafelek zostają nietknięte. */}
+      {menuPaska &&
+        createPortal(
+        <>
+          <div className="tree-menu-cien" onClick={() => setMenuPaska(null)} />
+          <div
+            className="tree-menu"
+            style={{ left: menuPaska.x, top: menuPaska.y }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div className="tree-menu-where">Paski stron w tym bloku</div>
+            <button
+              className="tree-menu-item"
+              onClick={() => {
+                setMenuPaska(null)
+                onPaskiChange?.(paski === 'brak' ? 'kazdy' : 'brak')
+              }}
+            >
+              {paski === 'brak' ? '👁 Pokaż paski' : '🚫 Schowaj paski'}
+            </button>
+            <button
+              className="tree-menu-item"
+              onClick={() => {
+                setMenuPaska(null)
+                onPaskiChange?.(paski === 'jeden' ? 'kazdy' : 'jeden')
+              }}
+            >
+              {paski === 'jeden'
+                ? '⇵ Osobno przy każdej części'
+                : '⇉ Zbierz w jeden rząd'}
+            </button>
+            {paski === 'jeden' && (
+              <button
+                className="tree-menu-item"
+                onClick={() => {
+                  setMenuPaska(null)
+                  onGdzieChange?.(paskiGdzie === 'gora' ? 'dol' : 'gora')
+                }}
+              >
+                {paskiGdzie === 'gora' ? '↓ Przenieś na dół' : '↑ Przenieś na górę'}
+              </button>
+            )}
+            <div className="tree-menu-sep" />
+            <button
+              className="tree-menu-item"
+              onClick={async () => {
+                const i = menuPaska.i
+                setMenuPaska(null)
+                const teraz =
+                  parts[i].etykieta ?? mainPageName(resolved[i]?.concept ?? {})
+                const nowa = await dlg.prompt({
+                  title: 'Podpis paska w tej ścieżce',
+                  message: 'Puste pole przywraca nazwę z kafelka.',
+                  value: teraz,
+                  allowEmpty: true,
+                })
+                if (nowa === null) return
+                onEtykieta?.(i, nowa.trim() || undefined)
+              }}
+            >
+              ✎ Zmień podpis…
+            </button>
+          </div>
+        </>,
+          document.body,
+        )}
     </section>
   )
 }

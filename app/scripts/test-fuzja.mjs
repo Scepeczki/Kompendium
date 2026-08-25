@@ -91,6 +91,75 @@ await page.waitForTimeout(600)
 check('wybrana strona zmienia pokazywaną treść',
   (await page.textContent('.script-group-block')).includes('TRESC-DOWODU-KRESU'))
 
+// 2a. paski stron w scalonym bloku — ustawienia TEJ ŚCIEŻKI
+//
+// Scalone kafelki mają czytać się jak jedna całość, a napis „Treść" nad
+// każdą częścią rozbija to na kawałki. Pod prawym przyciskiem: schować,
+// zebrać w jeden rząd, przenieść, przemianować. Kafelki w bibliotece
+// zostają przy tym nietknięte.
+await page.locator('.script-group-block .group-part-pages').first().click({ button: 'right' })
+await page.waitForSelector('.tree-menu-where:has-text("Paski stron")')
+const menuPaska = (await page.locator('.tree-menu-item').allTextContents()).join(' | ')
+check('pasek stron ma menu pod prawym przyciskiem',
+  menuPaska.includes('Schowaj paski') && menuPaska.includes('jeden rząd') &&
+    menuPaska.includes('Zmień podpis'),
+  menuPaska)
+
+await page.click('.tree-menu-item:has-text("Zbierz w jeden rząd")')
+await page.waitForTimeout(600)
+check('paski dają się zebrać w jeden rząd',
+  (await page.locator('.group-paski-rzad').count()) === 1)
+
+await page.locator('.group-paski-rzad .group-part-pages').first().click({ button: 'right' })
+await page.waitForSelector('.tree-menu-item:has-text("Przenieś na dół")')
+await page.click('.tree-menu-item:has-text("Przenieś na dół")')
+await page.waitForTimeout(600)
+// rząd ma teraz stać POD treścią składników
+const naDole = await page.evaluate(() => {
+  const blok = document.querySelector('.script-group-block')
+  const rzad = blok.querySelector('.group-paski-rzad')
+  const tresc = blok.querySelector('.group-part')
+  return rzad && tresc ? rzad.getBoundingClientRect().top > tresc.getBoundingClientRect().top : false
+})
+check('rząd pasków da się przenieść pod treść', naDole)
+
+await page.locator('.group-paski-rzad .group-part-pages').first().click({ button: 'right' })
+await page.waitForSelector('.tree-menu-item:has-text("Schowaj paski")')
+await page.click('.tree-menu-item:has-text("Schowaj paski")')
+await page.waitForTimeout(600)
+check('paski da się schować zupełnie',
+  (await page.locator('.script-group-block .group-part-pages').count()) === 0)
+
+// schowane paski trzeba dać się odzyskać — inaczej nie ma czego kliknąć
+check('po schowaniu zostaje uchwyt do odzyskania pasków',
+  (await page.locator('.group-paski-uchwyt').count()) === 1)
+await page.click('.group-paski-uchwyt')
+await page.waitForSelector('.tree-menu-item:has-text("Pokaż paski")')
+await page.click('.tree-menu-item:has-text("Pokaż paski")')
+await page.waitForTimeout(600)
+check('paski wracają', (await page.locator('.group-part-pages').count()) > 0)
+
+// podpis paska — „Treść" bywa złym słowem w scalonym bloku
+await page.locator('.group-part-pages').first().click({ button: 'right' })
+await page.waitForSelector('.tree-menu-item:has-text("Zmień podpis")')
+await page.click('.tree-menu-item:has-text("Zmień podpis")')
+await page.waitForSelector('.ask-input')
+await page.fill('.ask-input', 'Sformułowanie')
+await page.click('.ask-foot .btn:last-child')
+await page.waitForTimeout(700)
+check('podpis paska da się zmienić w tej ścieżce',
+  (await page.locator('.script-group-block').first().innerText()).includes('Sformułowanie'))
+
+// …ale nazwa strony w bibliotece ma zostać nietknięta
+await page.click('.concept-item:has-text("Kres gorny")')
+await page.waitForSelector('.editor-name')
+await page.waitForTimeout(600)
+check('nazwa strony w bibliotece bez zmian',
+  !(await page.locator('.editor-body').innerText()).includes('Sformułowanie'))
+await page.click('.concept-item:has-text("Fuzje")')
+await page.waitForSelector('.script-group-block')
+await page.waitForTimeout(700)
+
 // 3. edycja tytułu grupy
 await page.hover('.linear-seg:first-child')
 const pud = await page.locator('.linear-seg:first-child').boundingBox()

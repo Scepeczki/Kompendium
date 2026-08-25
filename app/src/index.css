@@ -5466,3 +5466,50 @@ body.ciagne-szerokosc * {
   font-size: var(--fs-2);
   color: var(--muted);
 }
+
+/* Paski stron scalonego bloku zebrane w jeden rząd — zamiast podpisu nad
+   każdą częścią z osobna. Wtedy części czytają się jak jeden tekst, a strony
+   (Dowód, Uwaga…) są pod ręką w jednym miejscu. */
+.group-paski-rzad {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin-bottom: 4px;
+}
+
+.group-paski-rzad .group-part-pages {
+  margin: 0;
+}
+
+/* tło pod menu paska — zamyka je kliknięciem obok */
+.tree-menu-cien {
+  position: fixed;
+  inset: 0;
+  /* pod samym menu (z-index 60), nad resztą — klik obok zamyka */
+  z-index: 59;
+}
+
+/* Uchwyt do pasków stron, gdy są schowane — inaczej nie dałoby się ich
+   odzyskać, bo nie ma czego kliknąć prawym przyciskiem. */
+.group-paski-uchwyt {
+  display: block;
+  margin: 0 0 2px;
+  padding: 0 4px;
+  font: inherit;
+  line-height: 1;
+  border: none;
+  background: none;
+  color: var(--muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.script-group-block:hover .group-paski-uchwyt {
+  opacity: 0.55;
+}
+
+.group-paski-uchwyt:hover {
+  opacity: 1 !important;
+}

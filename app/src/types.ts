@@ -321,6 +321,9 @@ export interface FusionPart {
   /** Treść napisana w tej ścieżce dla tego składnika — jak w zwykłym
    *  kafelku, kafelek w bazie zostaje nietknięty. */
   wlasneTresci?: WlasneTresci
+  /** Własny podpis paska stron w tej ścieżce — zamiast „Treść".
+   *  Nazwa strony w bibliotece zostaje nietknięta. */
+  etykieta?: string
 }
 
 export interface PathNodeFusion {
@@ -336,6 +339,15 @@ export interface PathNodeFusion {
    *  treści składników po kolei, jak dotąd. Kafelki w bazie zostają nietknięte,
    *  ten tekst żyje wyłącznie w tej ścieżce. */
   content?: string
+  /** Gdzie stoją paski stron w tym scalonym bloku (tylko w tej ścieżce).
+   *
+   *  Domyślnie każdy składnik ma swój pasek nad treścią — i wtedy dwa
+   *  zdania, które mają się czytać jako jedno, wyglądają jak dwa osobne
+   *  kawałki. Stąd wybór: schować je zupełnie, zebrać w jeden rząd dla
+   *  całego bloku albo zostawić przy każdym składniku. */
+  paski?: 'kazdy' | 'jeden' | 'brak'
+  /** Przy jednym rzędzie: nad treścią czy pod nią. */
+  paskiGdzie?: 'gora' | 'dol'
   x: number
   y: number
 }
