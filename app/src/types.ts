@@ -324,6 +324,14 @@ export interface FusionPart {
   /** Własny podpis paska stron w tej ścieżce — zamiast „Treść".
    *  Nazwa strony w bibliotece zostaje nietknięta. */
   etykieta?: string
+  /** Pasek stron tego składnika schowany (tylko w tej ścieżce). */
+  pasekUkryty?: boolean
+  /** Strony schowane z tego paska — id strony albo „glowna" dla strony
+   *  głównej kafelka. Sama strona zostaje, tylko nie zajmuje miejsca. */
+  ukryteStrony?: string[]
+  /** Pasek doczepiony do paska innego składnika (jego numer). Tak buduje
+   *  się jeden wspólny rząd zakładek — przeciągnięciem, nie ustawieniem. */
+  pasekPrzy?: number
 }
 
 export interface PathNodeFusion {

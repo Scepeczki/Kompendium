@@ -5513,3 +5513,30 @@ body.ciagne-szerokosc * {
 .group-paski-uchwyt:hover {
   opacity: 1 !important;
 }
+
+/* Paski stron w scalonym bloku: przeciąga się je na inny pasek, żeby zakładki
+   stanęły w jednym rzędzie. Stąd znaki, że coś jedzie i gdzie wyląduje. */
+.group-part-pages[draggable='true'] {
+  cursor: grab;
+}
+
+.group-part-pages.ciagniety {
+  opacity: 0.45;
+}
+
+.group-part-pages.cel {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+/* zakładki jednego składnika wewnątrz wspólnego paska */
+.group-zakladki {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.group-zakladki + .group-zakladki {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}

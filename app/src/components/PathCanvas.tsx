@@ -439,10 +439,10 @@ interface LinearViewProps {
   onAddNote: (kind: 'text' | 'comment', afterId: string | null, beforeId: string | null) => void
   /** Nowy kafelek rodzaju „mieszka w ścieżce" — poza biblioteką. */
   onAddExample: (typeId: string, afterId: string | null, beforeId: string | null) => void
-  /** Paski stron w scalonym bloku — ustawienie tej ścieżki. */
-  onUstawPaski?: (segId: string, zmiana: { paski?: 'kazdy' | 'jeden' | 'brak'; paskiGdzie?: 'gora' | 'dol' }) => void
-  /** Własny podpis paska dla składnika scalonego bloku (w tej ścieżce). */
-  onEtykietaCzesci?: (segId: string, index: number, etykieta: string | undefined) => void
+  /** Ustawienia paska stron POJEDYNCZEGO składnika scalonego bloku:
+   *  schowanie, doczepienie do innego paska, podpis, schowane strony.
+   *  Wszystko zapisuje się w ścieżce. */
+  onPasekCzesci?: (segId: string, index: number, zmiana: Partial<FusionPart>) => void
   /** Ręczne „ten kafelek mieszka tutaj" / „wróć do biblioteki". */
   onKeepHere: (conceptId: string, tutaj: boolean) => void
   onRemove: (id: string) => void
@@ -839,8 +839,7 @@ function LinearView({
   onAddNote,
   onAddExample,
   onKeepHere,
-  onUstawPaski,
-  onEtykietaCzesci,
+  onPasekCzesci,
   onRemove,
   onEdit,
   onUnfuse,
@@ -1550,10 +1549,7 @@ function LinearView({
         onRename={onRenameFusion ? (name) => onRenameFusion(n.id, name) : undefined}
         zewn={{ concepts, versions, subpages }}
         paski={n.paski}
-        paskiGdzie={n.paskiGdzie}
-        onPaskiChange={(v) => onUstawPaski?.(n.id, { paski: v })}
-        onGdzieChange={(v) => onUstawPaski?.(n.id, { paskiGdzie: v })}
-        onEtykieta={(i, e) => onEtykietaCzesci?.(n.id, i, e)}
+        onPasekCzesci={(i, zmiana) => onPasekCzesci?.(n.id, i, zmiana)}
         edytor={
           // scalony blok z własną treścią pisze się jak każdy inny
           onEditFusion && n.content !== undefined
@@ -3592,18 +3588,13 @@ function CanvasInner({
           onMoveSegments={moveSegments}
           onAddNote={linearAddNote}
           onAddExample={linearAddExample}
-          onUstawPaski={(segId, zmiana) =>
-            setRfNodes((ns) =>
-              ns.map((x) => (x.id === segId ? { ...x, data: { ...x.data, ...zmiana } } : x)),
-            )
-          }
-          onEtykietaCzesci={(segId, index, etykieta) =>
+          onPasekCzesci={(segId, index, zmiana) =>
             setRfNodes((ns) =>
               ns.map((x) => {
                 if (x.id !== segId) return x
                 const parts = [...((x.data.parts as FusionPart[]) ?? [])]
                 if (!parts[index]) return x
-                parts[index] = { ...parts[index], etykieta }
+                parts[index] = { ...parts[index], ...zmiana }
                 return { ...x, data: { ...x.data, parts } }
               }),
             )
