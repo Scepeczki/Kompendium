@@ -324,14 +324,22 @@ export interface FusionPart {
   /** Własny podpis paska stron w tej ścieżce — zamiast „Treść".
    *  Nazwa strony w bibliotece zostaje nietknięta. */
   etykieta?: string
-  /** Pasek stron tego składnika schowany (tylko w tej ścieżce). */
-  pasekUkryty?: boolean
-  /** Strony schowane z tego paska — id strony albo „glowna" dla strony
-   *  głównej kafelka. Sama strona zostaje, tylko nie zajmuje miejsca. */
-  ukryteStrony?: string[]
-  /** Pasek doczepiony do paska innego składnika (jego numer). Tak buduje
-   *  się jeden wspólny rząd zakładek — przeciągnięciem, nie ustawieniem. */
-  pasekPrzy?: number
+}
+
+/** Pasek stron w scalonym bloku — MIEJSCE, nie właściwość składnika.
+ *
+ *  Scalony blok ma się czytać jak jeden tekst, więc domyślnie nie ma
+ *  żadnych pasków: składniki rozdziela jedna pusta linia. Pasek stawia się
+ *  tam, gdzie jest potrzebny, i zostaje, dopóki się go nie skasuje —
+ *  nawet gdy wyprowadzi się z niego wszystkie zakładki. Skasowanie zamyka
+ *  przerwę i tekst znów jest ciągły. */
+export interface PasekStron {
+  id: string
+  /** Za którym składnikiem stoi pasek; -1 = przed pierwszym. */
+  poCzesci: number
+  /** Numery składników, których zakładki stron pokazuje ten pasek.
+   *  Pusty = pasek stoi pusty i czeka, aż coś do niego przeciągniesz. */
+  czesci: number[]
 }
 
 export interface PathNodeFusion {
@@ -347,15 +355,9 @@ export interface PathNodeFusion {
    *  treści składników po kolei, jak dotąd. Kafelki w bazie zostają nietknięte,
    *  ten tekst żyje wyłącznie w tej ścieżce. */
   content?: string
-  /** Gdzie stoją paski stron w tym scalonym bloku (tylko w tej ścieżce).
-   *
-   *  Domyślnie każdy składnik ma swój pasek nad treścią — i wtedy dwa
-   *  zdania, które mają się czytać jako jedno, wyglądają jak dwa osobne
-   *  kawałki. Stąd wybór: schować je zupełnie, zebrać w jeden rząd dla
-   *  całego bloku albo zostawić przy każdym składniku. */
-  paski?: 'kazdy' | 'jeden' | 'brak'
-  /** Przy jednym rzędzie: nad treścią czy pod nią. */
-  paskiGdzie?: 'gora' | 'dol'
+  /** Paski stron postawione w tym bloku (patrz PasekStron). Brak albo
+   *  pusta lista = czysty, ciągły tekst. */
+  paskiStron?: PasekStron[]
   x: number
   y: number
 }

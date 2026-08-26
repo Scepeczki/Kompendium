@@ -82,81 +82,62 @@ const zrodla = await page.evaluate(() => {
 check('scalony blok pokazuje źródła składników', zrodla.lista && zrodla.ile === '1',
   JSON.stringify(zrodla))
 
-// 2. strony składników do wyboru w środku grupy
-const chipy = await page.locator('.script-group-block .group-part-pages .block-page').allTextContents()
-check('w grupie da się wybrać stronę składnika',
+// 2a. scalony blok to JEDEN tekst — paski są miejscami, nie etykietami
+//
+// Scalenie ma dawać ciągły tekst, a nie kilka kawałków obok siebie. Domyślnie
+// nie ma więc żadnego paska; stawia się go tam, gdzie jest potrzebny, i
+// zostaje, dopóki się go nie skasuje — nawet pusty. Skasowanie zamyka przerwę.
+check('scalony blok domyślnie nie ma pasków stron',
+  (await page.locator('.script-group-block .group-pasek').count()) === 0)
+check('ale ma miejsca, w których można je postawić',
+  (await page.locator('.script-group-block .group-dodaj-pasek').count()) >= 2,
+  `${await page.locator(".script-group-block .group-dodaj-pasek").count()}`)
+
+await page.locator('.script-group-block .group-dodaj-pasek').first().click({ force: true })
+await page.waitForTimeout(600)
+check('postawiony pasek bierze zakładki sąsiedniego składnika',
+  (await page.locator('.script-group-block .group-pasek').count()) === 1 &&
+    (await page.locator('.group-pasek .group-zakladki').count()) === 1)
+
+// zakładki przeciąga się z tekstu do paska
+// drugi pasek niżej i przeciągnięcie zakładek do niego
+await page.locator('.script-group-block .group-dodaj-pasek').last().click({ force: true })
+await page.waitForTimeout(500)
+await page.locator('.group-pasek .group-zakladki').first().dragTo(
+  page.locator('.script-group-block .group-pasek').last(),
+)
+await page.waitForTimeout(700)
+check('zakładka daje się przenieść między paskami',
+  (await page.locator('.group-pasek').last().locator('.group-zakladki').count()) >= 1,
+  `${await page.locator(".group-pasek .group-zakladki").count()}`)
+
+// dopiero z paska wybiera się stronę składnika
+const chipy = await page.locator('.group-pasek .block-page').allTextContents()
+check('z paska da się wybrać stronę składnika',
   chipy.includes('Dowod') && chipy.includes('Treść'), chipy.join(' · '))
-await page.click('.script-group-block .group-part-pages .block-page:has-text("Dowod")')
+await page.click('.group-pasek .block-page:has-text("Dowod")')
 await page.waitForTimeout(600)
 check('wybrana strona zmienia pokazywaną treść',
   (await page.textContent('.script-group-block')).includes('TRESC-DOWODU-KRESU'))
 
-// 2a. paski stron w scalonym bloku — każdy osobno, wszystko w tej ścieżce
-//
-// Scalone kafelki mają czytać się jak jedna całość, a napis „Treść" nad
-// każdą częścią rozbija to na kawałki. Chowa się więc pasek po pasku,
-// pojedynczą stronę też, a rzędy wspólnych zakładek buduje przeciąganie.
-// prawym na samą zakładkę — wtedy widać obie możliwości naraz
-await page.locator('.script-group-block .block-page').first().click({ button: 'right' })
-await page.waitForSelector('.tree-menu-where:has-text("Pasek stron")')
-const menuPaska = (await page.locator('.tree-menu-item').allTextContents()).join(' | ')
-check('pasek ma osobno: schowaj pasek i schowaj stronę',
-  menuPaska.includes('Schowaj ten pasek') && menuPaska.includes('Schowaj tę stronę'),
-  menuPaska)
-
-// pojedyncza strona da się schować — pasek zostaje
-const przedStrona = await page.locator('.script-group-block .block-page').count()
-await page.click('.tree-menu-item:has-text("Schowaj tę stronę")')
+// pasek zostaje, choć wyprowadzi się z niego wszystko
+await page.locator('.script-group-block .group-pasek').last().click({ button: 'right' })
+await page.waitForSelector('.tree-menu-item:has-text("Opróżnij pasek")')
+await page.click('.tree-menu-item:has-text("Opróżnij pasek")')
 await page.waitForTimeout(600)
-check('schowanie strony zdejmuje jedną zakładkę',
-  (await page.locator('.script-group-block .block-page').count()) === przedStrona - 1,
-  `${przedStrona} → ${await page.locator(".script-group-block .block-page").count()}`)
+check('opróżniony pasek zostaje na miejscu',
+  (await page.locator('.script-group-block .group-pasek').count()) === 2 &&
+    (await page.locator('.group-pasek-pusty').count()) === 2,
+  `pasków ${await page.locator('.script-group-block .group-pasek').count()}`)
 
-// schowanie paska dotyczy JEDNEGO paska, nie wszystkich
-const przedSchowaniem = await page.locator('.script-group-block .group-part-pages').count()
-await page.locator('.script-group-block .group-part-pages').first().click({ button: 'right' })
-await page.waitForSelector('.tree-menu-item:has-text("Schowaj ten pasek")')
-await page.click('.tree-menu-item:has-text("Schowaj ten pasek")')
+// …i dopiero skasowanie zamyka przerwę
+await page.locator('.script-group-block .group-pasek').first().click({ button: 'right' })
+await page.waitForSelector('.tree-menu-item:has-text("Usuń ten pasek")')
+await page.click('.tree-menu-item:has-text("Usuń ten pasek")')
 await page.waitForTimeout(600)
-check('chowa się tylko ten jeden pasek',
-  (await page.locator('.script-group-block .group-part-pages').count()) === przedSchowaniem - 1,
-  `${przedSchowaniem} → ${await page.locator(".script-group-block .group-part-pages").count()}`)
-// schowane MUSI dać się odzyskać — inaczej to droga w jedną stronę
-check('gdy coś jest schowane, jest uchwyt do przywrócenia',
-  (await page.locator('.group-paski-uchwyt').count()) === 1)
-await page.click('.group-paski-uchwyt')
-await page.waitForSelector('.tree-menu-item:has-text("Pokaż wszystko")')
-await page.click('.tree-menu-item:has-text("Pokaż wszystko")')
-await page.waitForTimeout(700)
-check('wszystko wraca: paski i schowane strony',
-  (await page.locator('.script-group-block .group-part-pages').count()) === 2 &&
-    (await page.locator('.script-group-block .block-page').count()) === 2,
-  `paski ${await page.locator(".script-group-block .group-part-pages").count()}, zakładki ${await page.locator(".script-group-block .block-page").count()}`)
-
-// podpis paska — „Treść" bywa złym słowem w scalonym bloku
-await page.locator('.script-group-block .group-part-pages').first().click({ button: 'right' })
-await page.waitForSelector('.tree-menu-item:has-text("Zmień podpis")')
-await page.click('.tree-menu-item:has-text("Zmień podpis")')
-await page.waitForSelector('.ask-input')
-await page.fill('.ask-input', 'Sformułowanie')
-await page.click('.ask-foot .btn:last-child')
-await page.waitForTimeout(700)
-check('podpis paska da się zmienić w tej ścieżce',
-  // pasek jest pisany wersalikami przez styl, więc porównujemy bez wielkości
-  (await page.locator('.script-group-block').first().innerText())
-    .toLowerCase()
-    .includes('sformułowanie'))
-
-// …ale nazwa strony w bibliotece ma zostać nietknięta
-await page.click('.concept-item:has-text("Kres gorny")')
-await page.waitForSelector('.editor-name')
-await page.waitForTimeout(600)
-check('nazwa strony w bibliotece bez zmian',
-  !(await page.locator('.editor-body').innerText()).toLowerCase().includes('sformułowanie'))
-await page.click('.concept-item:has-text("Fuzje")')
-await page.waitForSelector('.script-group-block')
-await page.waitForTimeout(700)
-
+check('skasowany pasek znika i tekst jest znów ciągły',
+  (await page.locator('.script-group-block .group-pasek').count()) === 1,
+  `zostało ${await page.locator('.script-group-block .group-pasek').count()}`)
 // 3. edycja tytułu grupy
 await page.hover('.linear-seg:first-child')
 const pud = await page.locator('.linear-seg:first-child').boundingBox()

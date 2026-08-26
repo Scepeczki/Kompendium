@@ -5540,3 +5540,61 @@ body.ciagne-szerokosc * {
   padding-left: 12px;
   border-left: 1px solid var(--line);
 }
+
+/* ---------------------------------------------------------------------------
+   SCALONY BLOK — jeden tekst, paski jako kotwice
+   ---------------------------------------------------------------------------
+   Scalenie ma dawać JEDEN tekst, a nie kilka kawałków obok siebie. Domyślnie
+   nie ma więc żadnych pasków: składniki rozdziela jedna pusta linia. Pasek
+   stawia się tam, gdzie jest potrzebny, i zostaje, dopóki się go nie skasuje.
+   ------------------------------------------------------------------------- */
+
+.group-przerwa {
+  min-height: 0.9em;
+}
+
+/* „+ pasek stron" widać dopiero, gdy pracujesz w tym bloku — przy czytaniu
+   nic nie ma prawa mrugać między akapitami */
+.group-dodaj-pasek {
+  display: block;
+  font: inherit;
+  font-size: var(--fs-2);
+  padding: 1px 8px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.script-group-block:hover .group-dodaj-pasek,
+.script-group-block:focus-within .group-dodaj-pasek {
+  opacity: 0.5;
+}
+
+.group-dodaj-pasek:hover {
+  opacity: 1 !important;
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.group-pasek.cel {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+.group-pasek-pusty {
+  font-size: var(--fs-2);
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Lekkie ramki wokół treści składników — tylko przy pisaniu. Wtedy widać,
+   gdzie kończy się tekst jednego kafelka, a zaczyna drugi; przy czytaniu
+   blok ma wyglądać jak jeden tekst. */
+.script-group-block:focus-within .group-part {
+  outline: 1px dashed var(--line-strong);
+  outline-offset: 6px;
+  border-radius: 3px;
+}

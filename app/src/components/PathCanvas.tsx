@@ -69,6 +69,7 @@ import {
   type Concept,
   type FusionPart,
   type PathEdge,
+  type PasekStron,
   type PathNode,
   type SourceRef,
   type Subpage,
@@ -143,9 +144,8 @@ const toRfNode = (n: PathNode): Node => ({
                 parts: n.parts,
                 type: n.type,
                 content: n.content,
-                // ustawienia pasków stron należą do ścieżki, nie do kafelków
-                paski: n.paski,
-                paskiGdzie: n.paskiGdzie,
+                // paski stron to miejsca postawione w ścieżce, nie cecha kafelków
+                paskiStron: n.paskiStron,
               },
 })
 
@@ -188,8 +188,7 @@ const fromRfNode = (n: Node): PathNode => {
     type: (n.data.type as BlockType | undefined) ?? undefined,
     parts: (n.data.parts as FusionPart[]) ?? [],
     content: (n.data.content as string | undefined) ?? undefined,
-    paski: n.data.paski as 'kazdy' | 'jeden' | 'brak' | undefined,
-    paskiGdzie: n.data.paskiGdzie as 'gora' | 'dol' | undefined,
+    paskiStron: n.data.paskiStron as PasekStron[] | undefined,
   }
 }
 
@@ -439,10 +438,10 @@ interface LinearViewProps {
   onAddNote: (kind: 'text' | 'comment', afterId: string | null, beforeId: string | null) => void
   /** Nowy kafelek rodzaju „mieszka w ścieżce" — poza biblioteką. */
   onAddExample: (typeId: string, afterId: string | null, beforeId: string | null) => void
-  /** Ustawienia paska stron POJEDYNCZEGO składnika scalonego bloku:
-   *  schowanie, doczepienie do innego paska, podpis, schowane strony.
-   *  Wszystko zapisuje się w ścieżce. */
-  onPasekCzesci?: (segId: string, index: number, zmiana: Partial<FusionPart>) => void
+  /** Paski stron postawione w scalonym bloku — miejsca w tekście. */
+  onPaskiStron?: (segId: string, paski: PasekStron[]) => void
+  /** Własny podpis zakładki składnika (tylko w tej ścieżce). */
+  onEtykietaCzesci?: (segId: string, index: number, etykieta: string | undefined) => void
   /** Ręczne „ten kafelek mieszka tutaj" / „wróć do biblioteki". */
   onKeepHere: (conceptId: string, tutaj: boolean) => void
   onRemove: (id: string) => void
@@ -839,7 +838,8 @@ function LinearView({
   onAddNote,
   onAddExample,
   onKeepHere,
-  onPasekCzesci,
+  onPaskiStron,
+  onEtykietaCzesci,
   onRemove,
   onEdit,
   onUnfuse,
@@ -1548,8 +1548,9 @@ function LinearView({
         pickHint="Ustawienie tej ścieżki — tak będzie pokazywane przy czytaniu"
         onRename={onRenameFusion ? (name) => onRenameFusion(n.id, name) : undefined}
         zewn={{ concepts, versions, subpages }}
-        paski={n.paski}
-        onPasekCzesci={(i, zmiana) => onPasekCzesci?.(n.id, i, zmiana)}
+        paski={n.paskiStron}
+        onPaskiStron={(paski) => onPaskiStron?.(n.id, paski)}
+        onEtykieta={(i, e) => onEtykietaCzesci?.(n.id, i, e)}
         edytor={
           // scalony blok z własną treścią pisze się jak każdy inny
           onEditFusion && n.content !== undefined
@@ -3588,13 +3589,20 @@ function CanvasInner({
           onMoveSegments={moveSegments}
           onAddNote={linearAddNote}
           onAddExample={linearAddExample}
-          onPasekCzesci={(segId, index, zmiana) =>
+          onPaskiStron={(segId, paski) =>
+            setRfNodes((ns) =>
+              ns.map((x) =>
+                x.id === segId ? { ...x, data: { ...x.data, paskiStron: paski } } : x,
+              ),
+            )
+          }
+          onEtykietaCzesci={(segId, index, etykieta) =>
             setRfNodes((ns) =>
               ns.map((x) => {
                 if (x.id !== segId) return x
                 const parts = [...((x.data.parts as FusionPart[]) ?? [])]
                 if (!parts[index]) return x
-                parts[index] = { ...parts[index], ...zmiana }
+                parts[index] = { ...parts[index], etykieta }
                 return { ...x, data: { ...x.data, parts } }
               }),
             )
