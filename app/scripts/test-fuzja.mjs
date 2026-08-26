@@ -121,6 +121,18 @@ await page.waitForTimeout(600)
 check('chowa się tylko ten jeden pasek',
   (await page.locator('.script-group-block .group-part-pages').count()) === przedSchowaniem - 1,
   `${przedSchowaniem} → ${await page.locator(".script-group-block .group-part-pages").count()}`)
+// schowane MUSI dać się odzyskać — inaczej to droga w jedną stronę
+check('gdy coś jest schowane, jest uchwyt do przywrócenia',
+  (await page.locator('.group-paski-uchwyt').count()) === 1)
+await page.click('.group-paski-uchwyt')
+await page.waitForSelector('.tree-menu-item:has-text("Pokaż wszystko")')
+await page.click('.tree-menu-item:has-text("Pokaż wszystko")')
+await page.waitForTimeout(700)
+check('wszystko wraca: paski i schowane strony',
+  (await page.locator('.script-group-block .group-part-pages').count()) === 2 &&
+    (await page.locator('.script-group-block .block-page').count()) === 2,
+  `paski ${await page.locator(".script-group-block .group-part-pages").count()}, zakładki ${await page.locator(".script-group-block .block-page").count()}`)
+
 // podpis paska — „Treść" bywa złym słowem w scalonym bloku
 await page.locator('.script-group-block .group-part-pages').first().click({ button: 'right' })
 await page.waitForSelector('.tree-menu-item:has-text("Zmień podpis")')

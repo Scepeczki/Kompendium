@@ -55,7 +55,6 @@ interface Props {
    *  Domyślnie przy każdym składniku; „jeden" zbiera je w rząd dla całości,
    *  „brak" chowa zupełnie — wtedy części czytają się jak jeden tekst. */
   paski?: 'kazdy' | 'jeden' | 'brak'
-  onPaskiChange?: (p: 'kazdy' | 'jeden' | 'brak') => void
   /** Zmiana ustawień POJEDYNCZEGO paska (schowanie, doczepienie, podpis,
    *  schowane strony) — wszystko w obrębie tej ścieżki. */
   onPasekCzesci?: (index: number, zmiana: Partial<FusionPart>) => void
@@ -83,7 +82,6 @@ export function GroupShell({
   edytorCzesci,
   bezPaskaWersji,
   paski = 'kazdy',
-  onPaskiChange,
   onPasekCzesci,
 }: Props) {
   const dlg = useDialogs()
@@ -145,6 +143,24 @@ export function GroupShell({
   /** Czy pasek składnika jest schowany (stare ustawienie „wszystkie" nadal
    *  respektujemy, żeby nikomu nic nie wyskoczyło z powrotem). */
   const ukryty = (i: number) => parts[i]?.pasekUkryty ?? paski === 'brak'
+
+  /** Czy w tym bloku cokolwiek jest schowane. Bez tego po schowaniu
+   *  ostatniego paska nie było czego kliknąć — i nie dało się ich
+   *  odzyskać. Uchwyt „⋯" pojawia się właśnie na tę okoliczność. */
+  const cosSchowane = parts.some(
+    (cz, i) => ukryty(i) || (cz.ukryteStrony?.length ?? 0) > 0,
+  )
+
+  /** Przywraca wszystko: paski, schowane strony i doczepienia. */
+  const przywrocWszystko = () => {
+    parts.forEach((_, i) =>
+      onPasekCzesci?.(i, {
+        pasekUkryty: false,
+        ukryteStrony: [],
+        pasekPrzy: undefined,
+      }),
+    )
+  }
 
   /** Numery składników, których paski doczepiono do paska `i`. */
   const doczepione = (i: number) =>
@@ -297,10 +313,10 @@ export function GroupShell({
         <div className="block-content">
           {/* Gdy paski są schowane, nie ma czego kliknąć prawym, żeby je
               odzyskać. Stąd uchwyt: niewidoczny, dopóki nie najedziesz. */}
-          {paski === 'brak' && onPaskiChange && (
+          {cosSchowane && onPasekCzesci && (
             <button
               className="group-paski-uchwyt"
-              title="Paski stron (prawy przycisk)"
+              title="Coś jest schowane — kliknij, aby przywrócić"
               onClick={(e) => setMenuPaska({ x: e.clientX, y: e.clientY, i: 0 })}
               onContextMenu={(e) => {
                 e.preventDefault()
@@ -412,6 +428,17 @@ export function GroupShell({
                 }}
               >
                 ⇱ Odczep na własny wiersz
+              </button>
+            )}
+            {cosSchowane && (
+              <button
+                className="tree-menu-item"
+                onClick={() => {
+                  setMenuPaska(null)
+                  przywrocWszystko()
+                }}
+              >
+                👁 Pokaż wszystko z powrotem
               </button>
             )}
             <div className="tree-menu-sep" />
