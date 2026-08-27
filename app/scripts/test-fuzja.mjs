@@ -138,6 +138,63 @@ await page.waitForTimeout(600)
 check('skasowany pasek znika i tekst jest znów ciągły',
   (await page.locator('.script-group-block .group-pasek').count()) === 1,
   `zostało ${await page.locator('.script-group-block .group-pasek').count()}`)
+// 2b. zakładki wkłada się nie tylko przeciągnięciem — pod prawym przyciskiem
+// jest rozwijana lista wszystkich stron scalonych kafelków
+await page.locator('.script-group-block .group-pasek').first().click({ button: 'right' })
+await page.waitForSelector('.tree-menu-item:has-text("Wstaw zakładkę")')
+await page.hover('.tree-menu-podmenu')
+await page.waitForTimeout(250)
+const dostepne = await page.locator('.tree-menu-boczne').innerText()
+check('menu paska rozwija listę stron scalonych kafelków',
+  dostepne.includes('Kres gorny') &&
+    dostepne.includes('Dowod') &&
+    dostepne.includes('Notacja kresu'),
+  dostepne.slice(0, 120))
+await page.locator('.tree-menu-boczne .tree-menu-where:has-text("Notacja kresu")')
+  .locator('xpath=following-sibling::button[1]')
+  .click()
+await page.waitForTimeout(700)
+check('wybrana z listy zakładka ląduje w pasku',
+  (await page.locator('.script-group-block .group-pasek .group-zakladki').count()) === 1 &&
+    (await page.locator('.group-pasek-pusty').count()) === 0)
+
+// 2c. pasek nie musi stać na granicy kafelków — wchodzi w środek tekstu
+await page.click('.script-group-block .linear-pole .tiptap')
+await page.waitForTimeout(300)
+await page.keyboard.press('Control+End')
+await page.keyboard.press('Enter')
+await page.keyboard.type('DRUGI AKAPIT skladnika.')
+await page.waitForTimeout(900)
+const polaPrzed = await page.locator('.script-group-block .linear-pole').count()
+await page.locator('.script-group-block .tiptap p:has-text("TRESC-DOWODU-KRESU")').first()
+  .click({ button: 'right' })
+await page.waitForSelector('.linear-menu')
+check('menu proponuje pasek w tym miejscu tekstu',
+  (await page.locator('.linear-menu .tree-menu-item:has-text("Pasek stron w tym miejscu")').count()) === 1)
+await page.click('.linear-menu .tree-menu-item:has-text("Pasek stron w tym miejscu")')
+await page.waitForTimeout(900)
+check('pasek staje w środku tekstu składnika',
+  (await page.locator('.script-group-block .group-part .group-pasek').count()) === 1)
+check('a tekst rozcina się na dwa pola',
+  (await page.locator('.script-group-block .linear-pole').count()) === polaPrzed + 1,
+  `${polaPrzed} → ${await page.locator('.script-group-block .linear-pole').count()}`)
+const rozciety = await page.textContent('.script-group-block')
+check('żaden kawałek tekstu nie ginie przy rozcięciu',
+  rozciety.includes('TRESC-DOWODU-KRESU') && rozciety.includes('DRUGI AKAPIT skladnika'))
+
+// …i skasowanie paska zrasta tekst z powrotem w jeden ciąg
+await page.locator('.script-group-block .group-part .group-pasek').click({ button: 'right' })
+await page.waitForSelector('.tree-menu-item:has-text("Usuń ten pasek")')
+await page.click('.tree-menu-item:has-text("Usuń ten pasek")')
+await page.waitForTimeout(900)
+check('skasowanie paska w tekście zrasta go z powrotem',
+  (await page.locator('.script-group-block .group-part .group-pasek').count()) === 0 &&
+    (await page.locator('.script-group-block .linear-pole').count()) === polaPrzed,
+  `pól ${await page.locator('.script-group-block .linear-pole').count()}`)
+const zrosniety = await page.textContent('.script-group-block')
+check('i nic po drodze nie ginie',
+  zrosniety.includes('TRESC-DOWODU-KRESU') && zrosniety.includes('DRUGI AKAPIT skladnika'))
+
 // 3. edycja tytułu grupy
 await page.hover('.linear-seg:first-child')
 const pud = await page.locator('.linear-seg:first-child').boundingBox()
@@ -160,6 +217,9 @@ await page.waitForSelector('.script-group-block .linear-pole')
 const zalazek = await page.textContent('.script-group-block .linear-pole')
 check('przepisywanie startuje od sklejonych treści składników',
   zalazek.includes('TRESC-DOWODU-KRESU') && zalazek.includes('Piszemy sup A'), zalazek)
+// …łącznie z tym, co dopisane przy składniku w tej ścieżce
+check('przepisywanie nie gubi tekstu dopisanego w ścieżce',
+  zalazek.includes('DRUGI AKAPIT skladnika'), zalazek.slice(0, 120))
 // dalej pisze się już wprost w kafelku
 await page.click('.script-group-block .linear-pole .tiptap')
 await page.keyboard.press('Control+a')

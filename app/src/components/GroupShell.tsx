@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, mainPageName } from '../db'
+import { blokiTresci, polaczBloki } from '../akapity'
 import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
 import {
@@ -48,8 +49,17 @@ interface Props {
     dane: {
       versionId: string
       subpageId: string | null
+      /** Tekst TEGO kawałka składnika (pasek w środku dzieli go na kilka). */
       tresc: string
       biezaca: boolean
+      /** Który to kawałek składnika i ile ich w sumie. */
+      kawalek: number
+      kawalkow: number
+      /** Wkłada zapisany kawałek z powrotem w całość składnika i podaje
+       *  przy okazji przesunięte paski — tekst i ich pozycje muszą trafić do
+       *  ścieżki jednym ruchem, inaczej przez chwilę cięcie stoi gdzie
+       *  indziej niż tekst i pole do pisania dostaje nie swoją treść. */
+      zloz: (md: string) => { tekst: string; paski?: PasekStron[] }
     },
   ) => React.ReactNode
   /** Paski stron postawione w tym bloku — miejsca, nie właściwości
@@ -232,10 +242,62 @@ export function GroupShell({
     </div>
   )
 
+  /** Składnik pocięty paskami, które stoją w środku jego tekstu.
+   *
+   *  Bez takich pasków wychodzi jeden kawałek i wszystko jest jak dawniej.
+   *  Z nimi tekst rozpada się na kolejne pola do pisania, a pasek staje
+   *  dokładnie w miejscu cięcia. Skasowanie paska zrasta tekst z powrotem
+   *  — dlatego „usunąć miejsce na pasek" znaczy „mieć znów jeden ciąg". */
+  const kawalkiCzesci = (i: number) => {
+    const tresc = resolved[i]?.tresc ?? ''
+    const wewn = paskiStron
+      .filter((x) => x.poCzesci === i && x.poAkapicie !== undefined)
+      .sort((a, b) => (a.poAkapicie ?? 0) - (b.poAkapicie ?? 0))
+    if (wewn.length === 0) {
+      return [
+        { tekst: tresc, pasek: null, k: 0, ile: 1, zloz: (md: string) => ({ tekst: md }) },
+      ]
+    }
+    const bloki = blokiTresci(tresc)
+    const ciecia = wewn.map((x) => Math.max(0, Math.min(bloki.length, x.poAkapicie ?? 0)))
+    const granice = [0, ...ciecia, bloki.length]
+    const teksty = granice
+      .slice(0, -1)
+      .map((od, k) => polaczBloki(bloki.slice(od, granice[k + 1])))
+    /** Po zapisaniu kawałka paski dostają nowe numery akapitów — liczone od
+     *  nowa z długości kawałków. Dzięki temu dopisanie zdania nie przesuwa
+     *  paska o akapit w dół. */
+    const zloz = (k: number) => (md: string) => {
+      const nowe = teksty.map((t, j) => (j === k ? md : t))
+      const dlugosci = nowe.map((t) => blokiTresci(t).length)
+      let suma = 0
+      const poprawki = new Map<string, number>()
+      wewn.forEach((x, j) => {
+        suma += dlugosci[j]
+        poprawki.set(x.id, suma)
+      })
+      return {
+        tekst: polaczBloki(nowe),
+        paski: paskiStron.map((x) =>
+          poprawki.has(x.id) ? { ...x, poAkapicie: poprawki.get(x.id) } : x,
+        ),
+      }
+    }
+    return teksty.map((tekst, k) => ({
+      tekst,
+      pasek: wewn[k] ?? null,
+      k,
+      ile: teksty.length,
+      zloz: zloz(k),
+    }))
+  }
+
   /** Przerwa między składnikami: w trybie pisania można tu postawić pasek. */
   const przerwa = (poCzesci: number) => (
     <div className="group-przerwa" key={`p-${poCzesci}`}>
-      {paskiStron.filter((x) => x.poCzesci === poCzesci).map((x) => pasekStron(x))}
+      {paskiStron
+        .filter((x) => x.poCzesci === poCzesci && x.poAkapicie === undefined)
+        .map((x) => pasekStron(x))}
       {onPaskiStron && (
         <button
           className="group-dodaj-pasek"
@@ -347,21 +409,30 @@ export function GroupShell({
                   )}
                 </div>
               )}
-              {edytorCzesci && r.concept && r.version ? (
-                edytorCzesci(i, {
-                  versionId: r.version.id,
-                  subpageId: r.strona?.id ?? null,
-                  tresc: r.tresc,
-                  biezaca: r.version.id === r.concept.currentVersionId,
-                })
-              ) : (
-                <div
-                  className="markdown-body"
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(r.concept ? r.tresc : '(usunięty kafelek)'),
-                  }}
-                />
-              )}
+              {kawalkiCzesci(i).map(({ tekst, pasek, k, ile, zloz }) => (
+                <Fragment key={`k${k}`}>
+                  {edytorCzesci && r.concept && r.version ? (
+                    edytorCzesci(i, {
+                      versionId: r.version.id,
+                      subpageId: r.strona?.id ?? null,
+                      tresc: tekst,
+                      biezaca: r.version.id === r.concept.currentVersionId,
+                      kawalek: k,
+                      kawalkow: ile,
+                      zloz,
+                    })
+                  ) : (
+                    <div
+                      className="markdown-body"
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdown(r.concept ? tekst : '(usunięty kafelek)'),
+                      }}
+                    />
+                  )}
+                  {/* pasek postawiony w środku tekstu — rozcina go tutaj */}
+                  {pasek && pasekStron(pasek)}
+                </Fragment>
+              ))}
             </div>
               {/* przerwa pod składnikiem: tu stawia się pasek stron */}
               {przerwa(i)}
@@ -385,6 +456,76 @@ export function GroupShell({
             onContextMenu={(e) => e.preventDefault()}
           >
             <div className="tree-menu-where">Pasek stron (tylko w tej ścieżce)</div>
+            {/* Zakładki wpadają tu przeciągnięciem, ale celowanie myszą to
+                nie jedyna droga: ta sama lista, rozwijana, z każdą stroną
+                scalonych kafelków. */}
+            {(() => {
+              const pasek = paskiStron.find((x) => x.id === menuPaska.pasek)
+              if (!pasek) return null
+              // nazwa kafelka jest nagłówkiem, a pod nim jego strony —
+              // „Treść" samo w sobie nic nie mówi, gdy kafelków jest kilka
+              const pozycje = resolved.flatMap((r, i) => {
+                const kafelek = parts[i].etykieta ?? r.concept?.name ?? '(kafelek)'
+                return [
+                  { i, id: null as string | null, nazwa: mainPageName(r.concept ?? {}), kafelek },
+                  ...r.strony.map((st) => ({
+                    i,
+                    id: st.id as string | null,
+                    nazwa: st.name,
+                    kafelek,
+                  })),
+                ]
+              })
+              if (pozycje.length === 0) return null
+              return (
+                <>
+                  <div className="tree-menu-podmenu">
+                    <button className="tree-menu-item tree-menu-rozwija" type="button">
+                      <span>Wstaw zakładkę</span>
+                      <span className="tree-menu-strzalka">›</span>
+                    </button>
+                    <div className="tree-menu tree-menu-boczne">
+                      {pozycje.map((poz, nr) => {
+                        const tutaj = pasek.czesci.includes(poz.i)
+                        const teraz =
+                          tutaj && (resolved[poz.i]?.strona?.id ?? null) === poz.id
+                        const pierwsza = pozycje[nr - 1]?.i !== poz.i
+                        return (
+                          <Fragment key={`${poz.i}-${poz.id ?? 'gl'}`}>
+                          {pierwsza && (
+                            <div className="tree-menu-where">{poz.kafelek}</div>
+                          )}
+                          <button
+                            className={`tree-menu-item ${teraz ? 'wybrany' : ''}`}
+                            onClick={() => {
+                              setMenuPaska(null)
+                              // składnik mieszka w jednym pasku — przenosimy,
+                              // a nie dublujemy
+                              ustawPaski(
+                                paskiStron.map((x) =>
+                                  x.id === pasek.id
+                                    ? {
+                                        ...x,
+                                        czesci: tutaj ? x.czesci : [...x.czesci, poz.i],
+                                      }
+                                    : { ...x, czesci: x.czesci.filter((c) => c !== poz.i) },
+                                ),
+                              )
+                              onSubpageChange?.(poz.i, poz.id)
+                            }}
+                          >
+                            {teraz ? '• ' : '   '}
+                            {poz.nazwa}
+                          </button>
+                          </Fragment>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="tree-menu-sep" />
+                </>
+              )
+            })()}
             <button
               className="tree-menu-item tree-menu-groznie"
               onClick={() => {

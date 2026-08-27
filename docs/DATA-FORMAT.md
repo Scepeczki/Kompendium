@@ -93,6 +93,29 @@ LearningPath                      PathNode — pięć rodzajów (pole `kind`)
 **Uwaga historyczna:** grupa ma w danych `kind: 'fusion'` — nazwa z czasów, gdy
 scalanie miało zlewać kafelki. Zostaje, bo siedzi w zapisanych ścieżkach.
 
+**Paski stron w scalonym bloku** (`paskiStron: PasekStron[]`) to MIEJSCA, a nie
+właściwości składników. Scalenie ma dawać jeden ciągły tekst, więc domyślnie
+nie ma żadnego paska; stawia się go tam, gdzie potrzeba, i zostaje — nawet
+opróżniony — dopóki się go nie skasuje. Skasowanie zamyka przerwę i tekst
+zrasta się z powrotem.
+
+```
+PasekStron: id, poCzesci, poAkapicie?, czesci[]
+             │      │          │           └─ numery składników, których zakładki
+             │      │          │              pokazuje ten pasek (puste = pusty)
+             │      │          └─ ile akapitów tego składnika stoi PRZED paskiem;
+             │      │             brak = pasek na granicy, za całym składnikiem
+             │      └─ za którym składnikiem; -1 = przed pierwszym
+             └─ własne id, bo pasek przeżywa przenoszenie zakładek
+```
+
+Pozycja w środku tekstu liczona jest w AKAPITACH, nie w znakach: numer akapitu
+przeżyje przepisanie zdania, a offset w znakach nie. Podziału pilnuje
+`blokiTresci()` (`app/src/akapity.ts`) — ta sama funkcja tnie tekst przy
+rysowaniu i przelicza pozycje pasków po każdym zapisie, więc cięcie zawsze
+wraca w to samo miejsce. Wszystko to żyje **tylko w ścieżce**; kafelki w
+bibliotece nic o paskach nie wiedzą.
+
 ## Kluczowe zasady
 
 1. **Kafelek nie ma treści** — treść żyje wyłącznie w wersjach. „Zapisz jako v2"

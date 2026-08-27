@@ -489,6 +489,8 @@ interface LinearViewProps {
     versionId: string,
     subpageId: string | null,
     md: string,
+    /** Przesunięte paski stron — zapisywane razem z tekstem. */
+    paski?: PasekStron[],
   ) => void
   /** Porzucenie własnego tekstu — kafelek wraca do pokazywania kafelka. */
   onWrocDoKlocka?: (nodeId: string, versionId: string, subpageId: string | null) => void
@@ -743,6 +745,29 @@ interface PoleProps {
  *  Kolejność jest taka: kafelek wjeżdża na ekran i pokazuje gotowy tekst,
  *  a ułamek sekundy później zamienia się w pole. Kliknięcie nie czeka na nic —
  *  robi z niego pole natychmiast, z kursorem dokładnie pod myszą. */
+/** W które pole i w który akapit trafił kursor myszy.
+ *
+ *  Numer akapitu bierzemy z ProseMirror (`posAtCoords`), bo prawy przycisk
+ *  nie wszędzie przestawia kursor tekstowy, a punkt kliknięcia znamy zawsze. */
+function namierzMiejsce(
+  edytory: Map<string, Editor>,
+  x: number,
+  y: number,
+): { seg: string; blok: number } | null {
+  const el = document.elementFromPoint(x, y)
+  if (!el) return null
+  for (const [seg, ed] of edytory) {
+    if (!ed.view.dom.contains(el)) continue
+    const doc = ed.state.doc
+    const znal = ed.view.posAtCoords({ left: x, top: y })
+    const blok = znal
+      ? doc.resolve(Math.max(1, Math.min(znal.pos, Math.max(1, doc.content.size - 1)))).index(0)
+      : Math.max(0, doc.childCount - 1)
+    return { seg, blok }
+  }
+  return null
+}
+
 const PoleTresci = memo(function PoleTresci({
   wartosc,
   zapisz,
@@ -1141,6 +1166,10 @@ function LinearView({
     y: number
     index: number
     pos: 'before' | 'after'
+    /** Gdzie w tekście padło kliknięcie — do postawienia paska stron.
+     *  Liczone od razu, przy otwieraniu menu: później w tym punkcie ekranu
+     *  leży już samo menu. */
+    pasek?: { seg: string; blok: number } | null
   } | null>(null)
 
   useEffect(() => {
@@ -1311,7 +1340,13 @@ function LinearView({
         e.preventDefault()
         const r = e.currentTarget.getBoundingClientRect()
         const pos = e.clientY - r.top < r.height / 2 ? 'before' : 'after'
-        setSegMenu({ x: e.clientX, y: e.clientY, index: i, pos })
+        setSegMenu({
+          x: e.clientX,
+          y: e.clientY,
+          index: i,
+          pos,
+          pasek: namierzMiejsce(edytoryRef.current, e.clientX, e.clientY),
+        })
       },
       chwyt: (e, id) => {
         const { zazSeg: zaz, ordered: lista } = biezaceRef.current
@@ -1336,6 +1371,32 @@ function LinearView({
    *  ekranu (patrz `okno`). Postawienie pola kosztuje — parsowanie Markdownu
    *  i rysowanie wzorów — więc gdyby dotyczyło całej ścieżki, przy pięciuset
    *  kafelkach nie dałoby się otworzyć Linii. Kilkanaście pól to nic. */
+  /** Stawia pasek stron dokładnie tam, gdzie kliknięto prawym — także w
+   *  środku tekstu kafelka, nie tylko na jego granicy.
+   *
+   *  Zapisujemy to jako „ile akapitów stoi przed paskiem": numer akapitu
+   *  przeżyje przepisanie tekstu, a pozycja liczona w znakach nie. */
+  const pasekWTekscie = (n: PathNode, cel: { seg: string; blok: number }) => {
+    if (n.kind !== 'fusion' || !onPaskiStron) return
+    const [, iTekst, kTekst] = cel.seg.split(':')
+    const i = Number(iTekst)
+    const k = Number(kTekst)
+    if (!Number.isFinite(i) || !Number.isFinite(k)) return
+    const wewn = (n.paskiStron ?? [])
+      .filter((z) => z.poCzesci === i && z.poAkapicie !== undefined)
+      .sort((a, b) => (a.poAkapicie ?? 0) - (b.poAkapicie ?? 0))
+    const przed = k > 0 ? (wewn[k - 1]?.poAkapicie ?? 0) : 0
+    // pasek staje POD akapitem, w który trafiliśmy
+    const poAkapicie = przed + cel.blok + 1
+    if (wewn.some((z) => z.poAkapicie === poAkapicie)) return
+    // nowy pasek bierze zakładki tego składnika, o ile nie stoją już gdzie indziej
+    const zajety = (n.paskiStron ?? []).some((z) => z.czesci.includes(i))
+    onPaskiStron(n.id, [
+      ...(n.paskiStron ?? []),
+      { id: crypto.randomUUID(), poCzesci: i, poAkapicie, czesci: zajety ? [] : [i] },
+    ])
+  }
+
   const poleTresci = (
     segId: string,
     kluczTresci: string,
@@ -1563,10 +1624,15 @@ function LinearView({
           onEditPart
             ? (i, d) =>
                 poleTresci(
-                  `${n.id}:${i}`,
-                  `${n.id}:${i}:${kluczWlasnej(d.versionId, d.subpageId)}`,
+                  // pasek w środku tekstu dzieli składnik na kawałki, a każdy
+                  // z nich jest osobnym polem — stąd numer kawałka w kluczu
+                  `${n.id}:${i}:${d.kawalek}`,
+                  `${n.id}:${i}:${d.kawalek}/${d.kawalkow}:${kluczWlasnej(d.versionId, d.subpageId)}`,
                   d.tresc,
-                  (md) => onEditPart(n.id, i, d.versionId, d.subpageId, md),
+                  (md) => {
+                    const w = d.zloz(md)
+                    onEditPart(n.id, i, d.versionId, d.subpageId, w.tekst, w.paski)
+                  },
                 )
             : undefined
         }
@@ -2012,6 +2078,25 @@ function LinearView({
                   <div className="tree-menu-sep" />
                 </>
               )}
+              {sasiad?.kind === 'fusion' &&
+                onPaskiStron &&
+                // pole składnika ma klucz „węzeł:składnik:kawałek"; przepisana
+                // całość jest jednym tekstem i pasków w niej nie ma
+                segMenu.pasek?.seg.split(':').length === 3 && (
+                <>
+                  {/* Pasek nie musi czekać na granicę kafelków — staje tam,
+                      gdzie kliknięto. Tekst rozcina się w tym miejscu. */}
+                  <button
+                    className="tree-menu-item"
+                    onClick={wstaw(() => {
+                      if (segMenu.pasek) pasekWTekscie(sasiad, segMenu.pasek)
+                    })}
+                  >
+                    ⌇ Pasek stron w tym miejscu
+                  </button>
+                  <div className="tree-menu-sep" />
+                </>
+              )}
               {wybory.length > 0 && (
                 <>
                   {wybory}
@@ -2347,13 +2432,22 @@ function CanvasInner({
     const parts = (g?.data.parts as FusionPart[]) ?? []
     const teksty: string[] = []
     for (const p of parts) {
+      const c = await db.concepts.get(p.conceptId)
+      const vId = p.versionId ?? c?.currentVersionId ?? ''
+      // Najpierw tekst dopisany przy składniku W TEJ ŚCIEŻCE. Bez tego
+      // przepisywanie startowało od surowej treści z biblioteki, a wszystko,
+      // co napisałeś tutaj, znikało z oczu.
+      const wlasna = p.wlasneTresci?.[kluczWlasnej(vId, p.subpageId ?? null)]
+      if (wlasna !== undefined) {
+        teksty.push(wlasna.trim())
+        continue
+      }
       if (p.subpageId) {
         const s = await db.subpages.get(p.subpageId)
         teksty.push((s?.content ?? '').trim())
         continue
       }
-      const c = await db.concepts.get(p.conceptId)
-      const v = await db.versions.get(p.versionId ?? c?.currentVersionId ?? '')
+      const v = await db.versions.get(vId)
       teksty.push((v?.content ?? '').trim())
     }
     return teksty.filter(Boolean).join('\n\n')
@@ -3117,7 +3211,7 @@ function CanvasInner({
   }
 
   const zapiszWlasnaCzesci = useCallback(
-    (nodeId: string, index: number, klucz: string, md: string) => {
+    (nodeId: string, index: number, klucz: string, md: string, paski?: PasekStron[]) => {
       odloz(`${nodeId}|${index}|${klucz}`, () =>
         setRfNodes((ns) =>
           ns.map((n) => {
@@ -3126,7 +3220,12 @@ function CanvasInner({
             const p = parts[index]
             if (!p) return n
             parts[index] = { ...p, wlasneTresci: { ...(p.wlasneTresci ?? {}), [klucz]: md } }
-            return { ...n, data: { ...n.data, parts } }
+            // paski idą tym samym zapisem: pozycja cięcia liczy się z tego
+            // właśnie tekstu i nie ma prawa się od niego oderwać
+            return {
+              ...n,
+              data: { ...n.data, parts, ...(paski ? { paskiStron: paski } : {}) },
+            }
           }),
         ),
       )
@@ -3622,8 +3721,8 @@ function CanvasInner({
           onEditBlock={(nodeId, versionId, subpageId, md) =>
             zapiszTresc(nodeId, versionId, subpageId, md)
           }
-          onEditPart={(nodeId, index, versionId, subpageId, md) =>
-            zapiszWlasnaCzesci(nodeId, index, kluczWlasnej(versionId, subpageId), md)
+          onEditPart={(nodeId, index, versionId, subpageId, md, paski) =>
+            zapiszWlasnaCzesci(nodeId, index, kluczWlasnej(versionId, subpageId), md, paski)
           }
           onWrocDoKlocka={(nodeId, versionId, subpageId) =>
             wrocDoKlocka(nodeId, kluczWlasnej(versionId, subpageId))

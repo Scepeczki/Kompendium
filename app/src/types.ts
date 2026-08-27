@@ -337,6 +337,11 @@ export interface PasekStron {
   id: string
   /** Za którym składnikiem stoi pasek; -1 = przed pierwszym. */
   poCzesci: number
+  /** Ile akapitów tego składnika stoi PRZED paskiem.
+   *
+   *  Brak = pasek stoi na granicy, czyli za całym składnikiem. Liczba =
+   *  pasek wszedł w środek tekstu i rozcina go w tym miejscu. */
+  poAkapicie?: number
   /** Numery składników, których zakładki stron pokazuje ten pasek.
    *  Pusty = pasek stoi pusty i czeka, aż coś do niego przeciągniesz. */
   czesci: number[]

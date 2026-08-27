@@ -5598,3 +5598,20 @@ body.ciagne-szerokosc * {
   outline-offset: 6px;
   border-radius: 3px;
 }
+
+/* Pasek postawiony w ŚRODKU tekstu składnika. Stoi w jednym rzędzie z
+   akapitami, więc potrzebuje własnego oddechu — przerwa między składnikami
+   daje go z zewnątrz, tutaj musi wziąć się sam. */
+.group-part .group-pasek {
+  margin: 0.85em 0;
+}
+
+/* Cienka kreska nad paskiem w tekście: widać, że tekst jest tu rozcięty,
+   a nie że nagle wyskoczyły zakładki. */
+.group-part .group-pasek::before {
+  content: '';
+  display: block;
+  height: 1px;
+  margin: 0 0 6px;
+  background: var(--line);
+}
