@@ -1,7 +1,7 @@
 // Test spójności łańcucha w widoku Linia: dokładanie, przenoszenie i fuzja
 // (także kafelków NIE po kolei) nie mogą gubić kafelków ani rozrywać kolejności.
 import { chromium } from 'playwright'
-import { nowaSciezka, podaj } from './lib.mjs'
+import { nowaSciezka, podaj, zloz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -129,7 +129,7 @@ check('przeniesienie segmentu zachowuje wszystkie kafelki',
 // 3. fuzja sąsiadów z Linii
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Scal z następnym"]')
-await podaj(page, 'Para')
+await zloz(page, 'Para')
 await page.waitForTimeout(800)
 const po3 = await widoczne()
 const l3 = await lancuch()
@@ -148,7 +148,7 @@ await page.keyboard.down('Control')
 await kafelki[2].click()
 await page.keyboard.up('Control')
 await page.click('button:has-text("⧉ Scal")')
-await podaj(page, 'Nie po kolei')
+await zloz(page, 'Nie po kolei')
 await page.waitForTimeout(900)
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-seg')

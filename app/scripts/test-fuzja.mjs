@@ -1,7 +1,8 @@
-// Test scalonych bloków: źródła składników, wybór ich stron, edycja tytułu
-// i przepisanie treści całości, pytanie przy rozdzieleniu.
+// Test złożonego kafelka w ścieżce: źródła przeniesione z materiałów, nazwa
+// i rodzaj z ekranu komponowania, pisanie wprost w bloku (biblioteka
+// nietknięta) i rozdzielenie, które nie gubi złożonego tekstu.
 import { chromium } from 'playwright'
-import { nowaSciezka, podaj, potwierdz, anuluj } from './lib.mjs'
+import { nowaSciezka, podaj, potwierdz, anuluj, zloz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -67,7 +68,7 @@ for (const n of ['Kres gorny', 'Notacja kresu']) {
 
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Scal z następnym"]')
-await podaj(page, 'Kres gorny i jego notacja')
+await zloz(page, 'Kres gorny i jego notacja')
 await page.waitForSelector('.script-group-block')
 await page.waitForTimeout(700)
 
@@ -97,166 +98,75 @@ const pudelka = await page.evaluate(() => {
   )
   return { pola, obrys }
 })
-check('składniki nie dostają obrysu, choć w bloku stoi kursor',
-  pudelka.obrys.every((o) => o === 'none'), pudelka.obrys.join(', '))
+check('w bloku nie ma już żadnych „składników" do obrysowania',
+  pudelka.obrys.length === 0, pudelka.obrys.join(', '))
 check('ani ramki wokół pola, w którym się pisze',
   pudelka.pola.length > 0 && pudelka.pola.every((p) => p.ramka),
   JSON.stringify(pudelka.pola))
 
-// 2a. scalenie daje JEDEN tekst
-//
-// Kafelek bez stron nie zostawia po sobie żadnego śladu: żadnych pasków,
-// żadnych okienek „dodaj stronę". Tekst przerywa się wyłącznie tam, gdzie
-// zaczyna się kafelek, który strony naprawdę ma — bo tylko tam jest z czego
-// wybierać. „Kres gorny" ma stronę „Dowod", „Notacja kresu" nie ma żadnej.
-check('scalony blok nie ma żadnych okienek na stawianie pasków',
-  (await page.locator('.script-group-block .group-dodaj-pasek').count()) === 0)
-check('kafelek ze stronami przerywa tekst w swoim miejscu — i tylko on',
-  (await page.locator('.script-group-block .group-pasek').count()) === 1,
-  `pasków ${await page.locator('.script-group-block .group-pasek').count()}`)
-const domyslne = await page.locator('.script-group-block .group-pasek').innerText()
-check('i to ten pasek pokazuje strony tego kafelka',
-  domyslne.includes('Treść') && domyslne.includes('Dowod'), domyslne.replace(/s+/g, ' '))
-
-// 2b. dopiero z paska wybiera się stronę składnika
-await page.click('.group-pasek .block-page:has-text("Dowod")')
-await page.waitForTimeout(600)
-check('wybrana strona zmienia pokazywaną treść',
-  (await page.textContent('.script-group-block')).includes('TRESC-DOWODU-KRESU'))
-
-// 2c. pasek nie musi stać na granicy kafelków — wchodzi w środek tekstu
-await page.click('.script-group-block .linear-pole .tiptap')
-await page.waitForTimeout(300)
-await page.keyboard.press('Control+End')
-await page.keyboard.press('Enter')
-await page.keyboard.type('DRUGI AKAPIT skladnika.')
-await page.waitForTimeout(900)
-const polaPrzed = await page.locator('.script-group-block .linear-pole').count()
-await page.locator('.script-group-block .tiptap p:has-text("TRESC-DOWODU-KRESU")').first()
-  .click({ button: 'right' })
-await page.waitForSelector('.linear-menu')
-check('menu proponuje pasek w tym miejscu tekstu',
-  (await page.locator('.linear-menu .tree-menu-item:has-text("Pasek stron w tym miejscu")').count()) === 1)
-await page.click('.linear-menu .tree-menu-item:has-text("Pasek stron w tym miejscu")')
-await page.waitForTimeout(900)
-check('pasek staje w środku tekstu składnika',
-  (await page.locator('.script-group-block .group-pasek').count()) === 2,
-  `pasków ${await page.locator('.script-group-block .group-pasek').count()}`)
-check('a tekst rozcina się na dwa pola',
-  (await page.locator('.script-group-block .linear-pole').count()) === polaPrzed + 1,
-  `${polaPrzed} → ${await page.locator('.script-group-block .linear-pole').count()}`)
-const rozciety = await page.textContent('.script-group-block')
-check('żaden kawałek tekstu nie ginie przy rozcięciu',
-  rozciety.includes('TRESC-DOWODU-KRESU') && rozciety.includes('DRUGI AKAPIT skladnika'))
-
-// 2d. zakładki przenosi się przeciągnięciem między paskami
-await page.locator('.group-pasek .group-zakladki').first().dragTo(
-  page.locator('.script-group-block .group-pasek').last(),
-)
-await page.waitForTimeout(700)
-check('zakładka daje się przenieść między paskami',
-  (await page.locator('.group-pasek').last().locator('.group-zakladki').count()) === 1 &&
-    (await page.locator('.group-pasek-pusty').count()) === 1,
-  `zakładek ${await page.locator('.group-pasek .group-zakladki').count()}`)
-
-// 2e. …albo z listy pod prawym przyciskiem, bez celowania myszą
-await page.locator('.script-group-block .group-pasek').first().click({ button: 'right' })
-await page.waitForSelector('.tree-menu-item:has-text("Wstaw zakładkę")')
-await page.click('.tree-menu-item:has-text("Wstaw zakładkę")')
-await page.waitForTimeout(250)
-const dostepne = await page.locator('.tree-menu-boczne').innerText()
-check('menu paska rozwija listę stron scalonych kafelków',
-  dostepne.includes('Kres gorny') &&
-    dostepne.includes('Dowod') &&
-    dostepne.includes('Notacja kresu'),
-  dostepne.slice(0, 120))
-await page.locator('.tree-menu-boczne .tree-menu-where:has-text("Notacja kresu")')
-  .locator('xpath=following-sibling::button[1]')
-  .click()
-await page.waitForTimeout(700)
-check('wybrana z listy zakładka ląduje w pasku',
-  (await page.locator('.group-pasek-pusty').count()) === 0,
-  `pustych ${await page.locator('.group-pasek-pusty').count()}`)
-
-// 2f. pasek zostaje, choć wyprowadzi się z niego wszystko…
-await page.locator('.script-group-block .group-pasek').first().click({ button: 'right' })
-await page.waitForSelector('.tree-menu-item:has-text("Opróżnij pasek")')
-await page.click('.tree-menu-item:has-text("Opróżnij pasek")')
-await page.waitForTimeout(600)
-check('opróżniony pasek zostaje na miejscu',
-  (await page.locator('.group-pasek-pusty').count()) === 1)
-
-// …i dopiero skasowanie zrasta tekst z powrotem
-const przedUsunieciem = await page.locator('.script-group-block .group-pasek').count()
-await page.locator('.script-group-block .group-pasek').first().click({ button: 'right' })
-await page.waitForSelector('.tree-menu-item:has-text("Usuń ten pasek")')
-await page.click('.tree-menu-item:has-text("Usuń ten pasek")')
-await page.waitForTimeout(700)
-check('skasowany pasek znika i tekst jest znów ciągły',
-  (await page.locator('.script-group-block .group-pasek').count()) === przedUsunieciem - 1,
-  `${przedUsunieciem} → ${await page.locator('.script-group-block .group-pasek').count()}`)
-const poUsunieciu = await page.textContent('.script-group-block')
-check('i nic po drodze nie ginie',
-  poUsunieciu.includes('TRESC-DOWODU-KRESU') && poUsunieciu.includes('DRUGI AKAPIT skladnika'))
-
-
-// 3. edycja tytułu grupy
+// 2. nazwa i rodzaj — na ekranie komponowania, nie w osobnym okienku
 await page.hover('.linear-seg:first-child')
 const pud = await page.locator('.linear-seg:first-child').boundingBox()
 await page.mouse.click(pud.x + pud.width / 2, pud.y + 6, { button: 'right' })
 await page.waitForSelector('.linear-menu')
-await page.click('.linear-menu .tree-menu-item:has-text("Czym to jest")')
-await page.waitForSelector('.group-editor')
-await page.fill('.group-editor .settings-row:has-text("Nazwa w tej ścieżce") input', 'Kres i notacja')
+await page.click('.linear-menu .tree-menu-item:has-text("Komponuj")')
+await page.waitForSelector('.komp-okno')
+await page.fill('.komp-nazwa', 'Kres i notacja')
+await page.click('.komp-typ .group-type-btn:has-text("Twierdzenie")')
 await page.waitForTimeout(400)
-check('tytuł grupy da się zmienić',
+await page.click('.komp-head button:has-text("Gotowe")')
+await page.waitForTimeout(800)
+check('nazwa nadana w komponowaniu widać w ścieżce',
   (await page.inputValue('.script-group-block .inline-title')) === 'Kres i notacja')
+check('i rodzaj też', (await page.textContent('.script-group-block .script-block-type')).includes('Twierdzenie'))
 
-// 4. przepisanie treści całości
-await page.click('.group-editor button:has-text("Przepisz na jeden tekst")')
-await page.waitForTimeout(500)
-await page.keyboard.press('Escape')
-await page.waitForTimeout(700)
-await page.click('.script-group-block .markdown-body')
-await page.waitForSelector('.script-group-block .linear-pole')
-const zalazek = await page.textContent('.script-group-block .linear-pole')
-check('przepisywanie startuje od sklejonych treści składników',
-  zalazek.includes('TRESC-DOWODU-KRESU') && zalazek.includes('Piszemy sup A'), zalazek)
-// …łącznie z tym, co dopisane przy składniku w tej ścieżce
-check('przepisywanie nie gubi tekstu dopisanego w ścieżce',
-  zalazek.includes('DRUGI AKAPIT skladnika'), zalazek.slice(0, 120))
-// dalej pisze się już wprost w kafelku
+// 3. w złożonym kafelku pisze się wprost, a biblioteka zostaje nietknięta
+await page.click('.script-group-block .linear-pole .tiptap, .script-group-block .markdown-body')
+await page.waitForSelector('.script-group-block .linear-pole .tiptap')
 await page.click('.script-group-block .linear-pole .tiptap')
-await page.keyboard.press('Control+a')
-await page.keyboard.type('Kresem gornym zbioru A, pisanym sup A, nazywamy PRZEPISANE.')
-await page.waitForTimeout(900)
-const tresc = await page.textContent('.script-group-block')
-check('grupa pokazuje przepisaną treść', tresc.includes('PRZEPISANE'))
-check('a nie treści składników', !tresc.includes('TRESC-DOWODU-KRESU'))
-check('źródła zostają mimo przepisania',
-  (await page.locator('.script-group-block .source-list').count()) === 1)
+await page.keyboard.press('Control+End')
+await page.keyboard.type(' DOPISANE-W-ZLOZONYM')
+await page.waitForTimeout(1200)
+check('tekst dopisany w złożonym kafelku widać',
+  (await page.textContent('.script-group-block')).includes('DOPISANE-W-ZLOZONYM'))
+const wersjeBazy = await page.evaluate(async () => {
+  const req = indexedDB.open('kompendium')
+  const db = await new Promise((res) => {
+    req.onsuccess = () => res(req.result)
+  })
+  return await new Promise((res) => {
+    const r = db.transaction('versions').objectStore('versions').getAll()
+    r.onsuccess = () => res(r.result.map((v) => v.content))
+  })
+})
+check('a kafelki w bibliotece tego nie dostały',
+  !wersjeBazy.some((c) => c.includes('DOPISANE-W-ZLOZONYM')),
+  wersjeBazy.map((c) => c.slice(0, 30)).join(' | '))
 
-// 5. przepisana treść przeżywa przeładowanie
+// 4. przeżywa przeładowanie
 await page.reload()
 await page.waitForSelector('.concept-item')
 await page.click('.concept-item:has-text("Fuzje")')
 await page.waitForSelector('.script-group-block')
-await page.waitForTimeout(700)
-check('przepisana treść zapamiętana',
-  (await page.textContent('.script-group-block')).includes('PRZEPISANE'))
+await page.waitForTimeout(800)
+check('złożony tekst zapamiętany',
+  (await page.textContent('.script-group-block')).includes('DOPISANE-W-ZLOZONYM'))
+check('źródła materiałów widać dalej',
+  (await page.locator('.script-group-block .source-list').count()) === 1)
 
-// 6. rozdzielenie pyta, bo treść była przepisana
+
+// 5. rozdzielenie pyta, bo jest co stracić — i tekst zostaje jako notatka
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Rozdziel"]')
 await page.waitForSelector('.ask-dialog')
 const pytanie = await page.textContent('.ask-dialog')
-check('rozdzielenie ostrzega o utracie przepisanego tekstu',
-  pytanie.includes('przepisan'), pytanie.slice(0, 90))
+check('rozdzielenie uprzedza, co się stanie ze złożonym tekstem',
+  pytanie.includes('notatk'), pytanie.slice(0, 120))
 await anuluj(page)
-check('anulowanie zostawia grupę',
+check('anulowanie zostawia złożony kafelek',
   (await page.locator('.script-group-block').count()) === 1)
 
-// 7. potwierdzone rozdzielenie zszywa łańcuch
+// 6. potwierdzone rozdzielenie zszywa łańcuch
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Rozdziel"]')
 await potwierdz(page)
@@ -275,8 +185,8 @@ const poRozdzieleniu = await page.evaluate(async () => {
     bezWejscia: [...wejscia.values()].filter((v) => v === 0).length,
   }
 })
-check('po rozdzieleniu wracają dwa kafelki spięte w ciąg',
-  poRozdzieleniu.wezly === 2 && poRozdzieleniu.strzalki === 1 &&
+check('po rozdzieleniu wracają kafelki i notatka ze złożonym tekstem, spięte w ciąg',
+  poRozdzieleniu.wezly === 3 && poRozdzieleniu.strzalki === 2 &&
     poRozdzieleniu.bezWejscia === 1,
   JSON.stringify(poRozdzieleniu))
 

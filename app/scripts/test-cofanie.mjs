@@ -1,7 +1,7 @@
 // Ctrl+Z w ścieżce: cofa usunięcie kafelka, scalenie i dołożenie rozdziału.
 // Ctrl+Shift+Z ponawia. W polu tekstowym cofanie należy do edytora, nie do nas.
 import { chromium } from 'playwright'
-import { nowaSciezka, podaj, potwierdz } from './lib.mjs'
+import { nowaSciezka, podaj, potwierdz, zloz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -96,7 +96,7 @@ await page.locator('.linear-seg').nth(1).click({ modifiers: ['Control'] })
 await page.waitForTimeout(300)
 await menuNad(1)
 await page.click('.linear-menu .tree-menu-item:has-text("Scal zaznaczone")')
-await podaj(page, 'Scalone')
+await zloz(page, 'Scalone')
 await page.waitForTimeout(1500)
 check('scalenie zaszło', (await page.locator('.script-group-block').count()) === 1)
 await cofnij()

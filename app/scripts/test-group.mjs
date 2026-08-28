@@ -1,7 +1,7 @@
 ﻿// Test grupowania kafelków w ścieżce: kilka kafelków pod jedną nazwą, ale nadal
 // jako osobne pełne kafelki (własny wybór wersji), w jednej ramce.
 import { chromium } from 'playwright'
-import { nazwij, podaj } from './lib.mjs'
+import { nazwij, podaj, zloz } from './lib.mjs'
 
 const errors = []
 const browser = await chromium.launch({
@@ -54,7 +54,7 @@ await page.keyboard.down('Control')
 await page.click('.react-flow__node:has-text("Element")')
 await page.keyboard.up('Control')
 await page.click('button:has-text("⧉ Scal")')
-await podaj(page, 'Poczatki teorii mnogosci')
+await zloz(page, 'Poczatki teorii mnogosci')
 await page.waitForSelector('.path-node-group')
 await page.waitForTimeout(600)
 

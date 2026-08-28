@@ -2,7 +2,7 @@
 // kolejność, grupowanie/rozgrupowanie, tryb liniowy, skrypt, trwałość
 // i odporność na usunięte kafelki. Zgłasza każdą niezgodność jako BŁĄD.
 import { chromium } from 'playwright'
-import { nazwij, podaj, potwierdz } from './lib.mjs'
+import { nazwij, podaj, potwierdz, zloz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -136,7 +136,7 @@ await page.keyboard.down('Control')
 await clickNode('Beta')
 await page.keyboard.up('Control')
 await page.click('button:has-text("⧉ Scal")')
-await podaj(page, 'Grupa pojec')
+await zloz(page, 'Grupa pojec')
 await page.waitForSelector('.path-node-group')
 await settle()
 st = await readPath()
@@ -217,13 +217,17 @@ const script = await page.evaluate(() => ({
   grupy: document.querySelectorAll('.script-group-block').length,
   bloki: document.querySelectorAll('.script-block:not(.script-group-block)').length,
   naglowki: document.querySelectorAll('.script-heading-node').length,
-  czesciWGrupie: document.querySelectorAll('.script-group-block .group-part').length,
+  // złożony kafelek to JEDEN tekst — liczymy treść, nie „części"
+  trescGrupy: document.querySelector('.script-group-block .block-content')?.textContent ?? '',
   zagniezdzone: document.querySelectorAll('.script-group-block .script-block').length,
 }))
 check('skrypt: grupa jako jeden blok', script.grupy === 1, JSON.stringify(script))
 check('skrypt: kafelki w grupie bez własnych ramek', script.zagniezdzone === 0,
   `zagnieżdżonych: ${script.zagniezdzone}`)
-check('skrypt: obie treści w grupie', script.czesciWGrupie === 2, `części: ${script.czesciWGrupie}`)
+check('skrypt: treść obu kafelków w złożonym bloku',
+  script.trescGrupy.includes('Tresc kafelka Alfa') &&
+    script.trescGrupy.includes('Tresc kafelka Beta'),
+  script.trescGrupy.slice(0, 120))
 check('skrypt: pozostałe kafelki osobno', script.bloki === 2, `bloków: ${script.bloki}`)
 
 // --- 9. trwałość po przeładowaniu ---

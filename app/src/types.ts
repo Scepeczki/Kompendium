@@ -347,21 +347,47 @@ export interface PasekStron {
   czesci: number[]
 }
 
+/** Strona złożonego kafelka — żyje w ścieżce, nie w bibliotece. */
+export interface StronaBloku {
+  id: string
+  name: string
+  content: string
+}
+
+/** ZŁOŻONY KAFELEK — powstaje ze scalenia kilku kafelków.
+ *
+ *  Nie jest składanką pokazywanych obok siebie kafelków, tylko osobnym
+ *  kafelkiem z własnym tekstem, który się KOMPONUJE: na ekranie komponowania
+ *  wybiera się, co z materiałów w nim wyląduje. Dzięki temu nie ma granic
+ *  między cudzymi tekstami ani ukrytych właścicieli fragmentów — jest jeden
+ *  tekst i tyle.
+ *
+ *  Kafelki-materiały zostają w bibliotece nietknięte. */
 export interface PathNodeFusion {
   id: string
   kind: 'fusion'
+  /** Może być puste — nazwę klika się i nadaje na miejscu. */
   name: string
-  /** Czym jest scalona całość (np. jedno twierdzenie z dwóch twierdzeń).
+  /** Czym jest złożona całość (np. jedno twierdzenie z dwóch twierdzeń).
    *  Brak = neutralny „Blok". */
   type?: BlockType
+  /** MATERIAŁY: z czego to złożono. Zostają przy bloku na zawsze, żeby dało
+   *  się wrócić do komponowania i dobrać coś, o czym się zapomniało. */
   parts: FusionPart[]
-  /** Własna treść całości. Scalone definicje rzadko czytają się gładko jedna
-   *  po drugiej — tu można je przepisać na jeden tekst. Brak = pokazujemy
-   *  treści składników po kolei, jak dotąd. Kafelki w bazie zostają nietknięte,
-   *  ten tekst żyje wyłącznie w tej ścieżce. */
+  /** Złożony tekst — to JEST treść bloku.
+   *
+   *  Brak znaczy „jeszcze nie komponowane": pokazujemy wtedy treści materiałów
+   *  sklejone po kolei, tak jak wyglądały w starym modelu. Pierwszy zapis
+   *  utrwala tekst tutaj. Dzięki temu stare ścieżki wyglądają tak samo i nic
+   *  z nich nie ginie. */
   content?: string
-  /** Paski stron postawione w tym bloku (patrz PasekStron). Brak albo
-   *  pusta lista = czysty, ciągły tekst. */
+  /** Własne strony złożonego kafelka. */
+  strony?: StronaBloku[]
+  /** Źródła przeniesione z materiałów przy wstawianiu — genealogia wiedzy
+   *  ma zostać, choć tekst jest już własny. Brak = bierzemy źródła materiałów
+   *  (tak działały stare scalone bloki). */
+  zrodla?: SourceRef[]
+  /** Tylko do odczytu starych danych — nowy model tego nie używa. */
   paskiStron?: PasekStron[]
   x: number
   y: number

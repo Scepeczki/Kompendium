@@ -93,45 +93,44 @@ LearningPath                      PathNode — pięć rodzajów (pole `kind`)
 **Uwaga historyczna:** grupa ma w danych `kind: 'fusion'` — nazwa z czasów, gdy
 scalanie miało zlewać kafelki. Zostaje, bo siedzi w zapisanych ścieżkach.
 
-**Scalony blok to jeden tekst w JEDNYM polu do pisania.** Sąsiadujące kawałki
-tekstu, których nic nie rozdziela, trafiają do wspólnego pola — bez pasków cały
-blok jest więc jednym dokumentem: kursor chodzi po nim strzałkami, zaznaczenie
-przechodzi przez granicę kafelków, a sama granica jest zwykłą pustą linią.
-
-Jak wspólne pole wie, co do kogo należy: przed wczytaniem wstawiamy między
-teksty niewidzialny znacznik, zaraz po wczytaniu go kasujemy i zapamiętujemy
-pozycje. Dalej pilnuje ich ProseMirror (`transaction.mapping`), więc dopisane
-zdanie przesuwa granicę razem z tekstem. Przy zapisie tniemy dokument w tych
-miejscach (`wytnijMarkdown`, ta sama droga co zwykły zapis) i każdy kawałek
-wraca do swojego kafelka jednym wspólnym zapisem.
-
-Dwa zabezpieczenia: gdy granic NIE da się ustalić, blok świadomie rozpada się
-na osobne pola (lepiej brzydziej niż zdanie w cudzym kafelku), a gdy ktoś zlepi
-akapity dwóch kafelków w jeden, cały taki akapit idzie do pierwszego z nich —
-ciąć zdanie w pół między kafelki nie wolno. Pilnuje tego `test-scalanie.mjs`.
-
-**Paski stron w scalonym bloku** (`paskiStron: PasekStron[]`) to MIEJSCA, a nie
-właściwości składników. Scalenie ma dawać jeden ciągły tekst, więc domyślnie
-nie ma żadnego paska; stawia się go tam, gdzie potrzeba, i zostaje — nawet
-opróżniony — dopóki się go nie skasuje. Skasowanie zamyka przerwę i tekst
-zrasta się z powrotem.
+**SCALANIE TO KOMPONOWANIE.** Scalony blok (`kind: 'fusion'`) nie jest
+składanką kafelków pokazywanych obok siebie, tylko osobnym kafelkiem z własnym
+tekstem. Klika się „Scal" i otwiera ekran komponowania: po lewej materiał
+(kafelki i ich strony), na środku powstający kafelek. Wstawianie KOPIUJE tekst,
+więc nie ma granic między cudzymi fragmentami ani ukrytych właścicieli zdań.
 
 ```
-PasekStron: id, poCzesci, poAkapicie?, czesci[]
-             │      │          │           └─ numery składników, których zakładki
-             │      │          │              pokazuje ten pasek (puste = pusty)
-             │      │          └─ ile akapitów tego składnika stoi PRZED paskiem;
-             │      │             brak = pasek na granicy, za całym składnikiem
-             │      └─ za którym składnikiem; -1 = przed pierwszym
-             └─ własne id, bo pasek przeżywa przenoszenie zakładek
+PathNodeFusion: name, type?, parts[], content?, strony?, zrodla?
+                 │      │      │        │         │        └─ źródła przeniesione
+                 │      │      │        │         │           z materiałów
+                 │      │      │        │         └─ własne strony bloku
+                 │      │      │        └─ ZŁOŻONY TEKST (to jest treść bloku)
+                 │      │      └─ MATERIAŁY: z czego złożono; zostają na zawsze,
+                 │      │         żeby dało się wrócić i dobrać coś jeszcze
+                 │      └─ czym jest całość (definicja, twierdzenie…)
+                 └─ może być puste; nazwę klika się i nadaje na miejscu
 ```
 
-Pozycja w środku tekstu liczona jest w AKAPITACH, nie w znakach: numer akapitu
-przeżyje przepisanie zdania, a offset w znakach nie. Podziału pilnuje
-`blokiTresci()` (`app/src/akapity.ts`) — ta sama funkcja tnie tekst przy
-rysowaniu i przelicza pozycje pasków po każdym zapisie, więc cięcie zawsze
-wraca w to samo miejsce. Wszystko to żyje **tylko w ścieżce**; kafelki w
-bibliotece nic o paskach nie wiedzą.
+**Migracja jest leniwa.** `content` bez wartości znaczy „jeszcze nie
+komponowane": blok pokazuje wtedy sklejkę treści materiałów (`sklejMaterialy`
+w `GroupShell.tsx`, uwzględnia `parts[].wlasneTresci`). Dopóki nikt nic nie
+napisze ani nie wstawi, w danych nie zmienia się nic — ścieżki sprzed
+przebudowy wyglądają tak samo i nic z nich nie ginie. Stare pola
+(`parts[].wlasneTresci`, `paskiStron`) zostają w plikach; nowy model ich nie
+używa, ale ich nie kasuje.
+
+**Zapisujemy tylko to, czego człowiek dotknął.** Samo wczytanie tekstu do
+edytora liczy się technicznie jako zmiana (Markdown nie wraca znak w znak), więc
+blok tylko obejrzany dostawałby własną treść i tracił związek z materiałem.
+Pilnują tego zapory `dotknieteRef` w `Komponowanie.tsx` i `PoleTresci`.
+
+**Rozdzielenie nie kasuje pracy.** Materiały wracają do ścieżki jako osobne
+kafelki, a złożony tekst zostaje jako notatka wpięta w ciąg. Kafelki
+w bibliotece są przez cały czas nietknięte.
+
+Pilnuje tego `test-scalanie.mjs` (materiał → jeden kafelek, biblioteka
+nietknięta, powrót do komponowania) i `test-fuzja.mjs` (źródła, pisanie
+w bloku, rozdzielenie).
 
 ## Kluczowe zasady
 

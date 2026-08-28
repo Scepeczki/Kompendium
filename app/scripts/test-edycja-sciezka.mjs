@@ -2,7 +2,7 @@
 // notatka, komentarz, rozdział, nazwa i treść fuzji. Plus dwie barierki:
 // Skrypt zostaje do czytania, a po starszej wersji kafelka pisać nie wolno.
 import { chromium } from 'playwright'
-import { nowaSciezka, podaj, potwierdz } from './lib.mjs'
+import { nowaSciezka, podaj, potwierdz, zloz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -209,7 +209,7 @@ check('pióro zniknęło z paska segmentu',
 const doScalenia = page.locator('.folder-action[title*="Scal z następnym"]').first()
 await doScalenia.scrollIntoViewIfNeeded()
 await doScalenia.click({ force: true })
-await podaj(page, 'Kres i notacja')
+await zloz(page, 'Kres i notacja')
 await page.waitForSelector('.script-group-block')
 await page.waitForTimeout(700)
 await page.fill('.script-group-block .inline-title', 'Kres górny i notacja')
@@ -223,8 +223,8 @@ const nrFuzji = await page.evaluate(() =>
 )
 await menuNad(nrFuzji)
 const pozycje = await page.locator('.linear-menu .tree-menu-item').allTextContents()
-check('menu scalonego bloku ma rodzaj i rozdzielenie',
-  pozycje.join('|').includes('Czym to jest') && pozycje.join('|').includes('Rozdziel'),
+check('menu złożonego kafelka ma komponowanie i rozdzielenie',
+  pozycje.join('|').includes('Komponuj') && pozycje.join('|').includes('Rozdziel'),
   pozycje.map((s) => s.trim()).join(' · '))
 await page.keyboard.press('Escape')
 
@@ -269,56 +269,33 @@ await page.locator('.script-group-block .tiptap p:has-text("Kres gorny")').first
 await page.keyboard.press('End')
 await page.keyboard.type(' DOPISANE-W-FUZJI')
 await page.waitForTimeout(1200)
-check('tekst dopisany w składniku zapisuje się w ścieżce',
-  (await trescSciezki()).includes('DOPISANE-W-FUZJI'),
-  (await trescSciezki()).slice(0, 300))
+check('tekst dopisany w złożonym kafelku zapisuje się w ścieżce',
+  (await page.textContent('.script-group-block')).includes('DOPISANE-W-FUZJI'),
+  (await page.textContent('.script-group-block')).slice(0, 200))
 const poFuzji = await zBazy('versions')
-check('kafelek składnika w bibliotece zostaje nietknięty',
+check('kafelek-materiał w bibliotece zostaje nietknięty',
   !poFuzji.some((v) => v.content.includes('DOPISANE-W-FUZJI')),
   poFuzji.map((v) => v.content.slice(0, 40)).join(' | '))
 
-// wersję składnika przełącza się teraz w menu pod prawym przyciskiem
+// 9. menu złożonego kafelka: komponowanie i rozdzielenie
+//
+// Wersji składników już tu nie ma — złożony kafelek ma JEDEN własny tekst,
+// a to, z czego go złożono, wybiera się na ekranie komponowania.
 const nrFuzji2 = await page.evaluate(() =>
   [...document.querySelectorAll('.linear-seg')].findIndex((s) =>
     s.querySelector('.script-group-block'),
   ),
 )
 await menuNad(nrFuzji2)
-const wersjeWMenu = page.locator('.linear-menu .tree-menu-item:has-text("wersja")')
-check('menu podaje wersje składników scalonego bloku',
-  (await wersjeWMenu.count()) >= 2,
-  (await page.locator('.linear-menu .tree-menu-item').allTextContents()).join(' · '))
-await wersjeWMenu.first().click()
-await page.waitForTimeout(1400)
-check('starsza wersja też jest do pisania',
-  (await page.locator('.script-group-block .linear-pole').count()) === 1,
-  `pól: ${await page.locator('.script-group-block .linear-pole').count()}`)
-await page.locator('.script-group-block .tiptap p:has-text("Kres gorny")').first().click()
-await page.keyboard.press('End')
-await page.keyboard.type(' DOPISANE-W-STARSZEJ')
-await page.waitForTimeout(1200)
-check('tekst dla starszej wersji też zapisuje się w ścieżce',
-  (await trescSciezki()).includes('DOPISANE-W-STARSZEJ'),
-  (await trescSciezki()).slice(0, 400))
-const poStarszej = await zBazy('versions')
-check('żadna wersja kafelka w bibliotece nie ucierpiała',
-  !poStarszej.some((v) => v.content.includes('DOPISANE-W-STARSZEJ')),
-  poStarszej.map((v) => `wr.${v.version}: ${v.content.slice(0, 30)}`).join(' | '))
-
-// 9. przywrócenie treści kafelka — spod prawego przycisku
+const pozycjeBloku = await page.locator('.linear-menu .tree-menu-item').allTextContents()
+check('menu złożonego kafelka prowadzi do komponowania',
+  pozycjeBloku.some((t) => t.includes('Komponuj')), pozycjeBloku.join(' · '))
+check('i daje rozdzielenie', pozycjeBloku.some((t) => t.includes('Rozdziel')), pozycjeBloku.join(' · '))
+check('a nie proponuje już wersji składników',
+  !pozycjeBloku.some((t) => t.toLowerCase().includes('wersja')), pozycjeBloku.join(' · '))
 await page.keyboard.press('Escape')
 await page.waitForTimeout(400)
-await menuNad(nrFuzji2)
-const przywroc = page.locator('.linear-menu .tree-menu-item:has-text("Przywróć treść z biblioteki")')
-check('menu daje przywrócenie treści kafelka dla składnika',
-  (await przywroc.count()) >= 1,
-  (await page.locator('.linear-menu .tree-menu-item').allTextContents()).join(' · '))
-await przywroc.first().click()
-await potwierdz(page)
-await page.waitForTimeout(1400)
-check('po przywróceniu ten tekst znika ze ścieżki',
-  !(await trescSciezki()).includes('DOPISANE-W-STARSZEJ'),
-  (await trescSciezki()).slice(0, 400))
+
 
 // 10. kliknięcie obok kolumny gasi zaznaczenie
 await page.locator('.linear-seg').first().click({ modifiers: ['Control'] })

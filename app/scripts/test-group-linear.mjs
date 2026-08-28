@@ -1,7 +1,7 @@
 ﻿// Test scalania kafelków w widoku Linia: przycisk ⧉ scala segment z następnym,
 // kolejne kliknięcia dokładają następne kafelki do tej samej grupy.
 import { chromium } from 'playwright'
-import { nazwij, podaj } from './lib.mjs'
+import { nazwij, podaj, zloz } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -83,7 +83,7 @@ check('przycisk ⧉ przy segmentach z następnikiem (ostatni bez)',
 // 2. scalenie pierwszego z drugim
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Scal z następnym"]')
-await podaj(page, 'Kresy zbiorow')
+await zloz(page, 'Kresy zbiorow')
 await settle()
 let st = await readGroups()
 check('scalenie w Linii tworzy grupę z dwóch kafelków',
@@ -104,9 +104,10 @@ const segs = await page.evaluate(() =>
 )
 check('Linia pokazuje grupę i pozostały kafelek', segs.join(',') === 'grupa,blok', segs.join(','))
 
-// 4. dołożenie trzeciego kafelka do istniejącej grupy (bez pytania o nazwę)
+// 4. dołożenie trzeciego kafelka — nazwa zostaje, materiał rośnie
 await page.hover('.linear-seg:first-child')
 await page.click('.linear-seg:first-child .folder-action[title*="Dołącz następny"]')
+await zloz(page)
 await settle()
 st = await readGroups()
 check('dołączenie następnego kafelka do grupy',
@@ -116,23 +117,23 @@ check('nazwa grupy bez zmian po dołączeniu', st.grupy[0]?.nazwa === 'Kresy zbi
 check('w ścieżce został jeden segment', st.wezly.filter((k) => k === 'block').length === 0,
   `węzły: ${st.wezly.join(',')}`)
 
-// 5. edycja grupy: ✏ otwiera okno z nazwą i wyborem, czym grupa ma być
+// 5. nazwa i rodzaj — na ekranie komponowania, nie w osobnym okienku
 await page.hover('.linear-seg:first-child')
 const pud = await page.locator('.linear-seg:first-child').boundingBox()
 await page.mouse.click(pud.x + pud.width / 2, pud.y + 6, { button: 'right' })
 await page.waitForSelector('.linear-menu')
-await page.click('.linear-menu .tree-menu-item:has-text("Czym to jest")')
-await page.waitForSelector('.group-editor')
-check('✏ przy grupie otwiera okno edycji', true)
-await page.fill('.group-editor input.input', 'Kresy i supremum')
-await page.click('.group-editor .group-type-btn:has-text("Twierdzenie")')
+await page.click('.linear-menu .tree-menu-item:has-text("Komponuj")')
+await page.waitForSelector('.komp-okno')
+check('do komponowania wraca się z menu', true)
+await page.fill('.komp-nazwa', 'Kresy i supremum')
+await page.click('.komp-typ .group-type-btn:has-text("Twierdzenie")')
 await page.waitForTimeout(400)
-await page.click('.group-editor .btn-close')
+await page.click('.komp-head button:has-text("Gotowe")')
 await settle()
 st = await readGroups()
-check('zmiana nazwy grupy z okna edycji', st.grupy[0]?.nazwa === 'Kresy i supremum',
+check('zmiana nazwy z ekranu komponowania', st.grupy[0]?.nazwa === 'Kresy i supremum',
   `nazwa: ${st.grupy[0]?.nazwa}`)
-check('zmiana typu grupy z okna edycji', st.grupy[0]?.typ === 'twierdzenie',
+check('zmiana rodzaju z ekranu komponowania', st.grupy[0]?.typ === 'twierdzenie',
   `typ: ${st.grupy[0]?.typ}`)
 const naglowek = await page.evaluate(() => {
   const g = document.querySelector('.script-group-block')

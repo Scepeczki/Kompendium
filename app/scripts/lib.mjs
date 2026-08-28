@@ -47,3 +47,17 @@ export async function podaj(page, text) {
   await page.click('.ask-foot .btn:last-child')
   await page.waitForTimeout(300)
 }
+
+/** Domknięcie scalania: nadaje nazwę na ekranie komponowania i wychodzi.
+ *
+ *  Scalanie nie pyta już o nazwę osobnym okienkiem — otwiera ekran, na którym
+ *  składa się kafelek. Testy, które chcą tylko „scal i jedź dalej”, wołają to. */
+export async function zloz(page, nazwa) {
+  await page.waitForSelector('.komp-okno', { timeout: 15000 })
+  if (nazwa) {
+    await page.fill('.komp-nazwa', nazwa)
+    await page.waitForTimeout(300)
+  }
+  await page.click('.komp-head button:has-text("Gotowe")')
+  await page.waitForTimeout(700)
+}

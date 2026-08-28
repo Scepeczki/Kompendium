@@ -101,27 +101,17 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
             )
           }
           if (n.kind === 'block') return blockSection(n)
-          // grupa czyta się jak jeden blok danego typu: pasek nagłówka
-          // z nazwą nadaną w ścieżce, a w środku same treści kafelków
+          // złożony kafelek czyta się jak zwykły blok danego typu
           return (
             <GroupShell
               key={n.id}
               name={n.name}
               type={n.type}
-              parts={n.parts.map((p, i) => ({
-                ...p,
-                versionId:
-                  `${n.id}:${i}` in verOverride
-                    ? verOverride[`${n.id}:${i}`]
-                    : p.versionId,
-                subpageId: p.subpageId ?? null,
-              }))}
+              parts={n.parts}
               content={n.content}
-              onVersionChange={(i, id) =>
-                setVerOverride((o) => ({ ...o, [`${n.id}:${i}`]: id }))
-              }
+              strony={n.strony}
+              zrodla={n.zrodla}
               onJumpToSource={onJumpToSource}
-              pickHint="Przełącz przy czytaniu — nie zmienia ustawień ścieżki"
             />
           )
         })}
