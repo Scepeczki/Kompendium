@@ -5620,7 +5620,8 @@ body.ciagne-szerokosc * {
    robiła z niego dwa pudełka obok siebie, choć odstęp był już taki sam
    jak między akapitami. Gdzie się pisze, widać po kursorze i po ramce
    samego pola — jednej, nie wszystkich naraz. */
-.script-group-block .linear-pole .rich-content .tiptap:hover {
+.script-group-block .linear-pole .rich-content .tiptap:hover,
+.script-group-block .linear-pole .rich-content .tiptap.ProseMirror-focused {
   border-color: transparent;
 }
 

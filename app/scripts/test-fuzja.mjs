@@ -82,6 +82,27 @@ const zrodla = await page.evaluate(() => {
 check('scalony blok pokazuje źródła składników', zrodla.lista && zrodla.ile === '1',
   JSON.stringify(zrodla))
 
+// 2z. żadnych pudełek: scalony blok ma wyglądać jak jeden tekst
+await page.click('.script-group-block .linear-pole .tiptap')
+await page.waitForTimeout(500)
+const pudelka = await page.evaluate(() => {
+  const g = document.querySelector('.script-group-block')
+  const przezroczysty = (c) => c === 'rgba(0, 0, 0, 0)' || c === 'transparent'
+  const pola = [...g.querySelectorAll('.linear-pole .tiptap')].map((e) => {
+    const st = getComputedStyle(e)
+    return { ramka: przezroczysty(st.borderTopColor), ognisko: e.classList.contains('ProseMirror-focused') }
+  })
+  const obrys = [...g.querySelectorAll('.group-part')].map(
+    (e) => getComputedStyle(e).outlineStyle,
+  )
+  return { pola, obrys }
+})
+check('składniki nie dostają obrysu, choć w bloku stoi kursor',
+  pudelka.obrys.every((o) => o === 'none'), pudelka.obrys.join(', '))
+check('ani ramki wokół pola, w którym się pisze',
+  pudelka.pola.length > 0 && pudelka.pola.every((p) => p.ramka),
+  JSON.stringify(pudelka.pola))
+
 // 2a. scalenie daje JEDEN tekst
 //
 // Kafelek bez stron nie zostawia po sobie żadnego śladu: żadnych pasków,
