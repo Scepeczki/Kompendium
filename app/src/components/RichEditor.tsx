@@ -646,6 +646,22 @@ const przywrocBackslashe = (md: string) =>
       .replace(/^(\s*\d+)\\\./gm, '$1.')
   )
 
+/** Markdown JEDNEGO KAWAŁKA dokumentu — od pozycji do pozycji.
+ *
+ *  Scalony blok bywa jednym polem do pisania, choć tekst pod spodem należy
+ *  do kilku kafelków. Przy zapisie trzeba go pociąć z powrotem i każdy
+ *  kawałek odesłać do swojego kafelka — a że wolno ciąć tylko na granicach
+ *  akapitów, kawałek jest zawsze poprawnym dokumentem.
+ *
+ *  Idzie DOKŁADNIE tą samą drogą, co zwykły zapis (odescapowanie wzorów,
+ *  backslashe, wcięcia). Własna, „prostsza" serializacja w tym miejscu
+ *  wróciłaby wprost do błędów, które te trzy funkcje naprawiają. */
+export function wytnijMarkdown(editor: Editor, od: number, do_: number): string {
+  const wycinek = editor.state.doc.cut(od, do_)
+  const md = editor.storage.markdown.serializer.serialize(wycinek)
+  return scinajWciecia(przywrocBackslashe(unescapeMathAfterSerialize(md)))
+}
+
 /** Tryb wizualny (à la Google Docs): rich text edytowany bezpośrednio,
  *  pod spodem zawsze Markdown+LaTeX. Wzory $...$ renderują się w miejscu
  *  (klik we wzór pokazuje jego kod). */

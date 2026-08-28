@@ -37,7 +37,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
-import { RichEditor, RichToolbar } from './RichEditor'
+import { RichEditor, wytnijMarkdown, RichToolbar } from './RichEditor'
 import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -483,6 +483,12 @@ interface LinearViewProps {
     md: string,
   ) => void
   /** To samo dla składnika scalonego bloku. */
+  /** Tekst kilku składników naraz — z jednego wspólnego pola. */
+  onZapisRunu?: (
+    nodeId: string,
+    zapisy: { i: number; versionId: string; subpageId: string | null; md: string }[],
+    paski?: PasekStron[],
+  ) => void
   onEditPart?: (
     nodeId: string,
     index: number,
@@ -745,6 +751,175 @@ interface PoleProps {
  *  Kolejność jest taka: kafelek wjeżdża na ekran i pokazuje gotowy tekst,
  *  a ułamek sekundy później zamienia się w pole. Kliknięcie nie czeka na nic —
  *  robi z niego pole natychmiast, z kursorem dokładnie pod myszą. */
+/** Znacznik granicy między kafelkami. Żyje TYLKO przez chwilę: wstawiamy go
+ *  w tekst przed wczytaniem, a zaraz po wczytaniu kasujemy, zapamiętawszy,
+ *  gdzie stał. Dzięki temu wiemy to dokładnie, zamiast zgadywać po liczbie
+ *  akapitów — a zgadywanie oznaczałoby tekst zapisany do złego kafelka. */
+const ZNACZNIK = '%%GRANICA-KOMPENDIUM%%'
+
+interface PoleRunuProps {
+  /** Teksty kolejnych kafelków wchodzących w ten kawałek, po kolei. */
+  teksty: string[]
+  zapisz: (teksty: string[]) => void
+  naKursor: () => void
+  zarejestruj: (ed: Editor | null) => void
+  /** Gdy granic nie da się ustalić — lepiej rozpaść się na osobne pola,
+   *  niż zapisać tekst do niewłaściwego kafelka. */
+  naAwarie: () => void
+  /** Oddaje na zewnątrz miejsca cięcia — stawianie paska stron musi
+   *  wiedzieć, do którego kafelka należy akapit, w który kliknięto. */
+  zarejestrujGranice: (czytaj: (() => number[] | null) | null) => void
+}
+
+/** JEDNO pole do pisania na tekst kilku kafelków naraz.
+ *
+ *  To jest sedno scalania: sąsiadujące kafelki mają być jednym tekstem, po
+ *  którym kursor chodzi bez przeszkód, a granica między nimi ma być zwykłą
+ *  pustą linią — taką, jaką robi Enter. Osobne pola tego nie dawały: kursor
+ *  zatrzymywał się na styku, zaznaczenie nie przechodziło, a odstęp trzeba
+ *  było udawać stylami.
+ *
+ *  Granice pilnuje ProseMirror: każda zmiana przesuwa je razem z tekstem
+ *  (`mapping`), więc dopisanie zdania w pierwszym kafelku nie przesuwa
+ *  granicy w tekst drugiego. Przy zapisie tniemy dokument w tych miejscach
+ *  i każdy kawałek wraca do swojego kafelka. */
+const PoleRunu = memo(function PoleRunu({
+  teksty,
+  zapisz,
+  naKursor,
+  zarejestruj,
+  naAwarie,
+  zarejestrujGranice,
+}: PoleRunuProps) {
+  const [gotowe, setGotowe] = useState(false)
+  const punktRef = useRef<{ x: number; y: number } | null>(null)
+  const tekstRef = useRef<HTMLDivElement | null>(null)
+  const edytorRef = useRef<Editor | null>(null)
+  const graniceRef = useRef<number[] | null>(null)
+  const dotknieteRef = useRef(false)
+
+  const wartosc =
+    teksty.length === 1
+      ? teksty[0]
+      : teksty.join('\n\n' + ZNACZNIK + '\n\n')
+
+  useEffect(() => {
+    const zapal = () => {
+      const el = tekstRef.current
+      if (el) {
+        const r = el.getBoundingClientRect()
+        if (r.bottom < -ZASIEG_POLA || r.top > window.innerHeight + ZASIEG_POLA) {
+          return false
+        }
+      }
+      setGotowe(true)
+      return true
+    }
+    doKolejki(zapal)
+    return () => zKolejki(zapal)
+  }, [])
+
+  if (!gotowe) {
+    return (
+      <div
+        ref={tekstRef}
+        className="markdown-body do-pisania"
+        onPointerDown={(e) => {
+          if ((e.target as Element).closest('a, button, select')) return
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return
+          punktRef.current = { x: e.clientX, y: e.clientY }
+          setGotowe(true)
+        }}
+        dangerouslySetInnerHTML={{
+          __html: teksty.some((t) => t.trim())
+            ? renderMarkdown(teksty.filter((t) => t.trim()).join(String.fromCharCode(10,10)))
+            : '<p class="note-empty">pusto</p>',
+        }}
+      />
+    )
+  }
+  return (
+    <div className="linear-pole">
+      <RichEditor
+        value={wartosc}
+        editable
+        bezPaska
+        ruler={false}
+        onChange={() => {
+          if (!dotknieteRef.current) return
+          const ed = edytorRef.current
+          const granice = graniceRef.current
+          if (!ed || !granice) return
+          // Granica mogła wpaść w ŚRODEK akapitu — tak się dzieje, gdy ktoś
+          // skasuje pustą linię i zlepi tekst dwóch kafelków w jeden akapit.
+          // Wtedy cały taki akapit oddajemy pierwszemu z nich: ciąć akapit
+          // w pół znaczyłoby rozbić zdanie na dwa kafelki.
+          const doc = ed.state.doc
+          const przytnij = (poz: number) => {
+            const bezpieczna = Math.max(0, Math.min(poz, doc.content.size))
+            const $p = doc.resolve(bezpieczna)
+            return $p.depth === 0 ? bezpieczna : $p.after(1)
+          }
+          const punkty = [0, ...granice.map(przytnij), doc.content.size]
+          zapisz(
+            punkty
+              .slice(0, -1)
+              .map((od, n) => wytnijMarkdown(ed, od, Math.max(od, punkty[n + 1]))),
+          )
+        }}
+        onFocus={() => {
+          dotknieteRef.current = true
+          naKursor()
+        }}
+        onReady={(ed) => {
+          edytorRef.current = ed
+          zarejestruj(ed)
+          zarejestrujGranice(ed ? () => graniceRef.current : null)
+          if (ed && graniceRef.current === null) {
+            if (teksty.length === 1) {
+              graniceRef.current = []
+            } else {
+              // znajdujemy znaczniki, kasujemy je i zapamiętujemy miejsca
+              const znalezione: number[] = []
+              ed.state.doc.forEach((node, offset) => {
+                if (node.textContent.trim() === ZNACZNIK) znalezione.push(offset)
+              })
+              if (znalezione.length !== teksty.length - 1) {
+                naAwarie()
+                return
+              }
+              const tr = ed.state.tr
+              for (const off of [...znalezione].reverse()) {
+                const node = ed.state.doc.nodeAt(off)
+                if (node) tr.delete(off, off + node.nodeSize)
+              }
+              graniceRef.current = znalezione.map((off) => tr.mapping.map(off))
+              tr.setMeta('addToHistory', false)
+              ed.view.dispatch(tr)
+              // granice jadą z tekstem — inaczej dopisane zdanie przesuwałoby
+              // cięcie w głąb następnego kafelka
+              ed.on('transaction', ({ transaction }) => {
+                if (!transaction.docChanged || !graniceRef.current) return
+                graniceRef.current = graniceRef.current.map((x) =>
+                  transaction.mapping.map(x),
+                )
+              })
+            }
+          }
+          const pk = punktRef.current
+          punktRef.current = null
+          if (!ed || !pk) return
+          requestAnimationFrame(() => {
+            const trafiony = ed.view.posAtCoords({ left: pk.x, top: pk.y })
+            ed.chain().focus().setTextSelection(trafiony?.pos ?? 0).run()
+            naKursor()
+          })
+        }}
+      />
+    </div>
+  )
+})
+
 /** W które pole i w który akapit trafił kursor myszy.
  *
  *  Numer akapitu bierzemy z ProseMirror (`posAtCoords`), bo prawy przycisk
@@ -884,6 +1059,7 @@ function LinearView({
   onRenameSegment,
   onEditBlock,
   onEditPart,
+  onZapisRunu,
   onWrocDoKlocka,
   onWrocDoCzesci,
   onEditNote,
@@ -1101,6 +1277,11 @@ function LinearView({
    *  pola dostawiają się jedno po drugim, a gdyby każde z nich odświeżało całą
    *  listę, przy dwóch tysiącach kafelków koszt wróciłby drzwiami. */
   const [aktywnyId, setAktywnyId] = useState<string | null>(null)
+  /** Bloki, w których nie udało się ustalić granic między kafelkami.
+   *  Wracają do osobnych pól — lepiej to, niż tekst w złym kafelku. */
+  const [rozpadnij, setRozpadnij] = useState<Set<string>>(new Set())
+  /** Miejsca cięcia w polach zbiorczych — po segId pola. */
+  const graniceRef = useRef(new Map<string, () => number[] | null>())
   const edytoryRef = useRef(new Map<string, Editor>())
   const zarejestrujPole = useCallback((segId: string, ed: Editor | null) => {
     if (ed) {
@@ -1387,9 +1568,30 @@ function LinearView({
    *  przeżyje przepisanie tekstu, a pozycja liczona w znakach nie. */
   const pasekWTekscie = (n: PathNode, cel: { seg: string; blok: number }) => {
     if (n.kind !== 'fusion' || !onPaskiStron) return
-    const [, iTekst, kTekst] = cel.seg.split(':')
-    const i = Number(iTekst)
-    const k = Number(kTekst)
+    // Pole zbiorcze ma w kluczu wszystkie swoje kawałki („0:0|1:0"), bo
+    // jedno pole potrafi trzymać tekst kilku kafelków. Który to kawałek,
+    // rozstrzygają miejsca cięcia zgłoszone przez samo pole — a nie liczenie
+    // akapitów na boku, które przy pierwszej liście rozjechałoby się o jeden.
+    const kawalki = cel.seg
+      .slice(n.id.length + 1)
+      .split('|')
+      .map((cz) => cz.split(':').map(Number))
+    if (kawalki.length === 0 || kawalki.some((cz) => cz.some((x) => !Number.isFinite(x))))
+      return
+    const czytaj = graniceRef.current.get(cel.seg)
+    const granice = czytaj?.() ?? []
+    const ed = edytoryRef.current.get(cel.seg)
+    // granice podane w pozycjach — przeliczamy na numery akapitów
+    const progi = ed
+      ? granice.map((poz) =>
+          ed.state.doc.resolve(Math.min(Math.max(1, poz), ed.state.doc.content.size)).index(0),
+        )
+      : []
+    let nr = progi.findIndex((prog) => cel.blok < prog)
+    if (nr < 0) nr = kawalki.length - 1
+    const [i, k] = kawalki[nr] ?? kawalki[0]
+    // akapit liczony od początku TEGO kawałka
+    const blokWKawalku = cel.blok - (nr > 0 ? (progi[nr - 1] ?? 0) : 0)
     if (!Number.isFinite(i) || !Number.isFinite(k)) return
     // wychodzimy od układu, który widać na ekranie — także wtedy, gdy nikt
     // go jeszcze nie ruszał i paski wynikają z samych danych
@@ -1410,7 +1612,7 @@ function LinearView({
       .sort((a, b) => (a.poAkapicie ?? 0) - (b.poAkapicie ?? 0))
     const przed = k > 0 ? (wewn[k - 1]?.poAkapicie ?? 0) : 0
     // pasek staje POD akapitem, w który trafiliśmy
-    const poAkapicie = przed + cel.blok + 1
+    const poAkapicie = przed + blokWKawalku + 1
     if (wewn.some((z) => z.poAkapicie === poAkapicie)) return
     // nowy pasek bierze zakładki tego składnika, o ile nie stoją już gdzie indziej
     const zajety = bazowe.some((z) => z.czesci.includes(i))
@@ -1641,24 +1843,29 @@ function LinearView({
             ? poleTresci(n.id, n.id, n.content, (md) => onEditFusion(n.id, md))
             : undefined
         }
-        edytorCzesci={
-          // …a ten bez własnej treści pokazuje składniki — i po każdym z nich
-          // też się pisze. Tekst zostaje w ścieżce, przy tym składniku.
-          onEditPart
-            ? (i, d) =>
-                poleTresci(
-                  // pasek w środku tekstu dzieli składnik na kawałki, a każdy
-                  // z nich jest osobnym polem — stąd numer kawałka w kluczu
-                  `${n.id}:${i}:${d.kawalek}`,
-                  `${n.id}:${i}:${d.kawalek}/${d.kawalkow}:${kluczWlasnej(d.versionId, d.subpageId)}`,
-                  d.tresc,
-                  (md) => {
-                    const w = d.zloz(md)
-                    onEditPart(n.id, i, d.versionId, d.subpageId, w.tekst, w.paski)
-                  },
-                )
+        edytorRunu={
+          // Jedno pole na cały ciągły kawałek tekstu — choćby zbierał treść
+          // z kilku kafelków. To dlatego scalony blok bez pasków jest jednym
+          // tekstem, a nie kilkoma polami jedno pod drugim.
+          onEditPart && !rozpadnij.has(n.id)
+            ? (klucz, d) => (
+                <PoleRunu
+                  key={`${n.id}:${klucz}:${d.kawalki.map((k) => k.tresc.length).join(',')}`}
+                  teksty={d.kawalki.map((k) => k.tresc)}
+                  zapisz={d.zapisz}
+                  naKursor={() => setAktywnyId(`${n.id}:${klucz}`)}
+                  zarejestruj={(ed) => zarejestrujPole(`${n.id}:${klucz}`, ed)}
+                  naAwarie={() => setRozpadnij((z) => new Set(z).add(n.id))}
+                  zarejestrujGranice={(czytaj) => {
+                    const seg = n.id + ':' + klucz
+                    if (czytaj) graniceRef.current.set(seg, czytaj)
+                    else graniceRef.current.delete(seg)
+                  }}
+                />
+              )
             : undefined
         }
+        onZapisRunu={(zapisy, paski) => onZapisRunu?.(n.id, zapisy, paski)}
         bezPaskaWersji
       />
     )
@@ -2115,9 +2322,9 @@ function LinearView({
               )}
               {sasiad?.kind === 'fusion' &&
                 onPaskiStron &&
-                // pole składnika ma klucz „węzeł:składnik:kawałek"; przepisana
-                // całość jest jednym tekstem i pasków w niej nie ma
-                segMenu.pasek?.seg.split(':').length === 3 && (
+                // pole zbiorcze ma klucz „węzeł:składnik:kawałek|…";
+                // przepisana całość jest jednym tekstem i pasków w niej nie ma
+                segMenu.pasek?.seg.includes(':') && (
                 <>
                   {/* Pasek nie musi czekać na granicę kafelków — staje tam,
                       gdzie kliknięto. Tekst rozcina się w tym miejscu. */}
@@ -3268,6 +3475,42 @@ function CanvasInner({
     [odloz],
   )
 
+  /** Zapis CAŁEGO wspólnego pola: każdy kawałek wraca do swojego kafelka,
+   *  wszystko jednym ruchem.
+   *
+   *  Jednym, bo inaczej drugi zapis nadpisywałby stan sprzed pierwszego —
+   *  a tu zmienia się kilka składników naraz, na dodatek razem z paskami. */
+  const zapiszRunCzesci = useCallback(
+    (
+      nodeId: string,
+      zapisy: { i: number; versionId: string; subpageId: string | null; md: string }[],
+      paski?: PasekStron[],
+    ) => {
+      odloz(nodeId + '|run|' + zapisy.map((z) => z.i).join(','), () =>
+        setRfNodes((ns) =>
+          ns.map((n) => {
+            if (n.id !== nodeId) return n
+            const parts = [...((n.data.parts as FusionPart[]) ?? [])]
+            for (const z of zapisy) {
+              const p = parts[z.i]
+              if (!p) continue
+              const klucz = kluczWlasnej(z.versionId, z.subpageId)
+              parts[z.i] = {
+                ...p,
+                wlasneTresci: { ...(p.wlasneTresci ?? {}), [klucz]: z.md },
+              }
+            }
+            return {
+              ...n,
+              data: { ...n.data, parts, ...(paski ? { paskiStron: paski } : {}) },
+            }
+          }),
+        ),
+      )
+    },
+    [odloz],
+  )
+
   /** Porzucenie własnego tekstu kafelka. Kasuje coś, co użytkownik napisał,
    *  więc pyta — i mówi wprost, co się pojawi w zamian. */
   const wrocDoKlocka = useCallback(
@@ -3758,6 +4001,9 @@ function CanvasInner({
           }
           onEditPart={(nodeId, index, versionId, subpageId, md, paski) =>
             zapiszWlasnaCzesci(nodeId, index, kluczWlasnej(versionId, subpageId), md, paski)
+          }
+          onZapisRunu={(nodeId, zapisy, paski) =>
+            zapiszRunCzesci(nodeId, zapisy, paski)
           }
           onWrocDoKlocka={(nodeId, versionId, subpageId) =>
             wrocDoKlocka(nodeId, kluczWlasnej(versionId, subpageId))

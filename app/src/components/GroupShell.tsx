@@ -54,27 +54,22 @@ interface Props {
   /** Kafelki/wersje/strony podane z zewnątrz. Linia ma je już wczytane dla
    *  całej ścieżki; bez tego każdy scalony blok czytałby trzy całe tabele. */
   zewn?: { concepts: Concept[]; versions: BlockVersion[]; subpages: Subpage[] }
-  /** Pole do pisania dla POJEDYNCZEGO składnika. Dzięki niemu scalony blok
-   *  bez własnej treści nie jest tylko do czytania: pisze się w nim po każdym
-   *  kafelku z osobna, a tekst idzie do tego kafelka w bazie. */
-  edytorCzesci?: (
-    i: number,
+  /** Pole do pisania na CAŁY ciągły kawałek tekstu — choćby zbierał treść
+   *  z kilku kafelków. To dzięki niemu scalony blok bez pasków jest jednym
+   *  polem, a nie kilkoma polami jedno pod drugim. */
+  edytorRunu?: (
+    klucz: string,
     dane: {
-      versionId: string
-      subpageId: string | null
-      /** Tekst TEGO kawałka składnika (pasek w środku dzieli go na kilka). */
-      tresc: string
-      biezaca: boolean
-      /** Który to kawałek składnika i ile ich w sumie. */
-      kawalek: number
-      kawalkow: number
-      /** Wkłada zapisany kawałek z powrotem w całość składnika i podaje
-       *  przy okazji przesunięte paski — tekst i ich pozycje muszą trafić do
-       *  ścieżki jednym ruchem, inaczej przez chwilę cięcie stoi gdzie
-       *  indziej niż tekst i pole do pisania dostaje nie swoją treść. */
-      zloz: (md: string) => { tekst: string; paski?: PasekStron[] }
+      kawalki: { i: number; kawalek: number; tresc: string }[]
+      zapisz: (teksty: string[]) => void
     },
   ) => React.ReactNode
+  /** Zapis kilku składników jednym ruchem — tekst pociętego runu wraca do
+   *  swoich kafelków razem, a nie każdy osobno. */
+  onZapisRunu?: (
+    zapisy: { i: number; versionId: string; subpageId: string | null; md: string }[],
+    paski?: PasekStron[],
+  ) => void
   /** Paski stron postawione w tym bloku — miejsca, nie właściwości
    *  składników. Zapisują się w ścieżce. */
   paski?: PasekStron[]
@@ -102,7 +97,8 @@ export function GroupShell({
   edytor,
   onStartEdit,
   zewn,
-  edytorCzesci,
+  edytorRunu,
+  onZapisRunu,
   bezPaskaWersji,
   paski,
   onPaskiStron,
@@ -320,6 +316,83 @@ export function GroupShell({
     }))
   }
 
+  /** Cały blok rozłożony na kawałki tekstu i stojące między nimi paski.
+   *
+   *  To jest sedno scalania: sąsiadujące kawałki, których NIC nie rozdziela,
+   *  trafiają do jednego pola do pisania. Bez pasków cały scalony blok jest
+   *  więc jednym polem — jednym tekstem, w którym granica kafelków jest
+   *  zwykłą pustą linią. Pasek dzieli tekst na dwa pola dokładnie tam, gdzie
+   *  stoi; skasowanie paska zrasta je z powrotem. */
+  const uklad = () => {
+    const kawalki = parts.map((_, i) => kawalkiCzesci(i))
+    type Kawalek = {
+      i: number
+      kawalek: number
+      tresc: string
+      zloz: (md: string) => { tekst: string; paski?: PasekStron[] }
+    }
+    const elementy: (
+      | { typ: 'tekst'; k: Kawalek }
+      | { typ: 'pasek'; pasek: PasekStron }
+    )[] = []
+    const graniczne = (poCzesci: number) =>
+      paskiStron.filter((x) => x.poCzesci === poCzesci && x.poAkapicie === undefined)
+    for (const pasek of graniczne(-1)) elementy.push({ typ: 'pasek', pasek })
+    kawalki.forEach((kaw, i) => {
+      kaw.forEach((cz) => {
+        elementy.push({
+          typ: 'tekst',
+          k: { i, kawalek: cz.k, tresc: cz.tekst, zloz: cz.zloz },
+        })
+        if (cz.pasek) elementy.push({ typ: 'pasek', pasek: cz.pasek })
+      })
+      for (const pasek of graniczne(i)) elementy.push({ typ: 'pasek', pasek })
+    })
+    // sąsiadujące kawałki zlewają się w jeden run
+    const runy: ({ typ: 'run'; kawalki: Kawalek[] } | { typ: 'pasek'; pasek: PasekStron })[] =
+      []
+    for (const el of elementy) {
+      const ostatni = runy[runy.length - 1]
+      if (el.typ === 'pasek') runy.push(el)
+      else if (ostatni?.typ === 'run') ostatni.kawalki.push(el.k)
+      else runy.push({ typ: 'run', kawalki: [el.k] })
+    }
+    return runy
+  }
+
+  /** Zapis runu: każdy kawałek wraca do swojego kafelka, a paski przeliczają
+   *  się RAZ, na podstawie wszystkich zmian naraz — inaczej drugi kawałek
+   *  cofałby to, co policzył pierwszy. */
+  const zapiszRun = (kawalki: {
+    i: number
+    kawalek: number
+    tresc: string
+    zloz: (md: string) => { tekst: string; paski?: PasekStron[] }
+  }[]) => (teksty: string[]) => {
+    let paski: PasekStron[] | undefined
+    const zapisy = kawalki.map((k, n) => {
+      const w = k.zloz(teksty[n] ?? k.tresc)
+      if (w.paski) {
+        // każdy kawałek liczy swoje paski od tej samej podstawy; scalamy
+        // je po id, żeby żaden nie przepadł
+        const wg = new Map((paski ?? paskiStron).map((x) => [x.id, x]))
+        for (const x of w.paski) {
+          const stary = wg.get(x.id)
+          wg.set(x.id, stary && stary.poAkapicie !== x.poAkapicie ? x : (stary ?? x))
+        }
+        paski = [...wg.values()]
+      }
+      const r = resolved[k.i]
+      return {
+        i: k.i,
+        versionId: r?.version?.id ?? '',
+        subpageId: r?.strona?.id ?? null,
+        md: w.tekst,
+      }
+    })
+    onZapisRunu?.(zapisy, paski)
+  }
+
   /** Miejsce między składnikami.
    *
    *  Nie ma tu żadnego przycisku „dodaj pasek": scalony blok ma wyglądać jak
@@ -393,72 +466,85 @@ export function GroupShell({
           </div>
         ) : (
         <div className="block-content">
-          {przerwa(-1)}
-          {resolved.map((r, i) => (
-            <Fragment key={`${parts[i].conceptId}-${i}`}>
-              <div className="group-part">
-              {/* Pasek wersji tylko wtedy, gdy naprawdę jest z czego wybierać.
-                  Samotne „wr.1" nad każdym składnikiem nic nie mówiło, a
-                  rozbijało scalony tekst na kawałki przy samym czytaniu. */}
-              {r.version && !bezPaskaWersji && r.own.length > 1 && (
-                <div className="block-pick block-pick-version">
-                  {r.own.length > 1 && onVersionChange ? (
-                    <select
-                      className="block-pick-select"
-                      value={r.version.id}
-                      title={
-                        pickHint ??
-                        `Wersja kafelka „${r.concept?.name ?? ''}" w tej grupie`
-                      }
-                      onChange={(e) =>
-                        onVersionChange(
-                          i,
-                          e.target.value === r.concept?.currentVersionId
-                            ? null
-                            : e.target.value,
-                        )
-                      }
-                    >
-                      {r.own.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {versionName(v)}
-                        </option>
-          ))}
-                    </select>
-                  ) : (
-                    <span className="block-pick-static">{versionName(r.version)}</span>
-                  )}
-                </div>
-              )}
-              {kawalkiCzesci(i).map(({ tekst, pasek, k, ile, zloz }) => (
-                <Fragment key={`k${k}`}>
-                  {edytorCzesci && r.concept && r.version ? (
-                    edytorCzesci(i, {
-                      versionId: r.version.id,
-                      subpageId: r.strona?.id ?? null,
-                      tresc: tekst,
-                      biezaca: r.version.id === r.concept.currentVersionId,
-                      kawalek: k,
-                      kawalkow: ile,
-                      zloz,
-                    })
-                  ) : (
-                    <div
-                      className="markdown-body"
-                      dangerouslySetInnerHTML={{
-                        __html: renderMarkdown(r.concept ? tekst : '(usunięty kafelek)'),
-                      }}
-                    />
-                  )}
-                  {/* pasek postawiony w środku tekstu — rozcina go tutaj */}
-                  {pasek && pasekStron(pasek)}
-                </Fragment>
-              ))}
-            </div>
-              {/* przerwa pod składnikiem: tu stawia się pasek stron */}
-              {przerwa(i)}
-            </Fragment>
-          ))}
+          {/* Tryb pisania: układ z runów — sąsiadujące kawałki tekstu
+              schodzą się w JEDNO pole, więc scalony blok bez pasków jest
+              jednym tekstem, a nie kilkoma polami jedno pod drugim.
+              Przy czytaniu zostaje prostsze rozłożenie na składniki. */}
+          {edytorRunu
+            ? uklad().map((el, n) =>
+                el.typ === 'pasek' ? (
+                  <div className="group-przerwa" key={el.pasek.id}>
+                    {pasekStron(el.pasek)}
+                  </div>
+                ) : (
+                  <Fragment key={`run${n}`}>
+                    {edytorRunu(
+                      el.kawalki.map((k) => `${k.i}:${k.kawalek}`).join('|'),
+                      { kawalki: el.kawalki, zapisz: zapiszRun(el.kawalki) },
+                    )}
+                  </Fragment>
+                ),
+              )
+            : (
+              <>
+                {przerwa(-1)}
+                {resolved.map((r, i) => (
+                  <Fragment key={`${parts[i].conceptId}-${i}`}>
+                    <div className="group-part">
+                      {/* Pasek wersji tylko wtedy, gdy naprawdę jest z czego
+                          wybierać. Samotne „wr.1" nad każdym składnikiem nic
+                          nie mówiło, a rozbijało scalony tekst na kawałki. */}
+                      {r.version && !bezPaskaWersji && r.own.length > 1 && (
+                        <div className="block-pick block-pick-version">
+                          {onVersionChange ? (
+                            <select
+                              className="block-pick-select"
+                              value={r.version.id}
+                              title={
+                                pickHint ??
+                                `Wersja kafelka „${r.concept?.name ?? ''}" w tej grupie`
+                              }
+                              onChange={(e) =>
+                                onVersionChange(
+                                  i,
+                                  e.target.value === r.concept?.currentVersionId
+                                    ? null
+                                    : e.target.value,
+                                )
+                              }
+                            >
+                              {r.own.map((v) => (
+                                <option key={v.id} value={v.id}>
+                                  {versionName(v)}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="block-pick-static">
+                              {versionName(r.version)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {kawalkiCzesci(i).map(({ tekst, pasek, k }) => (
+                        <Fragment key={`k${k}`}>
+                          <div
+                            className="markdown-body"
+                            dangerouslySetInnerHTML={{
+                              __html: renderMarkdown(
+                                r.concept ? tekst : '(usunięty kafelek)',
+                              ),
+                            }}
+                          />
+                          {pasek && pasekStron(pasek)}
+                        </Fragment>
+                      ))}
+                    </div>
+                    {przerwa(i)}
+                  </Fragment>
+                ))}
+              </>
+            )}
         </div>
         )}
 

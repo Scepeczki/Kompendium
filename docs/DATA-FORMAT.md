@@ -93,6 +93,23 @@ LearningPath                      PathNode — pięć rodzajów (pole `kind`)
 **Uwaga historyczna:** grupa ma w danych `kind: 'fusion'` — nazwa z czasów, gdy
 scalanie miało zlewać kafelki. Zostaje, bo siedzi w zapisanych ścieżkach.
 
+**Scalony blok to jeden tekst w JEDNYM polu do pisania.** Sąsiadujące kawałki
+tekstu, których nic nie rozdziela, trafiają do wspólnego pola — bez pasków cały
+blok jest więc jednym dokumentem: kursor chodzi po nim strzałkami, zaznaczenie
+przechodzi przez granicę kafelków, a sama granica jest zwykłą pustą linią.
+
+Jak wspólne pole wie, co do kogo należy: przed wczytaniem wstawiamy między
+teksty niewidzialny znacznik, zaraz po wczytaniu go kasujemy i zapamiętujemy
+pozycje. Dalej pilnuje ich ProseMirror (`transaction.mapping`), więc dopisane
+zdanie przesuwa granicę razem z tekstem. Przy zapisie tniemy dokument w tych
+miejscach (`wytnijMarkdown`, ta sama droga co zwykły zapis) i każdy kawałek
+wraca do swojego kafelka jednym wspólnym zapisem.
+
+Dwa zabezpieczenia: gdy granic NIE da się ustalić, blok świadomie rozpada się
+na osobne pola (lepiej brzydziej niż zdanie w cudzym kafelku), a gdy ktoś zlepi
+akapity dwóch kafelków w jeden, cały taki akapit idzie do pierwszego z nich —
+ciąć zdanie w pół między kafelki nie wolno. Pilnuje tego `test-scalanie.mjs`.
+
 **Paski stron w scalonym bloku** (`paskiStron: PasekStron[]`) to MIEJSCA, a nie
 właściwości składników. Scalenie ma dawać jeden ciągły tekst, więc domyślnie
 nie ma żadnego paska; stawia się go tam, gdzie potrzeba, i zostaje — nawet

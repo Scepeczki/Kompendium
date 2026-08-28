@@ -123,9 +123,12 @@ await page.waitForTimeout(1500)
 
 // 3. wynik: jeden scalony blok z dwoma składnikami, Przyklad osobno
 check('powstał scalony blok', (await page.locator('.script-group-block').count()) === 1)
-check('scalony blok ma oba zaznaczone kafelki',
-  (await page.locator('.script-group-block .group-part').count()) === 2,
-  `składników: ${await page.locator('.script-group-block .group-part').count()}`)
+// Scalone kafelki są JEDNYM tekstem, więc nie ma czego liczyć — patrzymy,
+// czy treść obu w nim jest.
+const wScalonym = await page.textContent('.script-group-block')
+check('scalony blok ma treść obu zaznaczonych kafelków',
+  wScalonym.includes('Definicja') && wScalonym.includes('Notacja'),
+  wScalonym.slice(0, 120))
 const nazwy = await nazwyKafelkow()
 check('niezaznaczony kafelek został osobno',
   nazwy.some((n) => n.includes('Przyklad')), nazwy.join(' | '))

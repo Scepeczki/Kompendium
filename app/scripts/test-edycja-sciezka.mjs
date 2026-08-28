@@ -251,23 +251,21 @@ await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.click('.concept-item:has-text("Warsztat")')
 await page.waitForSelector('.linear-seg')
 await page.waitForTimeout(600)
-// oba kafelki siedzą teraz w scalonym bloku, więc wersję przełączamy tam —
-// każdy składnik ma własny wybór wersji i własne pole do pisania
+// Oba kafelki siedzą teraz w scalonym bloku — i są w nim JEDNYM tekstem,
+// w jednym polu. Wersję przełącza się pod prawym przyciskiem.
 await page
   .waitForFunction(
-    () =>
-      document.querySelectorAll('.script-group-block .group-part .linear-pole').length === 2,
+    () => document.querySelectorAll('.script-group-block .linear-pole').length === 1,
     null,
     { timeout: 8000 },
   )
   .catch(() => {})
-check('w scalonym bloku pisze się po każdym składniku z osobna',
-  (await page.locator('.script-group-block .group-part .linear-pole').count()) === 2,
-  `pól: ${await page.locator('.script-group-block .group-part .linear-pole').count()}, ` +
-    `składników: ${await page.locator('.script-group-block .group-part').count()}`)
+check('scalone kafelki to jedno wspólne pole do pisania',
+  (await page.locator('.script-group-block .linear-pole').count()) === 1,
+  `pól: ${await page.locator('.script-group-block .linear-pole').count()}`)
 // i to pisanie naprawdę się zapisuje — w ścieżce, nie w kafelku
-const pierwszaCzesc = page.locator('.script-group-block .group-part').first()
-await pierwszaCzesc.locator('.linear-pole .tiptap').click()
+// jedno pole trzyma tekst obu kafelków, więc celujemy w akapit pierwszego
+await page.locator('.script-group-block .tiptap p:has-text("Kres gorny")').first().click()
 await page.keyboard.press('End')
 await page.keyboard.type(' DOPISANE-W-FUZJI')
 await page.waitForTimeout(1200)
@@ -292,11 +290,10 @@ check('menu podaje wersje składników scalonego bloku',
   (await page.locator('.linear-menu .tree-menu-item').allTextContents()).join(' · '))
 await wersjeWMenu.first().click()
 await page.waitForTimeout(1400)
-const czesc = page.locator('.script-group-block .group-part').first()
 check('starsza wersja też jest do pisania',
-  (await czesc.locator('.linear-pole').count()) === 1,
-  `pól w tym składniku: ${await czesc.locator('.linear-pole').count()}`)
-await czesc.locator('.linear-pole .tiptap').click()
+  (await page.locator('.script-group-block .linear-pole').count()) === 1,
+  `pól: ${await page.locator('.script-group-block .linear-pole').count()}`)
+await page.locator('.script-group-block .tiptap p:has-text("Kres gorny")').first().click()
 await page.keyboard.press('End')
 await page.keyboard.type(' DOPISANE-W-STARSZEJ')
 await page.waitForTimeout(1200)

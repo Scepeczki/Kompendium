@@ -140,7 +140,8 @@ check('menu proponuje pasek w tym miejscu tekstu',
 await page.click('.linear-menu .tree-menu-item:has-text("Pasek stron w tym miejscu")')
 await page.waitForTimeout(900)
 check('pasek staje w środku tekstu składnika',
-  (await page.locator('.script-group-block .group-part .group-pasek').count()) === 1)
+  (await page.locator('.script-group-block .group-pasek').count()) === 2,
+  `pasków ${await page.locator('.script-group-block .group-pasek').count()}`)
 check('a tekst rozcina się na dwa pola',
   (await page.locator('.script-group-block .linear-pole').count()) === polaPrzed + 1,
   `${polaPrzed} → ${await page.locator('.script-group-block .linear-pole').count()}`)
