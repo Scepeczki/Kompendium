@@ -15,13 +15,26 @@ import {
 } from '../types'
 import { useBlockTypes } from '../blockTypes'
 import { useDialogs } from './Dialogs'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 export type GroupPart = FusionPart
 
 /** Przeciąganie pasków stron w obrębie jednego scalonego bloku. */
 const PASEK_MIME = 'text/x-komp-pasek'
+
+/** Paski, które wynikają wprost z danych — dopóki nikt nic nie ustawił.
+ *
+ *  Scalenie ma dawać jednolity tekst, więc kafelek BEZ stron nie zostawia po
+ *  sobie żadnego śladu. Tekst przerywa się tylko tam, gdzie zaczyna się
+ *  kafelek, który strony ma: tam naprawdę jest z czego wybierać.
+ *
+ *  Kto zapisuje układ pasków, MUSI wyjść od tej listy, a nie od pustej —
+ *  inaczej pierwszy postawiony pasek po cichu kasuje te domyślne. */
+export const paskiZDanych = (maStrony: boolean[]): PasekStron[] =>
+  maStrony.flatMap((ma, i) =>
+    ma ? [{ id: `auto-${i}`, poCzesci: i - 1, czesci: [i] }] : [],
+  )
 
 interface Props {
   name: string
@@ -106,6 +119,12 @@ export function GroupShell({
   /** Przeciąganie zakładek między paskami: który składnik jedzie
    *  i nad którym paskiem wisi. */
   const [ciagnietaCzesc, setCiagnietaCzesc] = useState<number | null>(null)
+  /** Czy lista stron w menu paska jest rozwinięta klikiem. */
+  const [rozwinieteMenu, setRozwinieteMenu] = useState(false)
+  // zamknięte menu ma się otwierać złożone, a nie pamiętać poprzedni raz
+  useEffect(() => {
+    if (!menuPaska) setRozwinieteMenu(false)
+  }, [menuPaska])
   const [celPaska, setCelPaska] = useState<string | null>(null)
   const wlasneKlocki =
     useLiveQuery(
@@ -151,8 +170,17 @@ export function GroupShell({
   const refs: SourceRef[] = resolved.flatMap((r) => r.version?.sourceRefs ?? [])
   const versionName = (v: BlockVersion) => v.label ?? `wr.${v.version}`
 
-  /** Paski postawione w tym bloku. Brak = czysty, ciągły tekst. */
-  const paskiStron = paski ?? []
+  /** Paski postawione w tym bloku.
+   *
+   *  Dopóki nikt nic nie ustawił, wynikają wprost z danych: scalenie ma dawać
+   *  jednolity tekst, więc kafelki BEZ stron nie zostawiają po sobie żadnego
+   *  śladu. Tekst przerywa się tylko tam, gdzie zaczyna się kafelek, który
+   *  strony ma — bo tam naprawdę jest z czego wybierać.
+   *
+   *  Pierwsza zmiana (przeciągnięcie, skasowanie, nowy pasek) zapisuje tę
+   *  listę na stałe i od tej pory rządzi ustawienie, nie dane. */
+  const paskiStron: PasekStron[] =
+    paski ?? paskiZDanych(resolved.map((r) => r.strony.length > 0))
 
   /** Zakładki jednego składnika — do wstawienia w pasek. */
   const zakladki = (i: number) => {
@@ -292,38 +320,28 @@ export function GroupShell({
     }))
   }
 
-  /** Przerwa między składnikami: w trybie pisania można tu postawić pasek. */
-  const przerwa = (poCzesci: number) => (
-    <div className="group-przerwa" key={`p-${poCzesci}`}>
-      {paskiStron
-        .filter((x) => x.poCzesci === poCzesci && x.poAkapicie === undefined)
-        .map((x) => pasekStron(x))}
-      {onPaskiStron && (
-        <button
-          className="group-dodaj-pasek"
-          title="Postaw tu pasek stron"
-          onClick={() => {
-            // Nowy pasek bierze zakładki sąsiedniego składnika — inaczej
-            // powstawałby pusty i nie byłoby skąd nic do niego przeciągnąć.
-            // Jeśli ten składnik siedzi już w innym pasku, zostaje pusty
-            // i czeka, aż sam coś do niego przeniesiesz.
-            const sasiad = poCzesci >= 0 ? poCzesci : 0
-            const zajety = paskiStron.some((x) => x.czesci.includes(sasiad))
-            ustawPaski([
-              ...paskiStron,
-              {
-                id: crypto.randomUUID(),
-                poCzesci,
-                czesci: zajety || !resolved[sasiad] ? [] : [sasiad],
-              },
-            ])
-          }}
-        >
-          + pasek stron
-        </button>
-      )}
-    </div>
-  )
+  /** Miejsce między składnikami.
+   *
+   *  Nie ma tu żadnego przycisku „dodaj pasek": scalony blok ma wyglądać jak
+   *  jeden tekst, a nie jak formularz z okienkami. Pasek stawia się prawym
+   *  przyciskiem w dowolnym miejscu treści. Bez paska zostaje sam odstęp —
+   *  dokładnie taki, jak między dwoma akapitami — a na początku i na końcu
+   *  bloku nie ma nawet tego. */
+  const przerwa = (poCzesci: number) => {
+    const tutejsze = paskiStron.filter(
+      (x) => x.poCzesci === poCzesci && x.poAkapicie === undefined,
+    )
+    const miedzySkladnikami = poCzesci >= 0 && poCzesci < parts.length - 1
+    if (tutejsze.length === 0 && !miedzySkladnikami) return null
+    return (
+      <div
+        className={`group-przerwa ${tutejsze.length === 0 ? 'group-przerwa-pusta' : ''}`}
+        key={`p-${poCzesci}`}
+      >
+        {tutejsze.map((x) => pasekStron(x))}
+      </div>
+    )
+  }
 
   return (
     <section
@@ -379,7 +397,10 @@ export function GroupShell({
           {resolved.map((r, i) => (
             <Fragment key={`${parts[i].conceptId}-${i}`}>
               <div className="group-part">
-              {r.version && !bezPaskaWersji && (
+              {/* Pasek wersji tylko wtedy, gdy naprawdę jest z czego wybierać.
+                  Samotne „wr.1" nad każdym składnikiem nic nie mówiło, a
+                  rozbijało scalony tekst na kawałki przy samym czytaniu. */}
+              {r.version && !bezPaskaWersji && r.own.length > 1 && (
                 <div className="block-pick block-pick-version">
                   {r.own.length > 1 && onVersionChange ? (
                     <select
@@ -479,8 +500,15 @@ export function GroupShell({
               if (pozycje.length === 0) return null
               return (
                 <>
-                  <div className="tree-menu-podmenu">
-                    <button className="tree-menu-item tree-menu-rozwija" type="button">
+                  <div
+                    className={`tree-menu-podmenu ${rozwinieteMenu ? 'otwarte' : ''}`}
+                  >
+                    <button
+                      className="tree-menu-item tree-menu-rozwija"
+                      type="button"
+                      aria-expanded={rozwinieteMenu}
+                      onClick={() => setRozwinieteMenu((r) => !r)}
+                    >
                       <span>Wstaw zakładkę</span>
                       <span className="tree-menu-strzalka">›</span>
                     </button>

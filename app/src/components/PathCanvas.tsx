@@ -55,7 +55,7 @@ import { topoOrder } from '../topo'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
-import { GroupShell } from './GroupShell'
+import { GroupShell, paskiZDanych } from './GroupShell'
 import { Outline, outlineId, type OutlineItem } from './Outline'
 import { ConceptPicker } from './ConceptPicker'
 import { Icon } from './Icon'
@@ -1161,6 +1161,8 @@ function LinearView({
   }
 
   /** Menu wstawiania spod prawego przycisku — wraz z miejscem w łańcuchu. */
+  /** Która pozycja menu segmentu jest rozwinięta klikiem. */
+  const [rozwinieteWersje, setRozwinieteWersje] = useState<string | null>(null)
   const [segMenu, setSegMenu] = useState<{
     x: number
     y: number
@@ -1173,14 +1175,21 @@ function LinearView({
   } | null>(null)
 
   useEffect(() => {
+    if (!segMenu) setRozwinieteWersje(null)
     if (!segMenu) return
-    const zamknij = () => setSegMenu(null)
+    // przechwytywanie, nie bąbelkowanie — patrz Sidebar: pole tekstowe
+    // zatrzymywało kliknięcie i menu zostawało otwarte
+    const zamknij = (e: Event) => {
+      const cel = e.target
+      if (cel instanceof Element && cel.closest('.tree-menu')) return
+      setSegMenu(null)
+    }
     const klawisz = (e: KeyboardEvent) => e.key === 'Escape' && setSegMenu(null)
-    document.addEventListener('mousedown', zamknij)
+    document.addEventListener('mousedown', zamknij, true)
     document.addEventListener('scroll', zamknij, true)
     window.addEventListener('keydown', klawisz)
     return () => {
-      document.removeEventListener('mousedown', zamknij)
+      document.removeEventListener('mousedown', zamknij, true)
       document.removeEventListener('scroll', zamknij, true)
       window.removeEventListener('keydown', klawisz)
     }
@@ -1382,7 +1391,21 @@ function LinearView({
     const i = Number(iTekst)
     const k = Number(kTekst)
     if (!Number.isFinite(i) || !Number.isFinite(k)) return
-    const wewn = (n.paskiStron ?? [])
+    // wychodzimy od układu, który widać na ekranie — także wtedy, gdy nikt
+    // go jeszcze nie ruszał i paski wynikają z samych danych
+    const bazowe =
+      n.paskiStron ??
+      paskiZDanych(
+        n.parts.map((cz) => {
+          const c = mapy.klocki.get(cz.conceptId)
+          const wers = mapy.wersjeKlocka.get(cz.conceptId) ?? []
+          const w =
+            wers.find((v) => v.id === cz.versionId) ??
+            wers.find((v) => v.id === c?.currentVersionId)
+          return (w ? (mapy.stronyKlocka.get(w.id) ?? []) : []).length > 0
+        }),
+      )
+    const wewn = bazowe
       .filter((z) => z.poCzesci === i && z.poAkapicie !== undefined)
       .sort((a, b) => (a.poAkapicie ?? 0) - (b.poAkapicie ?? 0))
     const przed = k > 0 ? (wewn[k - 1]?.poAkapicie ?? 0) : 0
@@ -1390,9 +1413,9 @@ function LinearView({
     const poAkapicie = przed + cel.blok + 1
     if (wewn.some((z) => z.poAkapicie === poAkapicie)) return
     // nowy pasek bierze zakładki tego składnika, o ile nie stoją już gdzie indziej
-    const zajety = (n.paskiStron ?? []).some((z) => z.czesci.includes(i))
+    const zajety = bazowe.some((z) => z.czesci.includes(i))
     onPaskiStron(n.id, [
-      ...(n.paskiStron ?? []),
+      ...bazowe,
       { id: crypto.randomUUID(), poCzesci: i, poAkapicie, czesci: zajety ? [] : [i] },
     ])
   }
@@ -1918,8 +1941,20 @@ function LinearView({
               // Wersje pod rozwijaną pozycją, nie płaską listą: menu ma
               // pokazywać czynności, a nie wysypywać wszystko naraz.
               wybory.push(
-                <div className="tree-menu-podmenu" key={`${tytul}-w`}>
-                  <button className="tree-menu-item tree-menu-rozwija" type="button">
+                <div
+                  className={`tree-menu-podmenu ${
+                    rozwinieteWersje === tytul ? 'otwarte' : ''
+                  }`}
+                  key={`${tytul}-w`}
+                >
+                  <button
+                    className="tree-menu-item tree-menu-rozwija"
+                    type="button"
+                    aria-expanded={rozwinieteWersje === tytul}
+                    onClick={() =>
+                      setRozwinieteWersje((r) => (r === tytul ? null : tytul))
+                    }
+                  >
                     <span>
                       Wersja{dopisek}
                       <span className="tree-menu-teraz">

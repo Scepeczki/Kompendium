@@ -4127,6 +4127,15 @@ body.ciagne-szerokosc * {
   width: 100%;
 }
 
+/* Znaczek i podpis w jednej linii, tak jak w zwykłej pozycji menu. Bez tego
+   znaczek (element blokowy) łamał wiersz i „Włóż do ścieżki" zajmowało dwie
+   linijki, choć sąsiednie pozycje mieściły się w jednej. */
+.tree-menu-rozwija > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .tree-menu-teraz {
   margin-left: 8px;
   color: var(--muted);
@@ -4147,9 +4156,27 @@ body.ciagne-szerokosc * {
   min-width: 160px;
 }
 
+/* Rozwinięcie chodzi po najechaniu ORAZ po kliknięciu. Wcześniej trzymało
+   się na :focus-within, więc raz kliknięta pozycja zostawała otwarta, dopóki
+   coś innego nie przejęło ogniska — klik w to samo miejsce jej nie zamykał. */
 .tree-menu-podmenu:hover .tree-menu-boczne,
-.tree-menu-podmenu:focus-within .tree-menu-boczne {
+.tree-menu-podmenu.otwarte .tree-menu-boczne {
   display: block;
+}
+
+/* Widać, że pozycja jest rozwinięta: podświetlenie zostaje po kliknięciu,
+   a strzałka pokazuje w dół. */
+.tree-menu-podmenu.otwarte > .tree-menu-rozwija {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.tree-menu-strzalka {
+  transition: transform 0.12s;
+}
+
+.tree-menu-podmenu.otwarte .tree-menu-strzalka {
+  transform: rotate(90deg);
 }
 
 .block-pick-daszek {
@@ -4510,10 +4537,6 @@ body.ciagne-szerokosc * {
 /* Grupa czyta się jak jeden blok: cała oprawa jest ta sama co przy zwykłym
    kafelku (.script-block), a w środku same treści — kafelki tracą swoje ramki
    i tytuły, zostaje tekst oddzielony przerwą podobną do odstępu akapitów. */
-.group-part + .group-part {
-  margin-top: 1.2em;
-}
-
 /* okno edycji grupy */
 .group-editor .settings-body {
   padding: 12px 14px 16px;
@@ -5549,35 +5572,37 @@ body.ciagne-szerokosc * {
    stawia się tam, gdzie jest potrzebny, i zostaje, dopóki się go nie skasuje.
    ------------------------------------------------------------------------- */
 
+/* Składnik obejmuje swój tekst ciasno — i przy pisaniu, i przy czytaniu.
+   Bez tego na styku dwóch składników spotykały się margines ostatniego
+   akapitu, obramowanie pola, obramowanie następnego i margines pierwszego
+   akapitu, i granica kafelków rozpychała się kilkakrotnie bardziej niż
+   zwykły odstęp między akapitami. Cały odstęp odmierza przerwa. */
+.script-group-block .group-part :is(.tiptap, .markdown-body) > :first-child {
+  margin-top: 0;
+}
+
+.script-group-block .group-part :is(.tiptap, .markdown-body) > :last-child {
+  margin-bottom: 0;
+}
+
+/* Przerwa sama z siebie nic nie odmierza — robią to marginesy paska. */
 .group-przerwa {
-  min-height: 0.9em;
+  min-height: 0;
 }
 
-/* „+ pasek stron" widać dopiero, gdy pracujesz w tym bloku — przy czytaniu
-   nic nie ma prawa mrugać między akapitami */
-.group-dodaj-pasek {
-  display: block;
-  font: inherit;
-  font-size: var(--fs-2);
-  padding: 1px 8px;
-  border: 1px dashed var(--line);
-  border-radius: 999px;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s;
+/* Przerwa bez paska to DOKŁADNIE jeden odstęp międzyakapitowy: scalone
+   kafelki mają stać od siebie tak daleko, jak dwa akapity tego samego
+   tekstu, bo tym właśnie scalony blok ma być. Przycisk „+ pasek stron"
+   wisi wtedy nad tekstem i nie zajmuje wiersza. */
+.group-przerwa-pusta {
+  height: var(--content-para, 1em);
 }
 
-.script-group-block:hover .group-dodaj-pasek,
-.script-group-block:focus-within .group-dodaj-pasek {
-  opacity: 0.5;
-}
-
-.group-dodaj-pasek:hover {
-  opacity: 1 !important;
-  border-color: var(--accent);
-  color: var(--accent-ink);
+/* W Linii każdy składnik siedzi w polu do pisania, a pole dokłada z góry
+   i z dołu po 3px (wyściółka + obramowanie ogniska). Bez tej poprawki
+   granica kafelków byłaby o te 6px szersza niż odstęp między akapitami. */
+.linear-seg .group-przerwa-pusta {
+  height: max(0px, calc(var(--content-para, 1em) - 6px));
 }
 
 .group-pasek.cel {
@@ -5590,28 +5615,26 @@ body.ciagne-szerokosc * {
   font-style: italic;
 }
 
-/* Lekkie ramki wokół treści składników — tylko przy pisaniu. Wtedy widać,
-   gdzie kończy się tekst jednego kafelka, a zaczyna drugi; przy czytaniu
-   blok ma wyglądać jak jeden tekst. */
-.script-group-block:focus-within .group-part {
-  outline: 1px dashed var(--line-strong);
-  outline-offset: 6px;
-  border-radius: 3px;
+/* ŻADNYCH ramek wokół składników — ani przy czytaniu, ani przy pisaniu.
+   Scalony blok jest jednym tekstem, a obwódka wokół każdego składnika
+   robiła z niego dwa pudełka obok siebie, choć odstęp był już taki sam
+   jak między akapitami. Gdzie się pisze, widać po kursorze i po ramce
+   samego pola — jednej, nie wszystkich naraz. */
+.script-group-block .linear-pole .rich-content .tiptap:hover {
+  border-color: transparent;
 }
 
 /* Pasek postawiony w ŚRODKU tekstu składnika. Stoi w jednym rzędzie z
    akapitami, więc potrzebuje własnego oddechu — przerwa między składnikami
    daje go z zewnątrz, tutaj musi wziąć się sam. */
-.group-part .group-pasek {
-  margin: 0.85em 0;
-}
+/* Pasek to kotwica w tekście, nie wyrwa. Powietrza dostaje trochę mniej
+   niż wynosi odstęp akapitu, bo sam pasek już rozdziela wzrokowo; kreska
+   nad nim mówi, że tekst jest tu rozcięty.
 
-/* Cienka kreska nad paskiem w tekście: widać, że tekst jest tu rozcięty,
-   a nie że nagle wyskoczyły zakładki. */
-.group-part .group-pasek::before {
-  content: '';
-  display: block;
-  height: 1px;
-  margin: 0 0 6px;
-  background: var(--line);
+   Kreska musi być obramowaniem, a nie ::before — pasek jest flexem, więc
+   ::before stawało się kolejnym elementem w rzędzie zamiast linią nad. */
+.group-pasek {
+  margin: calc(var(--content-para, 1em) * 0.45) 0;
+  padding-top: 0.2em;
+  border-top: 1px solid var(--line);
 }

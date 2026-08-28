@@ -155,16 +155,30 @@ export function Sidebar({
     null,
   )
 
+  /** Która pozycja menu jest rozwinięta. Klik ją otwiera i zamyka — samo
+   *  najechanie też pokazuje, ale po kliknięciu musi dać się złożyć z
+   *  powrotem tym samym kliknięciem. */
+  const [rozwiniete, setRozwiniete] = useState<string | null>(null)
+
   // menu znika przy kliknięciu gdzie indziej, Escape i przewijaniu listy
   useEffect(() => {
+    if (!menu) setRozwiniete(null)
     if (!menu) return
-    const close = () => setMenu(null)
+    // Nasłuch w fazie przechwytywania, bo w zwykłej bąbelkowej zdarzenie
+    // bywa zatrzymane po drodze (pole tekstowe robi to samo z każdym
+    // kliknięciem) — i menu zostawało otwarte, choć kliknęło się obok.
+    // Kliknięcia w samym menu rozpoznajemy po elemencie, nie po propagacji.
+    const close = (e: Event) => {
+      const cel = e.target
+      if (cel instanceof Element && cel.closest('.tree-menu')) return
+      setMenu(null)
+    }
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null)
-    document.addEventListener('mousedown', close)
+    document.addEventListener('mousedown', close, true)
     document.addEventListener('scroll', close, true)
     window.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener('mousedown', close)
+      document.removeEventListener('mousedown', close, true)
       document.removeEventListener('scroll', close, true)
       window.removeEventListener('keydown', onKey)
     }
@@ -1062,8 +1076,19 @@ export function Sidebar({
                   wiersz ścieżki działa, ale trzeba trafić w jego środek —
                   a to kilkanaście pikseli. Tu się po prostu wybiera. */}
               {menu.cel.kind === 'concept' && paths.length > 0 && (
-                <div className="tree-menu-podmenu">
-                  <button className="tree-menu-item tree-menu-rozwija" type="button">
+                <div
+                  className={`tree-menu-podmenu ${
+                    rozwiniete === 'sciezka' ? 'otwarte' : ''
+                  }`}
+                >
+                  <button
+                    className="tree-menu-item tree-menu-rozwija"
+                    type="button"
+                    aria-expanded={rozwiniete === 'sciezka'}
+                    onClick={() =>
+                      setRozwiniete((r) => (r === 'sciezka' ? null : 'sciezka'))
+                    }
+                  >
                     <span>
                       <Icon name="sciezka" size={1} /> Włóż do ścieżki
                     </span>

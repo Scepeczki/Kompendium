@@ -171,6 +171,41 @@ await page.waitForTimeout(700)
 check('ścieżka daje się powielić',
   (await page.locator('.concept-item:has-text("Kurs (kopia)")').count()) === 1)
 
+// 14. „Włóż do ścieżki" — jedna linijka, klik rozwija i składa z powrotem
+await page.click('.concept-item:has-text("W folderze")', { button: 'right' })
+await page.waitForSelector('.tree-menu-rozwija')
+const wiersze = await page.evaluate(() => {
+  const m = (t) =>
+    [...document.querySelectorAll('.tree-menu-item')].find((b) =>
+      b.textContent.includes(t),
+    )
+  const h = (t) => Math.round(m(t)?.getBoundingClientRect().height ?? 0)
+  return { zwykla: h('Zmień nazwę'), rozwijana: h('Włóż do ścieżki') }
+})
+check('„Włóż do ścieżki" mieści się w jednej linijce, jak sąsiednie pozycje',
+  wiersze.rozwijana > 0 && wiersze.rozwijana <= wiersze.zwykla + 2,
+  `zwykła ${wiersze.zwykla}px, rozwijana ${wiersze.rozwijana}px`)
+
+const widacListe = () => page.locator('.tree-menu-boczne').isVisible()
+await page.click('.tree-menu-rozwija')
+await page.waitForTimeout(200)
+check('klik rozwija listę ścieżek', await widacListe())
+check('i widać, że pozycja jest rozwinięta',
+  (await page.locator('.tree-menu-podmenu.otwarte').count()) === 1)
+// mysz odjeżdża, żeby :hover nie trzymał listy otwartej za nas
+await page.mouse.move(5, 5)
+await page.waitForTimeout(150)
+check('rozwinięta lista zostaje, choć mysz odjechała', await widacListe())
+await page.click('.tree-menu-rozwija')
+await page.mouse.move(5, 5)
+await page.waitForTimeout(250)
+check('powtórny klik ją składa', !(await widacListe()))
+
+await page.mouse.click(700, 500)
+await page.waitForTimeout(250)
+check('klik obok zamyka całe menu',
+  (await page.locator('.tree-menu').count()) === 0)
+
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
 for (const e of errors.slice(0, 5)) console.log(`   ${e.slice(0, 200)}`)
