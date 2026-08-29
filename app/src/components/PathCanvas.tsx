@@ -2711,7 +2711,24 @@ function CanvasInner({
       id: gid,
       type: 'fusion',
       position,
-      data: { name, type, parts },
+      data: {
+        name,
+        type,
+        parts,
+        // NOWE scalenie zaczyna się od PUSTEGO kafelka: to na ekranie
+        // komponowania wybiera się, co w nim wyląduje. (Brak pola znaczy
+        // co innego — „blok sprzed przebudowy", który pokazuje sklejkę
+        // materiałów; dlatego pusty tekst zapisujemy wprost.)
+        //
+        // Dołączanie do istniejącego bloku niczego nie nadpisuje.
+        ...(existing
+          ? {
+              content: existing.data.content,
+              strony: existing.data.strony,
+              zrodla: existing.data.zrodla,
+            }
+          : { content: '' }),
+      },
     }
 
     // Miejsce grupy w łańcuchu: tam, gdzie stał najwcześniejszy z jej członków.

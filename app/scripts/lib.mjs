@@ -61,3 +61,27 @@ export async function zloz(page, nazwa) {
   await page.click('.komp-head button:has-text("Gotowe")')
   await page.waitForTimeout(700)
 }
+
+/** Scalanie „na skróty": bierze z materiału główną treść każdego kafelka
+ *  i wychodzi. Nowe scalenie zaczyna się od PUSTEGO kafelka, więc test, który
+ *  chce mieć w bloku treść, musi ją najpierw wziąć — tak jak człowiek. */
+export async function zlozBiorac(page, nazwa) {
+  await page.waitForSelector('.komp-okno', { timeout: 15000 })
+  if (nazwa) {
+    await page.fill('.komp-nazwa', nazwa)
+    await page.waitForTimeout(300)
+  }
+  const karty = await page.locator('.komp-material .komp-kafelek').count()
+  for (let i = 0; i < karty; i++) {
+    const wstaw = page
+      .locator('.komp-material .komp-kafelek')
+      .nth(i)
+      .locator('.komp-strona-wiersz')
+      .first()
+      .locator('button:has-text("Wstaw")')
+    await wstaw.click({ force: true })
+    await page.waitForTimeout(500)
+  }
+  await page.click('.komp-head button:has-text("Gotowe")')
+  await page.waitForTimeout(800)
+}

@@ -122,3 +122,101 @@ export function extractLinks(src: string): string[] {
   }
   return [...names]
 }
+
+/** Dzieli tekst na bloki najwyższego poziomu — to, co w markdownie rozdziela
+ *  pusta linia. Pusta linia w środku `$$…$$` i w płocie z apostrofów należy
+ *  do środka i nie dzieli. */
+export function blokiZrodla(src: string): string[] {
+  const bloki: string[] = []
+  let biezacy: string[] = []
+  let wPlocie = false
+  let weWzorze = false
+  const zamknij = () => {
+    const t = biezacy.join('\n').trim()
+    if (t) bloki.push(t)
+    biezacy = []
+  }
+  for (const linia of src.replace(/\r\n?/g, '\n').split('\n')) {
+    const goly = linia.trim()
+    if (!wPlocie && !weWzorze && goly === '') {
+      zamknij()
+      continue
+    }
+    if (!weWzorze && /^(```|~~~)/.test(goly)) wPlocie = !wPlocie
+    else if (!wPlocie && goly === '$$') weWzorze = !weWzorze
+    biezacy.push(linia)
+  }
+  zamknij()
+  return bloki
+}
+
+/** TeX z wyrenderowanego wzoru — KaTeX chowa źródło w MathML. */
+function texZeWzoru(el: Element): string {
+  const tex = el.querySelector('annotation[encoding="application/x-tex"]')?.textContent ?? ''
+  if (!tex.trim()) return el.textContent ?? ''
+  const blokowy = el.classList.contains('katex-display') || !!el.closest('.katex-display')
+  return blokowy ? `$$${tex}$$` : `$${tex}$`
+}
+
+/** Tekst zaznaczenia złożony z drzewa, z wzorami oddanymi jako TeX.
+ *
+ *  Używane tam, gdzie nie znamy źródła blok po bloku. Znaczniki markdownu
+ *  (pogrubienia, listy) w wyrenderowanym tekście już nie istnieją, więc nie
+ *  wrócą — ale wzory tak, a to one robiły z kopiowania bełkot. */
+export function zrodloZDrzewa(zakres: Range): string {
+  const czesc = zakres.cloneRange()
+  // wzór ma wejść w całości, choćby zaznaczenie zaczynało się w jego środku
+  const wzor = (n: Node | null) =>
+    (n instanceof Element ? n : (n?.parentElement ?? null))?.closest('.katex') ?? null
+  const a = wzor(czesc.startContainer)
+  if (a) czesc.setStartBefore(a)
+  const b = wzor(czesc.endContainer)
+  if (b) czesc.setEndAfter(b)
+  const frag = czesc.cloneContents()
+  for (const el of [...frag.querySelectorAll('.katex')]) {
+    el.replaceWith(document.createTextNode(texZeWzoru(el)))
+  }
+  return (frag.textContent ?? '').trim()
+}
+
+/** Zaznaczenie w podglądzie → ŹRÓDŁO, a nie to, co widać na ekranie.
+ *
+ *  Bez tego kopiowanie wzorów dawało bełkot: KaTeX trzyma jeden wzór w DOM-ie
+ *  trzy razy naraz (glify do patrzenia, MathML dla czytników i sam TeX
+ *  w środku), więc zwykłe `toString()` skleja wszystkie trzy w jeden ciąg.
+ *
+ *  Bloki objęte zaznaczeniem W CAŁOŚCI oddajemy wprost ze źródła (`data-md`) —
+ *  wtedy wracają też pogrubienia, listy i wcięcia, których w wyrenderowanym
+ *  tekście już nie widać. Blok napoczęty od środka składamy z drzewa,
+ *  podmieniając wzory na ich TeX. */
+export function zaznaczenieNaZrodlo(zakres: Range, pojemnik: Element): string {
+  const bloki = [...pojemnik.querySelectorAll('[data-md]')].filter((b) =>
+    zakres.intersectsNode(b),
+  )
+  if (bloki.length === 0) return ''
+
+  const kawalki: string[] = []
+  for (const blok of bloki) {
+    const caly = document.createRange()
+    caly.selectNodeContents(blok)
+    // część wspólna zaznaczenia z tym blokiem
+    const czesc = caly.cloneRange()
+    if (zakres.compareBoundaryPoints(Range.START_TO_START, caly) > 0) {
+      czesc.setStart(zakres.startContainer, zakres.startOffset)
+    }
+    if (zakres.compareBoundaryPoints(Range.END_TO_END, caly) < 0) {
+      czesc.setEnd(zakres.endContainer, zakres.endOffset)
+    }
+    // Cały blok objęty? Rozstrzygamy po TEKŚCIE, nie po granicach węzłów:
+    // zaznaczenie zaczyna się w środku akapitu (w węźle tekstowym), a granica
+    // bloku leży przed nim — porównanie granic uznawało więc całość za
+    // napoczętą i gubiło pogrubienia oraz listy.
+    if (czesc.toString().trim() === (blok.textContent ?? '').trim()) {
+      kawalki.push(blok.getAttribute('data-md') ?? '')
+      continue
+    }
+    const tekst = zrodloZDrzewa(czesc)
+    if (tekst) kawalki.push(tekst)
+  }
+  return kawalki.filter(Boolean).join('\n\n')
+}

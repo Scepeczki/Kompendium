@@ -11,6 +11,7 @@ import './index.css'
 import App from './App.tsx'
 import { initUiSettings } from './uiSettings'
 import { seedBlockTypes } from './db'
+import { wlaczKopiowanieZrodla } from './kopiowanie'
 
 // motyw: zapamiętany wybór albo preferencja systemowa
 const savedTheme = localStorage.getItem('ui.theme')
@@ -39,6 +40,10 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     })
   })
 }
+
+// Ctrl+C w wyrenderowanym tekście ma dawać źródło (wzory jako $…$),
+// a nie sklejkę trzech kopii wzoru, które KaTeX trzyma w drzewie strony.
+wlaczKopiowanieZrodla()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

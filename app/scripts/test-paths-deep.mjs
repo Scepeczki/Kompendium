@@ -2,7 +2,7 @@
 // kolejność, grupowanie/rozgrupowanie, tryb liniowy, skrypt, trwałość
 // i odporność na usunięte kafelki. Zgłasza każdą niezgodność jako BŁĄD.
 import { chromium } from 'playwright'
-import { nazwij, podaj, potwierdz, zloz } from './lib.mjs'
+import { nazwij, podaj, potwierdz, zloz, zlozBiorac } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -136,7 +136,7 @@ await page.keyboard.down('Control')
 await clickNode('Beta')
 await page.keyboard.up('Control')
 await page.click('button:has-text("⧉ Scal")')
-await zloz(page, 'Grupa pojec')
+await zlozBiorac(page, 'Grupa pojec')
 await page.waitForSelector('.path-node-group')
 await settle()
 st = await readPath()
@@ -249,6 +249,8 @@ await page.waitForSelector('.path-node-group')
 await page.click('.react-flow__controls-fitview')
 await page.waitForTimeout(700)
 await page.click('.path-node-group button[title*="Rozgrupuj"]')
+// blok ma złożony tekst, więc rozdzielenie pyta — i zostawia go jako notatkę
+await potwierdz(page)
 await settle()
 const ungrouped = await readPath()
 check('rozgrupowanie usuwa kafelek grupy', ungrouped.grupy.length === 0,

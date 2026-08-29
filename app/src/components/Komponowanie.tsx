@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { type Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, mainPageName } from '../db'
-import { renderMarkdown } from '../markdown'
+import { renderMarkdown, blokiZrodla, zaznaczenieNaZrodlo } from '../markdown'
 import { RichEditor, wytnijMarkdown } from './RichEditor'
 import { sklejMaterialy } from './GroupShell'
 import { ConceptPicker } from './ConceptPicker'
@@ -91,6 +91,8 @@ export function Komponowanie({
    *  zapory blok, w którym nic nie skomponowano, dostawał własny tekst i tracił
    *  związek z materiałem, choć nikt go nie tknął. */
   const dotknieteRef = useRef(false)
+  /** Podgląd otwartej strony — z niego czytamy zaznaczenie. */
+  const podgladRef = useRef<HTMLDivElement | null>(null)
 
   /** Wyjście: najpierw oddajemy treść, dopiero potem zamykamy.
    *
@@ -311,13 +313,22 @@ export function Komponowanie({
                       </button>
                     </div>
                     {podglad === k.klucz && (
-                      <div className="komp-podglad">
-                        <div
-                          className="markdown-body"
-                          dangerouslySetInnerHTML={{
-                            __html: renderMarkdown(k.tresc || '*(pusto)*'),
-                          }}
-                        />
+                      <div className="komp-podglad" ref={podgladRef}>
+                        {/* Blok po bloku, każdy ze swoim źródłem w `data-md`.
+                            Dzięki temu zaznaczenie da się przełożyć z powrotem
+                            na markdown — a nie na to, co widać. */}
+                        <div className="markdown-body">
+                          {(blokiZrodla(k.tresc).length > 0
+                            ? blokiZrodla(k.tresc)
+                            : ['*(pusto)*']
+                          ).map((b, nr) => (
+                            <div
+                              key={nr}
+                              data-md={b}
+                              dangerouslySetInnerHTML={{ __html: renderMarkdown(b) }}
+                            />
+                          ))}
+                        </div>
                         <div className="komp-podglad-stopka">
                           <span className="komp-podpowiedz">
                             zaznacz fragment, żeby wziąć tylko jego
@@ -325,8 +336,12 @@ export function Komponowanie({
                           <button
                             className="btn btn-mini"
                             onClick={() => {
-                              const zazn = window.getSelection()?.toString() ?? ''
-                              if (zazn.trim()) wstaw(k, zazn)
+                              const sel = window.getSelection()
+                              const pojemnik = podgladRef.current
+                              if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return
+                              if (!pojemnik) return
+                              const zrodlo = zaznaczenieNaZrodlo(sel.getRangeAt(0), pojemnik)
+                              if (zrodlo.trim()) wstaw(k, zrodlo)
                             }}
                           >
                             Wstaw zaznaczone

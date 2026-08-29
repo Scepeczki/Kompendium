@@ -2,7 +2,7 @@
 // (definicja notacji ma trafić do środka definicji, która jej używa), łańcuch
 // nie może się przy tym rozerwać, a tekst napisany w ścieżce nie może zginąć.
 import { chromium } from 'playwright'
-import { nowaSciezka, podaj, zloz } from './lib.mjs'
+import { nowaSciezka, podaj, zloz, zlozBiorac } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -118,7 +118,7 @@ check('menu proponuje scalenie zaznaczonych i podaje ile',
   (await pozycja.count()) === 1 && (await pozycja.textContent()).includes('(2)'),
   (await pozycja.count()) ? await pozycja.textContent() : 'brak pozycji')
 await pozycja.click()
-await zloz(page, 'Definicja z notacja')
+await zlozBiorac(page, 'Definicja z notacja')
 await page.waitForTimeout(1500)
 
 // 3. wynik: jeden scalony blok z dwoma składnikami, Przyklad osobno

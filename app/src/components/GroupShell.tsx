@@ -188,11 +188,13 @@ export function GroupShell({
                 onStartEdit?.()
               }}
               dangerouslySetInnerHTML={{
+                // Świeżo scalony blok jest PUSTY z założenia: składa się go
+                // z materiału. Podpowiadamy, gdzie ten materiał czeka, żeby
+                // pustka nie wyglądała na zgubiony tekst.
                 __html: renderMarkdown(
                   tresc ||
-                    (onStartEdit
-                      ? '<p class="note-empty">pusto — kliknij, aby pisać</p>'
-                      : ''),
+                    '<p class="note-empty">pusto — prawy przycisk → „Komponuj”, ' +
+                      'materiał czeka po lewej</p>',
                 ),
               }}
             />

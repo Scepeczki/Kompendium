@@ -2,7 +2,7 @@
 // notatka, komentarz, rozdział, nazwa i treść fuzji. Plus dwie barierki:
 // Skrypt zostaje do czytania, a po starszej wersji kafelka pisać nie wolno.
 import { chromium } from 'playwright'
-import { nowaSciezka, podaj, potwierdz, zloz } from './lib.mjs'
+import { nowaSciezka, podaj, potwierdz, zloz, zlozBiorac } from './lib.mjs'
 
 const problems = []
 const errors = []
@@ -209,7 +209,7 @@ check('pióro zniknęło z paska segmentu',
 const doScalenia = page.locator('.folder-action[title*="Scal z następnym"]').first()
 await doScalenia.scrollIntoViewIfNeeded()
 await doScalenia.click({ force: true })
-await zloz(page, 'Kres i notacja')
+await zlozBiorac(page, 'Kres i notacja')
 await page.waitForSelector('.script-group-block')
 await page.waitForTimeout(700)
 await page.fill('.script-group-block .inline-title', 'Kres górny i notacja')
