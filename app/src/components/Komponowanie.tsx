@@ -248,19 +248,28 @@ export function Komponowanie({
     <div className="komp-backdrop">
       <div className="komp-okno">
         <header className="komp-head">
-          <div className="komp-tytul">
-            <span className="script-block-type">
-              {type ? typy.label(type) : 'Blok'}:
-            </span>
-            <input
-              className="inline-title komp-nazwa"
-              value={name}
-              autoFocus
-              placeholder="bez nazwy — kliknij i nazwij"
-              onChange={(e) => onZmiana({ name: e.target.value })}
-            />
-          </div>
-          <button className="btn" onClick={gotowe}>
+          <select
+            className="komp-typ-select"
+            value={type ?? ''}
+            title="Czym jest ten kafelek — od tego zależy plakietka i barwa"
+            style={type ? typy.style(type) : undefined}
+            onChange={(e) => onZmiana({ type: e.target.value || undefined })}
+          >
+            <option value="">Blok</option>
+            {typy.choices.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+          <input
+            className="komp-nazwa"
+            value={name}
+            autoFocus
+            placeholder="bez nazwy — kliknij i nazwij"
+            onChange={(e) => onZmiana({ name: e.target.value })}
+          />
+          <button className="btn btn-glowny" onClick={gotowe}>
             Gotowe
           </button>
         </header>
@@ -412,27 +421,6 @@ export function Komponowanie({
               )}
             </div>
 
-            <div className="komp-typ">
-              <span className="settings-label">Czym jest ten kafelek</span>
-              <div className="group-type-choice">
-                <button
-                  className={`btn group-type-btn ${!type ? 'btn-active' : ''}`}
-                  onClick={() => onZmiana({ type: undefined })}
-                >
-                  Blok
-                </button>
-                {typy.choices.map((t) => (
-                  <button
-                    key={t.id}
-                    className={`btn group-type-btn ${type === t.id ? 'btn-active' : ''}`}
-                    style={typy.style(t.id)}
-                    onClick={() => onZmiana({ type: t.id })}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
           </main>
         </div>
       </div>

@@ -5656,11 +5656,13 @@ body.ciagne-szerokosc * {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  /* Komponowanie to praca, a nie okienko z pytaniem — ma zająć ekran.
+     Zostawiamy tyle ramki, żeby było widać, że to warstwa nad ścieżką. */
+  padding: 14px;
 }
 
 .komp-okno {
-  width: min(1400px, 100%);
+  width: min(1800px, 100%);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -5674,18 +5676,28 @@ body.ciagne-szerokosc * {
 .komp-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 14px;
+  gap: 12px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--line);
+  background: var(--panel-alt);
 }
 
-.komp-tytul {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
+/* Rodzaj kafelka w nagłówku, nie w osobnym wierszu na dole: tamten wiersz
+   zjadał wysokość, której brakowało tekstowi. */
+.komp-typ-select {
+  flex: none;
+  font: inherit;
+  font-size: var(--fs-2);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--kolor, var(--line-strong));
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
 }
 
 /* Nazwy nie pytamy osobnym okienkiem — wpisuje się ją tutaj, obok tekstu,
@@ -5693,7 +5705,30 @@ body.ciagne-szerokosc * {
 .komp-nazwa {
   flex: 1;
   min-width: 0;
+  font: inherit;
   font-size: var(--fs-5);
+  font-weight: 600;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+}
+
+.komp-nazwa:hover {
+  border-color: var(--line);
+}
+
+.komp-nazwa:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--paper);
+}
+
+.btn-glowny {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 .komp-cialo {
@@ -5714,6 +5749,12 @@ body.ciagne-szerokosc * {
 }
 
 .komp-material-head {
+  position: sticky;
+  top: -14px;
+  z-index: 1;
+  margin: -14px -14px 12px;
+  padding: 14px 14px 8px;
+  background: var(--panel-alt);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -5721,7 +5762,6 @@ body.ciagne-szerokosc * {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  margin-bottom: 12px;
 }
 
 .komp-licznik {
@@ -5874,7 +5914,9 @@ body.ciagne-szerokosc * {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
 }
 
 /* Pole do pisania wypełnia kolumnę do samego dołu.
@@ -5889,12 +5931,6 @@ body.ciagne-szerokosc * {
 .komp-pole .rich-editor {
   flex: 1;
   min-height: 0;
-}
-
-.komp-typ {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
 }
 
 .btn-mini {
