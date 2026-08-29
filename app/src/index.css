@@ -5703,7 +5703,9 @@ body.ciagne-szerokosc * {
 }
 
 .komp-material {
-  width: 380px;
+  /* Rośnie razem z oknem: przy szerokim ekranie materiał ma gdzie się
+     rozłożyć, przy wąskim nie zjada miejsca na pisanie. */
+  width: clamp(340px, 32%, 560px);
   flex: none;
   border-right: 1px solid var(--line);
   overflow-y: auto;
