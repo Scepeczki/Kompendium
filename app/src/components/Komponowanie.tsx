@@ -130,7 +130,7 @@ export function Komponowanie({
 
   /** Materiał rozłożony na strony — z tego się bierze. */
   const material = useMemo(() => {
-    const out: { conceptId: string; nazwa: string; strony: Kawalek[] }[] = []
+    const out: { conceptId: string; nazwa: string; typ: string; strony: Kawalek[] }[] = []
     for (const p of parts) {
       const c = concepts.find((x) => x.id === p.conceptId)
       if (!c) continue
@@ -147,6 +147,7 @@ export function Komponowanie({
       out.push({
         conceptId: c.id,
         nazwa: c.name,
+        typ: c.type,
         strony: [
           {
             klucz: `${c.id}:glowna`,
@@ -264,18 +265,30 @@ export function Komponowanie({
 
         <div className="komp-cialo">
           <aside className="komp-material">
-            <div className="komp-material-head">Materiał</div>
+            <div className="komp-material-head">
+              <span>Materiał</span>
+              {material.length > 0 && (
+                <span className="komp-licznik">{material.length}</span>
+              )}
+            </div>
             {material.length === 0 && (
               <p className="settings-hint">
                 Nie ma z czego składać — dołóż kafelek poniżej.
               </p>
             )}
             {material.map((m) => (
-              <div className="komp-kafelek" key={m.conceptId}>
-                <div className="komp-kafelek-nazwa">{m.nazwa}</div>
+              <section className="komp-kafelek" key={m.conceptId} style={typy.style(m.typ)}>
+                <header className="komp-kafelek-head">
+                  <span className="type-mini" data-typ={m.typ} style={typy.style(m.typ)}>
+                    {typy.short(m.typ)}
+                  </span>
+                  <span className="komp-kafelek-nazwa">{m.nazwa}</span>
+                </header>
                 {m.strony.map((k) => (
                   <div
-                    className={`komp-strona ${podglad === k.klucz ? 'otwarta' : ''}`}
+                    className={`komp-strona ${podglad === k.klucz ? 'otwarta' : ''} ${
+                      uzyte.has(k.klucz) ? 'wzieta' : ''
+                    }`}
                     key={k.klucz}
                   >
                     <div className="komp-strona-wiersz">
@@ -284,11 +297,13 @@ export function Komponowanie({
                         onClick={() => setPodglad(podglad === k.klucz ? null : k.klucz)}
                         title="Pokaż treść tej strony"
                       >
-                        {uzyte.has(k.klucz) ? '✓ ' : ''}
-                        {k.strona}
+                        <span className="komp-znak">
+                          {uzyte.has(k.klucz) ? '✓' : podglad === k.klucz ? '⌄' : '›'}
+                        </span>
+                        <span className="komp-strona-tekst">{k.strona}</span>
                       </button>
                       <button
-                        className="btn btn-mini"
+                        className="btn btn-mini komp-wstaw"
                         onClick={() => wstaw(k)}
                         title="Wstaw całą stronę w miejscu kursora"
                       >
@@ -303,21 +318,25 @@ export function Komponowanie({
                             __html: renderMarkdown(k.tresc || '*(pusto)*'),
                           }}
                         />
-                        <button
-                          className="btn btn-mini"
-                          title="Wstaw tylko to, co zaznaczone myszą"
-                          onClick={() => {
-                            const zazn = window.getSelection()?.toString() ?? ''
-                            if (zazn.trim()) wstaw(k, zazn)
-                          }}
-                        >
-                          Wstaw zaznaczone
-                        </button>
+                        <div className="komp-podglad-stopka">
+                          <span className="komp-podpowiedz">
+                            zaznacz fragment, żeby wziąć tylko jego
+                          </span>
+                          <button
+                            className="btn btn-mini"
+                            onClick={() => {
+                              const zazn = window.getSelection()?.toString() ?? ''
+                              if (zazn.trim()) wstaw(k, zazn)
+                            }}
+                          >
+                            Wstaw zaznaczone
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 ))}
-              </div>
+              </section>
             ))}
             <button className="btn komp-doloz" onClick={() => setDobieranie(true)}>
               + Dołóż kafelek

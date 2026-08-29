@@ -5703,42 +5703,80 @@ body.ciagne-szerokosc * {
 }
 
 .komp-material {
-  width: 320px;
+  width: 380px;
   flex: none;
   border-right: 1px solid var(--line);
   overflow-y: auto;
-  padding: 12px;
+  padding: 14px 14px 18px;
+  background: var(--panel-alt);
 }
 
 .komp-material-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: var(--fs-2);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
-.komp-kafelek + .komp-kafelek {
-  margin-top: 14px;
+.komp-licznik {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--ink-soft);
+  letter-spacing: 0;
+  font-size: var(--fs-1, 11px);
+}
+
+/* Każdy kafelek-materiał jako karta: plakietka rodzaju i nazwa, pod nią
+   strony. Bez tego lista była ścianą tekstu, w której nie dało się na oko
+   odróżnić kafelka od jego strony. */
+.komp-kafelek {
+  margin-bottom: 12px;
+  padding: 10px 10px 6px 12px;
+  border: 1px solid var(--line);
+  /* barwa rodzaju na krawędzi — materiał czyta się tym samym językiem,
+     co kafelki w ścieżce i w bibliotece */
+  border-left: 3px solid var(--kolor, var(--line-strong));
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.komp-kafelek-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .komp-kafelek-nazwa {
   font-weight: 600;
   font-size: var(--fs-3);
-  margin-bottom: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .komp-strona-wiersz {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding: 2px 0;
+  border-radius: 6px;
+  padding: 1px 2px 1px 0;
+}
+
+.komp-strona-wiersz:hover {
+  background: var(--accent-soft);
 }
 
 .komp-strona-nazwa {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   text-align: left;
   font: inherit;
   font-size: var(--fs-2);
@@ -5746,11 +5784,27 @@ body.ciagne-szerokosc * {
   background: none;
   color: var(--ink-soft);
   cursor: pointer;
-  padding: 2px 0;
+  padding: 4px 6px;
 }
 
-.komp-strona-nazwa:hover {
+/* strzałka/ptaszek w stałej kolumnie — nazwy stron mają stać w jednej linii */
+.komp-znak {
+  width: 12px;
+  flex: none;
+  text-align: center;
+  color: var(--muted);
+}
+
+.komp-strona-tekst {
+  overflow-wrap: anywhere;
+}
+
+.komp-strona.wzieta .komp-znak {
   color: var(--accent-ink);
+}
+
+.komp-strona.wzieta .komp-strona-nazwa {
+  color: var(--muted);
 }
 
 .komp-strona.otwarta .komp-strona-nazwa {
@@ -5758,30 +5812,59 @@ body.ciagne-szerokosc * {
   font-weight: 600;
 }
 
-/* Podgląd treści materiału — z niego zaznacza się fragment do wstawienia. */
+/* „Wstaw" pokazuje się przy najechaniu — przy pięciu stronach rząd guzików
+   krzyczał głośniej niż same nazwy. Zawsze widoczny przy otwartej stronie,
+   żeby dało się w niego trafić po przeczytaniu podglądu. */
+.komp-wstaw {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.komp-strona-wiersz:hover .komp-wstaw,
+.komp-strona.otwarta .komp-wstaw,
+.komp-wstaw:focus-visible {
+  opacity: 1;
+}
+
 .komp-podglad {
   margin: 4px 0 10px;
-  padding: 8px 10px;
+  padding: 10px 12px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--paper-soft, transparent);
+  background: var(--panel-alt);
   max-height: 320px;
   overflow-y: auto;
   font-size: var(--fs-2);
 }
 
+.komp-podglad-stopka {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.komp-podpowiedz {
+  font-size: var(--fs-1, 11px);
+  color: var(--muted);
+}
+
 .komp-doloz {
-  margin-top: 16px;
+  margin-top: 4px;
   width: 100%;
 }
 
 .komp-srodek {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 12px 18px;
-  overflow-y: auto;
+  padding: 12px 18px 14px;
+  overflow: hidden;
 }
 
 .komp-strony {
@@ -5792,13 +5875,22 @@ body.ciagne-szerokosc * {
   margin-bottom: 8px;
 }
 
+/* Pole do pisania wypełnia kolumnę do samego dołu.
+   Bez tego kartka kończyła się tam, gdzie kończył się tekst, i wyglądała
+   jak ucięta w połowie ekranu. */
 .komp-pole {
   flex: 1;
-  min-height: 300px;
+  min-height: 0;
+  display: flex;
+}
+
+.komp-pole .rich-editor {
+  flex: 1;
+  min-height: 0;
 }
 
 .komp-typ {
-  margin-top: 14px;
+  margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }
