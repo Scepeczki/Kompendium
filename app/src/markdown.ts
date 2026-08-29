@@ -97,7 +97,17 @@ function renderMarkdownUncached(src: string, opts: RenderOptions): string {
 
   let html = marked.parse(text) as string
   html = html.replace(/%%STASH(\d+)%%/g, (_, i: string) => stashed[Number(i)])
-  html = DOMPurify.sanitize(html)
+  // `semantics`/`annotation` MUSZĄ przetrwać czyszczenie.
+  //
+  // KaTeX chowa w nich ŹRÓDŁOWY TeX wzoru — to jedyne miejsce, z którego da
+  // się go odzyskać przy kopiowaniu. Domyślne DOMPurify kasowało sam element,
+  // ale zostawiało jego tekst: źródło zostawało w drzewie jako bezpański
+  // napis obok glifów i zapisu MathML, więc skopiowany wzór wracał potrojony
+  // („y1y_1y1​"), a program nie miał gdzie szukać samego TeX-a.
+  html = DOMPurify.sanitize(html, {
+    ADD_TAGS: ['semantics', 'annotation'],
+    ADD_ATTR: ['encoding'],
+  })
   // znaczniki wcięć akapitów ⟦wL,F⟧ / ⟦wL,F,R⟧ (px) → style; patrz src/indent.ts
   html = html.replace(
     /<(p|li)>⟦w(-?\d+),(-?\d+)(?:,(\d+))?⟧/g,
@@ -176,7 +186,16 @@ export function zrodloZDrzewa(zakres: Range): string {
   for (const el of [...frag.querySelectorAll('.katex')]) {
     el.replaceWith(document.createTextNode(texZeWzoru(el)))
   }
-  return (frag.textContent ?? '').trim()
+  // `textContent` sklejałby akapity w jeden ciąg bez odstępu. Wkładamy
+  // wycinek na chwilę do strony i czytamy `innerText` — ten zna granice
+  // akapitów i sam stawia między nimi pustą linię.
+  const kosz = document.createElement('div')
+  kosz.style.cssText = 'position:fixed;left:-9999px;top:0;width:40em;white-space:pre-wrap'
+  kosz.appendChild(frag)
+  document.body.appendChild(kosz)
+  const tekst = kosz.innerText
+  kosz.remove()
+  return tekst.replace(/\n{3,}/g, '\n\n').trim()
 }
 
 /** Zaznaczenie w podglądzie → ŹRÓDŁO, a nie to, co widać na ekranie.
