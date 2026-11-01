@@ -6089,15 +6089,7 @@ body.ciagne-szerokosc * {
 
 .sidebar {
   background: var(--panel-alt);
-  border-right: none;
-}
-
-.sidebar-header {
-  box-sizing: border-box;
-  height: var(--wys-paska);
-  padding: 0 16px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
 }
 
 .app-title {
@@ -6115,21 +6107,16 @@ body.ciagne-szerokosc * {
   background: var(--paper);
 }
 
-.path-toolbar {
-  box-sizing: border-box;
-  min-height: var(--wys-paska);
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
-}
-
 /* na telefonie lewy brzeg należy do przycisków szuflady */
 @media (min-width: 761px) {
   .path-toolbar {
-    padding: 8px 16px 8px 4px;
+    padding: 0;
+    border: none;
+    background: none;
   }
 
   .sidebar-footer {
-    padding: 8px 12px;
+    padding: 8px 14px 10px;
   }
 }
 
@@ -6351,7 +6338,7 @@ body.ciagne-szerokosc * {
 .script-block-head {
   flex-wrap: wrap;
   gap: 10px;
-  padding: 14px 20px 2px 24px;
+  padding: 13px 20px 0;
   background: none;
 }
 
@@ -6378,6 +6365,7 @@ body.ciagne-szerokosc * {
   flex-direction: column;
 }
 
+/* Pasek poza kafelkiem — tylko przy notatkach, które nie mają stopki. */
 .linear-toolbar {
   order: 2;
   position: sticky;
@@ -6430,7 +6418,7 @@ body.ciagne-szerokosc * {
 }
 
 .script-block-body {
-  padding: 4px 20px 12px 24px;
+  padding: 8px 20px 12px;
 }
 
 /* strony kafelka w nagłówku: mały przełącznik jak ten od widoków */
@@ -6496,7 +6484,7 @@ body.ciagne-szerokosc * {
 /* Pisanie: zielona ramka i napis, że biblioteka zostaje bez zmian. Tutejszy
    kafelek napisu nie dostaje — on nie ma w bibliotece drugiej kopii. */
 .linear-seg:focus-within .script-block {
-  box-shadow: inset 4px 0 0 var(--block-color), 0 0 0 1.5px var(--accent), var(--cien-karta);
+  box-shadow: 0 0 0 1.5px var(--accent), var(--cien-karta);
 }
 
 .linear-seg:focus-within .script-block:is([data-skad='biblioteka'], [data-skad='sciezka'], [data-skad='zlozony'])::before {
@@ -6516,9 +6504,10 @@ body.ciagne-szerokosc * {
 
 /* źródła: same nazwy, pod cienką kreską */
 .source-list {
+  flex: 1;
+  min-width: 0;
   margin: 0;
-  padding: 9px 20px 11px 24px;
-  border-top: 1px solid var(--line);
+  border: none;
 }
 
 .source-list-items {
@@ -6543,8 +6532,10 @@ body.ciagne-szerokosc * {
 }
 
 .outline {
-  padding: 18px 12px 20px 16px;
-  border-right: none;
+  padding: 22px 16px 20px 20px;
+  border-right: 1px solid var(--line);
+  align-self: stretch;
+  max-height: none;
 }
 
 .outline-rodzaj {
@@ -6585,103 +6576,6 @@ body.ciagne-szerokosc * {
   font-weight: 600;
 }
 
-/* spis ogólny: przebieg przez rozdziały na jednej szynie */
-.outline-ogolny .outline-rozdzial {
-  background: linear-gradient(var(--line-strong), var(--line-strong)) 7px 0 / 2px 100% no-repeat;
-}
-
-.outline-ogolny .outline-kafelek {
-  padding-left: 24px;
-  margin-left: 0;
-  background: linear-gradient(var(--line-strong), var(--line-strong)) 7px 0 / 2px 100% no-repeat;
-}
-
-.outline-ogolny .outline-kafelek:hover {
-  background-color: var(--panel-alt);
-}
-
-.outline-ogolny .outline-chev {
-  flex: none;
-  box-sizing: border-box;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  font-size: 0;
-  border: 2px solid var(--line-strong);
-  border-radius: 50%;
-  background: var(--paper);
-  transform: none;
-}
-
-.outline-ogolny .outline-rozdzial.level-2 .outline-chev,
-.outline-ogolny .outline-rozdzial.level-3 .outline-chev {
-  width: 10px;
-  height: 10px;
-  margin: 0 3px;
-}
-
-.outline-ogolny [data-etap='miniety'] > .outline-wiersz .outline-chev {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.outline-ogolny [data-etap='biezacy'] > .outline-wiersz .outline-chev {
-  border-color: var(--accent);
-  border-width: 3px;
-}
-
-.outline-ogolny [data-etap='przed'] > .outline-wiersz .outline-item {
-  color: var(--muted);
-}
-
-.outline-ogolny .outline-item.level-1 {
-  font-weight: 600;
-  color: var(--ink);
-  white-space: normal;
-  padding: 4px 6px 4px 8px;
-}
-
-.outline-kropki {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 1px 0 8px 26px;
-}
-
-.outline-kropka {
-  flex: none;
-  align-self: center;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  box-sizing: border-box;
-  background: var(--kropka, var(--muted));
-}
-
-.outline-kafelek .outline-kropka {
-  background: var(--muted);
-}
-
-/* rozdział jeszcze przed nami: same obwódki */
-[data-etap='przed'] .outline-kropki .outline-kropka {
-  background: none;
-  border: 1.5px solid var(--line-strong);
-}
-
-.outline-kafelek.outline-tu {
-  color: var(--ink);
-  font-weight: 600;
-  background-color: var(--accent-soft);
-}
-
-.outline-znacznik-tu {
-  margin-left: auto;
-  flex: none;
-  font-size: var(--fs-1);
-  font-weight: 700;
-  color: var(--accent-ink);
-}
-
 /* spis szczegółowy: plakietki w jednej kolumnie, żeby nazwy stały równo */
 .outline-szczegolowy .outline-kafelek {
   padding-left: 22px;
@@ -6697,7 +6591,7 @@ body.ciagne-szerokosc * {
   top: 0;
   flex: none;
   box-sizing: border-box;
-  width: 262px;
+  width: 280px;
   min-height: 100%;
   align-self: stretch;
   padding: 20px 18px;
@@ -7024,4 +6918,368 @@ body.ciagne-szerokosc * {
   .path-ukosnik {
     display: none;
   }
+}
+
+/* ==========================================================================
+   Układ ze zdjęcia: okno na ciemniejszym tle, jeden pasek nad kolumnami,
+   kreski między kolumnami i zwarty tekst w kartach.
+   ========================================================================== */
+
+:root {
+  --tlo-okna: #d9d2c6;
+}
+
+:root[data-theme='dark'] {
+  --tlo-okna: #0c0b08;
+}
+
+.app {
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--paper);
+}
+
+.gorny-pasek {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--wys-paska);
+  padding: 8px 18px 8px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.gorny-slot {
+  flex: 1;
+  min-width: 0;
+}
+
+.gorny-pasek .app-title {
+  flex: none;
+  font-size: 21px;
+}
+
+.path-name {
+  font-size: var(--fs-4);
+  padding-left: 2px;
+}
+
+.block-stopka {
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 20px;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--line);
+}
+
+.block-stopka:has(.source-list),
+.linear-seg:focus-within .block-stopka {
+  display: flex;
+}
+
+.ks-blok .block-stopka {
+  display: contents;
+}
+
+.block-narzedzia {
+  display: none;
+  margin-left: auto;
+}
+
+.linear-seg:focus-within .block-narzedzia {
+  display: block;
+}
+
+.block-narzedzia .linear-toolbar {
+  position: static;
+  height: auto;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.block-narzedzia .linear-toolbar .rich-toolbar {
+  max-width: none;
+  gap: 1px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.block-narzedzia .rich-btn {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.block-narzedzia .rich-btn:hover:not(:disabled) {
+  background: var(--panel-alt);
+  color: var(--ink);
+}
+
+.block-narzedzia input {
+  width: 38px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 5px;
+  font-size: var(--fs-2);
+}
+
+/* zwarty tekst: ustawienia odstępów dalej działają, tylko w mniejszej skali */
+.linear-content .script-block .markdown-body p,
+.linear-content .script-block .tiptap p {
+  margin-block: calc(var(--content-para, 1em) * 0.5);
+}
+
+.linear-content .script-block .markdown-body,
+.linear-content .script-block .tiptap {
+  line-height: min(var(--content-line, 1.65), 1.55);
+}
+
+.linear-content .script-block .katex-display {
+  margin: calc(var(--math-gap, 0.5em) * 0.6) 0;
+}
+
+.linear-content .rich-content .math-render-display {
+  padding: calc(var(--math-gap, 0.5em) * 0.6) 0;
+}
+
+.rich-content .math-render {
+  padding: 0;
+}
+
+.linear-pole .rich-content .tiptap {
+  padding: 0 4px;
+}
+
+.linear-content .script-heading-node {
+  font-family: var(--font-read);
+  margin: 22px 0 6px;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.linear-column {
+  padding-top: 16px;
+}
+
+/* spis ogólny: zwykła lista, bieżący rozdział pogrubiony z trójkątem */
+.outline-title {
+  letter-spacing: 0.09em;
+}
+
+.outline-item {
+  padding: 5px 4px;
+  font-size: var(--fs-4);
+  color: var(--ink-soft);
+  white-space: normal;
+}
+
+.outline-wiersz {
+  gap: 0;
+}
+
+.outline-chev {
+  width: 14px;
+  font-size: 10px;
+}
+
+.outline-ogolny .outline-chev.open {
+  transform: none;
+  color: var(--ink);
+}
+
+.outline-ogolny .outline-chev:not(.open) {
+  opacity: 0;
+}
+
+.outline-ogolny .outline-wiersz:hover .outline-chev:not(.pusty) {
+  opacity: 1;
+}
+
+.outline-item.active {
+  font-weight: 700;
+}
+
+.outline-kafelek {
+  padding: 4px 4px 4px 28px;
+  font-size: var(--fs-3);
+  color: var(--muted);
+}
+
+.outline-kafelek.outline-tu {
+  background: none;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.kontekst-lista .kontekst-link + .kontekst-dopisek {
+  display: block;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+.sidebar-filters {
+  padding: 16px 14px 10px;
+}
+
+.sidebar-footer {
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.wersja-budowy {
+  order: 3;
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: 8px;
+  font-size: var(--fs-1);
+  color: var(--muted);
+}
+
+.sidebar-counts {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kotwica-powrot {
+  left: 50%;
+  top: 30px;
+  transform: translateX(-50%);
+}
+
+@media print {
+  .gorny-pasek {
+    display: none;
+  }
+}
+
+/* okno leży na ciemniejszym tle */
+@media screen and (min-width: 761px) {
+  body {
+    background-color: var(--tlo-okna);
+  }
+
+  .app {
+    box-sizing: border-box;
+    height: calc(100vh - 28px);
+    margin: 14px;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(50, 40, 25, 0.16);
+  }
+}
+
+@media (max-width: 760px) {
+  .gorny-pasek {
+    padding: 0;
+    min-height: 0;
+  }
+
+  .gorny-pasek .app-title {
+    padding: 14px 0 14px 106px;
+    font-size: var(--fs-6);
+  }
+
+  .gorny-pasek:has(.path-toolbar) .app-title {
+    display: none;
+  }
+}
+
+/* karty szerokie jak na zdjęciu; większą szerokość z linijki dalej szanujemy */
+.linear-main > .linear-column {
+  max-width: max(var(--page-width, 800px), 960px);
+  padding: 16px 36px 60px 8px;
+}
+
+.script-block-body {
+  padding-top: 4px;
+}
+
+.linear-content .script-block .tiptap > :first-child,
+.linear-content .script-block .markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.linear-content .script-block .tiptap > :last-child,
+.linear-content .script-block .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* wzory w kartach w rozmiarze ze zdjęcia, suwak z Ustawień działa dalej */
+.linear-content .katex {
+  font-size: calc(1.14em * var(--math-scale, 1));
+}
+
+/* spis równo z nagłówkiem, trójkąt wisi na marginesie */
+.outline-wiersz {
+  margin-left: -14px;
+}
+
+.outline-item {
+  font-size: var(--fs-3);
+  padding: 5px 2px;
+}
+
+.outline-kafelek {
+  padding-left: 14px;
+}
+
+.outline-chev {
+  font-size: 11px;
+}
+
+.outline-szczegolowy .outline-kafelek {
+  padding-left: 2px;
+}
+
+/* stopka listy: dwa spokojne wiersze zamiast uciętego licznika */
+.sidebar-foot-btn:last-child {
+  margin-left: auto;
+}
+
+.sidebar-counts {
+  order: 4;
+  flex: 1;
+}
+
+.wersja-budowy {
+  flex-basis: auto;
+}
+
+/* stopka listy: u góry graf i ustawienia, pod nimi wersja i licznik */
+.sidebar-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.sidebar-foot-btn {
+  order: 0;
+  justify-self: start;
+}
+
+.sidebar-foot-btn:last-child {
+  order: 1;
+  margin-left: 0;
+  justify-self: end;
+}
+
+.wersja-budowy {
+  order: 2;
+  padding-left: 8px;
+}
+
+.sidebar-counts {
+  order: 3;
 }

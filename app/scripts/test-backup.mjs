@@ -34,7 +34,7 @@ await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Testowa ścieżka")
 await page.waitForSelector('.path-canvas')
-await page.click('.path-canvas .btn-close[title*="Zamknij ścieżkę"]')
+await page.click('.path-toolbar .btn-close[title*="Zamknij ścieżkę"]')
 
 // własny typ i zmienione ustawienie — mają wrócić razem z danymi
 await page.click('.sidebar-foot-btn[title="Ustawienia"]')

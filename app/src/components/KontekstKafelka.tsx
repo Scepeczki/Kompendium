@@ -9,8 +9,16 @@ import {
   type BlockVersion,
   type Concept,
   type PathNode,
+  type RelationKind,
   type SourceRef,
 } from '../types'
+
+/** Znak relacji: od tego kafelka do sąsiada i z powrotem. */
+const ZNAK_RELACJI: Record<RelationKind, [string, string]> = {
+  zawieranie: ['⊃', '⊂'],
+  skala: ['≥', '≤'],
+  perspektywa: ['≈', '≈'],
+}
 
 interface Props {
   /** Kafelek albo złożony blok, przy którym się pracuje. */
@@ -38,7 +46,7 @@ export function KontekstKafelka({
   const zrodla = (refs: SourceRef[]) =>
     refs.length > 0 && (
       <>
-        <h4 className="kontekst-etykieta">Źródła</h4>
+        <h4 className="kontekst-etykieta">{refs.length === 1 ? 'Źródło' : 'Źródła'}</h4>
         <ul className="kontekst-lista">
           {refs.map((r) => (
             <li key={r.id}>
@@ -113,7 +121,12 @@ export function KontekstKafelka({
         const wychodzi = r.fromId === c.id
         const drugi = concepts.find((x) => x.id === (wychodzi ? r.toId : r.fromId))
         const opis = RELATION_LABELS[r.kind]
-        return { id: r.id, drugi, relacja: wychodzi ? opis.forward : opis.backward }
+        return {
+          id: r.id,
+          drugi,
+          relacja: wychodzi ? opis.forward : opis.backward,
+          znak: ZNAK_RELACJI[r.kind][wychodzi ? 0 : 1],
+        }
       })
       .filter((p) => p.drugi)
     return (
@@ -130,7 +143,9 @@ export function KontekstKafelka({
             <ul className="kontekst-lista">
               {powiazania.map((p) => (
                 <li key={p.id}>
-                  <span className="kontekst-dopisek">{p.relacja} </span>
+                  <span className="kontekst-dopisek">
+                    {p.znak} {p.relacja}{' '}
+                  </span>
                   <button className="kontekst-link" onClick={() => onOpenConcept(p.drugi!.id)}>
                     {p.drugi!.name}
                   </button>

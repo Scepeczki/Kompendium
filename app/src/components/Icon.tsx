@@ -61,7 +61,7 @@ import {
   MessageSquare,
   Move,
   Eye,
-  EyeOff,
+  Contrast,
   Microscope,
   Milestone,
   Network,
@@ -114,7 +114,7 @@ const ICONS = {
   kopia: Copy,
   usun: Trash2,
   przesun: Move,
-  zakryj: EyeOff,
+  zakryj: Contrast,
   odkryj: Eye,
   // czynności w menu pod prawym przyciskiem — wcześniej emoji i znaki
   // typograficzne (🗑 ✎ 💬 § ⌂ ⧉ ↺), czyli jarmark w jednym menu

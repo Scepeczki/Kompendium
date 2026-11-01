@@ -254,7 +254,10 @@ export function BlockShell({
         </div>
       </div>
       </div>
-      <SourceList refs={version?.sourceRefs ?? []} onJump={onJumpToSource} />
+      <div className="block-stopka">
+        <SourceList refs={version?.sourceRefs ?? []} onJump={onJumpToSource} />
+        <div className="block-narzedzia" />
+      </div>
     </section>
   )
 }

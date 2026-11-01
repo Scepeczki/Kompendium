@@ -851,18 +851,6 @@ export function Sidebar({
 
   return (
     <aside className="sidebar">
-      <header className="sidebar-header">
-        <h1 className="app-title">
-          Kompendium
-          {/* Data zbudowania paczki. Wygląda na drobiazg, ale bez niej każda
-              rozmowa o „nie działa" zaczyna się od zgadywania, czy urządzenie
-              ma nową wersję, czy trzyma starą kopię. */}
-          <span className="wersja-budowy" title="Wersja programu (data zbudowania)">
-            {__WERSJA__}
-          </span>
-        </h1>
-      </header>
-
       <div className="sidebar-filters">
         <Icon name="szukaj" size={0.95} />
         <input
@@ -1083,13 +1071,19 @@ export function Sidebar({
       )}
       {/* dół: rzeczy dotyczące całej aplikacji, nie zawartości drzewa */}
       <footer className="sidebar-footer">
+        {/* Data zbudowania paczki. Wygląda na drobiazg, ale bez niej każda
+            rozmowa o „nie działa" zaczyna się od zgadywania, czy urządzenie
+            ma nową wersję, czy trzyma starą kopię. */}
+        <span className="wersja-budowy" title="Wersja programu (data zbudowania)">
+          wersja {__WERSJA__}
+        </span>
         <button
           className={`sidebar-foot-btn ${graphActive ? 'active' : ''}`}
           title="Graf powiązań"
           onClick={onToggleGraph}
         >
           <Icon name="graf" />
-          <span>Graf</span>
+          <span>Graf powiązań</span>
         </button>
         <span className="sidebar-counts" title="Liczba kafelków i ścieżek">
           {odmien(concepts.length, 'kafelek', 'kafelki', 'kafelków')} ·{' '}

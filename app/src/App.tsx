@@ -86,13 +86,21 @@ function Widok() {
   /** Ścieżka, do której wracamy po zamknięciu kafelka otwartego z jej poziomu. */
   const [returnPathId, setReturnPathId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [gornySlot, setGornySlot] = useState<HTMLDivElement | null>(null)
 
   // Układ paneli — zapamiętywany między sesjami.
-  const [showPdf, setShowPdf] = useState(
-    () => localStorage.getItem('ui.showPdf') !== '0',
-  )
+  const [showPdf, setShowPdf] = useState(() => {
+    // Nowy układ ma po prawej panel kafelka, a otwarty PDF go wypiera. Raz
+    // chowamy PDF, potem to już wybór użytkownika.
+    const znacznik = 'ui.pdfNowyUklad.v1'
+    if (!localStorage.getItem(znacznik)) {
+      localStorage.setItem(znacznik, '1')
+      if (localStorage.getItem('ui.showPdf') === '1') return false
+    }
+    return localStorage.getItem('ui.showPdf') !== '0'
+  })
   const [sidebarW, setSidebarW] = useState(
-    () => Number(localStorage.getItem('ui.sidebarW')) || 280,
+    () => Number(localStorage.getItem('ui.sidebarW')) || 300,
   )
   const [pdfW, setPdfW] = useState(
     () => Number(localStorage.getItem('ui.pdfW')) || 520,
@@ -253,6 +261,12 @@ function Widok() {
       className={`app ${szuflada ? 'szuflada-otwarta' : ''}`}
       style={{ gridTemplateColumns: cols.join(' ') }}
     >
+      <header className="gorny-pasek">
+        <h1 className="app-title">Kompendium</h1>
+        {/* Pasek otwartej ścieżki wchodzi tu przez portal, żeby jej nazwa stała
+            tuż obok nazwy programu, ponad wszystkimi kolumnami. */}
+        <div className="gorny-slot" ref={setGornySlot} />
+      </header>
       {/* Telefon: lista nie mieści się obok treści, więc wjeżdża z boku.
           Na dużym ekranie tych dwóch rzeczy w ogóle nie widać. */}
       <button
@@ -328,6 +342,7 @@ function Widok() {
           onClose={() => setOpenPathId(null)}
           onOpenConcept={selectConcept}
           onJumpToSource={jumpToSource}
+          pasekCel={gornySlot}
           pdfWidoczny={showPdf}
           onPrzelaczPdf={() => setShowPdf((p) => !p)}
         />

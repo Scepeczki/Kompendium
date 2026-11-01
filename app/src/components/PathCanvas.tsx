@@ -32,6 +32,7 @@ import {
   type NodeChange,
   type NodeProps,
 } from '@xyflow/react'
+import { createPortal } from 'react-dom'
 import '@xyflow/react/dist/style.css'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
@@ -1689,11 +1690,21 @@ function LinearView({
       <div className="linear-main">
         {/* Jeden pasek na całą ścieżkę — działa na tym polu, w którym stoi
             kursor. Ścieżka jest edytorem, a nie zbiorem okienek. */}
-        {onEditNote && (
-          <div className="linear-toolbar">
-            <RichToolbar editor={aktywny} />
-          </div>
-        )}
+        {onEditNote &&
+          (() => {
+            const pasek = (
+              <div className="linear-toolbar">
+                <RichToolbar editor={aktywny} />
+              </div>
+            )
+            // pasek stoi w stopce kafelka, przy którym się pisze; notatki i
+            // komentarze stopki nie mają, więc tam unosi się u dołu okna
+            const seg = aktywnyId?.split(':')[0]
+            const cel = seg
+              ? document.querySelector(`[data-seg="${seg}"] .block-narzedzia`)
+              : null
+            return cel ? createPortal(pasek, cel) : pasek
+          })()}
       {/* Kreskę gasimy dopiero przy wyjściu z całej kolumny. Gdyby gasił ją
           każdy kafelek z osobna, migałaby przy przejeździe między nimi. */}
       <div
@@ -2279,6 +2290,8 @@ interface Props {
   /** Czy to ta ścieżka jest zakotwiczona (przycisk powrotu w rogu). */
   zakotwiczona?: boolean
   onZakotwicz?: () => void
+  /** Górny pasek okna — tam ląduje pasek ścieżki. */
+  pasekCel?: HTMLElement | null
   pdfWidoczny?: boolean
   onPrzelaczPdf?: () => void
 }
@@ -2291,6 +2304,7 @@ function CanvasInner({
   celKlocek,
   zakotwiczona,
   onZakotwicz,
+  pasekCel,
   pdfWidoczny,
   onPrzelaczPdf,
 }: Props) {
@@ -3545,8 +3559,7 @@ function CanvasInner({
     [],
   )
 
-  return (
-    <section className="path-canvas">
+  const pasekSciezki = (
       <header className="path-toolbar">
         <span className="path-ukosnik">/</span>
         <input
@@ -3623,13 +3636,18 @@ function CanvasInner({
             title={pdfWidoczny ? 'Schowaj panel PDF' : 'Pokaż panel PDF'}
             onClick={onPrzelaczPdf}
           >
-            PDF
+            PDF ▸
           </button>
         )}
         <button className="btn btn-close" title="Zamknij ścieżkę" onClick={onClose}>
           ✕
         </button>
       </header>
+  )
+
+  return (
+    <section className="path-canvas">
+      {pasekCel ? createPortal(pasekSciezki, pasekCel) : pasekSciezki}
       {mode === 'map' && (
         <div className="path-toolbar-tools">
           <button

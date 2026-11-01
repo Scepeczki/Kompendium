@@ -88,15 +88,12 @@ interface Props {
   /** Przestawienie kolejności przeciąganiem w spisie. Bez tego spis jest
    *  tylko do czytania (tak działa Skrypt). */
   onMove?: (nodeId: string, afterId: string | null, beforeId: string | null) => void
-  /** Kafelek, przy którym właśnie się pracuje — w spisie ogólnym stoi przy
-   *  nim znak „tu". */
+  /** Kafelek, przy którym właśnie się pracuje — w spisie jest wyróżniony. */
   biezacy?: string | null
 }
 
 const SZEROKOSC = 'ui.outlineWidth'
 const RODZAJ = 'ui.outlineRodzaj'
-/** Ile kropek kafelków pokazać przy rozdziale, zanim zacznie się zawijać. */
-const MAX_KROPEK = 16
 const MIN_SZER = 160
 const MAX_SZER = 560
 
@@ -104,7 +101,7 @@ const MAX_SZER = 560
  *  lewej, klik przewija do miejsca, bieżący rozdział jest podświetlony.
  *  Panel można schować — wybór jest zapamiętywany. */
 export function Outline({ items, onMove, biezacy }: Props) {
-  /** Dwa spisy w jednym miejscu. Ogólny to przebieg przez rozdziały,
+  /** Dwa spisy w jednym miejscu. Ogólny to rozdziały z rozwiniętym bieżącym,
    *  szczegółowy pokazuje od razu każdy kafelek i jego rodzaj. */
   const [rodzaj, setRodzaj] = useState<'ogolny' | 'szczegolowy'>(() =>
     localStorage.getItem(RODZAJ) === 'szczegolowy' ? 'szczegolowy' : 'ogolny',
@@ -131,7 +128,8 @@ export function Outline({ items, onMove, biezacy }: Props) {
    *  a przy krótkich szkoda miejsca na tekst. Wybór zostaje zapamiętany. */
   const [szer, setSzer] = useState(() => {
     const z = Number(localStorage.getItem(SZEROKOSC))
-    return z >= MIN_SZER && z <= MAX_SZER ? z : 210
+    // 210 to dawna szerokość domyślna, zapamiętana także bez przeciągania
+    return z >= MIN_SZER && z <= MAX_SZER && z !== 210 ? z : 250
   })
   // Liczymy PRZESUNIĘCIE myszy, a nie jej pozycję na ekranie: spis nie zaczyna
   // się przy krawędzi okna (po lewej stoi lista kafelków), więc sama pozycja
@@ -345,24 +343,6 @@ export function Outline({ items, onMove, biezacy }: Props) {
     setZwiniete(zmien(zamknij))
   }
 
-  /** Kafelki całego rozdziału, także te pod jego podrozdziałami. */
-  const kafelkiRozdzialu = (i: number) => {
-    const out: OutlineItem[] = []
-    for (let j = i + 1; j < items.length && items[j].level !== 1; j++) {
-      if (items[j].level === 'kafelek') out.push(items[j])
-    }
-    return out
-  }
-  const naglowki = items.filter((it) => it.level !== 'kafelek')
-  const ktoryAktywny = naglowki.findIndex((it) => it.domId === active)
-  /** Etap rozdziału na przebiegu: minięty, bieżący albo jeszcze przed nami. */
-  const etap = (domId: string) => {
-    const k = naglowki.findIndex((it) => it.domId === domId)
-    if (ktoryAktywny < 0 || k === ktoryAktywny) return k === ktoryAktywny ? 'biezacy' : 'przed'
-    return k < ktoryAktywny ? 'miniety' : 'przed'
-  }
-  let numerRozdzialu = 0
-
   if (items.length === 0) return null
 
   if (!open) {
@@ -398,7 +378,7 @@ export function Outline({ items, onMove, biezacy }: Props) {
           ciagnieRef.current = { x: e.clientX, szer }
           document.body.classList.add('ciagne-szerokosc')
         }}
-        onDoubleClick={() => setSzer(210)}
+        onDoubleClick={() => setSzer(250)}
       />
       <div className="outline-head">
         <span className="outline-title">Spis treści</span>
@@ -475,24 +455,16 @@ export function Outline({ items, onMove, biezacy }: Props) {
                         {it.znak}
                       </span>
                     )
-                  ) : (
-                    <span className="outline-kropka" style={{ background: it.barwa }} />
-                  )}
+                  ) : null}
                   <span className="outline-tekst">{it.text || '(bez nazwy)'}</span>
-                  {!szczegolowy && biezacy === it.nodeId && (
-                    <span className="outline-znacznik-tu">tu</span>
-                  )}
                 </button>
               </li>
             )
           }
           const dzieci = ileDzieci(i)
           const rozwiniety = otwarty(it.domId)
-          const stan = etap(it.domId)
-          if (it.level === 1) numerRozdzialu++
-          const kropki = !szczegolowy && it.level === 1 && !rozwiniety ? kafelkiRozdzialu(i) : []
           return (
-            <li key={it.domId} data-etap={stan} className={`outline-rozdzial level-${it.level}`}>
+            <li key={it.domId}>
               <div className="outline-wiersz">
                 {dzieci > 0 && !szczegolowy ? (
                   <button
@@ -516,23 +488,9 @@ export function Outline({ items, onMove, biezacy }: Props) {
                   {...cel(it, i)}
                   onClick={() => goTo(it.domId)}
                 >
-                  {!szczegolowy && it.level === 1 && (
-                    <span className="outline-numer">{numerRozdzialu} · </span>
-                  )}
                   {it.text || '(bez nazwy)'}
                 </button>
               </div>
-              {kropki.length > 0 && (
-                <div className="outline-kropki" aria-hidden="true">
-                  {kropki.slice(0, MAX_KROPEK).map((k) => (
-                    <span
-                      key={k.domId}
-                      className="outline-kropka"
-                      style={{ '--kropka': k.barwa } as React.CSSProperties}
-                    />
-                  ))}
-                </div>
-              )}
             </li>
           )
         })}

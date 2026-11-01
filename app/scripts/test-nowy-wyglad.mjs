@@ -147,15 +147,21 @@ check('przy kafelku nie ma obrazka strony',
 const plakietki = await page.locator('.block-pochodzenie').allTextContents()
 check('plakietki mówią, skąd jest tekst',
   plakietki.join('|') === 'z biblioteki · v1|tekst tej ścieżki|tutejszy', plakietki.join('|'))
-check('przycisk PDF stoi na górnym pasku', await page.isVisible('.path-toolbar .btn:text-is("PDF")'))
+check('przycisk PDF stoi na górnym pasku', await page.isVisible('.gorny-pasek .path-toolbar .btn:has-text("PDF")'))
 check('boczny pasek PDF znika przy ścieżce', (await page.locator('.pdf-reopen').count()) === 0)
 check('pasek narzędzi schowany, gdy nikt nie pisze',
-  await page.evaluate(() => getComputedStyle(document.querySelector('.linear-toolbar')).opacity === '0'))
+  !(await page.locator('.linear-toolbar .rich-btn').first().isVisible().catch(() => false)))
+check('nazwa ścieżki stoi tuż obok nazwy programu',
+  await page.evaluate(() => {
+    const a = document.querySelector('.app-title').getBoundingClientRect()
+    const b = document.querySelector('.path-name').getBoundingClientRect()
+    return b.left - a.right < 40 && Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)) < 6
+  }))
 
 // --- dwa spisy ---
 check('domyślnie spis ogólny', await page.isVisible('.outline-ogolny'))
-check('spis ogólny numeruje rozdziały',
-  (await page.locator('.outline-item.level-1').first().textContent()).includes('1 · Pierwszy'))
+check('spis ogólny to same nazwy rozdziałów',
+  (await page.locator('.outline-item.level-1').first().textContent()).trim() === 'Pierwszy')
 check('spis ogólny nie ma plakietek', (await page.locator('.outline-znak').count()) === 0)
 await page.click('.outline-rodzaj button:has-text("Szczegółowy")')
 await page.waitForTimeout(200)
@@ -184,8 +190,8 @@ check('panel nie ma obrazka strony', (await page.locator('.kontekst img').count(
 // --- pisanie ---
 await page.locator('.linear-seg[data-seg="n1"] .markdown-body, .linear-seg[data-seg="n1"] .tiptap').first().click()
 await page.waitForTimeout(500)
-check('pasek narzędzi pojawia się przy pisaniu',
-  await page.evaluate(() => getComputedStyle(document.querySelector('.linear-toolbar')).opacity === '1'))
+check('pasek narzędzi stoi w stopce pisanego kafelka',
+  await page.isVisible('[data-seg="n1"] .block-stopka .rich-btn >> nth=0'))
 check('kafelek z biblioteki dostaje napis o pisaniu w ścieżce',
   await page.evaluate(() =>
     getComputedStyle(document.querySelector('[data-seg="n1"] .script-block'), '::before')

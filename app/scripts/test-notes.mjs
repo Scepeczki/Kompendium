@@ -106,7 +106,7 @@ console.log(`✓ tryb zapamiętany (Podział): ${remembered > 0 ? 'ok' : 'BRAK!'
 
 // 8. to samo zawijanie w widoku Kod kafelka
 await page.keyboard.press('Escape')
-await page.click('.path-canvas .btn-close')
+await page.click('.path-toolbar .btn-close')
 await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.waitForSelector('.editor-name')
 await page.click('.view-switch button:has-text("Kod")')

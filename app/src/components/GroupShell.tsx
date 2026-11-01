@@ -236,7 +236,10 @@ export function GroupShell({
         </div>
       </div>
       </div>
-      <SourceList refs={refs} onJump={onJumpToSource} />
+      <div className="block-stopka">
+        <SourceList refs={refs} onJump={onJumpToSource} />
+        <div className="block-narzedzia" />
+      </div>
     </section>
   )
 }
