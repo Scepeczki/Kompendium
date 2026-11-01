@@ -162,15 +162,40 @@ check('nazwa ścieżki stoi tuż obok nazwy programu',
 check('domyślnie spis ogólny', await page.isVisible('.outline-ogolny'))
 check('spis ogólny to same nazwy rozdziałów',
   (await page.locator('.outline-item.level-1').first().textContent()).trim() === 'Pierwszy')
-check('spis ogólny nie ma plakietek', (await page.locator('.outline-znak').count()) === 0)
+check('spis ogólny nie ma kuleczek', (await page.locator('.outline-kropka').count()) === 0)
 check('spis ogólny nie ma kafelków', (await page.locator('.outline-kafelek').count()) === 0)
 check('spisy przełącza się ikonami, bez napisów',
   (await page.locator('.outline-rodzaj button svg').count()) === 2 &&
     (await page.textContent('.outline-rodzaj')).trim() === '')
 await page.click('.outline-rodzaj button[title^="Szczegółowy"]')
 await page.waitForTimeout(200)
-const znaki = await page.locator('.outline-znak').allTextContents()
-check('szczegółowy: wszystkie kafelki z rodzajem', znaki.join(',') === 'DEF,TW,ZAD', znaki.join(','))
+const barwy = () => page.evaluate(() =>
+  [...document.querySelectorAll('.outline-kropka')].map((k) => getComputedStyle(k).backgroundColor))
+const kolory = await barwy()
+check('szczegółowy: kuleczki zamiast napisów, po jednej na kafelek',
+  kolory.length === 3 && (await page.locator('.outline-znak').count()) === 0, kolory.join(' '))
+check('kuleczki mają kolor rodzaju', new Set(kolory).size === 3, kolory.join(' '))
+const zwiniete = '.outline-kropki:not(:empty)'
+check('zwinięty rozdział ma kuleczki pod nazwą, a kafelków nie widać',
+  (await page.locator(zwiniete).count()) >= 1 &&
+    (await page.locator('.outline-kafelek').count()) < 3)
+await page.locator(zwiniete).first().click()
+await page.waitForTimeout(350)
+check('kliknięcie rozwija kafelki z nazwami i kuleczkami',
+  (await page.locator('.outline-kafelek .outline-kropka').count()) >= 1)
+await page.locator('.outline-chev.open').first().click()
+await page.waitForTimeout(350)
+check('strzałka zwija z powrotem', await page.isVisible(zwiniete))
+// wiele kafelków musi się zmieścić w jednym wierszu
+const miesci = await page.evaluate(() => {
+  const r = document.querySelector('.outline-kropki')
+  const m = r.querySelector('.outline-miejsce')
+  for (let i = 0; i < 200; i++) r.appendChild(m.cloneNode(true))
+  const wynik = r.scrollWidth <= r.clientWidth + 8 && r.offsetHeight < 20
+  while (r.children.length > 1 && r.lastChild !== m) r.lastChild.remove()
+  return wynik
+})
+check('nawet 200 kuleczek mieści się w jednym wierszu', miesci)
 
 // --- rozdziały: ważność w spisie, wielkość w Ustawieniach ---
 const rozdzial = () => page.evaluate(() => {
@@ -229,8 +254,11 @@ check('menu rozdziału niczego nie wstawia',
 check('menu proponuje sześć poziomów jako numerki',
   (await page.locator('.linear-menu .menu-poziomy button').count()) === 6 &&
     (await page.locator('.linear-menu .menu-poziomy button.wybrany').textContent()) === '1')
+const kolorPrzed = await page.evaluate(() => getComputedStyle(document.querySelector('.linear-content .script-heading-node')).color)
 await page.click('.linear-menu .menu-poziomy button:has-text("6")')
 await page.waitForTimeout(500)
+check('zmiana poziomu nie zmienia koloru',
+  (await page.evaluate(() => getComputedStyle(document.querySelector('.linear-content .script-heading-node')).color)) === kolorPrzed)
 check('wybrany poziom trafia do rozdziału od razu', (await rozdzial()).klasa.includes('level-6'))
 check('menu nazywa wybrany poziom', await page.isVisible('.linear-menu .tree-menu-where:has-text("Poziom 6")'))
 check('najgłębszy poziom ma w spisie największe wcięcie i własną wielkość',
@@ -373,7 +401,9 @@ const numery = await page.locator('.ks-liczba').allTextContents()
 check('Skrypt numeruje rozdział.pozycja', numery.join(',') === '1.1,2.1,2.2', numery.join(','))
 check('Skrypt nazywa akapit jak książka',
   (await page.locator('.ks-slowo').first().textContent()).trim() === 'Definicja 1.1')
-check('spis Skryptu też zna kafelki', (await page.locator('.outline-znak').count()) === 3)
+check('spis Skryptu też zna kafelki', (await page.locator('.outline-kropka').count()) === 3)
+while (await page.locator('.outline-chev:not(.open):not(.pusty)').count()) await page.locator('.outline-chev:not(.open):not(.pusty)').first().click()
+await page.waitForTimeout(350)
 await page.click('.outline-kafelek:has-text("Gamma")')
 await page.waitForTimeout(700)
 check('skok ze spisu Skryptu działa',

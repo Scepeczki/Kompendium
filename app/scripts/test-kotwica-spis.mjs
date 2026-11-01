@@ -62,16 +62,21 @@ await page.click('.linear-append .btn:has-text("Rozdział")')
 await podaj(page, 'Rozdzial pierwszy')
 await page.waitForTimeout(1200)
 
+const rozwinSpis = async () => {
+  while (await page.locator('.outline-chev:not(.open):not(.pusty)').count()) await page.locator('.outline-chev:not(.open):not(.pusty)').first().click()
+  await page.waitForTimeout(350)
+}
+
 // --- 2. spis treści: rozdział rozwija się i pokazuje kafelki ---
 const spis = page.locator('.outline')
 check('spis treści jest', (await spis.count()) === 1)
 await page.click('.outline-rodzaj button[title^="Szczegółowy"]')
 await page.waitForTimeout(400)
+await rozwinSpis()
 const poRozwinieciu = await spis.locator('.outline-kafelek').count()
 check('spis szczegółowy pokazuje kafelki', poRozwinieciu > 0, `${poRozwinieciu}`)
-const znaki = await spis.locator('.outline-kafelek .outline-znak').allTextContents()
-check('kafelki w spisie mają plakietkę rodzaju',
-  znaki.length > 0 && znaki.some((z) => z.trim() !== ''), znaki.slice(0, 4).join(' '))
+const znaki = await spis.locator('.outline-kafelek .outline-kropka').count()
+check('kafelki w spisie mają kuleczkę rodzaju', znaki === poRozwinieciu, String(znaki))
 
 // klik w kafelek w spisie przewija do niego
 const widok = '.linear-view'
@@ -111,6 +116,7 @@ await page.waitForTimeout(400)
 await page.click('.concept-item:has-text("Dluga")')
 await page.waitForSelector('.outline')
 await page.waitForTimeout(100)
+await rozwinSpis()
 // „Początek" — kafelki stojące przed pierwszym rozdziałem, czyli sama góra
 await page.locator('.outline-kafelek').first().click()
 const szarpanie = await page.evaluate(async (s) => {

@@ -3622,7 +3622,6 @@ body.ciagne-szerokosc * {
 
 .script-heading-node.level-2 {
   font-size: var(--fs-6);
-  color: var(--ink-soft);
 }
 
 .script-heading-node.level-3,
@@ -3630,7 +3629,6 @@ body.ciagne-szerokosc * {
 .script-heading-node.level-5,
 .script-heading-node.level-6 {
   font-size: var(--fs-5);
-  color: var(--ink-soft);
   font-style: italic;
   font-weight: 500;
 }
@@ -4068,13 +4066,6 @@ body.ciagne-szerokosc * {
   padding-left: 34px;
   font-size: var(--fs-2);
   color: var(--ink-soft);
-}
-
-.outline-znak {
-  flex: none;
-  font-size: var(--fs-1);
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 .outline-tekst {
@@ -6585,13 +6576,8 @@ body.ciagne-szerokosc * {
   font-weight: 600;
 }
 
-/* spis szczegółowy: plakietki w jednej kolumnie, żeby nazwy stały równo */
 .outline-szczegolowy .outline-kafelek {
   padding-left: 22px;
-}
-
-.outline-szczegolowy .outline-znak {
-  min-width: 2.7em;
 }
 
 /* prawy panel */
@@ -6714,7 +6700,6 @@ body.ciagne-szerokosc * {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
 }
 
 .script-body .script-heading-node.level-2,
@@ -7650,7 +7635,6 @@ body.ciagne-szerokosc * {
 .linear-content .script-heading-node.level-2 {
   margin-top: 16px;
   font-size: var(--rozdzial-2, 16px);
-  color: var(--ink-soft);
 }
 
 .linear-content .script-heading-node.level-3,
@@ -7661,7 +7645,6 @@ body.ciagne-szerokosc * {
   font-size: var(--rozdzial-3, 14px);
   font-style: italic;
   font-weight: 600;
-  color: var(--ink-soft);
 }
 
 .linear-content .script-heading-node .inline-title {
@@ -7711,14 +7694,6 @@ body.ciagne-szerokosc * {
 
 .outline-item.level-1 {
   font-weight: 600;
-  color: var(--ink);
-}
-
-.outline-item.level-3,
-.outline-item.level-4,
-.outline-item.level-5,
-.outline-item.level-6 {
-  color: var(--muted);
 }
 
 .outline-ogolny .outline-chev.open {
@@ -7735,11 +7710,6 @@ body.ciagne-szerokosc * {
   padding-top: 1.5px;
   padding-bottom: 1.5px;
   font-size: var(--fs-1);
-}
-
-.outline-szczegolowy .outline-znak {
-  flex: none;
-  font-size: 10.5px;
 }
 
 .outline-szczegolowy .outline-tekst {
@@ -7888,7 +7858,6 @@ body.ciagne-szerokosc * {
 .linear-content .script-heading-node.level-6 {
   font-size: var(--rozmiar, 12px);
   font-weight: 500;
-  color: var(--muted);
 }
 
 .script-body .script-heading-node.level-4 {
@@ -7899,7 +7868,6 @@ body.ciagne-szerokosc * {
 .script-body .script-heading-node.level-6 {
   font-size: calc(var(--rozmiar, 12px) * 1.07);
   font-weight: 500;
-  color: var(--muted);
 }
 
 .outline-item.level-4 {
@@ -7967,4 +7935,65 @@ body.ciagne-szerokosc * {
   .nowa-wersja {
     display: none;
   }
+}
+
+/* jeden kolor na wszystkich poziomach: ważność widać po wielkości i wcięciu */
+.outline-wiersz .outline-item {
+  color: var(--ink);
+}
+
+.outline-wiersz .outline-item.active {
+  color: var(--accent-ink);
+}
+
+.outline-wiersz .outline-poczatek {
+  color: var(--muted);
+}
+
+/* kuleczki rodzajów w spisie szczegółowym */
+.outline-kropka {
+  display: block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--barwa, var(--muted));
+}
+
+.outline-kropka.pusta {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--muted);
+}
+
+.outline-szczegolowy .outline-kafelek {
+  align-items: center;
+  gap: 7px;
+}
+
+.outline-kropki {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  /* ostatnia kuleczka wystaje poza swoje skurczone miejsce */
+  padding: 1px 12px 5px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.outline-miejsce {
+  flex: 0 1 11px;
+  min-width: 0;
+}
+
+.outline-miejsce .outline-kropka {
+  box-shadow: 0 0 0 1px var(--paper);
+}
+
+.outline-miejsce .outline-kropka.pusta {
+  background: var(--paper);
+  box-shadow:
+    inset 0 0 0 1.5px var(--muted),
+    0 0 0 1px var(--paper);
 }

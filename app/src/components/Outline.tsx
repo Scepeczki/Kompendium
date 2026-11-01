@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { BlockTypes } from '../blockTypes'
 import { Icon } from './Icon'
 import { POZIOM_MAX, type Concept, type PathNode, type PoziomRozdzialu } from '../types'
@@ -9,12 +9,12 @@ export interface OutlineItem {
   /** id węzła ścieżki — po nim przestawiamy kolejność przeciąganiem. */
   nodeId: string
   text: string
-  /** 1–3 = rozdział i podrozdziały; 'kafelek' = pozycja pod rozdziałem. */
+  /** 1–6 = rozdział i podrozdziały; 'kafelek' = pozycja pod rozdziałem. */
   level: PoziomRozdzialu | 'kafelek'
-  /** Plakietka rodzaju przy kafelku (DEF, TW…). */
-  znak?: string
   /** Kolor rodzaju — żeby definicje odróżniały się od twierdzeń wzrokiem. */
   barwa?: string
+  /** Kuleczka bez wypełnienia: komentarz, który nie wchodzi do skryptu. */
+  pusta?: boolean
 }
 
 /** Spis ścieżki: rozdziały, a pod nimi wszystko, co w nich stoi — definicje,
@@ -37,7 +37,7 @@ export function pozycjeSpisu(
         nodeId: n.id,
         text: pierwsza ? pierwsza.slice(0, 60) : 'Notatka',
         level: 'kafelek' as const,
-        znak: n.kind === 'comment' ? '💬' : '✎',
+        pusta: n.kind === 'comment',
       }
     }
     if (n.kind === 'fusion') {
@@ -46,7 +46,6 @@ export function pozycjeSpisu(
         nodeId: n.id,
         text: n.name,
         level: 'kafelek' as const,
-        znak: n.type ? typy.short(n.type) : '⧉',
         barwa: n.type ? typy.def(n.type).color : undefined,
       }
     }
@@ -56,7 +55,6 @@ export function pozycjeSpisu(
       nodeId: n.id,
       text: n.nazwa ?? c?.name ?? '(usunięty kafelek)',
       level: 'kafelek' as const,
-      znak: c ? typy.short(c.type) : undefined,
       barwa: c ? typy.def(c.type).color : undefined,
     }
   })
@@ -104,6 +102,9 @@ interface Props {
   /** Prawy przycisk na rozdziale: dokładny poziom i własna wielkość. */
   onMenu?: (e: React.MouseEvent, nodeId: string) => void
 }
+
+/** Kafelki przed pierwszym rozdziałem zwijają się jak rozdział o tym id. */
+const POCZATEK = '__poczatek'
 
 const SZEROKOSC = 'ui.outlineWidth'
 const RODZAJ = 'ui.outlineRodzaj'
@@ -182,6 +183,75 @@ export function Outline({ items, onMove, biezacy, onPoziom, onMenu }: Props) {
 
   const [active, setActive] = useState<string | null>(null)
   const visible = useRef(new Set<string>())
+
+  /** Rozwinięte rozdziały spisu szczegółowego. Reszta to rząd kuleczek. */
+  const [otwarte, setOtwarte] = useState<Set<string>>(() => new Set())
+  const lista = useRef<HTMLUListElement>(null)
+  /** Gdzie stały kuleczki i wiersze przed rozwinięciem: stąd ruszają. */
+  const miejsca = useRef<Map<string, DOMRect> | null>(null)
+  const zapamietajMiejsca = () => {
+    const el = lista.current
+    if (!el) return
+    miejsca.current = new Map(
+      [...el.querySelectorAll<HTMLElement>('[data-ruch]')].map((x) => [
+        x.dataset.ruch as string,
+        x.getBoundingClientRect(),
+      ]),
+    )
+  }
+  // Kuleczka z rzędu i ta z listy to dwa różne miejsca w dokumencie, a ma
+  // wyglądać jak jedna rozjeżdżająca się: rysujemy ją najpierw tam, gdzie
+  // była, i puszczamy na nowe miejsce.
+  useLayoutEffect(() => {
+    const stare = miejsca.current
+    miejsca.current = null
+    if (!stare || !lista.current) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    for (const el of lista.current.querySelectorAll<HTMLElement>('[data-ruch]')) {
+      const a = stare.get(el.dataset.ruch as string)
+      if (!a) {
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' })
+        continue
+      }
+      const b = el.getBoundingClientRect()
+      if (a.left === b.left && a.top === b.top) continue
+      el.animate(
+        [
+          { transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)` },
+          { transform: 'none' },
+        ],
+        { duration: 240, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
+      )
+    }
+  }, [otwarte])
+
+  /** Rozdział otwarty przez samo czytanie: zamyka się, gdy czytanie pójdzie dalej.
+   *  Otwarte ręcznie zostają, dopóki się ich ręcznie nie zamknie. */
+  const samOtwarty = useRef<string | null>(null)
+  useEffect(() => {
+    if (!active?.startsWith(outlineId(''))) return
+    const id = active.slice(outlineId('').length)
+    const stary = samOtwarty.current
+    if (stary === id) return
+    samOtwarty.current = id
+    zapamietajMiejsca()
+    setOtwarte((s) => {
+      const n = new Set(s)
+      if (stary) n.delete(stary)
+      n.add(id)
+      return n
+    })
+  }, [active])
+
+  const przelacz = (id: string) => {
+    if (samOtwarty.current === id) samOtwarty.current = null
+    zapamietajMiejsca()
+    setOtwarte((s) => {
+      const n = new Set(s)
+      if (!n.delete(id)) n.add(id)
+      return n
+    })
+  }
 
   // Podświetlenie bieżącego rozdziału: śledzimy, które nagłówki są w oknie,
   // i bierzemy pierwszy z nich w kolejności dokumentu.
@@ -326,12 +396,62 @@ export function Outline({ items, onMove, biezacy, onPoziom, onMenu }: Props) {
 
   /** Kafelek stoi w spisie o stopień głębiej niż rozdział, do którego należy. */
   const wciecia: number[] = []
+  const wlasciciele: string[] = []
+  const kafelkiRozdzialu = new Map<string, OutlineItem[]>()
   let poziom = 0
+  let wlasciciel = POCZATEK
   for (const it of items) {
-    if (it.level !== 'kafelek') poziom = it.level
+    if (it.level !== 'kafelek') {
+      poziom = it.level
+      wlasciciel = it.nodeId
+    } else {
+      kafelkiRozdzialu.set(wlasciciel, [...(kafelkiRozdzialu.get(wlasciciel) ?? []), it])
+    }
     wciecia.push(poziom)
+    wlasciciele.push(wlasciciel)
   }
   const saRozdzialy = items.some((it) => it.level !== 'kafelek')
+  // bez rozdziałów nie ma czego zwijać: kafelki stoją wprost na liście
+  const zwiniety = (id: string) => saRozdzialy && !otwarte.has(id)
+
+  const kropka = (it: OutlineItem) => (
+    <span
+      className={`outline-kropka ${it.pusta ? 'pusta' : ''}`}
+      data-ruch={`k-${it.nodeId}`}
+      style={it.barwa ? ({ '--barwa': it.barwa } as React.CSSProperties) : undefined}
+    />
+  )
+
+  /** Znacznik rozwijania — tylko tam, gdzie jest co rozwijać. */
+  const strzalka = (id: string) => (
+    <button
+      className={`outline-chev ${zwiniety(id) ? '' : 'open'}`}
+      title={zwiniety(id) ? 'Rozwiń kafelki' : 'Zwiń kafelki'}
+      aria-expanded={!zwiniety(id)}
+      onClick={() => przelacz(id)}
+    >
+      ▸
+    </button>
+  )
+
+  /** Zwinięty rozdział: kuleczki pod nazwą. Miejsce na każdą kurczy się samo,
+   *  więc przy wielu kafelkach zachodzą na siebie i nigdy nie łamią wiersza. */
+  const rzadKropek = (id: string, wciecie: number) =>
+    zwiniety(id) &&
+    kafelkiRozdzialu.has(id) && (
+      <button
+        className="outline-kropki"
+        style={{ paddingLeft: wciecie * 12 }}
+        title="Rozwiń kafelki"
+        onClick={() => przelacz(id)}
+      >
+        {kafelkiRozdzialu.get(id)?.map((it) => (
+          <span key={it.nodeId} className="outline-miejsce" title={it.text}>
+            {kropka(it)}
+          </span>
+        ))}
+      </button>
+    )
 
   if (!open) {
     return (
@@ -403,20 +523,22 @@ export function Outline({ items, onMove, biezacy, onPoziom, onMenu }: Props) {
           Tu nie ma jeszcze rozdziałów. Spis szczegółowy pokaże kafelki.
         </p>
       )}
-      <ul className="outline-list">
+      <ul className="outline-list" ref={lista}>
         {/* Kafelki stojące przed pierwszym rozdziałem też muszą być osiągalne —
             dlatego w szczegółowym spisie mają własny podpis. */}
         {szczegolowy && items[0]?.level === 'kafelek' && (
           <li>
             <div className="outline-wiersz">
-              <span className="outline-chev pusty" />
+              {saRozdzialy ? strzalka(POCZATEK) : <span className="outline-chev pusty" />}
               <span className="outline-item level-1 outline-poczatek">Początek</span>
             </div>
+            {rzadKropek(POCZATEK, 1)}
           </li>
         )}
         {items.map((it, i) => {
           if (it.level === 'kafelek' && !szczegolowy) return null
           if (it.level === 'kafelek') {
+            if (zwiniety(wlasciciele[i])) return null
             return (
               <li key={it.domId}>
                 <button
@@ -434,27 +556,30 @@ export function Outline({ items, onMove, biezacy, onPoziom, onMenu }: Props) {
                   {...cel(it, i)}
                   onClick={() => goTo(it.domId)}
                 >
-                  {it.znak && (
-                    <span className="outline-znak" style={{ color: it.barwa }}>
-                      {it.znak}
-                    </span>
-                  )}
-                  <span className="outline-tekst">{it.text || '(bez nazwy)'}</span>
+                  {kropka(it)}
+                  <span className="outline-tekst" data-ruch={`t-${it.nodeId}`}>
+                    {it.text || '(bez nazwy)'}
+                  </span>
                 </button>
               </li>
             )
           }
           const level = it.level
+          const maKafelki = szczegolowy && kafelkiRozdzialu.has(it.nodeId)
           return (
             <li key={it.domId}>
-              <div className="outline-wiersz">
-                <span
-                  className={`outline-chev ${
-                    !szczegolowy && active === it.domId ? 'open' : 'pusty'
-                  }`}
-                >
-                  {!szczegolowy && active === it.domId ? '▸' : ''}
-                </span>
+              <div className="outline-wiersz" data-ruch={`w-${it.nodeId}`}>
+                {maKafelki ? (
+                  strzalka(it.nodeId)
+                ) : (
+                  <span
+                    className={`outline-chev ${
+                      !szczegolowy && active === it.domId ? 'open' : 'pusty'
+                    }`}
+                  >
+                    {!szczegolowy && active === it.domId ? '▸' : ''}
+                  </span>
+                )}
                 {/* Rozdziału się nie ciągnie — jest szkieletem wykładu. Ale
                     jest celem: upuszczenie tuż pod nim przenosi kafelek do
                     tego rozdziału, i tak przechodzi się między rozdziałami. */}
@@ -464,7 +589,10 @@ export function Outline({ items, onMove, biezacy, onPoziom, onMenu }: Props) {
                   }`}
                   title={it.text}
                   {...cel(it, i)}
-                  onClick={() => goTo(it.domId)}
+                  onClick={() => {
+                    if (maKafelki && zwiniety(it.nodeId)) przelacz(it.nodeId)
+                    goTo(it.domId)
+                  }}
                   onContextMenu={onMenu && ((e) => onMenu(e, it.nodeId))}
                 >
                   {it.text || '(bez nazwy)'}
@@ -488,6 +616,7 @@ export function Outline({ items, onMove, biezacy, onPoziom, onMenu }: Props) {
                   </span>
                 )}
               </div>
+              {szczegolowy && rzadKropek(it.nodeId, wciecia[i])}
             </li>
           )
         })}

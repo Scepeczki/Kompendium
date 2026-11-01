@@ -68,6 +68,8 @@ const kolejnosc = () =>
 // spis szczegółowy pokazuje wszystko, co da się przeciągać
 await page.click('.outline-rodzaj button[title^="Szczegółowy"]')
 await page.waitForTimeout(300)
+while (await page.locator('.outline-chev:not(.open):not(.pusty)').count()) await page.locator('.outline-chev:not(.open):not(.pusty)').first().click()
+await page.waitForTimeout(350)
 
 // --- notatka jest w spisie, po prostu jako notatka ---
 const pozycje = await spis.locator('.outline-kafelek').allTextContents()
