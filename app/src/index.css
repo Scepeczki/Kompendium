@@ -7620,3 +7620,174 @@ body.ciagne-szerokosc * {
     min-width: 0;
   }
 }
+
+/* rozdziały w Linii: wyraźne, wielkość każdego poziomu ustawia się w Ustawieniach */
+.linear-content .script-heading-node {
+  margin: 22px 0 8px 2px;
+  font-family: var(--font-read);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.linear-content .script-heading-node.level-1 {
+  font-size: var(--rozdzial-1, 20px);
+}
+
+.linear-content .script-heading-node.level-2 {
+  margin-top: 16px;
+  font-size: var(--rozdzial-2, 16px);
+  color: var(--ink-soft);
+}
+
+.linear-content .script-heading-node.level-3 {
+  margin-top: 12px;
+  font-size: var(--rozdzial-3, 14px);
+  font-style: italic;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.linear-content .script-heading-node .inline-title {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+.script-body .script-heading-node.level-1 {
+  font-size: calc(var(--rozdzial-1, 20px) * 1.3);
+}
+
+.script-body .script-heading-node.level-2 {
+  font-size: calc(var(--rozdzial-2, 16px) * 1.06);
+}
+
+.script-body .script-heading-node.level-3 {
+  font-size: calc(var(--rozdzial-3, 14px) * 1.07);
+}
+
+/* dwa spisy: dwie ikony zamiast napisów */
+.outline-rodzaj {
+  gap: 2px;
+}
+
+.outline-rodzaj button {
+  display: flex;
+  padding: 3px 4px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.outline-rodzaj button:hover {
+  color: var(--ink);
+}
+
+.outline-rodzaj button.wybrany {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.outline-pusto {
+  margin: 4px 2px;
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.outline-item.level-1 {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.outline-item.level-3 {
+  color: var(--muted);
+}
+
+.outline-ogolny .outline-chev.open {
+  opacity: 1;
+}
+
+.outline-chev.pusty {
+  opacity: 0;
+}
+
+/* kafelki w szczegółowym spisie: skrótowo, jeden wiersz na pozycję */
+.outline-szczegolowy .outline-kafelek {
+  gap: 5px;
+  padding-top: 1.5px;
+  padding-bottom: 1.5px;
+  font-size: var(--fs-1);
+}
+
+.outline-szczegolowy .outline-znak {
+  flex: none;
+  font-size: 10.5px;
+}
+
+.outline-szczegolowy .outline-tekst {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ważność rozdziału: strzałki przy wierszu */
+.outline-wiersz {
+  position: relative;
+}
+
+.outline-poziom {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: flex;
+  gap: 1px;
+  transform: translateY(-50%);
+  border-radius: 6px;
+  background: var(--paper);
+  opacity: 0;
+}
+
+.outline-wiersz:hover .outline-poziom,
+.outline-poziom:focus-within {
+  opacity: 1;
+}
+
+.outline-poziom button {
+  display: flex;
+  padding: 2px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.outline-poziom button:hover:not(:disabled) {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.outline-poziom button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* bez myszki nie ma najechania, więc strzałki stoją na wierzchu */
+@media (hover: none) {
+  .outline-poziom {
+    opacity: 1;
+  }
+}
+
+/* bieżący rozdział: trójkąt wisi na marginesie listy, kolor mówi to samo */
+.outline-list {
+  margin-left: -14px;
+  padding-left: 14px;
+}
+
+.outline-item.level-1.active,
+.outline-item.active {
+  font-weight: 700;
+  color: var(--accent-ink);
+}

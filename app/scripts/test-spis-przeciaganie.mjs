@@ -66,7 +66,7 @@ const kolejnosc = () =>
   )
 
 // spis szczegółowy pokazuje wszystko, co da się przeciągać
-await page.click('.outline-rodzaj button:has-text("Szczegółowy")')
+await page.click('.outline-rodzaj button[title^="Szczegółowy"]')
 await page.waitForTimeout(300)
 
 // --- notatka jest w spisie, po prostu jako notatka ---

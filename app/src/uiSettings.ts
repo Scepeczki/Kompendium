@@ -253,6 +253,28 @@ export function setTreeSize(v: number): void {
   notify()
 }
 
+/** Wielkość nazwy rozdziału w Linii, osobno dla każdego poziomu. Skrypt liczy
+ *  swoją z tej samej wartości, żeby jeden suwak rządził oboma widokami. */
+export type PoziomRozdzialu = 1 | 2 | 3
+export const ROZDZIAL_ROZMIARY: Record<PoziomRozdzialu, number> = { 1: 20, 2: 16, 3: 14 }
+export const ROZDZIAL_MIN = 12
+export const ROZDZIAL_MAX = 36
+
+export function getRozmiarRozdzialu(poziom: PoziomRozdzialu): number {
+  return readNum(
+    `ui.rozdzial${poziom}`,
+    (v) => v >= ROZDZIAL_MIN && v <= ROZDZIAL_MAX,
+    ROZDZIAL_ROZMIARY[poziom],
+  )
+}
+
+export function setRozmiarRozdzialu(poziom: PoziomRozdzialu, v: number): void {
+  const val = clamp(Math.round(v), ROZDZIAL_MIN, ROZDZIAL_MAX)
+  document.documentElement.style.setProperty(`--rozdzial-${poziom}`, `${val}px`)
+  localStorage.setItem(`ui.rozdzial${poziom}`, String(val))
+  notify()
+}
+
 export function getBlockTint(): number {
   return readNum(
     'ui.blockTint',
@@ -285,6 +307,9 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--list-indent', `${getListIndent()}em`)
   document.documentElement.style.setProperty('--block-tint', String(getBlockTint()))
   document.documentElement.style.setProperty('--tree-size', `${getTreeSize()}px`)
+  for (const p of [1, 2, 3] as const) {
+    document.documentElement.style.setProperty(`--rozdzial-${p}`, `${getRozmiarRozdzialu(p)}px`)
+  }
   setContentFontVar(getContentFont())
   setBgPatternAttr(getBgPattern())
   // barwy typów przeniosły się do bazy (tabela blockTypes) — nie ma tu już

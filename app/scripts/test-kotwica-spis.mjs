@@ -65,7 +65,7 @@ await page.waitForTimeout(1200)
 // --- 2. spis treści: rozdział rozwija się i pokazuje kafelki ---
 const spis = page.locator('.outline')
 check('spis treści jest', (await spis.count()) === 1)
-await page.click('.outline-rodzaj button:has-text("Szczegółowy")')
+await page.click('.outline-rodzaj button[title^="Szczegółowy"]')
 await page.waitForTimeout(400)
 const poRozwinieciu = await spis.locator('.outline-kafelek').count()
 check('spis szczegółowy pokazuje kafelki', poRozwinieciu > 0, `${poRozwinieciu}`)

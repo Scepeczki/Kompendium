@@ -526,6 +526,7 @@ interface LinearViewProps {
   ) => void
   onEditNote?: (nodeId: string, md: string) => void
   onEditHeading?: (nodeId: string, text: string) => void
+  onPoziomRozdzialu?: (nodeId: string, level: 1 | 2 | 3) => void
   onRenameFusion?: (nodeId: string, name: string) => void
   /** Zapis treści złożonego kafelka; brak numeru strony = strona główna. */
   onEditFusion?: (nodeId: string, md: string, stronaId: string | null) => void
@@ -899,6 +900,7 @@ function LinearView({
   onWyslijDoBiblioteki,
   onEditNote,
   onEditHeading,
+  onPoziomRozdzialu,
   onRenameFusion,
   onEditFusion,
 }: LinearViewProps) {
@@ -1684,7 +1686,12 @@ function LinearView({
         if (zazSeg.size > 0) setZazSeg(new Set())
       }}
     >
-      <Outline items={outline} onMove={onMoveSegment} biezacy={biezacy} />
+      <Outline
+        items={outline}
+        onMove={onMoveSegment}
+        biezacy={biezacy}
+        onPoziom={onPoziomRozdzialu}
+      />
       {/* Pasek i kolumna razem w jednej kolumnie układu — inaczej pasek
           wchodziłby jako trzecia kolumna obok spisu treści i spychał tekst. */}
       <div className="linear-main">
@@ -3775,6 +3782,7 @@ function CanvasInner({
           }
           onEditNote={(id, md) => api.updateData(id, { text: md })}
           onEditHeading={(id, text) => api.updateData(id, { text })}
+          onPoziomRozdzialu={(id, level) => api.updateData(id, { level })}
           onRenameFusion={(id, name) => api.updateData(id, { name })}
           onEditFusion={(id, md, stronaId) => zapiszTrescBloku(id, md, stronaId)}
           onUnfuse={(id) => api.unfuse(id)}
