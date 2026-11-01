@@ -417,7 +417,9 @@ function PoleRozmiaru({ editor }: { editor: Editor }) {
 
 /** Pasek narzędzi edytora. Osobno, bo w ścieżce jeden pasek obsługuje
  *  wszystkie kafelki naraz — działa na tym polu, w którym stoi kursor. */
-export function RichToolbar({ editor }: { editor: Editor | null }) {
+/** `zwarty`: w stopce kafelka tylko najczęstsze znaki, resztę rozwija przycisk polecenia. */
+export function RichToolbar({ editor, zwarty }: { editor: Editor | null; zwarty?: boolean }) {
+  const [rozwiniety, setRozwiniety] = useState(false)
   if (!editor) return <div className="rich-toolbar rich-toolbar-pusty" />
 
   /** Wstawia parę dolarów. Z zaznaczeniem obejmuje je, bez — wstawia samą
@@ -444,7 +446,7 @@ export function RichToolbar({ editor }: { editor: Editor | null }) {
   }
 
   return (
-    <div className="rich-toolbar">
+    <div className={`rich-toolbar ${zwarty ? 'rich-toolbar-zwarty' : ''}`}>
       <button
         className={`btn rich-btn ${editor.isActive('bold') ? 'btn-active' : ''}`}
         title="Pogrubienie (Ctrl+B)"
@@ -459,6 +461,33 @@ export function RichToolbar({ editor }: { editor: Editor | null }) {
       >
         <i>I</i>
       </button>
+      {zwarty && (
+        <>
+          <button
+            className="btn rich-btn"
+            title="Wzór w tekście: $…$"
+            onClick={() => wrapMath(false)}
+          >
+            ∑
+          </button>
+          <button
+            className="btn rich-btn"
+            title="Odnośnik do kafelka: [[nazwa]]"
+            onClick={() => editor.chain().focus().insertContent('[[').run()}
+          >
+            [[
+          </button>
+          <button
+            className={`btn rich-btn rich-polecenia ${rozwiniety ? 'btn-active' : ''}`}
+            title="Nagłówek, listy, rozmiar, cytat, odstępy"
+            onClick={() => setRozwiniety((r) => !r)}
+          >
+            polecenia
+          </button>
+        </>
+      )}
+      {(!zwarty || rozwiniety) && (
+        <>
       <button
         className={`btn rich-btn ${
           editor.isActive('heading', { level: 2 }) ? 'btn-active' : ''
@@ -505,6 +534,8 @@ export function RichToolbar({ editor }: { editor: Editor | null }) {
         $$
       </button>
       <SpacingMenu />
+        </>
+      )}
     </div>
   )
 }

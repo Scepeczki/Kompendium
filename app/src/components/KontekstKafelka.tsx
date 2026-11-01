@@ -54,6 +54,7 @@ export function KontekstKafelka({
                 {opisZrodla(r, pdfs, concepts)}
               </button>
               <span className="kontekst-dopisek">
+                {' · '}
                 {isPdfSource(r) ? 'otwórz w PDF' : 'otwórz kafelek'}
               </span>
             </li>

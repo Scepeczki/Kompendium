@@ -192,6 +192,16 @@ await page.locator('.linear-seg[data-seg="n1"] .markdown-body, .linear-seg[data-
 await page.waitForTimeout(500)
 check('pasek narzędzi stoi w stopce pisanego kafelka',
   await page.isVisible('[data-seg="n1"] .block-stopka .rich-btn >> nth=0'))
+check('w stopce zostają tylko najczęstsze znaki',
+  (await page.locator('[data-seg="n1"] .block-stopka .rich-btn').count()) === 5)
+await page.click('[data-seg="n1"] .rich-polecenia')
+await page.waitForTimeout(200)
+check('polecenia rozwijają resztę narzędzi',
+  (await page.locator('[data-seg="n1"] .block-stopka .rich-btn').count()) >= 10)
+await page.click('[data-seg="n1"] .rich-polecenia')
+check('stare szerokości kolumn raz wracają do nowych domyślnych',
+  (await page.evaluate(() => localStorage.getItem('ui.gestyUklad.v1'))) === '1' &&
+    Math.round((await page.locator('.sidebar').boundingBox()).width) === 250)
 check('kafelek z biblioteki dostaje napis o pisaniu w ścieżce',
   await page.evaluate(() =>
     getComputedStyle(document.querySelector('[data-seg="n1"] .script-block'), '::before')

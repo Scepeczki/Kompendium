@@ -161,7 +161,7 @@ await page.keyboard.press('End')
 // pasek narzędzi jest jeden na całą ścieżkę i działa na polu z kursorem
 check(
   'ścieżka ma wspólny pasek narzędzi',
-  (await page.locator('.linear-toolbar .rich-btn').count()) >= 6,
+  (await page.locator('.linear-toolbar .rich-btn').count()) >= 4,
   `przycisków: ${await page.locator('.linear-toolbar .rich-btn').count()}`,
 )
 await page.keyboard.down('Shift')

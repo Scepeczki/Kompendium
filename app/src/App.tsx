@@ -100,7 +100,7 @@ function Widok() {
     return localStorage.getItem('ui.showPdf') !== '0'
   })
   const [sidebarW, setSidebarW] = useState(
-    () => Number(localStorage.getItem('ui.sidebarW')) || 300,
+    () => Number(localStorage.getItem('ui.sidebarW')) || 250,
   )
   const [pdfW, setPdfW] = useState(
     () => Number(localStorage.getItem('ui.pdfW')) || 520,

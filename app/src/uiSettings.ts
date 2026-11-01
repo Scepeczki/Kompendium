@@ -18,7 +18,7 @@ export const IND_OFFSET_MAX = 40
 /** Rozmiar tekstu w liście kafelków i folderów (pasek boczny).
  *  Domyślnie tyle, ile dziedziczy z reszty interfejsu, żeby włączenie
  *  ustawienia niczego nie zmieniało bez wyraźnej decyzji. */
-export const TREE_SIZE_DEFAULT = 15
+export const TREE_SIZE_DEFAULT = 12
 export const TREE_SIZE_MIN = 12
 export const TREE_SIZE_MAX = 20
 
@@ -270,6 +270,12 @@ export function setBlockTint(v: number): void {
 
 /** Wywoływane raz przy starcie aplikacji — nakłada zapamiętane wartości. */
 export function initUiSettings(): void {
+  // gęstszy układ: dawne szerokości kolumn i rozmiar listy rozjechałyby go,
+  // więc raz wracają do nowych domyślnych
+  if (!localStorage.getItem('ui.gestyUklad.v1')) {
+    localStorage.setItem('ui.gestyUklad.v1', '1')
+    for (const k of ['ui.sidebarW', 'ui.outlineWidth', 'ui.treeSize']) localStorage.removeItem(k)
+  }
   document.documentElement.style.setProperty('--page-width', `${getPageWidth()}px`)
   document.documentElement.style.setProperty('--content-line', String(getLineSpacing()))
   document.documentElement.style.setProperty('--content-para', `${getParaSpacing()}em`)

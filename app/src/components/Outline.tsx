@@ -129,7 +129,7 @@ export function Outline({ items, onMove, biezacy }: Props) {
   const [szer, setSzer] = useState(() => {
     const z = Number(localStorage.getItem(SZEROKOSC))
     // 210 to dawna szerokość domyślna, zapamiętana także bez przeciągania
-    return z >= MIN_SZER && z <= MAX_SZER && z !== 210 ? z : 250
+    return z >= MIN_SZER && z <= MAX_SZER && z !== 210 ? z : 222
   })
   // Liczymy PRZESUNIĘCIE myszy, a nie jej pozycję na ekranie: spis nie zaczyna
   // się przy krawędzi okna (po lewej stoi lista kafelków), więc sama pozycja
@@ -378,32 +378,32 @@ export function Outline({ items, onMove, biezacy }: Props) {
           ciagnieRef.current = { x: e.clientX, szer }
           document.body.classList.add('ciagne-szerokosc')
         }}
-        onDoubleClick={() => setSzer(250)}
+        onDoubleClick={() => setSzer(222)}
       />
       <div className="outline-head">
         <span className="outline-title">Spis treści</span>
+        <div className="outline-rodzaj" role="group" aria-label="Rodzaj spisu">
+          <button
+            className={szczegolowy ? '' : 'wybrany'}
+            title="Przebieg przez rozdziały"
+            onClick={() => setRodzaj('ogolny')}
+          >
+            Ogólny
+          </button>
+          <button
+            className={szczegolowy ? 'wybrany' : ''}
+            title="Wszystkie kafelki z ich rodzajem"
+            onClick={() => setRodzaj('szczegolowy')}
+          >
+            Szczegółowy
+          </button>
+        </div>
         <button
           className="folder-action"
           title="Schowaj spis treści"
           onClick={() => setOpen(false)}
         >
           «
-        </button>
-      </div>
-      <div className="outline-rodzaj" role="group" aria-label="Rodzaj spisu">
-        <button
-          className={szczegolowy ? '' : 'wybrany'}
-          title="Przebieg przez rozdziały"
-          onClick={() => setRodzaj('ogolny')}
-        >
-          Ogólny
-        </button>
-        <button
-          className={szczegolowy ? 'wybrany' : ''}
-          title="Wszystkie kafelki z ich rodzajem"
-          onClick={() => setRodzaj('szczegolowy')}
-        >
-          Szczegółowy
         </button>
       </div>
       <ul className="outline-list">

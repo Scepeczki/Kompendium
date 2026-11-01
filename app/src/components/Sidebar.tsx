@@ -857,7 +857,7 @@ export function Sidebar({
           ref={szukajRef}
           className="input"
           type="search"
-          placeholder="Szukaj…"
+          placeholder="Szukaj kafelków, ścieżek…"
           title="Szukaj kafelków i ścieżek po nazwie lub tagu"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

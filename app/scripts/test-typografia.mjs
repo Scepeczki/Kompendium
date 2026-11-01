@@ -35,12 +35,12 @@ await page.waitForTimeout(300)
 const fonts = await page.evaluate(async () => {
   await document.fonts.ready
   return {
-    interLoaded: document.fonts.check('600 15px "Inter Variable"'),
+    interLoaded: document.fonts.check('600 15px "Figtree Variable"'),
     serifLoaded: document.fonts.check('400 15px "Source Serif 4 Variable"'),
     body: getComputedStyle(document.body).fontFamily,
   }
 })
-check('krój interfejsu wczytany (Inter)', fonts.interLoaded, fonts.body)
+check('krój interfejsu wczytany (Figtree)', fonts.interLoaded, fonts.body)
 check('krój do czytania wczytany (Source Serif)', fonts.serifLoaded)
 
 // 2. nazwa kafelka w edytorze nie jest już szeryfowa
@@ -49,7 +49,7 @@ await page.waitForSelector('.editor-name')
 const nameFont = await page.evaluate(
   () => getComputedStyle(document.querySelector('.editor-name')).fontFamily,
 )
-check('nazwa kafelka bezszeryfowa', nameFont.includes('Inter'), nameFont)
+check('nazwa kafelka bezszeryfowa', nameFont.includes('Figtree'), nameFont)
 await page.click('.btn-close[title*="Zamknij kafelek"]')
 
 // 3. żaden napis w interfejsie nie jest mniejszy niż 11px
@@ -102,7 +102,7 @@ await page.waitForTimeout(400)
 const after = await page.evaluate(
   () => getComputedStyle(document.querySelector('.concept-name')).fontSize,
 )
-check('suwak wielkości listy zmienia nazwy kafelków', before === '15px' && after === '19px',
+check('suwak wielkości listy zmienia nazwy kafelków', before === '12px' && after === '19px',
   `${before} → ${after}`)
 
 // 7. krój treści przełączalny i dotyczy tylko treści, nie interfejsu
@@ -127,9 +127,9 @@ const contentAfter = await page.evaluate(() => ({
   lista: getComputedStyle(document.querySelector('.concept-name')).fontFamily,
 }))
 check('treść przechodzi na krój szeryfowy',
-  contentBefore.includes('Inter') && contentAfter.tresc.includes('Source Serif'),
+  contentBefore.includes('Figtree') && contentAfter.tresc.includes('Source Serif'),
   `${contentBefore} → ${contentAfter.tresc}`)
-check('interfejs zostaje bezszeryfowy', contentAfter.lista.includes('Inter'),
+check('interfejs zostaje bezszeryfowy', contentAfter.lista.includes('Figtree'),
   contentAfter.lista)
 
 // 8. deseń tła: rysuje się na papierze, nie pod tekstem

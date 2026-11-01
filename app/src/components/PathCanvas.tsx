@@ -1692,14 +1692,14 @@ function LinearView({
             kursor. Ścieżka jest edytorem, a nie zbiorem okienek. */}
         {onEditNote &&
           (() => {
+            const seg = aktywnyId?.split(':')[0]
             const pasek = (
               <div className="linear-toolbar">
-                <RichToolbar editor={aktywny} />
+                <RichToolbar editor={aktywny} zwarty={!!seg} />
               </div>
             )
             // pasek stoi w stopce kafelka, przy którym się pisze; notatki i
             // komentarze stopki nie mają, więc tam unosi się u dołu okna
-            const seg = aktywnyId?.split(':')[0]
             const cel = seg
               ? document.querySelector(`[data-seg="${seg}"] .block-narzedzia`)
               : null
@@ -3571,6 +3571,23 @@ function CanvasInner({
           }}
           placeholder="Nazwa ścieżki…"
         />
+        {onZakotwicz && (
+          <button
+            className={`btn path-maly ${zakotwiczona ? 'btn-active' : ''}`}
+            title={
+              zakotwiczona
+                ? 'Zdejmij kotwicę — zniknie przycisk powrotu'
+                : 'Zakotwicz tę ścieżkę: przycisk powrotu w lewym górnym rogu i Alt+Z'
+            }
+            onClick={onZakotwicz}
+          >
+            <Icon name="anchor" size={1} />
+          </button>
+        )}
+        <button className="btn btn-close path-maly" title="Zamknij ścieżkę" onClick={onClose}>
+          ✕
+        </button>
+        <span className="path-odstep" />
         {mode === 'linear' && (
           <button
             className={`btn ${zakryte ? 'btn-active' : ''}`}
@@ -3583,19 +3600,6 @@ function CanvasInner({
           >
             <Icon name={zakryte ? 'odkryj' : 'zakryj'} size={1} />
             <span className="btn-napis">{zakryte ? 'Odkryj' : 'Zakryj treści'}</span>
-          </button>
-        )}
-        {onZakotwicz && (
-          <button
-            className={`btn ${zakotwiczona ? 'btn-active' : ''}`}
-            title={
-              zakotwiczona
-                ? 'Zdejmij kotwicę — zniknie przycisk powrotu'
-                : 'Zakotwicz tę ścieżkę: przycisk powrotu w lewym górnym rogu i Alt+Z'
-            }
-            onClick={onZakotwicz}
-          >
-            <Icon name="anchor" size={1} />
           </button>
         )}
         <div className="view-switch">
@@ -3639,9 +3643,6 @@ function CanvasInner({
             PDF ▸
           </button>
         )}
-        <button className="btn btn-close" title="Zamknij ścieżkę" onClick={onClose}>
-          ✕
-        </button>
       </header>
   )
 

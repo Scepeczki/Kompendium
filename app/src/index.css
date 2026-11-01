@@ -23,7 +23,7 @@
   --r-pole: 11px;
   --r-mala: 8px;
   --cien-karta: 0 1px 2px rgba(70, 55, 30, 0.05), 0 6px 18px rgba(70, 55, 30, 0.05);
-  --wys-paska: 60px;
+  --wys-paska: 50px;
 
   /* kolory typów kafelków (spokojne, akademickie) */
   --c-definicja: #c2612c;
@@ -34,10 +34,10 @@
   --c-uwaga: #b0862c;
   --c-intuicja: #b05575;
 
-  /* Kroje pisma. Inter — interfejs (czytelny w małych rozmiarach, neutralny),
+  /* Kroje pisma. Figtree — interfejs (czytelny w małych rozmiarach, neutralny),
      Source Serif — powierzchnia do czytania. Oba jadą razem z programem,
      więc wyglądają tak samo bez internetu i na każdym komputerze. */
-  --font-ui: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-ui: 'Figtree Variable', 'Segoe UI', system-ui, sans-serif;
   --font-read: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;
   --font-mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
   /* krój treści kafelków — przełączany w Ustawieniach → Tekst */
@@ -46,13 +46,13 @@
   /* Skala rozmiarów: osiem stopni zamiast trzydziestu przypadkowych liczb.
      Nic poniżej 11px — mniejsze napisy tylko udają, że coś mówią. */
   --fs-1: 11px; /* wersaliki, metryczki */
-  --fs-2: 12px; /* drugi plan */
-  --fs-3: 13px; /* przyciski, listy pomocnicze */
-  --fs-4: 14px; /* podstawa interfejsu */
-  --fs-5: 15px; /* treść */
-  --fs-6: 17px; /* podrozdziały */
-  --fs-7: 20px; /* rozdziały, tytuły paneli */
-  --fs-8: 26px; /* tytuł strony */
+  --fs-2: 11.5px; /* drugi plan */
+  --fs-3: 12px; /* przyciski, listy pomocnicze */
+  --fs-4: 12.5px; /* podstawa interfejsu */
+  --fs-5: 13px; /* treść */
+  --fs-6: 14px; /* podrozdziały */
+  --fs-7: 18px; /* rozdziały, tytuły paneli */
+  --fs-8: 23px; /* tytuł strony */
 
   /* geometria drzewa: gniazdo znaczka folderu i wcięcie wiersza. Z tych
      dwóch liczb wypada położenie prowadnicy, więc trzymamy je w jednym
@@ -6329,7 +6329,7 @@ body.ciagne-szerokosc * {
   /* nasycenie z Ustawień barwi całą kartę; domyślnie to ledwie echo rodzaju */
   background: color-mix(
     in srgb,
-    var(--block-color) calc(var(--block-tint, 14) * 0.15%),
+    var(--block-color) calc(var(--block-tint, 14) * 0.08%),
     var(--panel)
   );
   box-shadow: inset 4px 0 0 var(--block-color), 0 0 0 1px var(--line), var(--cien-karta);
@@ -7282,4 +7282,341 @@ body.ciagne-szerokosc * {
 
 .sidebar-counts {
   order: 3;
+}
+
+/* --- gęstość ze zdjęcia: mniejsze litery i węższe kolumny na ekranie --- */
+.outline {
+  padding: 16px 12px 16px 20px;
+  border-right: none;
+  background: transparent;
+}
+
+.outline-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.outline-title {
+  flex: none;
+  font-size: var(--fs-1);
+}
+
+.outline-rodzaj {
+  margin: 0 0 0 auto;
+  padding: 0;
+  gap: 6px;
+  background: none;
+}
+
+.outline-rodzaj button {
+  padding: 0;
+  font-size: var(--fs-1);
+  color: var(--muted);
+  background: none;
+  box-shadow: none;
+}
+
+.outline-rodzaj button.wybrany {
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* zwijanie spisu wychodzi na wierzch dopiero po najechaniu */
+.outline-head .folder-action {
+  position: absolute;
+  right: -14px;
+  opacity: 0;
+}
+
+.outline:hover .outline-head .folder-action {
+  opacity: 1;
+}
+
+.outline-item {
+  padding: 3.5px 2px;
+  line-height: 1.35;
+}
+
+.outline-kafelek {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: var(--fs-2);
+}
+
+.kontekst {
+  width: 232px;
+  padding: 16px;
+  font-size: var(--fs-2);
+}
+
+.kontekst-etykieta {
+  margin: 22px 0 7px;
+  font-size: var(--fs-1);
+}
+
+.kontekst-etykieta:first-child {
+  margin-top: 0;
+}
+
+.kontekst-nazwa {
+  font-size: var(--fs-4);
+  font-weight: 600;
+}
+
+.kontekst-meta {
+  font-size: var(--fs-2);
+}
+
+.kontekst-lista .kontekst-link + .kontekst-dopisek {
+  display: inline;
+}
+
+/* górny pasek */
+.gorny-pasek {
+  gap: 10px;
+  padding: 5px 16px;
+}
+
+.gorny-pasek .app-title {
+  font-size: 17px;
+}
+
+.path-ukosnik {
+  font-size: var(--fs-4);
+  color: var(--muted);
+}
+
+.path-name {
+  flex: 0 1 auto;
+  field-sizing: content;
+  min-width: 80px;
+  max-width: 40%;
+  font-size: var(--fs-4);
+  font-weight: 600;
+}
+
+.path-odstep {
+  flex: 1;
+}
+
+.path-toolbar {
+  gap: 8px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.path-toolbar .btn {
+  padding: 5px 12px;
+  border-radius: 9px;
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+.path-toolbar .btn.path-maly {
+  padding: 3px 6px;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.path-toolbar .view-switch .btn {
+  padding: 4px 11px;
+}
+
+/* lista po lewej */
+.sidebar-filters {
+  padding: 13px 12px 8px;
+}
+
+.sidebar-chip {
+  padding: 2px 9px;
+  font-size: var(--fs-1);
+}
+
+.concept-item,
+.folder-row {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.concept-item.selected {
+  border-radius: var(--r-mala);
+  background: var(--panel);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+.folder-row {
+  font-weight: 700;
+}
+
+.sidebar-footer {
+  gap: 0 8px;
+  padding: 5px 10px;
+}
+
+/* karty */
+:root {
+  --r-karta: 12px;
+}
+
+.linear-main > .linear-column {
+  max-width: max(var(--page-width, 800px), 740px);
+  padding: 20px 28px 60px 0;
+}
+
+.linear-content .script-block-head {
+  padding: 13px 16px 4px;
+}
+
+.block-stopka {
+  margin: 0 16px;
+  padding: 8px 0 10px;
+}
+
+.block-narzedzia .rich-toolbar-zwarty {
+  gap: 2px;
+}
+
+.rich-toolbar-zwarty .rich-btn {
+  min-width: 0;
+  padding: 1px 5px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  font-size: var(--fs-1);
+  color: var(--muted);
+}
+
+.rich-toolbar-zwarty .rich-btn.btn-active {
+  color: var(--ink);
+}
+
+/* wzory KaTeX są z natury większe od tekstu */
+.linear-content .katex {
+  font-size: calc(1.08em * var(--math-scale, 1));
+}
+
+/* rozdział nie konkuruje z kartami: spis i tak pokazuje, gdzie jesteś */
+.linear-content .script-heading-node {
+  margin: 14px 0 4px 2px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+@media screen and (min-width: 761px) {
+  .app {
+    height: calc(100vh - 20px);
+    margin: 10px;
+    border-radius: 14px;
+  }
+}
+
+/* Skrypt to czytanie, nie praca: zostaje przy dawnych, większych literach */
+.script-embed {
+  --fs-2: 12px;
+  --fs-3: 13px;
+  --fs-4: 14px;
+  --fs-5: 15px;
+  --fs-6: 17px;
+  --fs-7: 20px;
+  --fs-8: 26px;
+}
+
+/* telefon: palec potrzebuje większych celów niż myszka */
+@media (max-width: 760px) {
+  :root {
+    --fs-2: 12px;
+    --fs-3: 13px;
+    --fs-4: 14px;
+    --fs-5: 15px;
+    --fs-6: 17px;
+    --fs-7: 20px;
+    --fs-8: 26px;
+    --wys-paska: 60px;
+  }
+
+  .concept-item,
+  .folder-row {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .path-name {
+    flex: 1;
+    max-width: none;
+  }
+
+  .sidebar-chip {
+    padding: 4px 11px;
+  }
+}
+
+/* ostatnie różnice względem zdjęcia */
+.outline {
+  padding-right: 14px;
+}
+
+.sidebar-filters .input {
+  height: 30px;
+  min-height: 0;
+  padding: 4px 44px 4px 26px;
+  font-size: var(--fs-2);
+}
+
+.sidebar-filters > .ico {
+  left: 21px;
+}
+
+.sidebar-filters kbd {
+  padding: 0 4px;
+  font-size: 10.5px;
+}
+
+.sidebar-create {
+  padding-bottom: 8px;
+  border-bottom: none;
+}
+
+.sidebar-create-btn {
+  min-height: 0;
+  height: 28px;
+  font-size: var(--fs-2);
+}
+
+.folder-children {
+  padding-left: 2px;
+  border-left-color: transparent;
+}
+
+.linear-content .script-block-body {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.linear-seg:focus-within .script-block {
+  box-shadow: inset 3px 0 0 var(--block-color), 0 0 0 1.5px var(--accent), var(--cien-karta);
+}
+
+/* telefon: nazwa ścieżki bierze cały wolny wiersz */
+@media (max-width: 760px) {
+  .path-odstep {
+    display: none;
+  }
+
+  .path-name {
+    flex: 1 1 calc(100% - 24px);
+    field-sizing: fixed;
+    min-width: 0;
+  }
 }
