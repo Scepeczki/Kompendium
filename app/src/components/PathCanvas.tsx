@@ -68,7 +68,16 @@ import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
-import { Outline, outlineId, pozycjeSpisu, stylRozdzialu, stylTekstu } from './Outline'
+import {
+  Outline,
+  koniecSekcji,
+  ladowanieSekcji,
+  najglebszyPoziom,
+  outlineId,
+  pozycjeSpisu,
+  stylRozdzialu,
+  stylTekstu,
+} from './Outline'
 import { KontekstKafelka } from './KontekstKafelka'
 import { ConceptPicker } from './ConceptPicker'
 import { Icon } from './Icon'
@@ -1306,6 +1315,22 @@ function LinearView({
 
   const conceptById = (id: string) => mapy.klocki.get(id)
 
+  const poziomyLinii = (lista: PathNode[]) =>
+    lista.map((n) => (n.kind === 'heading' ? n.level : null))
+
+  /** Zmiana poziomu rozdziału przesuwa o tyle samo jego podrozdziały. Bez tego
+   *  zepchnięcie rozdziału wyrzucałoby je spod niego. */
+  const poziomSekcji = (id: string, level: PoziomRozdzialu) => {
+    if (!onPoziomRozdzialu) return
+    const i = ordered.findIndex((n) => n.id === id)
+    const n = ordered[i]
+    if (n?.kind !== 'heading') return
+    const roznica = level - n.level
+    for (const x of ordered.slice(i, koniecSekcji(poziomyLinii(ordered), i))) {
+      if (x.kind === 'heading') onPoziomRozdzialu(x.id, (x.level + roznica) as PoziomRozdzialu)
+    }
+  }
+
   const isOurs = (e: React.DragEvent) =>
     e.dataTransfer.types.includes(MIME) || e.dataTransfer.types.includes(SEG_MIME)
 
@@ -1323,8 +1348,20 @@ function LinearView({
     const seg = e.dataTransfer.getData(SEG_MIME)
     if (seg) {
       // lista = przeciągnięto zaznaczenie wielu segmentów
-      if (seg.startsWith('[')) onMoveSegments(JSON.parse(seg) as string[], afterId, beforeId)
-      else onMoveSegment(seg, afterId, beforeId)
+      if (seg.startsWith('[')) {
+        const ids = JSON.parse(seg) as string[]
+        const poziomy = poziomyLinii(ordered)
+        const start = ordered.findIndex((n) => n.id === ids[0])
+        const toSekcja =
+          ordered[start]?.kind === 'heading' && koniecSekcji(poziomy, start) - start === ids.length
+        if (toSekcja) {
+          const szczelina = beforeId
+            ? ordered.findIndex((n) => n.id === beforeId)
+            : ordered.findIndex((n) => n.id === afterId) + 1
+          const g = ladowanieSekcji(poziomy, start, szczelina)
+          if (g !== null) onMoveSegments(ids, ordered[g - 1]?.id ?? null, ordered[g]?.id ?? null)
+        } else onMoveSegments(ids, afterId, beforeId)
+      } else onMoveSegment(seg, afterId, beforeId)
       setZazSeg(new Set())
       return
     }
@@ -1396,10 +1433,15 @@ function LinearView({
       },
       chwyt: (e, id) => {
         const { zazSeg: zaz, ordered: lista } = biezaceRef.current
+        const i = lista.findIndex((x) => x.id === id)
         const grupa =
           zaz.has(id) && zaz.size > 1
             ? lista.filter((x) => zaz.has(x.id)).map((x) => x.id)
-            : null
+            : lista[i]?.kind === 'heading'
+              ? lista
+                  .slice(i, koniecSekcji(lista.map((x) => (x.kind === 'heading' ? x.level : null)), i))
+                  .map((x) => x.id)
+              : null
         e.dataTransfer.setData(SEG_MIME, grupa ? JSON.stringify(grupa) : id)
         e.dataTransfer.effectAllowed = 'move'
       },
@@ -1724,8 +1766,9 @@ function LinearView({
       <Outline
         items={outline}
         onMove={onMoveSegment}
+        onMoveSekcja={onMoveSegments}
         biezacy={biezacy}
-        onPoziom={onPoziomRozdzialu}
+        onPoziom={onPoziomRozdzialu && poziomSekcji}
         onMenu={(e, nodeId) => {
           e.preventDefault()
           const index = ordered.findIndex((n) => n.id === nodeId)
@@ -2045,7 +2088,11 @@ function LinearView({
                         key={p}
                         className={sasiad.level === p ? 'wybrany' : ''}
                         title={nazwaPoziomu(p)}
-                        onClick={() => onPoziomRozdzialu(sasiad.id, p)}
+                        disabled={
+                          p + najglebszyPoziom(poziomyLinii(ordered), segMenu.index) - sasiad.level >
+                          POZIOM_MAX
+                        }
+                        onClick={() => poziomSekcji(sasiad.id, p)}
                       >
                         {p}
                       </button>

@@ -7997,3 +7997,13 @@ body.ciagne-szerokosc * {
     inset 0 0 0 1.5px var(--muted),
     0 0 0 1px var(--paper);
 }
+
+/* w spisie ogólnym strzałka jest tylko przy rozdziałach z podrozdziałami */
+.outline-ogolny button.outline-chev:not(.open) {
+  opacity: 1;
+}
+
+.menu-poziomy button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
