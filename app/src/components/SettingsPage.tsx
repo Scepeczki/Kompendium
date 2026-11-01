@@ -30,6 +30,8 @@ import {
   PARA_SPACING_OPTIONS,
   TREE_SIZE_MAX,
   ROZDZIAL_MAX,
+  TEKST_KAFELKA_MAX,
+  TEKST_KAFELKA_MIN,
   ROZDZIAL_MIN,
   TREE_SIZE_MIN,
   getBgPattern,
@@ -43,6 +45,7 @@ import {
   getPageWidthDefault,
   getParaSpacing,
   getRozmiarRozdzialu,
+  getTekstKafelka,
   getTreeSize,
   setBgPattern,
   setBlockTint,
@@ -55,6 +58,7 @@ import {
   setPageWidthDefault,
   setParaSpacing,
   setRozmiarRozdzialu,
+  setTekstKafelka,
   setTreeSize,
 } from '../uiSettings'
 import { TypeEditor } from './TypeEditor'
@@ -95,6 +99,7 @@ export function SettingsPage({ onClose }: Props) {
   const rozmiaryRozdzialow = () =>
     ([1, 2, 3] as const).map((poziom) => ({ poziom, px: getRozmiarRozdzialu(poziom) }))
   const [rozdzialy, setRozdzialy] = useState(rozmiaryRozdzialow)
+  const [tekstKafelka, setTekst] = useState(getTekstKafelka)
   const [tint, setTint] = useState(getBlockTint)
   const [line, setLine] = useState(getLineSpacing)
   const [para, setPara] = useState(getParaSpacing)
@@ -111,6 +116,7 @@ export function SettingsPage({ onClose }: Props) {
       setIndOff(getIndOffset())
       setTree(getTreeSize())
       setRozdzialy(rozmiaryRozdzialow())
+      setTekst(getTekstKafelka())
       setTint(getBlockTint())
       setLine(getLineSpacing())
       setPara(getParaSpacing())
@@ -384,10 +390,26 @@ export function SettingsPage({ onClose }: Props) {
                 />
               </div>
 
+              <div className="settings-row">
+                <span className="settings-label">
+                  Wielkość tekstu w kafelkach
+                  <span className="settings-value">{tekstKafelka}px</span>
+                </span>
+                <input
+                  className="settings-slider"
+                  type="range"
+                  min={TEKST_KAFELKA_MIN}
+                  max={TEKST_KAFELKA_MAX}
+                  step={1}
+                  value={tekstKafelka}
+                  onChange={(e) => setTekstKafelka(Number(e.target.value))}
+                />
+              </div>
+
               {rozdzialy.map(({ poziom, px }) => (
                 <div className="settings-row" key={poziom}>
                   <span className="settings-label">
-                    Wielkość nazwy: {['rozdział', 'podrozdział', 'sekcja'][poziom - 1]}
+                    Domyślna wielkość: {['rozdział', 'podrozdział', 'sekcja'][poziom - 1]}
                     <span className="settings-value">{px}px</span>
                   </span>
                   <input

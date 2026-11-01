@@ -7791,3 +7791,71 @@ body.ciagne-szerokosc * {
   font-weight: 700;
   color: var(--accent-ink);
 }
+
+/* wielkość tekstu z Ustawień; Skrypt i telefon czytają o stopień większym */
+:root {
+  --tekst-dodatek: 0px;
+}
+
+.script-embed {
+  --tekst-dodatek: 2px;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --tekst-dodatek: 2px;
+  }
+}
+
+.linear-content,
+.rich-content,
+.markdown-body,
+.script-embed {
+  --fs-5: calc(var(--tekst-kafelka, 13px) + var(--tekst-dodatek));
+}
+
+/* własna wielkość rozdziału ma pierwszeństwo przed domyślną poziomu */
+.linear-content .script-heading-node.level-1 {
+  font-size: var(--rozmiar, var(--rozdzial-1, 20px));
+}
+
+.linear-content .script-heading-node.level-2 {
+  font-size: var(--rozmiar, var(--rozdzial-2, 16px));
+}
+
+.linear-content .script-heading-node.level-3 {
+  font-size: var(--rozmiar, var(--rozdzial-3, 14px));
+}
+
+.script-body .script-heading-node.level-1 {
+  font-size: calc(var(--rozmiar, var(--rozdzial-1, 20px)) * 1.3);
+}
+
+.script-body .script-heading-node.level-2 {
+  font-size: calc(var(--rozmiar, var(--rozdzial-2, 16px)) * 1.06);
+}
+
+.script-body .script-heading-node.level-3 {
+  font-size: calc(var(--rozmiar, var(--rozdzial-3, 14px)) * 1.07);
+}
+
+.menu-wielkosc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 9px 6px;
+  font-size: var(--fs-2);
+  color: var(--ink-soft);
+}
+
+.menu-wielkosc input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.menu-wielkosc span {
+  flex: none;
+  min-width: 36px;
+  text-align: right;
+}

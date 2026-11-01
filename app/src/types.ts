@@ -400,6 +400,8 @@ export interface PathNodeHeading {
   text: string
   /** 1 = rozdział, 2 = podrozdział, 3 = sekcja. */
   level: 1 | 2 | 3
+  /** Własna wielkość nazwy w px. Bez tego obowiązuje domyślna poziomu. */
+  rozmiar?: number
   x: number
   y: number
 }

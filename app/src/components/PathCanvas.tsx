@@ -39,6 +39,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import { RichEditor, RichToolbar } from './RichEditor'
+import { ROZDZIAL_MAX, ROZDZIAL_MIN, getRozmiarRozdzialu } from '../uiSettings'
 import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -59,7 +60,7 @@ import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
-import { Outline, outlineId, pozycjeSpisu } from './Outline'
+import { Outline, outlineId, pozycjeSpisu, stylRozdzialu } from './Outline'
 import { KontekstKafelka } from './KontekstKafelka'
 import { ConceptPicker } from './ConceptPicker'
 import { Icon } from './Icon'
@@ -143,7 +144,7 @@ const toRfNode = (n: PathNode): Node => ({
         : n.kind === 'comment'
           ? { text: n.text, side: n.side }
           : n.kind === 'heading'
-            ? { text: n.text, level: n.level }
+            ? { text: n.text, level: n.level, rozmiar: n.rozmiar }
             : {
                 name: n.name,
                 // materiały: z czego złożono — zostają, żeby dało się wrócić
@@ -187,6 +188,7 @@ const fromRfNode = (n: Node): PathNode => {
       kind: 'heading',
       text: (n.data.text as string) ?? '',
       level: ((n.data.level as 1 | 2 | 3) ?? 1),
+      ...(n.data.rozmiar ? { rozmiar: n.data.rozmiar as number } : {}),
     }
   }
   return {
@@ -527,6 +529,7 @@ interface LinearViewProps {
   onEditNote?: (nodeId: string, md: string) => void
   onEditHeading?: (nodeId: string, text: string) => void
   onPoziomRozdzialu?: (nodeId: string, level: 1 | 2 | 3) => void
+  onRozmiarRozdzialu?: (nodeId: string, rozmiar: number | undefined) => void
   onRenameFusion?: (nodeId: string, name: string) => void
   /** Zapis treści złożonego kafelka; brak numeru strony = strona główna. */
   onEditFusion?: (nodeId: string, md: string, stronaId: string | null) => void
@@ -901,6 +904,7 @@ function LinearView({
   onEditNote,
   onEditHeading,
   onPoziomRozdzialu,
+  onRozmiarRozdzialu,
   onRenameFusion,
   onEditFusion,
 }: LinearViewProps) {
@@ -1194,6 +1198,8 @@ function LinearView({
     const zamknij = (e: Event) => {
       const cel = e.target
       if (cel instanceof Element && cel.closest('.tree-menu')) return
+      // suwak wielkości zmienia wysokość treści, a to bywa przewinięciem
+      if (e.type === 'scroll' && document.activeElement?.closest('.tree-menu')) return
       setSegMenu(null)
     }
     const klawisz = (e: KeyboardEvent) => e.key === 'Escape' && setSegMenu(null)
@@ -1530,7 +1536,11 @@ function LinearView({
     if (n.kind === 'heading') {
       const H = (`h${n.level + 1}` as unknown) as 'h2'
       return (
-        <H id={outlineId(n.id)} className={`script-heading-node level-${n.level}`}>
+        <H
+          id={outlineId(n.id)}
+          className={`script-heading-node level-${n.level}`}
+          style={stylRozdzialu(n.rozmiar)}
+        >
           {onEditHeading ? (
             <input
               className="inline-title"
@@ -1691,6 +1701,11 @@ function LinearView({
         onMove={onMoveSegment}
         biezacy={biezacy}
         onPoziom={onPoziomRozdzialu}
+        onMenu={(e, nodeId) => {
+          e.preventDefault()
+          const index = ordered.findIndex((n) => n.id === nodeId)
+          if (index >= 0) setSegMenu({ x: e.clientX, y: e.clientY, index, pos: 'after' })
+        }}
       />
       {/* Pasek i kolumna razem w jednej kolumnie układu — inaczej pasek
           wchodziłby jako trzecia kolumna obok spisu treści i spychał tekst. */}
@@ -1996,6 +2011,41 @@ function LinearView({
                 if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
               }}
             >
+              {sasiad?.kind === 'heading' && onPoziomRozdzialu && onRozmiarRozdzialu && (
+                <>
+                  <div className="tree-menu-where">Poziom</div>
+                  {(['Rozdział', 'Podrozdział', 'Sekcja'] as const).map((nazwa, k) => (
+                    <button
+                      key={nazwa}
+                      className={`tree-menu-item ${sasiad.level === k + 1 ? 'wybrany' : ''}`}
+                      onClick={() => onPoziomRozdzialu(sasiad.id, (k + 1) as 1 | 2 | 3)}
+                    >
+                      {sasiad.level === k + 1 ? '✓' : ''} {nazwa}
+                    </button>
+                  ))}
+                  <div className="tree-menu-where">Wielkość tego rozdziału</div>
+                  <label className="menu-wielkosc">
+                    <input
+                      type="range"
+                      min={ROZDZIAL_MIN}
+                      max={ROZDZIAL_MAX}
+                      step={1}
+                      value={sasiad.rozmiar ?? getRozmiarRozdzialu(sasiad.level)}
+                      onChange={(e) => onRozmiarRozdzialu(sasiad.id, Number(e.target.value))}
+                    />
+                    <span>{sasiad.rozmiar ?? getRozmiarRozdzialu(sasiad.level)} px</span>
+                  </label>
+                  {sasiad.rozmiar !== undefined && (
+                    <button
+                      className="tree-menu-item"
+                      onClick={() => onRozmiarRozdzialu(sasiad.id, undefined)}
+                    >
+                      Wróć do wielkości domyślnej
+                    </button>
+                  )}
+                  <div className="tree-menu-sep" />
+                </>
+              )}
               {/* Scalanie z zaznaczenia. Kafelki nie muszą ze sobą sąsiadować:
                   definicja notacji zaznaczona razem z definicją, która jej
                   używa, wejdzie do jednego bloku, choćby leżały daleko od
@@ -3783,6 +3833,7 @@ function CanvasInner({
           onEditNote={(id, md) => api.updateData(id, { text: md })}
           onEditHeading={(id, text) => api.updateData(id, { text })}
           onPoziomRozdzialu={(id, level) => api.updateData(id, { level })}
+          onRozmiarRozdzialu={(id, rozmiar) => api.updateData(id, { rozmiar })}
           onRenameFusion={(id, name) => api.updateData(id, { name })}
           onEditFusion={(id, md, stronaId) => zapiszTrescBloku(id, md, stronaId)}
           onUnfuse={(id) => api.unfuse(id)}

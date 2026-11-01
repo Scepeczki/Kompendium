@@ -275,6 +275,26 @@ export function setRozmiarRozdzialu(poziom: PoziomRozdzialu, v: number): void {
   notify()
 }
 
+/** Wielkość tekstu w kafelkach. Skrypt i telefon dokładają do niej swoje 2 px. */
+export const TEKST_KAFELKA_DEFAULT = 13
+export const TEKST_KAFELKA_MIN = 11
+export const TEKST_KAFELKA_MAX = 20
+
+export function getTekstKafelka(): number {
+  return readNum(
+    'ui.tekstKafelka',
+    (v) => v >= TEKST_KAFELKA_MIN && v <= TEKST_KAFELKA_MAX,
+    TEKST_KAFELKA_DEFAULT,
+  )
+}
+
+export function setTekstKafelka(v: number): void {
+  const val = clamp(Math.round(v), TEKST_KAFELKA_MIN, TEKST_KAFELKA_MAX)
+  document.documentElement.style.setProperty('--tekst-kafelka', `${val}px`)
+  localStorage.setItem('ui.tekstKafelka', String(val))
+  notify()
+}
+
 export function getBlockTint(): number {
   return readNum(
     'ui.blockTint',
@@ -307,6 +327,7 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--list-indent', `${getListIndent()}em`)
   document.documentElement.style.setProperty('--block-tint', String(getBlockTint()))
   document.documentElement.style.setProperty('--tree-size', `${getTreeSize()}px`)
+  document.documentElement.style.setProperty('--tekst-kafelka', `${getTekstKafelka()}px`)
   for (const p of [1, 2, 3] as const) {
     document.documentElement.style.setProperty(`--rozdzial-${p}`, `${getRozmiarRozdzialu(p)}px`)
   }

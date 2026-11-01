@@ -66,6 +66,10 @@ export function pozycjeSpisu(
  *  ciągniętymi z listy po lewej. */
 const MIME = 'text/x-komp-spis'
 
+/** Własna wielkość rozdziału — CSS przelicza ją tak samo jak domyślną. */
+export const stylRozdzialu = (rozmiar?: number) =>
+  rozmiar ? ({ '--rozmiar': `${rozmiar}px` } as React.CSSProperties) : undefined
+
 /** Identyfikator elementu nagłówka — wspólny dla spisu i samego dokumentu. */
 export const outlineId = (nodeId: string) => `outline-${nodeId}`
 
@@ -93,6 +97,8 @@ interface Props {
   biezacy?: string | null
   /** Zmiana ważności rozdziału. Bez tego strzałek nie ma (tak działa Skrypt). */
   onPoziom?: (nodeId: string, level: 1 | 2 | 3) => void
+  /** Prawy przycisk na rozdziale: dokładny poziom i własna wielkość. */
+  onMenu?: (e: React.MouseEvent, nodeId: string) => void
 }
 
 const SZEROKOSC = 'ui.outlineWidth'
@@ -103,7 +109,7 @@ const MAX_SZER = 560
 /** Spis treści ścieżki (jak konspekt w Google Docs): lista rozdziałów po
  *  lewej, klik przewija do miejsca, bieżący rozdział jest podświetlony.
  *  Panel można schować — wybór jest zapamiętywany. */
-export function Outline({ items, onMove, biezacy, onPoziom }: Props) {
+export function Outline({ items, onMove, biezacy, onPoziom, onMenu }: Props) {
   /** Dwa spisy w jednym miejscu. Ogólny to same rozdziały i podrozdziały,
    *  szczegółowy dokłada skrótowo każdy kafelek z jego rodzajem. */
   const [rodzaj, setRodzaj] = useState<'ogolny' | 'szczegolowy'>(() =>
@@ -455,6 +461,7 @@ export function Outline({ items, onMove, biezacy, onPoziom }: Props) {
                   title={it.text}
                   {...cel(it, i)}
                   onClick={() => goTo(it.domId)}
+                  onContextMenu={onMenu && ((e) => onMenu(e, it.nodeId))}
                 >
                   {it.text || '(bez nazwy)'}
                 </button>

@@ -5,7 +5,7 @@ import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
-import { Outline, outlineId, pozycjeSpisu } from './Outline'
+import { Outline, outlineId, pozycjeSpisu, stylRozdzialu } from './Outline'
 import { useBlockTypes } from '../blockTypes'
 import { kluczWlasnej, type PathNodeBlock, type SourceRef } from '../types'
 
@@ -103,6 +103,7 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
               <H
                 key={n.id}
                 id={outlineId(n.id)}
+                style={stylRozdzialu(n.rozmiar)}
                 data-rozdzial={n.level === 1 ? rozdzial : undefined}
                 className={`script-heading-node level-${n.level}`}
               >
