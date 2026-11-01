@@ -39,7 +39,15 @@ import { markdown } from '@codemirror/lang-markdown'
 import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import { RichEditor, RichToolbar } from './RichEditor'
-import { ROZDZIAL_MAX, ROZDZIAL_MIN, ROZDZIAL_ROZMIARY } from '../uiSettings'
+import { PoleLiczby } from './PoleLiczby'
+import {
+  ROZDZIAL_MAX,
+  ROZDZIAL_MIN,
+  ROZDZIAL_ROZMIARY,
+  TEKST_WLASNY_MAX,
+  TEKST_WLASNY_MIN,
+  getTekstKafelka,
+} from '../uiSettings'
 import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -60,7 +68,7 @@ import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
-import { Outline, outlineId, pozycjeSpisu, stylRozdzialu } from './Outline'
+import { Outline, outlineId, pozycjeSpisu, stylRozdzialu, stylTekstu } from './Outline'
 import { KontekstKafelka } from './KontekstKafelka'
 import { ConceptPicker } from './ConceptPicker'
 import { Icon } from './Icon'
@@ -80,6 +88,10 @@ import {
   type StronaBloku,
   type Subpage,
   type WlasneTresci,
+  POZIOMY,
+  POZIOM_MAX,
+  nazwaPoziomu,
+  type PoziomRozdzialu,
 } from '../types'
 import { useBlockTypes } from '../blockTypes'
 import { useDialogs } from './Dialogs'
@@ -138,11 +150,12 @@ const toRfNode = (n: PathNode): Node => ({
           // to, co ścieżka ma własnego: nazwa kafelka i napisany tutaj tekst
           nazwa: n.nazwa,
           wlasneTresci: n.wlasneTresci,
+          rozmiarTekstu: n.rozmiarTekstu,
         }
       : n.kind === 'text'
-        ? { text: n.text }
+        ? { text: n.text, rozmiarTekstu: n.rozmiarTekstu }
         : n.kind === 'comment'
-          ? { text: n.text, side: n.side }
+          ? { text: n.text, side: n.side, rozmiarTekstu: n.rozmiarTekstu }
           : n.kind === 'heading'
             ? { text: n.text, level: n.level, rozmiar: n.rozmiar }
             : {
@@ -155,11 +168,17 @@ const toRfNode = (n: PathNode): Node => ({
                 zrodla: n.zrodla,
                 // pole ze starego modelu: nie używamy go, ale i nie kasujemy
                 paskiStron: n.paskiStron,
+                rozmiarTekstu: n.rozmiarTekstu,
               },
 })
 
 const fromRfNode = (n: Node): PathNode => {
-  const base = { id: n.id, x: n.position.x, y: n.position.y }
+  const base = {
+    id: n.id,
+    x: n.position.x,
+    y: n.position.y,
+    ...(n.data.rozmiarTekstu ? { rozmiarTekstu: n.data.rozmiarTekstu as number } : {}),
+  }
   if (n.type === 'block') {
     return {
       ...base,
@@ -187,7 +206,7 @@ const fromRfNode = (n: Node): PathNode => {
       ...base,
       kind: 'heading',
       text: (n.data.text as string) ?? '',
-      level: ((n.data.level as 1 | 2 | 3) ?? 1),
+      level: (n.data.level as PoziomRozdzialu) ?? 1,
       ...(n.data.rozmiar ? { rozmiar: n.data.rozmiar as number } : {}),
     }
   }
@@ -528,8 +547,9 @@ interface LinearViewProps {
   ) => void
   onEditNote?: (nodeId: string, md: string) => void
   onEditHeading?: (nodeId: string, text: string) => void
-  onPoziomRozdzialu?: (nodeId: string, level: 1 | 2 | 3) => void
+  onPoziomRozdzialu?: (nodeId: string, level: PoziomRozdzialu) => void
   onRozmiarRozdzialu?: (nodeId: string, rozmiar: number | undefined) => void
+  onRozmiarTekstu?: (nodeId: string, rozmiar: number | undefined) => void
   onRenameFusion?: (nodeId: string, name: string) => void
   /** Zapis treści złożonego kafelka; brak numeru strony = strona główna. */
   onEditFusion?: (nodeId: string, md: string, stronaId: string | null) => void
@@ -663,7 +683,11 @@ const RamkaSegmentu = memo(
         data-seg={n.id}
         data-idx={i}
         data-pelny={pelny ? '1' : '0'}
-        style={pelny ? undefined : { height: wysokosc, boxSizing: 'border-box' }}
+        style={
+          pelny
+            ? stylTekstu(n.kind === 'heading' ? undefined : n.rozmiarTekstu)
+            : { height: wysokosc, boxSizing: 'border-box' }
+        }
         className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
           zaznaczony ? 'zaznaczony' : ''
         } ${kreska === 'before' ? 'drop-before' : kreska === 'after' ? 'drop-after' : ''}`}
@@ -905,6 +929,7 @@ function LinearView({
   onEditHeading,
   onPoziomRozdzialu,
   onRozmiarRozdzialu,
+  onRozmiarTekstu,
   onRenameFusion,
   onEditFusion,
 }: LinearViewProps) {
@@ -1534,7 +1559,7 @@ function LinearView({
       )
     }
     if (n.kind === 'heading') {
-      const H = (`h${n.level + 1}` as unknown) as 'h2'
+      const H = (`h${Math.min(n.level + 1, 6)}` as unknown) as 'h2'
       return (
         <H
           id={outlineId(n.id)}
@@ -2013,27 +2038,29 @@ function LinearView({
             >
               {sasiad?.kind === 'heading' && onPoziomRozdzialu && onRozmiarRozdzialu && (
                 <>
-                  <div className="tree-menu-where">Poziom</div>
-                  {(['Rozdział', 'Podrozdział', 'Sekcja'] as const).map((nazwa, k) => (
-                    <button
-                      key={nazwa}
-                      className={`tree-menu-item ${sasiad.level === k + 1 ? 'wybrany' : ''}`}
-                      onClick={() => onPoziomRozdzialu(sasiad.id, (k + 1) as 1 | 2 | 3)}
-                    >
-                      {sasiad.level === k + 1 ? '✓' : ''} {nazwa}
-                    </button>
-                  ))}
+                  <div className="tree-menu-where">Poziom: {nazwaPoziomu(sasiad.level)}</div>
+                  <div className="menu-poziomy">
+                    {POZIOMY.map((p) => (
+                      <button
+                        key={p}
+                        className={sasiad.level === p ? 'wybrany' : ''}
+                        title={nazwaPoziomu(p)}
+                        onClick={() => onPoziomRozdzialu(sasiad.id, p)}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
                   <div className="tree-menu-where">Wielkość tego rozdziału</div>
                   <label className="menu-wielkosc">
-                    <input
-                      type="range"
+                    <PoleLiczby
+                      wartosc={sasiad.rozmiar ?? ROZDZIAL_ROZMIARY[sasiad.level]}
                       min={ROZDZIAL_MIN}
                       max={ROZDZIAL_MAX}
-                      step={1}
-                      value={sasiad.rozmiar ?? ROZDZIAL_ROZMIARY[sasiad.level]}
-                      onChange={(e) => onRozmiarRozdzialu(sasiad.id, Number(e.target.value))}
+                      tytul={`Wielkość rozdziału, od ${ROZDZIAL_MIN} do ${ROZDZIAL_MAX} px`}
+                      onZmien={(v) => onRozmiarRozdzialu(sasiad.id, v)}
                     />
-                    <span>{sasiad.rozmiar ?? ROZDZIAL_ROZMIARY[sasiad.level]} px</span>
+                    <span>px</span>
                   </label>
                   {sasiad.rozmiar !== undefined && (
                     <button
@@ -2116,6 +2143,30 @@ function LinearView({
               {wybory.length > 0 && (
                 <>
                   {wybory}
+                  <div className="tree-menu-sep" />
+                </>
+              )}
+              {sasiad && sasiad.kind !== 'heading' && onRozmiarTekstu && (
+                <>
+                  <div className="tree-menu-where">Wielkość tekstu tego kafelka</div>
+                  <label className="menu-wielkosc">
+                    <PoleLiczby
+                      wartosc={sasiad.rozmiarTekstu ?? getTekstKafelka()}
+                      min={TEKST_WLASNY_MIN}
+                      max={TEKST_WLASNY_MAX}
+                      tytul={`Wielkość tekstu, od ${TEKST_WLASNY_MIN} do ${TEKST_WLASNY_MAX} px`}
+                      onZmien={(v) => onRozmiarTekstu(sasiad.id, v)}
+                    />
+                    <span>px</span>
+                  </label>
+                  {sasiad.rozmiarTekstu !== undefined && (
+                    <button
+                      className="tree-menu-item"
+                      onClick={() => onRozmiarTekstu(sasiad.id, undefined)}
+                    >
+                      Wróć do wielkości z Ustawień
+                    </button>
+                  )}
                   <div className="tree-menu-sep" />
                 </>
               )}
@@ -2309,15 +2360,15 @@ function FusionNode({ id, data, selected }: NodeProps) {
 /** Rozdział / podrozdział — nagłówek porządkujący ścieżkę. */
 function HeadingNode({ id, data, selected }: NodeProps) {
   const ctx = useContext(CanvasCtx)
-  const level = (data.level as 1 | 2 | 3) ?? 1
+  const level = (data.level as PoziomRozdzialu) ?? 1
   const text = (data.text as string) ?? ''
   return (
     <div
       className={`path-node path-node-heading level-${level} ${selected ? 'selected' : ''}`}
     >
       <Handle type="target" position={Position.Top} />
-      <span className="heading-level nodrag" title="Poziom: rozdział → podrozdział → sekcja">
-        <button onClick={() => ctx.updateData(id, { level: level === 3 ? 1 : level + 1 })}>
+      <span className="heading-level nodrag" title="Poziom: kolejne kliknięcia schodzą głębiej, po ostatnim wraca rozdział">
+        <button onClick={() => ctx.updateData(id, { level: level === POZIOM_MAX ? 1 : level + 1 })}>
           {'§'.repeat(level)}
         </button>
       </span>
@@ -3841,6 +3892,7 @@ function CanvasInner({
           onEditHeading={(id, text) => api.updateData(id, { text })}
           onPoziomRozdzialu={(id, level) => api.updateData(id, { level })}
           onRozmiarRozdzialu={(id, rozmiar) => api.updateData(id, { rozmiar })}
+          onRozmiarTekstu={(id, rozmiarTekstu) => api.updateData(id, { rozmiarTekstu })}
           onRenameFusion={(id, name) => api.updateData(id, { name })}
           onEditFusion={(id, md, stronaId) => zapiszTrescBloku(id, md, stronaId)}
           onUnfuse={(id) => api.unfuse(id)}

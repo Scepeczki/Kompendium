@@ -3527,7 +3527,10 @@ button.version-pill.new {
   font-size: var(--fs-2);
 }
 
-.outline-item.level-3 {
+.outline-item.level-3,
+.outline-item.level-4,
+.outline-item.level-5,
+.outline-item.level-6 {
   padding-left: 32px;
   font-size: var(--fs-2);
   font-style: italic;
@@ -3622,7 +3625,10 @@ body.ciagne-szerokosc * {
   color: var(--ink-soft);
 }
 
-.script-heading-node.level-3 {
+.script-heading-node.level-3,
+.script-heading-node.level-4,
+.script-heading-node.level-5,
+.script-heading-node.level-6 {
   font-size: var(--fs-5);
   color: var(--ink-soft);
   font-style: italic;
@@ -3655,7 +3661,10 @@ body.ciagne-szerokosc * {
   border-left-color: var(--muted);
 }
 
-.path-node-heading.level-3 {
+.path-node-heading.level-3,
+.path-node-heading.level-4,
+.path-node-heading.level-5,
+.path-node-heading.level-6 {
   font-size: var(--fs-3);
   font-style: italic;
   border-left-color: var(--line-strong);
@@ -6709,7 +6718,10 @@ body.ciagne-szerokosc * {
 }
 
 .script-body .script-heading-node.level-2,
-.script-body .script-heading-node.level-3 {
+.script-body .script-heading-node.level-3,
+.script-body .script-heading-node.level-4,
+.script-body .script-heading-node.level-5,
+.script-body .script-heading-node.level-6 {
   margin-left: var(--ks-numer);
 }
 
@@ -7641,7 +7653,10 @@ body.ciagne-szerokosc * {
   color: var(--ink-soft);
 }
 
-.linear-content .script-heading-node.level-3 {
+.linear-content .script-heading-node.level-3,
+.linear-content .script-heading-node.level-4,
+.linear-content .script-heading-node.level-5,
+.linear-content .script-heading-node.level-6 {
   margin-top: 12px;
   font-size: var(--rozdzial-3, 14px);
   font-style: italic;
@@ -7699,7 +7714,10 @@ body.ciagne-szerokosc * {
   color: var(--ink);
 }
 
-.outline-item.level-3 {
+.outline-item.level-3,
+.outline-item.level-4,
+.outline-item.level-5,
+.outline-item.level-6 {
   color: var(--muted);
 }
 
@@ -7823,7 +7841,10 @@ body.ciagne-szerokosc * {
   font-size: var(--rozmiar, var(--rozdzial-2, 16px));
 }
 
-.linear-content .script-heading-node.level-3 {
+.linear-content .script-heading-node.level-3,
+.linear-content .script-heading-node.level-4,
+.linear-content .script-heading-node.level-5,
+.linear-content .script-heading-node.level-6 {
   font-size: var(--rozmiar, var(--rozdzial-3, 14px));
 }
 
@@ -7849,15 +7870,78 @@ body.ciagne-szerokosc * {
 }
 
 .menu-wielkosc input {
-  flex: 1;
-  min-width: 0;
-  accent-color: var(--accent);
+  width: 62px;
+  padding: 3px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
 }
 
-.menu-wielkosc span {
-  flex: none;
-  min-width: 36px;
-  text-align: right;
+/* poziomy głębsze niż sekcja */
+.linear-content .script-heading-node.level-4 {
+  font-size: var(--rozmiar, 13px);
+}
+
+.linear-content .script-heading-node.level-5,
+.linear-content .script-heading-node.level-6 {
+  font-size: var(--rozmiar, 12px);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.script-body .script-heading-node.level-4 {
+  font-size: calc(var(--rozmiar, 13px) * 1.07);
+}
+
+.script-body .script-heading-node.level-5,
+.script-body .script-heading-node.level-6 {
+  font-size: calc(var(--rozmiar, 12px) * 1.07);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.outline-item.level-4 {
+  padding-left: 44px;
+}
+
+.outline-item.level-5 {
+  padding-left: 56px;
+}
+
+.outline-item.level-6 {
+  padding-left: 68px;
+}
+
+/* poziom wybiera się jednym kliknięciem, a lista nie rośnie */
+.menu-poziomy {
+  display: flex;
+  gap: 3px;
+  padding: 3px 9px 6px;
+}
+
+.menu-poziomy button {
+  flex: 1;
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--fs-3);
+  cursor: pointer;
+}
+
+.menu-poziomy button:hover {
+  background: var(--panel);
+}
+
+.menu-poziomy button.wybrany {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
 }
 
 /* karta została na starej wersji programu */

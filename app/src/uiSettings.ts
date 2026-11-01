@@ -254,14 +254,17 @@ export function setTreeSize(v: number): void {
 }
 
 /** Wielkość nazwy rozdziału w Linii, gdy nie ma własnej. Ta sama co w CSS. */
-export const ROZDZIAL_ROZMIARY = { 1: 20, 2: 16, 3: 14 } as const
-export const ROZDZIAL_MIN = 12
-export const ROZDZIAL_MAX = 36
+export const ROZDZIAL_ROZMIARY = { 1: 20, 2: 16, 3: 14, 4: 13, 5: 12, 6: 12 } as const
+export const ROZDZIAL_MIN = 10
+export const ROZDZIAL_MAX = 60
 
 /** Wielkość tekstu w kafelkach. Skrypt i telefon dokładają do niej swoje 2 px. */
 export const TEKST_KAFELKA_DEFAULT = 13
 export const TEKST_KAFELKA_MIN = 11
 export const TEKST_KAFELKA_MAX = 20
+/** Zakres własnej wielkości jednego kafelka, wpisywanej pod prawym przyciskiem. */
+export const TEKST_WLASNY_MIN = 10
+export const TEKST_WLASNY_MAX = 40
 
 export function getTekstKafelka(): number {
   return readNum(

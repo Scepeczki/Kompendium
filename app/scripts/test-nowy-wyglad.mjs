@@ -226,15 +226,34 @@ check('menu rozdziału niczego nie wstawia',
   (await page.locator('.linear-menu .tree-menu-where:has-text("Wstaw")').count()) === 0 &&
     (await page.locator('.linear-menu .tree-menu-item:has-text("Notatka")').count()) === 0 &&
     (await page.locator('.linear-menu .type-mini').count()) === 0)
-check('menu proponuje dokładnie trzy poziomy',
-  (await page.locator('.linear-menu .tree-menu-item:has-text("Sekcja")').count()) === 1 &&
-    (await page.locator('.linear-menu .tree-menu-item.wybrany').textContent()).includes('Rozdział'))
-await page.click('.linear-menu .tree-menu-item:has-text("Sekcja")')
+check('menu proponuje sześć poziomów jako numerki',
+  (await page.locator('.linear-menu .menu-poziomy button').count()) === 6 &&
+    (await page.locator('.linear-menu .menu-poziomy button.wybrany').textContent()) === '1')
+await page.click('.linear-menu .menu-poziomy button:has-text("6")')
 await page.waitForTimeout(500)
-check('wybrany poziom trafia do rozdziału od razu', (await rozdzial()).klasa.includes('level-3'))
+check('wybrany poziom trafia do rozdziału od razu', (await rozdzial()).klasa.includes('level-6'))
+check('menu nazywa wybrany poziom', await page.isVisible('.linear-menu .tree-menu-where:has-text("Poziom 6")'))
+check('najgłębszy poziom ma w spisie największe wcięcie i własną wielkość',
+  (await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.outline-item.level-6')).paddingLeft))) === 68 &&
+    (await rozdzial()).px === '12px')
+check('w spisie nie ma poziomu niżej od szóstego',
+  await page.locator('.outline-wiersz:has(.outline-item.level-6) .outline-poziom button').nth(1).isDisabled())
+await page.click('.linear-menu .menu-poziomy button:has-text("4")')
+await page.waitForTimeout(400)
+check('czwarty poziom ma nazwę', await page.isVisible('.linear-menu .tree-menu-where:has-text("Podsekcja")'))
 check('menu zostaje otwarte przy zmianie poziomu', await page.isVisible('.linear-menu .menu-wielkosc'))
-await page.click('.linear-menu .tree-menu-item:has-text("Rozdział") >> nth=0')
+await page.click('.linear-menu .menu-poziomy button:has-text("1")')
 await page.waitForTimeout(500)
+check('wielkość wpisuje się w polu, bez suwaka',
+  (await page.locator('.linear-menu .menu-wielkosc input[type="number"]').count()) === 1 &&
+    (await page.locator('.linear-menu input[type="range"]').count()) === 0)
+await page.click('.linear-menu .menu-wielkosc input')
+await page.keyboard.type('24')
+await page.waitForTimeout(400)
+check('wpisanie z klawiatury działa cyfra po cyfrze', (await wielkosci())[0] === '24px', (await wielkosci())[0])
+await page.fill('.linear-menu .menu-wielkosc input', '999')
+await page.waitForTimeout(300)
+check('liczba spoza zakresu nic nie psuje', (await wielkosci())[0] === '24px')
 await page.fill('.linear-menu .menu-wielkosc input', '33')
 await page.waitForTimeout(500)
 const osobno = await wielkosci()
@@ -368,6 +387,50 @@ check('na wydruku źródła nie zabierają marginesu',
   await page.evaluate(() => getComputedStyle(document.querySelector('.ks-blok .source-list') ?? document.body).display === 'none' ||
     !document.querySelector('.ks-blok .source-list')))
 await page.emulateMedia({ media: 'screen' })
+
+// --- prawy przycisk: tekst jednego kafelka ---
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-content .script-block')
+await page.waitForTimeout(500)
+const tekstyKafelkow = () => page.evaluate(() =>
+  [...document.querySelectorAll('.linear-content .script-block')].map((b) =>
+    getComputedStyle(b.querySelector('.markdown-body, .tiptap')).fontSize))
+const menuKafelka = async () => {
+  await page.locator('.linear-content .script-block').first().click({ button: 'right' })
+  await page.waitForSelector('.linear-menu .menu-wielkosc')
+}
+await menuKafelka()
+check('menu kafelka pokazuje wielkość z Ustawień',
+  (await page.inputValue('.linear-menu .menu-wielkosc input')) === '13')
+await page.fill('.linear-menu .menu-wielkosc input', '22')
+await page.waitForTimeout(500)
+await page.keyboard.press('Escape')
+const poKafelku = await tekstyKafelkow()
+check('wielkość zmienia tekst tylko tego kafelka',
+  poKafelku[0] === '22px' && poKafelku.length > 1 && poKafelku.slice(1).every((x) => x === '13px'), poKafelku.join(','))
+await page.click('.view-switch button:has-text("Skrypt")')
+await page.waitForSelector('.script-body .script-block')
+await page.waitForTimeout(400)
+const skryptKafelka = await page.evaluate(() =>
+  getComputedStyle(document.querySelector('.script-body .script-block .markdown-body')).fontSize)
+check('Skrypt też bierze wielkość kafelka', skryptKafelka === '24px', skryptKafelka)
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-content .script-block')
+await page.waitForTimeout(500)
+await page.reload()
+await page.waitForSelector('text=Kompendium')
+await page.waitForTimeout(700)
+await page.click('.concept-item:has-text("Glowna")')
+await page.waitForTimeout(500)
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-content .script-block')
+await page.waitForTimeout(700)
+check('wielkość kafelka zostaje po odświeżeniu', (await tekstyKafelkow())[0] === '22px')
+await menuKafelka()
+await page.click('.linear-menu .tree-menu-item:has-text("Wróć do wielkości z Ustawień")')
+await page.waitForTimeout(500)
+await page.keyboard.press('Escape')
+check('kafelek wraca do wielkości z Ustawień', (await tekstyKafelkow())[0] === '13px')
 
 // --- karta na starej wersji dowiaduje się o nowej ---
 check('bez nowej wersji nie ma napisu', (await page.locator('.nowa-wersja').count()) === 0)

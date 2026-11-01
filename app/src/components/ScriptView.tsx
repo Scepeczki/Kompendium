@@ -5,7 +5,7 @@ import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
-import { Outline, outlineId, pozycjeSpisu, stylRozdzialu } from './Outline'
+import { Outline, outlineId, pozycjeSpisu, stylRozdzialu, stylTekstu } from './Outline'
 import { useBlockTypes } from '../blockTypes'
 import { kluczWlasnej, type PathNodeBlock, type SourceRef } from '../types'
 
@@ -94,7 +94,7 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
         {ordered.map((n) => {
           if (n.kind === 'comment') return null // komentarze nie wchodzą do skryptu
           if (n.kind === 'heading') {
-            const H = (`h${n.level + 1}` as unknown) as 'h2'
+            const H = (`h${Math.min(n.level + 1, 6)}` as unknown) as 'h2'
             if (n.level === 1) {
               rozdzial++
               pozycja = 0
@@ -117,20 +117,21 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
                 key={n.id}
                 data-seg={n.id}
                 className="script-text markdown-body"
+                style={stylTekstu(n.rozmiarTekstu)}
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(n.text) }}
               />
             )
           }
           if (n.kind === 'block') {
             return (
-              <div key={n.id} data-seg={n.id}>
+              <div key={n.id} data-seg={n.id} style={stylTekstu(n.rozmiarTekstu)}>
                 {blockSection(n, kolejny())}
               </div>
             )
           }
           // złożony kafelek czyta się jak zwykły blok danego typu
           return (
-            <div key={n.id} data-seg={n.id}>
+            <div key={n.id} data-seg={n.id} style={stylTekstu(n.rozmiarTekstu)}>
               <GroupShell
                 name={n.name}
                 type={n.type}

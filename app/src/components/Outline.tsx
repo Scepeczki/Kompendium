@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { BlockTypes } from '../blockTypes'
 import { Icon } from './Icon'
-import type { Concept, PathNode } from '../types'
+import { POZIOM_MAX, type Concept, type PathNode, type PoziomRozdzialu } from '../types'
 
 export interface OutlineItem {
   /** id elementu nagłówka w dokumencie (do przewijania). */
@@ -10,7 +10,7 @@ export interface OutlineItem {
   nodeId: string
   text: string
   /** 1–3 = rozdział i podrozdziały; 'kafelek' = pozycja pod rozdziałem. */
-  level: 1 | 2 | 3 | 'kafelek'
+  level: PoziomRozdzialu | 'kafelek'
   /** Plakietka rodzaju przy kafelku (DEF, TW…). */
   znak?: string
   /** Kolor rodzaju — żeby definicje odróżniały się od twierdzeń wzrokiem. */
@@ -70,6 +70,10 @@ const MIME = 'text/x-komp-spis'
 export const stylRozdzialu = (rozmiar?: number) =>
   rozmiar ? ({ '--rozmiar': `${rozmiar}px` } as React.CSSProperties) : undefined
 
+/** Własna wielkość tekstu jednego kafelka: nadpisuje wartość z Ustawień tylko w nim. */
+export const stylTekstu = (rozmiar?: number) =>
+  rozmiar ? ({ '--tekst-kafelka': `${rozmiar}px` } as React.CSSProperties) : undefined
+
 /** Identyfikator elementu nagłówka — wspólny dla spisu i samego dokumentu. */
 export const outlineId = (nodeId: string) => `outline-${nodeId}`
 
@@ -96,7 +100,7 @@ interface Props {
   /** Kafelek, przy którym właśnie się pracuje — w spisie jest wyróżniony. */
   biezacy?: string | null
   /** Zmiana ważności rozdziału. Bez tego strzałek nie ma (tak działa Skrypt). */
-  onPoziom?: (nodeId: string, level: 1 | 2 | 3) => void
+  onPoziom?: (nodeId: string, level: PoziomRozdzialu) => void
   /** Prawy przycisk na rozdziale: dokładny poziom i własna wielkość. */
   onMenu?: (e: React.MouseEvent, nodeId: string) => void
 }
@@ -470,14 +474,14 @@ export function Outline({ items, onMove, biezacy, onPoziom, onMenu }: Props) {
                     <button
                       title="Ważniejszy: poziom wyżej"
                       disabled={level === 1}
-                      onClick={() => onPoziom(it.nodeId, (level - 1) as 1 | 2 | 3)}
+                      onClick={() => onPoziom(it.nodeId, (level - 1) as PoziomRozdzialu)}
                     >
                       <Icon name="poziomWyzej" size={0.95} />
                     </button>
                     <button
                       title="Mniej ważny: poziom niżej"
-                      disabled={level === 3}
-                      onClick={() => onPoziom(it.nodeId, (level + 1) as 1 | 2 | 3)}
+                      disabled={level === POZIOM_MAX}
+                      onClick={() => onPoziom(it.nodeId, (level + 1) as PoziomRozdzialu)}
                     >
                       <Icon name="poziomNizej" size={0.95} />
                     </button>

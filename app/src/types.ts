@@ -286,6 +286,8 @@ export interface PathNodeBlock {
   nazwa?: string
   /** Treść napisana w tej ścieżce — kafelek zostaje nietknięty. */
   wlasneTresci?: WlasneTresci
+  /** Własna wielkość tekstu w px. Bez tego obowiązuje ta z Ustawień. */
+  rozmiarTekstu?: number
   x: number
   y: number
 }
@@ -295,6 +297,8 @@ export interface PathNodeText {
   id: string
   kind: 'text'
   text: string
+  /** Własna wielkość tekstu w px. Bez tego obowiązuje ta z Ustawień. */
+  rozmiarTekstu?: number
   x: number
   y: number
 }
@@ -306,6 +310,8 @@ export interface PathNodeComment {
   text: string
   /** Strona w widoku liniowym (notatka boczna). Domyślnie prawa. */
   side?: 'left' | 'right'
+  /** Własna wielkość tekstu w px. Bez tego obowiązuje ta z Ustawień. */
+  rozmiarTekstu?: number
   x: number
   y: number
 }
@@ -389,17 +395,28 @@ export interface PathNodeFusion {
   zrodla?: SourceRef[]
   /** Tylko do odczytu starych danych — nowy model tego nie używa. */
   paskiStron?: PasekStron[]
+  /** Własna wielkość tekstu w px. Bez tego obowiązuje ta z Ustawień. */
+  rozmiarTekstu?: number
   x: number
   y: number
 }
+
+/** Poziomy rozdziałów. Sześć, bo tyle da się jeszcze odróżnić na oko i tyle
+ *  stopni nagłówka ma HTML, a menu dzięki temu zostaje jednym rzędem numerków. */
+export const POZIOMY = [1, 2, 3, 4, 5, 6] as const
+export type PoziomRozdzialu = (typeof POZIOMY)[number]
+export const POZIOM_MAX = POZIOMY[POZIOMY.length - 1]
+
+const NAZWY_POZIOMOW = ['Rozdział', 'Podrozdział', 'Sekcja', 'Podsekcja']
+export const nazwaPoziomu = (p: PoziomRozdzialu) => NAZWY_POZIOMOW[p - 1] ?? `Poziom ${p}`
 
 /** Rozdział / podrozdział — nagłówek dzielący ścieżkę na części. */
 export interface PathNodeHeading {
   id: string
   kind: 'heading'
   text: string
-  /** 1 = rozdział, 2 = podrozdział, 3 = sekcja. */
-  level: 1 | 2 | 3
+  /** 1 = rozdział, 2 = podrozdział, 3 = sekcja, 4 = podsekcja, 5–6 = głębiej. */
+  level: PoziomRozdzialu
   /** Własna wielkość nazwy w px. Bez tego obowiązuje domyślna poziomu. */
   rozmiar?: number
   x: number

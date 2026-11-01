@@ -81,11 +81,11 @@ uogólnieniem, a inna nie. `perspektywa` jest symetryczna (bez kierunku).
 LearningPath                      PathNode — pięć rodzajów (pole `kind`)
 ├─ id                             ├─ block    conceptId, versionId, subpageId?
 ├─ name                           ├─ fusion   name, type?, parts[], content?  ← GRUPA
-├─ icon?                          ├─ heading  text, level 1|2|3, rozmiar?
+├─ icon?                          ├─ heading  text, level 1–6, rozmiar?
 ├─ folderId | null
 ├─ order                          ├─ text     text                   ← notatka
 ├─ nodes    PathNode[]            └─ comment  text, side?            ← poza skryptem
-├─ edges    PathEdge[]                (wszystkie mają id, x, y)
+├─ edges    PathEdge[]                (wszystkie mają id, x, y; poza heading też rozmiarTekstu?)
 ├─ createdAt
 └─ updatedAt                      PathEdge: id, from, to, priority?
 ```
