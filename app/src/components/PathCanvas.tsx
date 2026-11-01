@@ -39,7 +39,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import { RichEditor, RichToolbar } from './RichEditor'
-import { ROZDZIAL_MAX, ROZDZIAL_MIN, getRozmiarRozdzialu } from '../uiSettings'
+import { ROZDZIAL_MAX, ROZDZIAL_MIN, ROZDZIAL_ROZMIARY } from '../uiSettings'
 import type { Editor } from '@tiptap/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -2030,10 +2030,10 @@ function LinearView({
                       min={ROZDZIAL_MIN}
                       max={ROZDZIAL_MAX}
                       step={1}
-                      value={sasiad.rozmiar ?? getRozmiarRozdzialu(sasiad.level)}
+                      value={sasiad.rozmiar ?? ROZDZIAL_ROZMIARY[sasiad.level]}
                       onChange={(e) => onRozmiarRozdzialu(sasiad.id, Number(e.target.value))}
                     />
-                    <span>{sasiad.rozmiar ?? getRozmiarRozdzialu(sasiad.level)} px</span>
+                    <span>{sasiad.rozmiar ?? ROZDZIAL_ROZMIARY[sasiad.level]} px</span>
                   </label>
                   {sasiad.rozmiar !== undefined && (
                     <button
@@ -2127,9 +2127,13 @@ function LinearView({
                   >
                     <Icon name="usun" size={1} /> Usuń ze ścieżki
                   </button>
-                  <div className="tree-menu-sep" />
+                  {sasiad.kind !== 'heading' && <div className="tree-menu-sep" />}
                 </>
               )}
+              {/* Menu rozdziału dotyczy samego rozdziału, a wstawianie tu tylko
+                  myliło się z wyborem poziomu. */}
+              {sasiad?.kind !== 'heading' && (
+                <>
               <div className="tree-menu-where">
                 Wstaw {segMenu.pos === 'before' ? 'przed' : 'po'} „{opis(sasiad)}"
               </div>
@@ -2171,6 +2175,8 @@ function LinearView({
               >
                 <Icon name="komentarz" size={1} /> Komentarz
               </button>
+                </>
+              )}
             </div>
           )
         })()}
@@ -3621,6 +3627,7 @@ function CanvasInner({
         <span className="path-ukosnik">/</span>
         <input
           className="input path-name"
+          size={Math.max(name.length, 12)}
           value={name}
           onChange={(e) => {
             setName(e.target.value)

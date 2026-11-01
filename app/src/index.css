@@ -7859,3 +7859,28 @@ body.ciagne-szerokosc * {
   min-width: 36px;
   text-align: right;
 }
+
+/* karta została na starej wersji programu */
+.nowa-wersja {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: var(--cien-karta);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media print {
+  .nowa-wersja {
+    display: none;
+  }
+}

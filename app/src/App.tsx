@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, updateVersion } from './db'
 import { isBlockSource, isPdfSource, type PdfSourceRef, type SourceRef } from './types'
+import { NowaWersja } from './components/NowaWersja'
 import { Sidebar } from './components/Sidebar'
 import { BlockEditor } from './components/BlockEditor'
 import { GraphView } from './components/GraphView'
@@ -261,6 +262,7 @@ function Widok() {
       className={`app ${szuflada ? 'szuflada-otwarta' : ''}`}
       style={{ gridTemplateColumns: cols.join(' ') }}
     >
+      <NowaWersja />
       <header className="gorny-pasek">
         <h1 className="app-title">Kompendium</h1>
         {/* Pasek otwartej ścieżki wchodzi tu przez portal, żeby jej nazwa stała

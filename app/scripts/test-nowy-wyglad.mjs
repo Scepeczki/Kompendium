@@ -204,11 +204,11 @@ await page.waitForTimeout(600)
 check('strzałka podnosi rozdział z powrotem', (await rozdzial()).klasa.includes('level-1'))
 await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
-await page.fill('.settings-row:has-text("Domyślna wielkość: rozdział") .settings-slider', '28')
+check('w Ustawieniach nie ma domyślnych wielkości rozdziałów',
+  (await page.locator('.settings-row:has-text("Domyślna wielkość")').count()) === 0)
 await page.click('.settings-page-head button:has-text("Wróć")')
 await page.waitForSelector('.linear-content .script-heading-node')
-await page.waitForTimeout(500)
-check('domyślna wielkość z Ustawień działa', (await rozdzial()).px === '28px')
+await page.waitForTimeout(400)
 
 // --- prawy przycisk: każdy rozdział osobno ---
 const wielkosci = () => page.evaluate(() =>
@@ -217,7 +217,15 @@ const menuRozdzialu = async () => {
   await page.locator('.outline-item.level-1').first().click({ button: 'right' })
   await page.waitForSelector('.linear-menu .menu-wielkosc')
 }
+await page.locator('.linear-content .script-heading-node .inline-title').first().click({ button: 'right' })
+await page.waitForSelector('.linear-menu .menu-wielkosc')
+check('prawy przycisk na rozdziale w treści daje to samo menu', true)
+await page.keyboard.press('Escape')
 await menuRozdzialu()
+check('menu rozdziału niczego nie wstawia',
+  (await page.locator('.linear-menu .tree-menu-where:has-text("Wstaw")').count()) === 0 &&
+    (await page.locator('.linear-menu .tree-menu-item:has-text("Notatka")').count()) === 0 &&
+    (await page.locator('.linear-menu .type-mini').count()) === 0)
 check('menu proponuje dokładnie trzy poziomy',
   (await page.locator('.linear-menu .tree-menu-item:has-text("Sekcja")').count()) === 1 &&
     (await page.locator('.linear-menu .tree-menu-item.wybrany').textContent()).includes('Rozdział'))
@@ -255,7 +263,7 @@ await menuRozdzialu()
 await page.click('.linear-menu .tree-menu-item:has-text("Wróć do wielkości domyślnej")')
 await page.waitForTimeout(500)
 await page.keyboard.press('Escape')
-check('rozdział wraca do domyślnej', (await wielkosci())[0] === '28px')
+check('rozdział wraca do domyślnej', (await wielkosci())[0] === '20px')
 await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.fill('.settings-row:has-text("Wielkość tekstu w kafelkach") .settings-slider', '17')
@@ -267,12 +275,9 @@ check('suwak zmienia tekst w kafelkach', tekst === '17px', tekst)
 await page.click('.sidebar-foot-btn[title="Ustawienia"]')
 await page.waitForSelector('.settings-page')
 await page.fill('.settings-row:has-text("Wielkość tekstu w kafelkach") .settings-slider', '13')
-await page.click('.sidebar-foot-btn[title="Ustawienia"]')
-await page.waitForSelector('.settings-page')
-await page.fill('.settings-row:has-text("Domyślna wielkość: rozdział") .settings-slider', '20')
 await page.click('.settings-page-head button:has-text("Wróć")')
 await page.waitForSelector('.linear-content .script-heading-node')
-await page.waitForTimeout(400)
+await page.waitForTimeout(300)
 await page.reload()
 await page.waitForSelector('text=Kompendium')
 await page.waitForTimeout(700)
@@ -363,6 +368,20 @@ check('na wydruku źródła nie zabierają marginesu',
   await page.evaluate(() => getComputedStyle(document.querySelector('.ks-blok .source-list') ?? document.body).display === 'none' ||
     !document.querySelector('.ks-blok .source-list')))
 await page.emulateMedia({ media: 'screen' })
+
+// --- karta na starej wersji dowiaduje się o nowej ---
+check('bez nowej wersji nie ma napisu', (await page.locator('.nowa-wersja').count()) === 0)
+// pracownik serwisowy omija page.route, więc podmieniamy samą odpowiedź
+await page.evaluate(() => {
+  const zwykly = window.fetch
+  window.fetch = (u, o) =>
+    String(u) === '/'
+      ? Promise.resolve(new Response('<script src="/assets/index-INNA.js"></script>'))
+      : zwykly(u, o)
+})
+await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+await page.waitForSelector('.nowa-wersja', { timeout: 3000 }).catch(() => {})
+check('po publikacji pojawia się napis o nowej wersji', await page.isVisible('.nowa-wersja'))
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

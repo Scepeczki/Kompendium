@@ -188,7 +188,7 @@ check('nazwę rozdziału zmienia się wprost w ścieżce',
   JSON.stringify(sciezki.flatMap((p) => p.nodes.filter((n) => n.kind === 'heading').map((n) => n.text))))
 
 // 4. notatka — klik i pisanie, bez okienka
-await menuNad(0)
+await menuNad(1)
 await page.click('.linear-menu .tree-menu-item:has-text("Notatka")')
 await page.waitForTimeout(700)
 await page.click('.linear-note .markdown-body')
@@ -298,7 +298,7 @@ await page.waitForTimeout(400)
 
 
 // 10. kliknięcie obok kolumny gasi zaznaczenie
-await page.locator('.linear-seg').first().click({ modifiers: ['Control'] })
+await page.locator('.linear-seg').nth(1).click({ modifiers: ['Control'] })
 await page.waitForTimeout(300)
 check('Ctrl+klik zaznacza', (await page.locator('.linear-seg.zaznaczony').count()) === 1)
 const widok = await page.locator('.linear-view').boundingBox()

@@ -29,10 +29,8 @@ import {
   PAGE_WIDTH_MIN,
   PARA_SPACING_OPTIONS,
   TREE_SIZE_MAX,
-  ROZDZIAL_MAX,
   TEKST_KAFELKA_MAX,
   TEKST_KAFELKA_MIN,
-  ROZDZIAL_MIN,
   TREE_SIZE_MIN,
   getBgPattern,
   getBlockTint,
@@ -44,7 +42,6 @@ import {
   getPageWidth,
   getPageWidthDefault,
   getParaSpacing,
-  getRozmiarRozdzialu,
   getTekstKafelka,
   getTreeSize,
   setBgPattern,
@@ -57,7 +54,6 @@ import {
   setPageWidth,
   setPageWidthDefault,
   setParaSpacing,
-  setRozmiarRozdzialu,
   setTekstKafelka,
   setTreeSize,
 } from '../uiSettings'
@@ -96,9 +92,6 @@ export function SettingsPage({ onClose }: Props) {
   const [widthDef, setWidthDef] = useState(getPageWidthDefault)
   const [indOff, setIndOff] = useState(getIndOffset)
   const [treeSize, setTree] = useState(getTreeSize)
-  const rozmiaryRozdzialow = () =>
-    ([1, 2, 3] as const).map((poziom) => ({ poziom, px: getRozmiarRozdzialu(poziom) }))
-  const [rozdzialy, setRozdzialy] = useState(rozmiaryRozdzialow)
   const [tekstKafelka, setTekst] = useState(getTekstKafelka)
   const [tint, setTint] = useState(getBlockTint)
   const [line, setLine] = useState(getLineSpacing)
@@ -115,7 +108,6 @@ export function SettingsPage({ onClose }: Props) {
       setWidthDef(getPageWidthDefault())
       setIndOff(getIndOffset())
       setTree(getTreeSize())
-      setRozdzialy(rozmiaryRozdzialow())
       setTekst(getTekstKafelka())
       setTint(getBlockTint())
       setLine(getLineSpacing())
@@ -405,24 +397,6 @@ export function SettingsPage({ onClose }: Props) {
                   onChange={(e) => setTekstKafelka(Number(e.target.value))}
                 />
               </div>
-
-              {rozdzialy.map(({ poziom, px }) => (
-                <div className="settings-row" key={poziom}>
-                  <span className="settings-label">
-                    Domyślna wielkość: {['rozdział', 'podrozdział', 'sekcja'][poziom - 1]}
-                    <span className="settings-value">{px}px</span>
-                  </span>
-                  <input
-                    className="settings-slider"
-                    type="range"
-                    min={ROZDZIAL_MIN}
-                    max={ROZDZIAL_MAX}
-                    step={1}
-                    value={px}
-                    onChange={(e) => setRozmiarRozdzialu(poziom, Number(e.target.value))}
-                  />
-                </div>
-              ))}
 
               <div className="settings-row">
                 <span className="settings-label">
