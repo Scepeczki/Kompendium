@@ -43,7 +43,7 @@ for (const n of ['Zbiór', 'Suma zbiorów']) {
   await page.dragAndDrop(`.concept-item:has-text("${n}")`, '.linear-append')
   await page.waitForTimeout(350)
 }
-await page.click('.linear-append .btn:has-text("§ Rozdział")')
+await page.click('.linear-append .btn:has-text("Rozdział")')
 await page.waitForSelector('.ask-input')
 await page.fill('.ask-input', 'Podstawy')
 await page.click('.ask-foot .btn:last-child')

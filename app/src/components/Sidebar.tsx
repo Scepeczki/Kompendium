@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { odmien } from '../odmiana'
 import {
   addConceptToPath,
   conceptsOwnedByPath,
@@ -106,18 +107,19 @@ export function Sidebar({
    *  i w filtrze muszą być. Zbiór, a nie jedna wartość, bo szukając czegoś
    *  chce się zwykle widzieć np. definicje RAZEM z twierdzeniami. */
   const [wybraneTypy, setWybraneTypy] = useState<Set<string>>(new Set())
-  /** Szukanie i filtr chowają się pod ikonami — rozwijane na żądanie. */
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(false)
-  // klik poza listą typów ją zamyka
+  /** Ctrl+K przenosi do szukania z każdego miejsca programu. */
+  const szukajRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
-    if (!filterOpen) return
-    const close = (e: MouseEvent) => {
-      if (!(e.target as Element).closest('.sidebar-tool-wrap')) setFilterOpen(false)
+    const klawisz = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        szukajRef.current?.focus()
+        szukajRef.current?.select()
+      }
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [filterOpen])
+    window.addEventListener('keydown', klawisz)
+    return () => window.removeEventListener('keydown', klawisz)
+  }, [])
 
   const [expanded, setExpanded] = useState<Set<string>>(loadExpanded)
   const [dropHint, setDropHint] = useState<DropHint>(null)
@@ -288,8 +290,18 @@ export function Sidebar({
 
   /** Ścieżki mają w filtrze własną pozycję, obok rodzajów kafelków. */
   const SCIEZKI = '@sciezki'
+  const TUTEJSZE = '@tutejsze'
   const chceSciezki = wybraneTypy.has(SCIEZKI)
-  const wybraneRodzaje = new Set([...wybraneTypy].filter((t) => t !== SCIEZKI))
+  const chceTutejsze = wybraneTypy.has(TUTEJSZE)
+  const wybraneRodzaje = new Set(
+    [...wybraneTypy].filter((t) => t !== SCIEZKI && t !== TUTEJSZE),
+  )
+  /** Kafelki mieszkające w ścieżkach. Drzewo ich nie pokazuje, więc filtr
+   *  jest jedynym miejscem, w którym widać je wszystkie naraz. */
+  const tutejsze =
+    useLiveQuery(() => db.concepts.filter((c) => !!c.pathId).toArray(), []) ?? []
+  /** Rodzaje do filtrowania: tylko te, które naprawdę są na liście. */
+  const rodzajeNaLiscie = typy.all.filter((t) => concepts.some((c) => c.type === t.id))
   const przelaczTyp = (id: string) =>
     setWybraneTypy((prev) => {
       const next = new Set(prev)
@@ -815,11 +827,11 @@ export function Sidebar({
     const q = search.trim().toLowerCase()
     return !q || tekst.toLowerCase().includes(q)
   }
-  const flatList = concepts
+  const flatList = (chceTutejsze ? tutejsze : concepts)
     .filter((c) => {
       // same ścieżki w filtrze = kafelków nie pokazujemy wcale
       if (wybraneRodzaje.size > 0 && !wybraneRodzaje.has(c.type)) return false
-      if (wybraneRodzaje.size === 0 && chceSciezki) return false
+      if (wybraneRodzaje.size === 0 && chceSciezki && !chceTutejsze) return false
       const q = search.trim().toLowerCase()
       if (!q) return true
       return (
@@ -849,132 +861,85 @@ export function Sidebar({
             {__WERSJA__}
           </span>
         </h1>
-        <div className="sidebar-tools">
-          <button
-            className={`sidebar-tool ${searchOpen || search ? 'active' : ''}`}
-            title="Szukaj po nazwie lub tagu"
-            onClick={() => {
-              if (searchOpen && !search) setSearchOpen(false)
-              else if (searchOpen && search) {
-                setSearch('')
-                setSearchOpen(false)
-              } else setSearchOpen(true)
-            }}
-          >
-            <Icon name="szukaj" />
-          </button>
-          <div className="sidebar-tool-wrap">
-            <button
-              className={`sidebar-tool ${wybraneTypy.size > 0 ? 'active' : ''}`}
-              title={
-                wybraneTypy.size === 0
-                  ? 'Pokaż tylko wybrane rodzaje'
-                  : `Pokazywane: ${[...wybraneTypy]
-                      .map((t) => (t === SCIEZKI ? 'ścieżki' : typy.label(t)))
-                      .join(', ')}`
-              }
-              onClick={() => setFilterOpen((o) => !o)}
-            >
-              <Icon name="filtr" />
-              {wybraneTypy.size === 1 && (
-                <span className="sidebar-tool-tag">
-                  {chceSciezki ? '↝' : typy.short([...wybraneTypy][0])}
-                </span>
-              )}
-              {wybraneTypy.size > 1 && (
-                <span className="sidebar-tool-tag">{wybraneTypy.size}</span>
-              )}
-            </button>
-            {filterOpen && (
-              // Wybór jest wielokrotny, więc okienko zostaje otwarte po
-              // kliknięciu — zamyka je dopiero klik obok albo „Gotowe".
-              <div className="sidebar-filter-pop">
-                <button
-                  className={`sidebar-filter-item ${wybraneTypy.size === 0 ? 'active' : ''}`}
-                  onClick={() => setWybraneTypy(new Set())}
-                >
-                  Wszystko
-                </button>
-                <button
-                  className={`sidebar-filter-item ${chceSciezki ? 'active' : ''}`}
-                  onClick={() => przelaczTyp(SCIEZKI)}
-                >
-                  <span className="tree-icon type-path">
-                    <Icon name="sciezka" size={0.95} />
-                  </span>
-                  Ścieżki
-                </button>
-                <div className="tree-menu-sep" />
-                {/* wszystkie rodzaje, także schowane z listy wyboru i dodane
-                    własnoręcznie — filtruje się to, co się ma, a nie to, co
-                    program proponuje przy nowym kafelku */}
-                {typy.all.map((t) => (
-                  <button
-                    key={t.id}
-                    className={`sidebar-filter-item ${wybraneTypy.has(t.id) ? 'active' : ''}`}
-                    onClick={() => przelaczTyp(t.id)}
-                  >
-                    <span className="type-mini" data-typ={t.id} style={typy.style(t.id)}>
-                      {t.short}
-                    </span>
-                    {t.label}
-                  </button>
-                ))}
-                <div className="tree-menu-sep" />
-                <button
-                  className="sidebar-filter-item sidebar-filter-gotowe"
-                  onClick={() => setFilterOpen(false)}
-                >
-                  Gotowe
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
       </header>
 
-      {searchOpen && (
-        <div className="sidebar-filters">
-          <input
-            className="input"
-            type="search"
-            autoFocus
-            placeholder="Szukaj po nazwie lub tagu…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setSearch('')
-                setSearchOpen(false)
-              }
-            }}
-          />
-        </div>
-      )}
+      <div className="sidebar-filters">
+        <Icon name="szukaj" size={0.95} />
+        <input
+          ref={szukajRef}
+          className="input"
+          type="search"
+          placeholder="Szukaj…"
+          title="Szukaj kafelków i ścieżek po nazwie lub tagu"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setSearch('')
+              e.currentTarget.blur()
+            }
+          }}
+        />
+        <kbd className="sidebar-klawisz">Ctrl K</kbd>
+      </div>
 
-      {/* tworzenie — tuż nad drzewem, bo dotyczy jego zawartości.
-          Same znaczki; co robią, mówi dymek systemowy przy dłuższym najechaniu. */}
+      {/* wybór wielokrotny: rodzaje się sumują, „Wszystko" czyści */}
+      <div className="sidebar-chipy">
+        <button
+          className={`sidebar-chip ${wybraneTypy.size === 0 ? 'active' : ''}`}
+          onClick={() => setWybraneTypy(new Set())}
+        >
+          Wszystko
+        </button>
+        {rodzajeNaLiscie.map((t) => (
+          <button
+            key={t.id}
+            className={`sidebar-chip ${wybraneTypy.has(t.id) ? 'active' : ''}`}
+            title={t.label}
+            onClick={() => przelaczTyp(t.id)}
+          >
+            {t.short}
+          </button>
+        ))}
+        <button
+          className={`sidebar-chip ${chceSciezki ? 'active' : ''}`}
+          onClick={() => przelaczTyp(SCIEZKI)}
+        >
+          Ścieżki
+        </button>
+        {tutejsze.length > 0 && (
+          <button
+            className={`sidebar-chip ${chceTutejsze ? 'active' : ''}`}
+            title="Kafelki mieszkające w ścieżkach"
+            onClick={() => przelaczTyp(TUTEJSZE)}
+          >
+            Tutejsze {tutejsze.length}
+          </button>
+        )}
+      </div>
+
+      {/* tworzenie — tuż nad drzewem, bo dotyczy jego zawartości */}
       <div className="sidebar-create">
         <button
           className="sidebar-create-btn"
           title="Nowy kafelek"
           onClick={() => handleNew()}
         >
-          <Icon name="kafelek" />
-        </button>
-        <button
-          className="sidebar-create-btn"
-          title="Nowy folder"
-          onClick={() => handleNewFolder()}
-        >
-          <Icon name="folder" />
+          + Kafelek
         </button>
         <button
           className="sidebar-create-btn"
           title="Nowa ścieżka (materiał do nauki)"
           onClick={() => handleNewPath()}
         >
-          <Icon name="sciezka" />
+          + Ścieżka
+        </button>
+        <button
+          className="sidebar-create-btn sidebar-create-ikona"
+          title="Nowy folder"
+          onClick={() => handleNewFolder()}
+        >
+          <Icon name="folder" />
         </button>
       </div>
 
@@ -1127,7 +1092,8 @@ export function Sidebar({
           <span>Graf</span>
         </button>
         <span className="sidebar-counts" title="Liczba kafelków i ścieżek">
-          {concepts.length} · {paths.length}
+          {odmien(concepts.length, 'kafelek', 'kafelki', 'kafelków')} ·{' '}
+          {odmien(paths.length, 'ścieżka', 'ścieżki', 'ścieżek')}
         </span>
         <button
           className="sidebar-foot-btn"

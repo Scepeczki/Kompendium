@@ -42,11 +42,11 @@ for (const n of ['Alfa', 'Beta']) {
   await page.dragAndDrop(`.concept-item:has-text("${n}")`, '.linear-append')
   await page.waitForTimeout(300)
 }
-await page.click('.linear-append .btn:has-text("§ Rozdział")')
+await page.click('.linear-append .btn:has-text("Rozdział")')
 await podaj(page, 'Rozdzial I')
 await page.dragAndDrop('.concept-item:has-text("Gamma")', '.linear-append')
 await page.waitForTimeout(300)
-await page.click('.linear-append .btn:has-text("§ Rozdział")')
+await page.click('.linear-append .btn:has-text("Rozdział")')
 await podaj(page, 'Rozdzial II')
 await page.dragAndDrop('.concept-item:has-text("Delta")', '.linear-append')
 await page.waitForTimeout(300)
@@ -65,11 +65,9 @@ const kolejnosc = () =>
     ),
   )
 
-// rozwiń wszystkie rozdziały, żeby było co przeciągać
-for (const chev of await spis.locator('.outline-chev').all()) {
-  await chev.click()
-  await page.waitForTimeout(200)
-}
+// spis szczegółowy pokazuje wszystko, co da się przeciągać
+await page.click('.outline-rodzaj button:has-text("Szczegółowy")')
+await page.waitForTimeout(300)
 
 // --- notatka jest w spisie, po prostu jako notatka ---
 const pozycje = await spis.locator('.outline-kafelek').allTextContents()

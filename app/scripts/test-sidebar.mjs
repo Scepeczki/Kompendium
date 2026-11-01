@@ -38,48 +38,42 @@ for (const [n, t] of [
 await nowaSciezka(page, 'Ścieżka testowa')
 await page.waitForTimeout(400)
 
-// 1. na starcie nie ma dużego pola szukania ani listy typów
-check('szukanie schowane na starcie',
-  (await page.locator('.sidebar-filters input[type=search]').count()) === 0)
-check('lista typów schowana na starcie',
-  (await page.locator('.sidebar-filter-pop').count()) === 0)
+// 1. szukanie stoi na wierzchu, a filtry rodzajów tuż pod nim
+check('pole szukania widoczne na starcie',
+  await page.isVisible('.sidebar-filters input[type=search]'))
+check('filtr ma „Wszystko" i ścieżki',
+  (await page.locator('.sidebar-chip:has-text("Wszystko")').count()) === 1 &&
+    (await page.locator('.sidebar-chip:has-text("Ścieżki")').count()) === 1)
 
-// 2. ikona 🔍 otwiera pole i od razu w nim jesteśmy
-await page.click('.sidebar-tool[title*="Szukaj"]')
-await page.waitForSelector('.sidebar-filters input[type=search]')
-await page.keyboard.type('granic')
+// 2. pisanie w polu filtruje listę
+await page.fill('.sidebar-filters input[type=search]', 'granic')
 await page.waitForTimeout(500)
 const found = await page.locator('.concept-item').allTextContents()
 check('szukanie filtruje listę', found.length === 1 && found[0].includes('Granica'),
   found.join(' | '))
 
-// 3. Escape czyści i chowa szukanie
-await page.keyboard.press('Escape')
+// 3. Escape czyści szukanie
+await page.press('.sidebar-filters input[type=search]', 'Escape')
 await page.waitForTimeout(400)
-check('Escape chowa szukanie',
-  (await page.locator('.sidebar-filters input[type=search]').count()) === 0)
+check('Escape czyści szukanie',
+  (await page.inputValue('.sidebar-filters input[type=search]')) === '')
 // trzy kafelki i ścieżka — ścieżki stoją w tej liście na równi z kafelkami
-check('po schowaniu widać znów wszystko',
+check('po wyczyszczeniu widać znów wszystko',
   (await page.locator('.concept-item').count()) === 4,
   `${await page.locator('.concept-item').count()}`)
 
-// 4. ikona filtra otwiera listę typów i wybór zawęża widok
-await page.click('.sidebar-tool-wrap .sidebar-tool')
-await page.waitForSelector('.sidebar-filter-pop')
-const items = await page.locator('.sidebar-filter-item').count()
-// „Wszystko" + „Ścieżki" + osiem rodzajów (także schowane z wyboru) + „Gotowe"
-check('filtr wymienia wszystkie rodzaje, ścieżki i wyjścia', items === 11,
-  `pozycji: ${items}`)
-await page.click('.sidebar-filter-item:has-text("Twierdzenie")')
+// 4. rodzaj z listy zawęża widok; filtry są tylko dla rodzajów, które są na liście
+const chipy = await page.locator('.sidebar-chip').allTextContents()
+check('filtr wymienia tylko rodzaje z listy', chipy.join(',') === 'Wszystko,DEF,TW,PRZ,Ścieżki',
+  chipy.join(','))
+await page.click('.sidebar-chip:has-text("TW")')
 await page.waitForTimeout(400)
-check('okienko zostaje otwarte — wybór jest wielokrotny',
-  (await page.locator('.sidebar-filter-pop').count()) === 1)
 const filtered = await page.locator('.concept-item').allTextContents()
 check('filtr rodzaju zawęża listę', filtered.length === 1 && filtered[0].includes('Twierdzenie'),
   filtered.join(' | '))
 
 // 4a. drugi rodzaj dokłada się do pierwszego, a nie go zastępuje
-await page.click('.sidebar-filter-item:has-text("Definicja")')
+await page.click('.sidebar-chip:has-text("DEF")')
 await page.waitForTimeout(400)
 const dwa = await page.locator('.concept-item').allTextContents()
 check('dwa rodzaje naraz pokazują się razem',
@@ -87,26 +81,14 @@ check('dwa rodzaje naraz pokazują się razem',
     dwa.some((t) => t.startsWith('TW')) &&
     dwa.some((t) => t.startsWith('DEF')),
   dwa.join(' | '))
-check('ikona filtra liczy wybrane rodzaje',
-  (await page.locator('.sidebar-tool-tag').textContent()) === '2')
-await page.click('.sidebar-filter-item:has-text("Definicja")')
+await page.click('.sidebar-chip:has-text("DEF")')
 await page.waitForTimeout(400)
 check('ponowny klik odznacza rodzaj',
   (await page.locator('.concept-item').count()) === 1,
   `${await page.locator('.concept-item').count()}`)
-await page.click('.sidebar-filter-item:has-text("Gotowe")')
-await page.waitForTimeout(300)
-check('„Gotowe" zamyka okienko',
-  (await page.locator('.sidebar-filter-pop').count()) === 0)
-
-// 5. przy włączonym filtrze ikona pokazuje wybrany typ
-const tag = await page.locator('.sidebar-tool-tag').textContent()
-check('ikona filtra pokazuje wybrany typ', tag === 'TW', `pokazuje: ${tag}`)
 
 // 6. ścieżki mają w filtrze własną pozycję — są w tej liście na równi
-await page.click('.sidebar-tool-wrap .sidebar-tool')
-await page.waitForSelector('.sidebar-filter-pop')
-await page.click('.sidebar-filter-item:has-text("Ścieżki")')
+await page.click('.sidebar-chip:has-text("Ścieżki")')
 await page.waitForTimeout(500)
 const zeSciezkami = await page.locator('.concept-item').allTextContents()
 check('filtr pokazuje twierdzenia razem ze ścieżkami',
@@ -115,14 +97,11 @@ check('filtr pokazuje twierdzenia razem ze ścieżkami',
   zeSciezkami.join(' | '))
 
 // 6a. powrót do „Wszystko"
-await page.click('.sidebar-filter-item:has-text("Wszystko")')
+await page.click('.sidebar-chip:has-text("Wszystko")')
 await page.waitForTimeout(500)
 check('powrót do wszystkiego',
-  (await page.locator('.concept-item').count()) === 4 &&
-    (await page.locator('.sidebar-tool-tag').count()) === 0,
+  (await page.locator('.concept-item').count()) === 4,
   `${await page.locator('.concept-item').count()}`)
-await page.click('.sidebar-filter-item:has-text("Gotowe")')
-await page.waitForTimeout(300)
 
 // 7. rząd tworzenia nad drzewem i dolny pasek
 const create = await page.locator('.sidebar-create-btn').allTextContents()
@@ -134,7 +113,7 @@ const footer = await page.evaluate(() => ({
   licznik: document.querySelector('.sidebar-counts')?.textContent?.trim(),
 }))
 check('dolny pasek: graf, licznik, ustawienia',
-  footer.graf && footer.ustawienia && footer.licznik === '3 · 1',
+  footer.graf && footer.ustawienia && footer.licznik === '3 kafelki · 1 ścieżka',
   JSON.stringify(footer))
 
 // 8. przyciski na dole działają

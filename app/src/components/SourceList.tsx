@@ -86,11 +86,20 @@ function BlockPreview({ refItem }: { refItem: BlockSourceRef }) {
   )
 }
 
-/** Lista źródeł pod treścią bloku: zwijana, z podglądem po najechaniu
- *  i skokiem do źródła po kliknięciu. Źródłem może być wycinek PDF
+/** Podpis źródła: sama nazwa, bez miniatury strony. */
+export const opisZrodla = (
+  r: SourceRef,
+  pdfs: { id: string; title: string }[],
+  concepts: { id: string; name: string }[],
+) =>
+  isPdfSource(r)
+    ? `${pdfs.find((p) => p.id === r.pdfId)?.title ?? 'PDF (usunięty)'}, s. ${r.page}`
+    : (concepts.find((c) => c.id === r.conceptId)?.name ?? 'kafelek (usunięty)')
+
+/** Źródła pod treścią bloku: nazwy zawsze na wierzchu, podgląd fragmentu po
+ *  najechaniu i skok do źródła po kliknięciu. Źródłem może być wycinek PDF
  *  albo inny kafelek — stąd genealogia wiedzy aż do strony w książce. */
 export function SourceList({ refs, onJump }: Props) {
-  const [open, setOpen] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
   const timer = useRef<number | undefined>(undefined)
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
@@ -99,9 +108,6 @@ export function SourceList({ refs, onJump }: Props) {
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   if (refs.length === 0) return null
-  const pdfTitle = (id: string) => pdfs.find((p) => p.id === id)?.title ?? 'PDF (usunięty)'
-  const blockTitle = (id: string) =>
-    concepts.find((c) => c.id === id)?.name ?? 'kafelek (usunięty)'
 
   /** Krótka zwłoka, żeby podgląd nie migał przy przejeżdżaniu myszą. */
   const enter = (id: string) => {
@@ -115,47 +121,29 @@ export function SourceList({ refs, onJump }: Props) {
 
   return (
     <div className="source-list">
-      <button
-        className="source-list-toggle"
-        title="Skąd to wiem: miejsca w PDF-ach i kafelki, na których oparty jest ten kafelek"
-        onClick={() => setOpen((o) => !o)}
-      >
-        {/* bez znaku +/− — sam napis „Źródła” jest przyciskiem, a dwa
-            sygnały do tej samej czynności tylko mieszają */}
-        <span className="source-list-label">Źródła</span>
-        <span className="source-list-count">{refs.length}</span>
-      </button>
-      {open && (
-        <div className="source-list-items">
-          {refs.map((r) => (
-            <span
-              key={r.id}
-              className="source-list-item"
-              onMouseEnter={() => enter(r.id)}
-              onMouseLeave={leave}
+      <div className="source-list-items">
+        {refs.map((r) => (
+          <span
+            key={r.id}
+            className="source-list-item"
+            onMouseEnter={() => enter(r.id)}
+            onMouseLeave={leave}
+          >
+            <button
+              className="source-jump"
+              title={
+                isPdfSource(r) ? 'Pokaż to miejsce w PDF' : 'Otwórz kafelek będący źródłem'
+              }
+              onClick={() => onJump?.(r)}
             >
-              <button
-                className="source-jump"
-                title={
-                  isPdfSource(r) ? 'Pokaż to miejsce w PDF' : 'Otwórz kafelek będący źródłem'
-                }
-                onClick={() => onJump?.(r)}
-              >
-                {isPdfSource(r)
-                  ? `📖 ${pdfTitle(r.pdfId)} · s. ${r.page}`
-                  : `🧱 ${blockTitle(r.conceptId)}`}
-                {r.group && <span className="source-list-group"> · {r.group}</span>}
-              </button>
-              {hover === r.id &&
-                (isPdfSource(r) ? (
-                  <PdfPreview refItem={r} />
-                ) : (
-                  <BlockPreview refItem={r} />
-                ))}
-            </span>
-          ))}
-        </div>
-      )}
+              {opisZrodla(r, pdfs, concepts)}
+              {r.group && <span className="source-list-group"> · {r.group}</span>}
+            </button>
+            {hover === r.id &&
+              (isPdfSource(r) ? <PdfPreview refItem={r} /> : <BlockPreview refItem={r} />)}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

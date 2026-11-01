@@ -48,7 +48,7 @@ await page.waitForSelector('.linear-seg .script-block:has-text("Beta")')
 console.log('✓ kafelki doklejone do linii (forma jak w skrypcie)')
 
 // notatka na końcu (otwiera od razu okno edycji) — wpisz i zamknij
-await page.click('.linear-append button:has-text("+ Notatka")')
+await page.click('.linear-append button:has-text("Notatka")')
 await page.waitForTimeout(500)
 await page.locator('.linear-note').scrollIntoViewIfNeeded()
 await page.click('.linear-note .markdown-body')
@@ -106,7 +106,7 @@ const segs = await page.locator('.linear-seg').count()
 console.log(`✓ usuwanie segmentu działa (zostało: ${segs})`)
 
 // komentarz boczny: dodaj, sprawdź stronę prawą, przełóż na lewą
-await page.click('.linear-append button:has-text("+ 💬 Komentarz")')
+await page.click('.linear-append button:has-text("Komentarz")')
 await page.waitForTimeout(500)
 // komentarz boczny siedzi na marginesie, przy tej szerokości okna pod panelem
 // PDF — klikamy na wprost, bo sprawdzamy pisanie, nie przykrycie paneli

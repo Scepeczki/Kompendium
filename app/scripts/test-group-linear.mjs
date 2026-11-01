@@ -137,12 +137,12 @@ check('zmiana rodzaju z ekranu komponowania', st.grupy[0]?.typ === 'twierdzenie'
   `typ: ${st.grupy[0]?.typ}`)
 const naglowek = await page.evaluate(() => {
   const g = document.querySelector('.script-group-block')
-  const typ = g?.querySelector('.script-block-type')?.textContent?.trim() ?? ''
+  const typ = g?.querySelector('.script-block-type')?.getAttribute('title') ?? ''
   const nazwa = g?.querySelector('.inline-title')?.value ?? ''
   return `${typ} ${nazwa}`.trim()
 })
 check('nagłówek grupy odzwierciedla nowy typ i nazwę',
-  naglowek?.startsWith('Twierdzenie:') && naglowek.includes('Kresy i supremum'),
+  naglowek?.startsWith('Twierdzenie') && naglowek.includes('Kresy i supremum'),
   naglowek)
 
 // 6. rozgrupowanie w Linii

@@ -10,6 +10,7 @@ import type {
   FolderKind,
   LearningPath,
   PathNode,
+  WlasneTresci,
   PdfDoc,
   Relation,
   RelationKind,
@@ -183,6 +184,31 @@ const uid = () => crypto.randomUUID()
 // Typy kafelków (dane, nie kod)
 // ---------------------------------------------------------------------------
 
+/** Barwy fabryczne sprzed nowego wyglądu. */
+const DAWNE_BARWY: Record<string, string> = {
+  definicja: '#31619e',
+  twierdzenie: '#6d4a9e',
+  lemat: '#8a5fb0',
+  przyklad: '#3d7a52',
+  zadanie: '#2f7b7b',
+  uwaga: '#a9742c',
+  dowod: '#6b6b66',
+}
+
+/** Jednorazowa zmiana palety. Przestrajamy tylko typy, które wciąż mają barwę
+ *  fabryczną — kolor wybrany w Ustawieniach to decyzja użytkownika. */
+async function przejdzNaNowaPalete(): Promise<void> {
+  const znacznik = 'ui.paleta.v2'
+  if (localStorage.getItem(znacznik)) return
+  localStorage.setItem(znacznik, '1')
+  for (const wzor of BUILTIN_BLOCK_TYPES) {
+    const typ = await db.blockTypes.get(wzor.id)
+    if (typ && typ.color.toLowerCase() === DAWNE_BARWY[wzor.id]) {
+      await db.blockTypes.update(wzor.id, { color: wzor.color })
+    }
+  }
+}
+
 /** Wsypuje fabryczne typy do pustej tabeli. Świeża baza nie przechodzi przez
  *  `upgrade`, więc bez tego startowałaby bez ani jednego typu. */
 export async function seedBlockTypes(): Promise<void> {
@@ -190,6 +216,7 @@ export async function seedBlockTypes(): Promise<void> {
     await db.blockTypes.bulkAdd(BUILTIN_BLOCK_TYPES.map((t) => ({ ...t })))
     return
   }
+  await przejdzNaNowaPalete()
   // Jednorazowe dosypanie dla baz założonych, zanim rodzaje umiały mieszkać
   // w ścieżce. Robimy to raz — potem użytkownik jest panem swojej listy
   // i skasowanego „Zadania" nie wskrzeszamy przy każdym uruchomieniu.
@@ -415,6 +442,82 @@ export async function saveAsNewVersion(conceptId: string, label?: string): Promi
     await db.concepts.update(conceptId, { currentVersionId: id, updatedAt: t })
   })
   return id
+}
+
+/** Kafelek w ścieżce bez wskazanej wersji pokazuje wersję bieżącą, a tekst
+ *  napisany w ścieżce jest przypisany do konkretnej wersji. Gdy bieżąca się
+ *  zmienia, taki tekst przestałby być widoczny — więc przypinamy węzeł do
+ *  wersji, przy której powstał. */
+export function przypnijTekstDoWersji(
+  nodes: PathNode[],
+  conceptId: string,
+  wersjaId: string,
+): PathNode[] {
+  const maTekst = (m?: WlasneTresci) =>
+    Object.keys(m ?? {}).some((k) => k.startsWith(`${wersjaId}:`))
+  return nodes.map((n) => {
+    if (n.kind === 'block' && n.conceptId === conceptId && !n.versionId && maTekst(n.wlasneTresci)) {
+      return { ...n, versionId: wersjaId }
+    }
+    if (n.kind === 'fusion') {
+      return {
+        ...n,
+        parts: n.parts.map((p) =>
+          p.conceptId === conceptId && !p.versionId && maTekst(p.wlasneTresci)
+            ? { ...p, versionId: wersjaId }
+            : p,
+        ),
+      }
+    }
+    return n
+  })
+}
+
+/** „Wyślij do biblioteki": tekst napisany w ścieżce staje się nową wersją
+ *  kafelka. Dotychczasowa wersja zostaje, więc nic nie przepada. Zwraca id
+ *  nowej wersji i to, jakie id dostały jej kopie stron. */
+export async function wyslijDoBiblioteki(
+  conceptId: string,
+  zWersji: string,
+  stronaId: string | null,
+  tekst: string,
+  zPathId: string,
+): Promise<{ wersjaId: string; mapaStron: Record<string, string> }> {
+  const zrodlo = await db.versions.get(zWersji)
+  const bylaBiezaca = (await db.concepts.get(conceptId))?.currentVersionId
+  if (bylaBiezaca) {
+    // ścieżka, z której wysyłamy, pilnuje tego sama (trzyma stan u siebie)
+    await db.transaction('rw', db.paths, async () => {
+      await db.paths.toCollection().modify((p) => {
+        if (p.id !== zPathId) p.nodes = przypnijTekstDoWersji(p.nodes, conceptId, bylaBiezaca)
+      })
+    })
+  }
+  const stronyZrodla = await db.subpages.where('versionId').equals(zWersji).toArray()
+  const wersjaId = await saveAsNewVersion(conceptId)
+  // kopia powstaje z najnowszej wersji, a pisać można też na starszej
+  const nowa = {
+    content: stronaId ? (zrodlo?.content ?? '') : tekst,
+    sourceRefs: (zrodlo?.sourceRefs ?? []).map((r) => ({ ...r, id: uid() })),
+    sourceGroups: zrodlo?.sourceGroups,
+  }
+  await db.versions.update(wersjaId, nowa)
+  // Kopie stron powstały z najnowszej wersji. Pisać można i na starszej, więc
+  // strony wysyłanej wersji odnajdujemy po nazwie, a brakujące dokładamy.
+  const kopie = await db.subpages.where('versionId').equals(wersjaId).toArray()
+  const mapaStron: Record<string, string> = {}
+  const t = now()
+  for (const s of stronyZrodla) {
+    const kopia = kopie.find((k) => k.name === s.name)
+    const id = kopia?.id ?? uid()
+    if (!kopia) {
+      await db.subpages.add({ ...s, id, versionId: wersjaId, createdAt: t, updatedAt: t })
+    }
+    mapaStron[s.id] = id
+    if (s.id === stronaId) await db.subpages.update(id, { content: tekst })
+    else if (kopia) await db.subpages.update(id, { content: s.content })
+  }
+  return { wersjaId, mapaStron }
 }
 
 /** Zmienia etykietę wersji (metadane — dozwolone też dla starych wersji). */

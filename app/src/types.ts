@@ -39,13 +39,13 @@ export interface BlockTypeDef {
  *  (dowody mają własne strony kafelka, intuicję zastąpiły notatki na ścieżce),
  *  ale teraz można je odsłonić jednym kliknięciem zamiast zmieniać kod. */
 export const BUILTIN_BLOCK_TYPES: BlockTypeDef[] = [
-  { id: 'definicja', label: 'Definicja', short: 'DEF', color: '#31619e', order: 1, builtin: true },
-  { id: 'twierdzenie', label: 'Twierdzenie', short: 'TW', color: '#6d4a9e', order: 2, builtin: true },
-  { id: 'lemat', label: 'Lemat', short: 'LEM', color: '#8a5fb0', order: 3, builtin: true },
-  { id: 'przyklad', label: 'Przykład', short: 'PRZ', color: '#3d7a52', order: 4, builtin: true, wSciezce: true },
-  { id: 'zadanie', label: 'Zadanie', short: 'ZAD', color: '#2f7b7b', order: 5, builtin: true, wSciezce: true },
-  { id: 'uwaga', label: 'Uwaga', short: 'UW', color: '#a9742c', order: 6, builtin: true },
-  { id: 'dowod', label: 'Dowód', short: 'DOW', color: '#6b6b66', order: 7, builtin: true, hidden: true },
+  { id: 'definicja', label: 'Definicja', short: 'DEF', color: '#c2612c', order: 1, builtin: true },
+  { id: 'twierdzenie', label: 'Twierdzenie', short: 'TW', color: '#b0384a', order: 2, builtin: true },
+  { id: 'lemat', label: 'Lemat', short: 'LEM', color: '#8c4f86', order: 3, builtin: true },
+  { id: 'przyklad', label: 'Przykład', short: 'PRZ', color: '#3f8a5f', order: 4, builtin: true, wSciezce: true },
+  { id: 'zadanie', label: 'Zadanie', short: 'ZAD', color: '#4567b0', order: 5, builtin: true, wSciezce: true },
+  { id: 'uwaga', label: 'Uwaga', short: 'UW', color: '#b0862c', order: 6, builtin: true },
+  { id: 'dowod', label: 'Dowód', short: 'DOW', color: '#7a7468', order: 7, builtin: true, hidden: true },
   { id: 'intuicja', label: 'Intuicja', short: 'INT', color: '#b05575', order: 8, builtin: true, hidden: true },
 ]
 

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import type { BlockTypes } from '../blockTypes'
+import type { Concept, PathNode } from '../types'
 
 export interface OutlineItem {
   /** id elementu nagłówka w dokumencie (do przewijania). */
@@ -12,6 +14,51 @@ export interface OutlineItem {
   znak?: string
   /** Kolor rodzaju — żeby definicje odróżniały się od twierdzeń wzrokiem. */
   barwa?: string
+}
+
+/** Spis ścieżki: rozdziały, a pod nimi wszystko, co w nich stoi — definicje,
+ *  twierdzenia, przykłady i notatki. Wspólny dla Linii i Skryptu. */
+export function pozycjeSpisu(
+  nodes: PathNode[],
+  klocek: (id: string) => Concept | undefined,
+  typy: BlockTypes,
+): OutlineItem[] {
+  return nodes.map((n) => {
+    if (n.kind === 'heading') {
+      return { domId: outlineId(n.id), nodeId: n.id, text: n.text, level: n.level }
+    }
+    if (n.kind === 'text' || n.kind === 'comment') {
+      // notatka nie ma nazwy — bierzemy jej pierwszą linijkę, żeby dało się
+      // ją poznać, a gdy jest pusta, zostaje samo słowo
+      const pierwsza = (n.text ?? '').split('\n').find((w) => w.trim() !== '')?.trim()
+      return {
+        domId: n.id,
+        nodeId: n.id,
+        text: pierwsza ? pierwsza.slice(0, 60) : 'Notatka',
+        level: 'kafelek' as const,
+        znak: n.kind === 'comment' ? '💬' : '✎',
+      }
+    }
+    if (n.kind === 'fusion') {
+      return {
+        domId: n.id,
+        nodeId: n.id,
+        text: n.name,
+        level: 'kafelek' as const,
+        znak: n.type ? typy.short(n.type) : '⧉',
+        barwa: n.type ? typy.def(n.type).color : undefined,
+      }
+    }
+    const c = klocek(n.conceptId)
+    return {
+      domId: n.id,
+      nodeId: n.id,
+      text: n.nazwa ?? c?.name ?? '(usunięty kafelek)',
+      level: 'kafelek' as const,
+      znak: c ? typy.short(c.type) : undefined,
+      barwa: c ? typy.def(c.type).color : undefined,
+    }
+  })
 }
 
 /** Przeciąganie pozycji spisu — własny typ, żeby nie mieszać się z kafelkami
@@ -41,16 +88,32 @@ interface Props {
   /** Przestawienie kolejności przeciąganiem w spisie. Bez tego spis jest
    *  tylko do czytania (tak działa Skrypt). */
   onMove?: (nodeId: string, afterId: string | null, beforeId: string | null) => void
+  /** Kafelek, przy którym właśnie się pracuje — w spisie ogólnym stoi przy
+   *  nim znak „tu". */
+  biezacy?: string | null
 }
 
 const SZEROKOSC = 'ui.outlineWidth'
+const RODZAJ = 'ui.outlineRodzaj'
+/** Ile kropek kafelków pokazać przy rozdziale, zanim zacznie się zawijać. */
+const MAX_KROPEK = 16
 const MIN_SZER = 160
 const MAX_SZER = 560
 
 /** Spis treści ścieżki (jak konspekt w Google Docs): lista rozdziałów po
  *  lewej, klik przewija do miejsca, bieżący rozdział jest podświetlony.
  *  Panel można schować — wybór jest zapamiętywany. */
-export function Outline({ items, onMove }: Props) {
+export function Outline({ items, onMove, biezacy }: Props) {
+  /** Dwa spisy w jednym miejscu. Ogólny to przebieg przez rozdziały,
+   *  szczegółowy pokazuje od razu każdy kafelek i jego rodzaj. */
+  const [rodzaj, setRodzaj] = useState<'ogolny' | 'szczegolowy'>(() =>
+    localStorage.getItem(RODZAJ) === 'szczegolowy' ? 'szczegolowy' : 'ogolny',
+  )
+  useEffect(() => {
+    localStorage.setItem(RODZAJ, rodzaj)
+  }, [rodzaj])
+  const szczegolowy = rodzaj === 'szczegolowy'
+
   const [open, setOpen] = useState(() => {
     const zapamietane = localStorage.getItem('ui.outline')
     if (zapamietane === '0') return false
@@ -109,6 +172,8 @@ export function Outline({ items, onMove }: Props) {
   const [active, setActive] = useState<string | null>(null)
   /** Rozwinięte rozdziały — pod nimi widać kafelki. */
   const [rozwiniete, setRozwiniete] = useState<Set<string>>(new Set())
+  /** Bieżący rozdział rozwija się sam; tu pamiętamy, że ktoś go zwinął. */
+  const [zwiniete, setZwiniete] = useState<Set<string>>(new Set())
   const visible = useRef(new Set<string>())
 
   // Podświetlenie bieżącego rozdziału: śledzimy, które nagłówki są w oknie,
@@ -263,13 +328,40 @@ export function Outline({ items, onMove }: Props) {
   const kreska = (nodeId: string) =>
     wskaz?.nodeId !== nodeId ? '' : wskaz.pos === 'before' ? 'drop-before' : 'drop-after'
 
-  const przelacz = (domId: string) =>
-    setRozwiniete((prev) => {
+  const otwarty = (domId: string) =>
+    szczegolowy ||
+    rozwiniete.has(domId) ||
+    (active === domId && !zwiniete.has(domId))
+
+  const przelacz = (domId: string) => {
+    const zamknij = otwarty(domId)
+    const zmien = (dodac: boolean) => (prev: Set<string>) => {
       const next = new Set(prev)
-      if (next.has(domId)) next.delete(domId)
-      else next.add(domId)
+      if (dodac) next.add(domId)
+      else next.delete(domId)
       return next
-    })
+    }
+    setRozwiniete(zmien(!zamknij))
+    setZwiniete(zmien(zamknij))
+  }
+
+  /** Kafelki całego rozdziału, także te pod jego podrozdziałami. */
+  const kafelkiRozdzialu = (i: number) => {
+    const out: OutlineItem[] = []
+    for (let j = i + 1; j < items.length && items[j].level !== 1; j++) {
+      if (items[j].level === 'kafelek') out.push(items[j])
+    }
+    return out
+  }
+  const naglowki = items.filter((it) => it.level !== 'kafelek')
+  const ktoryAktywny = naglowki.findIndex((it) => it.domId === active)
+  /** Etap rozdziału na przebiegu: minięty, bieżący albo jeszcze przed nami. */
+  const etap = (domId: string) => {
+    const k = naglowki.findIndex((it) => it.domId === domId)
+    if (ktoryAktywny < 0 || k === ktoryAktywny) return k === ktoryAktywny ? 'biezacy' : 'przed'
+    return k < ktoryAktywny ? 'miniety' : 'przed'
+  }
+  let numerRozdzialu = 0
 
   if (items.length === 0) return null
 
@@ -287,7 +379,7 @@ export function Outline({ items, onMove }: Props) {
 
   return (
     <nav
-      className="outline"
+      className={`outline ${szczegolowy ? 'outline-szczegolowy' : 'outline-ogolny'}`}
       style={{ width: szer }}
       onDragEnd={() => {
         ciagniety.current = null
@@ -318,19 +410,39 @@ export function Outline({ items, onMove }: Props) {
           «
         </button>
       </div>
+      <div className="outline-rodzaj" role="group" aria-label="Rodzaj spisu">
+        <button
+          className={szczegolowy ? '' : 'wybrany'}
+          title="Przebieg przez rozdziały"
+          onClick={() => setRodzaj('ogolny')}
+        >
+          Ogólny
+        </button>
+        <button
+          className={szczegolowy ? 'wybrany' : ''}
+          title="Wszystkie kafelki z ich rodzajem"
+          onClick={() => setRodzaj('szczegolowy')}
+        >
+          Szczegółowy
+        </button>
+      </div>
       <ul className="outline-list">
         {/* Kafelki stojące przed pierwszym rozdziałem też muszą być osiągalne —
             inaczej ścieżka bez rozdziałów miałaby pusty spis. */}
         {items[0]?.level === 'kafelek' && (
           <li>
             <div className="outline-wiersz">
-              <button
-                className={`outline-chev ${rozwiniete.has('') ? 'open' : ''}`}
-                title={rozwiniete.has('') ? 'Zwiń' : `Pokaż, co jest na początku (${ileDzieci(-1)})`}
-                onClick={() => przelacz('')}
-              >
-                ▸
-              </button>
+              {szczegolowy ? (
+                <span className="outline-chev pusty" />
+              ) : (
+                <button
+                  className={`outline-chev ${otwarty('') ? 'open' : ''}`}
+                  title={otwarty('') ? 'Zwiń' : `Pokaż, co jest na początku (${ileDzieci(-1)})`}
+                  onClick={() => przelacz('')}
+                >
+                  ▸
+                </button>
+              )}
               <span className="outline-item level-1 outline-poczatek">Początek</span>
             </div>
           </li>
@@ -339,14 +451,14 @@ export function Outline({ items, onMove }: Props) {
           // Kafelki chowają się pod swoim rozdziałem. Spis ma prowadzić do
           // konkretnej definicji czy twierdzenia, a nie tylko do rozdziału —
           // ale nierozwinięty ma zostać krótką listą rozdziałów.
-          if (it.level === 'kafelek' && !rozwiniete.has(rozdzialNad(i))) return null
+          if (it.level === 'kafelek' && !otwarty(rozdzialNad(i))) return null
           if (it.level === 'kafelek') {
             return (
               <li key={it.domId}>
                 <button
                   className={`outline-item outline-kafelek ${kreska(it.nodeId)} ${
                     active === it.domId ? 'active' : ''
-                  }`}
+                  } ${biezacy === it.nodeId ? 'outline-tu' : ''}`}
                   title={onMove ? `${it.text} — przeciągnij, aby przestawić` : it.text}
                   draggable={!!onMove}
                   onDragStart={(e) => {
@@ -357,25 +469,35 @@ export function Outline({ items, onMove }: Props) {
                   {...cel(it, i)}
                   onClick={() => goTo(it.domId)}
                 >
-                  {it.znak && (
-                    <span className="outline-znak" style={{ color: it.barwa }}>
-                      {it.znak}
-                    </span>
+                  {szczegolowy ? (
+                    it.znak && (
+                      <span className="outline-znak" style={{ color: it.barwa }}>
+                        {it.znak}
+                      </span>
+                    )
+                  ) : (
+                    <span className="outline-kropka" style={{ background: it.barwa }} />
                   )}
                   <span className="outline-tekst">{it.text || '(bez nazwy)'}</span>
+                  {!szczegolowy && biezacy === it.nodeId && (
+                    <span className="outline-znacznik-tu">tu</span>
+                  )}
                 </button>
               </li>
             )
           }
           const dzieci = ileDzieci(i)
-          const otwarty = rozwiniete.has(it.domId)
+          const rozwiniety = otwarty(it.domId)
+          const stan = etap(it.domId)
+          if (it.level === 1) numerRozdzialu++
+          const kropki = !szczegolowy && it.level === 1 && !rozwiniety ? kafelkiRozdzialu(i) : []
           return (
-            <li key={it.domId}>
+            <li key={it.domId} data-etap={stan} className={`outline-rozdzial level-${it.level}`}>
               <div className="outline-wiersz">
-                {dzieci > 0 ? (
+                {dzieci > 0 && !szczegolowy ? (
                   <button
-                    className={`outline-chev ${otwarty ? 'open' : ''}`}
-                    title={otwarty ? 'Zwiń' : `Pokaż, co jest w środku (${dzieci})`}
+                    className={`outline-chev ${rozwiniety ? 'open' : ''}`}
+                    title={rozwiniety ? 'Zwiń' : `Pokaż, co jest w środku (${dzieci})`}
                     onClick={() => przelacz(it.domId)}
                   >
                     ▸
@@ -394,9 +516,23 @@ export function Outline({ items, onMove }: Props) {
                   {...cel(it, i)}
                   onClick={() => goTo(it.domId)}
                 >
+                  {!szczegolowy && it.level === 1 && (
+                    <span className="outline-numer">{numerRozdzialu} · </span>
+                  )}
                   {it.text || '(bez nazwy)'}
                 </button>
               </div>
+              {kropki.length > 0 && (
+                <div className="outline-kropki" aria-hidden="true">
+                  {kropki.slice(0, MAX_KROPEK).map((k) => (
+                    <span
+                      key={k.domId}
+                      className="outline-kropka"
+                      style={{ '--kropka': k.barwa } as React.CSSProperties}
+                    />
+                  ))}
+                </div>
+              )}
             </li>
           )
         })}

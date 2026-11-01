@@ -79,7 +79,7 @@ await page.mouse.click(flow.x + flow.width * 0.4, flow.y + flow.height * 0.25, {
   button: 'right',
 })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=💬 Nowy komentarz tutaj')
+await page.click('text=Nowy komentarz tutaj')
 await page.waitForSelector('.path-node-comment')
 await page.dblclick('.path-node-comment .path-node-notebody')
 await page.waitForSelector('.note-modal .rich-content .tiptap')
@@ -111,7 +111,7 @@ await page.click('.view-switch button:has-text("Mapa")')
 // menu kafelka: prawy przycisk na komentarzu → Usuń ze ścieżki
 await page.click('.path-node-comment .path-node-grip', { button: 'right' })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=🗑 Usuń ze ścieżki')
+await page.click('text=Usuń ze ścieżki')
 await page.waitForFunction(() => !document.querySelector('.path-node-comment'))
 console.log('✓ menu kafelka: usuwanie ze ścieżki działa')
 

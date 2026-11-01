@@ -43,6 +43,12 @@ interface Props {
    *  jedno i drugie siedzi pod prawym przyciskiem, żeby kafelek pokazywał
    *  tekst, a nie metryczkę. */
   bezPaskaWersji?: boolean
+  /** Numer w Skrypcie („3.4") — kafelek czyta się wtedy jak akapit książki. */
+  numer?: string
+  /** Plakietka w nagłówku: skąd pochodzi tekst tego kafelka. */
+  pochodzenie?: boolean
+  /** Przycisk w nagłówku (np. „Wyślij do biblioteki"). */
+  dzialanie?: React.ReactNode
 }
 
 /** Blok kafelka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
@@ -67,6 +73,9 @@ export function BlockShell({
   nazwaWlasna,
   trescWlasna,
   bezPaskaWersji,
+  numer,
+  pochodzenie,
+  dzialanie,
 }: Props) {
   // Strony bierzemy z zewnątrz, jeśli ktoś je już ma. W długiej ścieżce
   // sześćdziesiąt bloków to było sześćdziesiąt osobnych zapytań do bazy,
@@ -94,12 +103,71 @@ export function BlockShell({
   // Tekst napisany w ścieżce ma pierwszeństwo przed tekstem kafelka.
   const content = trescWlasna ?? (sub ? sub.content : (version?.content ?? ''))
   const versionName = (v: BlockVersion) => v.label ?? `wr.${v.version}`
+  const ksiazka = numer !== undefined
+  const nazwa = nazwaWlasna ?? concept.name
+
+  /** Strony kafelka: w Linii stoją w nagłówku, a w Skrypcie nad treścią.
+   *  Nazwy stron tylko wtedy, gdy jest z czego wybierać. */
+  const zakladki = subs.length > 0 && (
+    <div className="block-pages">
+      <button
+        className={`block-page ${!sub ? 'active' : ''}`}
+        title={pickHint ?? 'Strona kafelka'}
+        onClick={() => onSubpageChange?.(null)}
+      >
+        {mainPageName(concept)}
+      </button>
+      {subs.map((s) => (
+        <button
+          key={s.id}
+          className={`block-page ${sub?.id === s.id ? 'active' : ''}`}
+          title={pickHint ?? 'Strona kafelka'}
+          onClick={() => onSubpageChange?.(s.id)}
+        >
+          {s.name}
+        </button>
+      ))}
+    </div>
+  )
+
+  /** Skąd jest tekst: to odpowiada na pytanie, czy pisanie tutaj rusza
+   *  bibliotekę, zanim człowiek zacznie pisać. */
+  const skad = concept.pathId
+    ? { rodzaj: 'tutejszy', napis: 'tutejszy' }
+    : trescWlasna !== undefined
+      ? { rodzaj: 'sciezka', napis: 'tekst tej ścieżki' }
+      : {
+          rodzaj: 'biblioteka',
+          napis: `z biblioteki · ${version?.label ?? `v${version?.version ?? 1}`}`,
+        }
 
   return (
-    <section className="script-block" data-typ={concept.type} style={typy.style(concept.type)}>
+    <section
+      className={`script-block ${ksiazka ? 'ks-blok' : ''}`}
+      data-typ={concept.type}
+      data-skad={pochodzenie ? skad.rodzaj : undefined}
+      style={typy.style(concept.type)}
+    >
+      {ksiazka && (
+        <div className="ks-numer">
+          <span className="ks-liczba">{numer}</span>
+          <span className="script-block-type type-mini" title={typy.label(concept.type)}>
+            {typy.short(concept.type)}
+          </span>
+        </div>
+      )}
+      <div className="script-block-glowa">
       <header className="script-block-head">
         <h3 className="script-block-title">
-          <span className="script-block-type">{typy.label(concept.type)}:</span>{' '}
+          {ksiazka ? (
+            <span className="ks-slowo">
+              {typy.label(concept.type)} {numer}
+            </span>
+          ) : (
+            <span className="script-block-type type-mini" title={typy.label(concept.type)}>
+              {typy.short(concept.type)}
+            </span>
+          )}{' '}
           {onRename ? (
             <input
               className="inline-title"
@@ -108,10 +176,19 @@ export function BlockShell({
               onChange={(e) => onRename(e.target.value)}
               onClick={(e) => e.stopPropagation()}
             />
+          ) : ksiazka ? (
+            <span className="ks-nazwa">{nazwa}</span>
           ) : (
-            (nazwaWlasna ?? concept.name)
+            nazwa
           )}
         </h3>
+        {!ksiazka && zakladki}
+        {pochodzenie && (
+          <span className="block-pochodzenie" data-rodzaj={skad.rodzaj}>
+            {skad.napis}
+          </span>
+        )}
+        {dzialanie}
         {onOpenConcept && showOpen && (
           <button
             className="script-block-open"
@@ -124,7 +201,7 @@ export function BlockShell({
       </header>
 
       <div className="script-block-body">
-        {version && !bezPaskaWersji && (
+        {version && !bezPaskaWersji && !(ksiazka && sorted.length < 2) && (
           <div className="block-pick block-pick-version">
             {/* „WR.2" samo z siebie nic nie mówi — stąd słowo z przodu */}
             <span className="block-pick-etykieta">wersja</span>
@@ -156,30 +233,7 @@ export function BlockShell({
         )}
 
         <div className="block-content">
-          {/* Nazwy stron tylko wtedy, gdy jest z czego wybierać. Przy jednej
-              stronie napis „Treść" niczego nie mówi, a zabiera wiersz tuż nad
-              samą treścią. */}
-          {subs.length > 0 && (
-            <div className="block-pages">
-              <button
-                className={`block-page ${!sub ? 'active' : ''}`}
-                title={pickHint ?? 'Strona kafelka'}
-                onClick={() => onSubpageChange?.(null)}
-              >
-                {mainPageName(concept)}
-              </button>
-              {subs.map((s) => (
-                <button
-                  key={s.id}
-                  className={`block-page ${sub?.id === s.id ? 'active' : ''}`}
-                  title={pickHint ?? 'Strona kafelka'}
-                  onClick={() => onSubpageChange?.(s.id)}
-                >
-                  {s.name}
-                </button>
-              ))}
-            </div>
-          )}
+          {ksiazka && zakladki}
           {edytor ?? (
             <div
               className={`markdown-body ${onStartEdit ? 'do-pisania' : ''}`}
@@ -198,9 +252,9 @@ export function BlockShell({
             />
           )}
         </div>
-
-        <SourceList refs={version?.sourceRefs ?? []} onJump={onJumpToSource} />
       </div>
+      </div>
+      <SourceList refs={version?.sourceRefs ?? []} onJump={onJumpToSource} />
     </section>
   )
 }

@@ -77,10 +77,10 @@ const zrodla = await page.evaluate(() => {
   const g = document.querySelector('.script-group-block')
   return {
     lista: !!g.querySelector('.source-list'),
-    ile: g.querySelector('.source-list-count')?.textContent ?? '0',
+    ile: g.querySelectorAll('.source-list-item').length,
   }
 })
-check('scalony blok pokazuje źródła składników', zrodla.lista && zrodla.ile === '1',
+check('scalony blok pokazuje źródła składników', zrodla.lista && zrodla.ile === 1,
   JSON.stringify(zrodla))
 
 // 2z. żadnych pudełek: scalony blok ma wyglądać jak jeden tekst
@@ -118,7 +118,7 @@ await page.click('.komp-head button:has-text("Gotowe")')
 await page.waitForTimeout(800)
 check('nazwa nadana w komponowaniu widać w ścieżce',
   (await page.inputValue('.script-group-block .inline-title')) === 'Kres i notacja')
-check('i rodzaj też', (await page.textContent('.script-group-block .script-block-type')).includes('Twierdzenie'))
+check('i rodzaj też', (await page.getAttribute('.script-group-block .script-block-type', 'title')) === 'Twierdzenie')
 
 // 3. w złożonym kafelku pisze się wprost, a biblioteka zostaje nietknięta
 await page.click('.script-group-block .linear-pole .tiptap, .script-group-block .markdown-body')

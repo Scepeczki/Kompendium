@@ -40,7 +40,7 @@ for (const [n, t] of [
 await nowaSciezka(page, 'Kresy')
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
-await page.click('.linear-append .btn:has-text("§ Rozdział")')
+await page.click('.linear-append .btn:has-text("Rozdział")')
 await podaj(page, 'Rozdzial o kresach')
 await page.waitForTimeout(700)
 for (const n of ['Kres gorny', 'Notacja']) {

@@ -44,11 +44,13 @@ import {
   createConcept,
   db,
   keepConceptInPath,
+  przypnijTekstDoWersji,
   releaseConceptToLibrary,
   updateConcept,
   updatePath,
   updateSubpage,
   updateVersion,
+  wyslijDoBiblioteki,
 } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
@@ -56,7 +58,8 @@ import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
-import { Outline, outlineId, type OutlineItem } from './Outline'
+import { Outline, outlineId, pozycjeSpisu } from './Outline'
+import { KontekstKafelka } from './KontekstKafelka'
 import { ConceptPicker } from './ConceptPicker'
 import { Icon } from './Icon'
 import { Komponowanie } from './Komponowanie'
@@ -506,6 +509,14 @@ interface LinearViewProps {
   ) => void
   /** Porzucenie własnego tekstu — kafelek wraca do pokazywania kafelka. */
   onWrocDoKlocka?: (nodeId: string, versionId: string, subpageId: string | null) => void
+  /** Tekst napisany w ścieżce staje się nową wersją kafelka. */
+  onWyslijDoBiblioteki?: (
+    nodeId: string,
+    conceptId: string,
+    versionId: string,
+    subpageId: string | null,
+    tekst: string,
+  ) => void
   onWrocDoCzesci?: (
     nodeId: string,
     index: number,
@@ -884,6 +895,7 @@ function LinearView({
   onRenameSegment,
   onEditBlock,
   onWrocDoKlocka,
+  onWyslijDoBiblioteki,
   onEditNote,
   onEditHeading,
   onRenameFusion,
@@ -896,6 +908,9 @@ function LinearView({
   /** Rodzaje mieszkające w ścieżce (przykład, zadanie…) — z nich robią się
    *  przyciski „nowy tutejszy" w menu szczeliny i na dole Linii. */
   const tutejszeRodzaje = typy.choices.filter((t) => t.wSciezce)
+  /** Kafelek, przy którym się pracuje — ostatnio kliknięty. Pokazuje go prawy
+   *  panel i spis treści. */
+  const [biezacy, setBiezacy] = useState<string | null>(null)
   /** Kafelki odsłonięte ręcznie w trybie zakrytym. */
   const [odsloniete, setOdsloniete] = useState<Set<string>>(new Set())
   useEffect(() => {
@@ -1418,6 +1433,7 @@ function LinearView({
       JSON.stringify(n),
       c?.name,
       c?.type,
+      c?.pathId,
       c?.mainPageName,
       c?.currentVersionId,
       w?.id,
@@ -1474,6 +1490,21 @@ function LinearView({
           nazwaWlasna={n.nazwa}
           trescWlasna={wlasna}
           bezPaskaWersji
+          pochodzenie
+          dzialanie={
+            wersja && wlasna !== undefined && !c.pathId && onWyslijDoBiblioteki ? (
+              <button
+                className="btn btn-wyslij"
+                title="Ten tekst stanie się nową wersją kafelka. Dotychczasowa wersja zostaje."
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onWyslijDoBiblioteki(n.id, c.id, wersja.id, strona?.id ?? null, wlasna)
+                }}
+              >
+                Wyślij do biblioteki
+              </button>
+            ) : undefined
+          }
           onRename={onRenameSegment ? (name) => onRenameSegment(n.id, name) : undefined}
           // jedyny przypadek, w którym nie ma gdzie pisać: kafelek bez żadnej
           // wersji. Niech to widać, zamiast cicho pokazywać sam tekst.
@@ -1579,6 +1610,7 @@ function LinearView({
         onJumpToSource={onJumpToSource}
         onRename={onRenameFusion ? (name) => onRenameFusion(n.id, name) : undefined}
         zewn={{ concepts, versions, subpages }}
+        pochodzenie
         edytor={
           onEditFusion
             ? (klucz, tresc, zapisz) =>
@@ -1630,46 +1662,14 @@ function LinearView({
     }
   }
 
-  /** Spis treści: rozdziały, a pod nimi wszystko, co w nich stoi — definicje,
-   *  twierdzenia, przykłady i notatki. Rozdział bez rozwinięcia wygląda jak
-   *  dotąd, a rozwinięty pozwala skoczyć wprost do konkretnej pozycji i
-   *  przestawić ją przeciągnięciem. */
-  const outline: OutlineItem[] = ordered.map((n) => {
-    if (n.kind === 'heading') {
-      return { domId: outlineId(n.id), nodeId: n.id, text: n.text, level: n.level }
-    }
-    if (n.kind === 'text' || n.kind === 'comment') {
-      // notatka nie ma nazwy — bierzemy jej pierwszą linijkę, żeby dało się
-      // ją poznać, a gdy jest pusta, zostaje samo słowo
-      const pierwsza = (n.text ?? '').split('\n').find((w) => w.trim() !== '')?.trim()
-      return {
-        domId: n.id,
-        nodeId: n.id,
-        text: pierwsza ? pierwsza.slice(0, 60) : 'Notatka',
-        level: 'kafelek' as const,
-        znak: n.kind === 'comment' ? '💬' : '✎',
-      }
-    }
-    if (n.kind === 'fusion') {
-      return {
-        domId: n.id,
-        nodeId: n.id,
-        text: n.name,
-        level: 'kafelek' as const,
-        znak: n.type ? typy.short(n.type) : '⧉',
-        barwa: n.type ? typy.def(n.type).color : undefined,
-      }
-    }
-    const c = mapy.klocki.get(n.conceptId)
-    return {
-      domId: n.id,
-      nodeId: n.id,
-      text: n.nazwa ?? c?.name ?? '(usunięty kafelek)',
-      level: 'kafelek' as const,
-      znak: c ? typy.short(c.type) : undefined,
-      barwa: c ? typy.def(c.type).color : undefined,
-    }
-  })
+  const zapamietajBiezacy = (e: React.SyntheticEvent) => {
+    const id = (e.target as Element).closest<HTMLElement>('[data-seg]')?.dataset.seg
+    const n = ordered.find((x) => x.id === id)
+    if (n?.kind === 'block' || n?.kind === 'fusion') setBiezacy(n.id)
+  }
+
+  const outline = pozycjeSpisu(ordered, (id) => mapy.klocki.get(id), typy)
+  const wezelBiezacy = ordered.find((n) => n.id === biezacy) ?? null
 
   return (
     <div
@@ -1683,7 +1683,7 @@ function LinearView({
         if (zazSeg.size > 0) setZazSeg(new Set())
       }}
     >
-      <Outline items={outline} onMove={onMoveSegment} />
+      <Outline items={outline} onMove={onMoveSegment} biezacy={biezacy} />
       {/* Pasek i kolumna razem w jednej kolumnie układu — inaczej pasek
           wchodziłby jako trzecia kolumna obok spisu treści i spychał tekst. */}
       <div className="linear-main">
@@ -1698,6 +1698,8 @@ function LinearView({
           każdy kafelek z osobna, migałaby przy przejeździe między nimi. */}
       <div
         className="linear-column"
+        onClickCapture={zapamietajBiezacy}
+        onFocusCapture={zapamietajBiezacy}
         onDragLeave={(e) => {
           if (e.currentTarget.contains(e.relatedTarget as HTMLElement | null)) return
           setSzczelina(null)
@@ -1777,48 +1779,68 @@ function LinearView({
           onDrop={(e) => handleDrop(e, last?.id ?? null, null)}
         >
           <p>Przeciągnij kafelek z listy po lewej, aby dokleić go do skryptu…</p>
+          {/* Jeden rząd, jedna zasada: znaczek (albo plakietka rodzaju)
+              i podpis. Plusy przy części guzików mówiły to samo, co cały ten
+              pasek — „tu się dokłada" — a rozpychały rząd tak, że przestawał
+              się mieścić. */}
           <div className="linear-append-actions">
+            <span className="linear-append-label">Dołóż:</span>
             {tutejszeRodzaje.map((t) => (
               <button
                 key={t.id}
-                className="btn"
+                className="btn btn-dolacz"
                 title={`${t.label} należy do tej ścieżki — nie trafia do listy po lewej`}
                 onClick={() => onAddExample(t.id, last?.id ?? null, null)}
               >
-                +{' '}
                 <span className="type-mini menu-mini" data-typ={t.id} style={typy.style(t.id)}>
                   {t.short}
-                </span>{' '}
+                </span>
                 {t.label}
               </button>
             ))}
             <button
-              className="btn"
+              className="btn btn-dolacz"
               title="Rozdział — dzieli skrypt na części"
               onClick={() => onAddHeading(1, last?.id ?? null, null)}
             >
-              + § Rozdział
+              <Icon name="rozdzial" size={1} />
+              Rozdział
             </button>
             <button
-              className="btn"
+              className="btn btn-dolacz"
               title="Podrozdział"
               onClick={() => onAddHeading(2, last?.id ?? null, null)}
             >
-              + §§ Podrozdział
-            </button>
-            <button className="btn" onClick={() => onAddNote('text', last?.id ?? null, null)}>
-              + Notatka
+              <Icon name="podrozdzial" size={1} />
+              Podrozdział
             </button>
             <button
-              className="btn"
+              className="btn btn-dolacz"
+              title="Notatka — twój komentarz w ciągu skryptu"
+              onClick={() => onAddNote('text', last?.id ?? null, null)}
+            >
+              <Icon name="notatka" size={1} />
+              Notatka
+            </button>
+            <button
+              className="btn btn-dolacz"
+              title="Komentarz — obok skryptu, nie w nim"
               onClick={() => onAddNote('comment', last?.id ?? null, null)}
             >
-              + 💬 Komentarz
+              <Icon name="komentarz" size={1} />
+              Komentarz
             </button>
           </div>
         </div>
       </div>
       </div>
+      <KontekstKafelka
+        wezel={wezelBiezacy}
+        concepts={concepts}
+        versions={versions}
+        onJumpToSource={(r) => onJumpToSource?.(r)}
+        onOpenConcept={(id) => onOpenConcept?.(id)}
+      />
 
       {segMenu &&
         (() => {
@@ -1916,7 +1938,7 @@ function LinearView({
                   title="Porzuć tekst napisany tutaj i pokazuj z powrotem treść z biblioteki"
                   onClick={wstaw(wlasny)}
                 >
-                  ↺ Przywróć treść z biblioteki{dopisek}
+                  <Icon name="przywroc" size={1} /> Przywróć treść z biblioteki{dopisek}
                 </button>,
               )
             }
@@ -1969,7 +1991,7 @@ function LinearView({
                       setZazSeg(new Set())
                     })}
                   >
-                    ⧉ Scal zaznaczone ({doScalenia.length})
+                    <Icon name="scal" size={1} /> Scal zaznaczone ({doScalenia.length})
                   </button>
                   <div className="tree-menu-sep" />
                 </>
@@ -1982,7 +2004,7 @@ function LinearView({
                     Złożony kafelek „{sasiad.name || 'bez nazwy'}"
                   </div>
                   <button className="tree-menu-item" onClick={wstaw(() => onEdit(sasiad))}>
-                    ⧉ Komponuj — nazwa, rodzaj, materiały
+                    <Icon name="scal" size={1} /> Komponuj — nazwa, rodzaj, materiały
                   </button>
                   <button className="tree-menu-item" onClick={wstaw(() => onUnfuse(sasiad.id))}>
                     Rozdziel z powrotem
@@ -1997,7 +2019,7 @@ function LinearView({
                       className="tree-menu-item"
                       onClick={wstaw(() => onOpenConcept(sasiad.conceptId))}
                     >
-                      Otwórz kafelek w edytorze
+                      <Icon name="otworz" size={1} /> Otwórz kafelek w edytorze
                     </button>
                   )}
                   {/* Rodzaje załatwiają zwykły przypadek (przykład, zadanie),
@@ -2015,7 +2037,8 @@ function LinearView({
                         }
                         onClick={wstaw(() => onKeepHere(sasiad.conceptId, !tutejszy))}
                       >
-                        {tutejszy ? '↗ Odeślij do biblioteki' : '⌂ Trzymaj tylko tutaj'}
+                        <Icon name={tutejszy ? 'library' : 'tutaj'} size={1} />{' '}
+                        {tutejszy ? 'Odeślij do biblioteki' : 'Trzymaj tylko tutaj'}
                       </button>
                     )
                   })()}
@@ -2034,7 +2057,7 @@ function LinearView({
                     className="tree-menu-item tree-menu-groznie"
                     onClick={wstaw(() => onRemove(sasiad.id))}
                   >
-                    🗑 Usuń ze ścieżki
+                    <Icon name="usun" size={1} /> Usuń ze ścieżki
                   </button>
                   <div className="tree-menu-sep" />
                 </>
@@ -2059,26 +2082,26 @@ function LinearView({
                 className="tree-menu-item"
                 onClick={wstaw(() => onAddHeading(1, afterId, beforeId))}
               >
-                § Rozdział
+                <Icon name="rozdzial" size={1} /> Rozdział
               </button>
               <button
                 className="tree-menu-item"
                 onClick={wstaw(() => onAddHeading(2, afterId, beforeId))}
               >
-                §§ Podrozdział
+                <Icon name="podrozdzial" size={1} /> Podrozdział
               </button>
               <div className="tree-menu-sep" />
               <button
                 className="tree-menu-item"
                 onClick={wstaw(() => onAddNote('text', afterId, beforeId))}
               >
-                ✎ Notatka
+                <Icon name="notatka" size={1} /> Notatka
               </button>
               <button
                 className="tree-menu-item"
                 onClick={wstaw(() => onAddNote('comment', afterId, beforeId))}
               >
-                💬 Komentarz
+                <Icon name="komentarz" size={1} /> Komentarz
               </button>
             </div>
           )
@@ -2256,6 +2279,8 @@ interface Props {
   /** Czy to ta ścieżka jest zakotwiczona (przycisk powrotu w rogu). */
   zakotwiczona?: boolean
   onZakotwicz?: () => void
+  pdfWidoczny?: boolean
+  onPrzelaczPdf?: () => void
 }
 
 function CanvasInner({
@@ -2266,6 +2291,8 @@ function CanvasInner({
   celKlocek,
   zakotwiczona,
   onZakotwicz,
+  pdfWidoczny,
+  onPrzelaczPdf,
 }: Props) {
   const dlg = useDialogs()
   // przez pudełko, żeby `api` mapy zachowało stałą tożsamość (od niej zależy
@@ -3197,6 +3224,73 @@ function CanvasInner({
     [],
   )
 
+  /** Tekst ze ścieżki idzie do biblioteki jako nowa wersja kafelka. Kafelek
+   *  wraca wtedy do żywego podglądu, bo jego treść to już ten sam tekst. */
+  const wyslijTekst = useCallback(
+    async (
+      nodeId: string,
+      conceptId: string,
+      versionId: string,
+      subpageId: string | null,
+      tekst: string,
+    ) => {
+      const ok = await dlgRef.current.confirm({
+        title: 'Wysłać ten tekst do biblioteki?',
+        message:
+          'Powstanie nowa wersja kafelka i stanie się bieżąca. Dotychczasowa ' +
+          'wersja zostaje. Ścieżki, które nie mają własnego tekstu tego ' +
+          'kafelka, zaczną pokazywać nową wersję.',
+        confirmLabel: 'Wyślij do biblioteki',
+      })
+      if (!ok) return
+      const bylaBiezaca = (await db.concepts.get(conceptId))?.currentVersionId
+      const { wersjaId, mapaStron } = await wyslijDoBiblioteki(
+        conceptId,
+        versionId,
+        subpageId,
+        tekst,
+        pathId,
+      )
+      const wyslany = kluczWlasnej(versionId, subpageId)
+      setRfNodes((ns) => {
+        // pozostałe węzły tego kafelka: ich tekst nie może zniknąć z oczu
+        const przypiete = bylaBiezaca
+          ? przypnijTekstDoWersji(ns.map(fromRfNode), conceptId, bylaBiezaca)
+          : null
+        return ns.map((n, i) => {
+          if (n.id !== nodeId) {
+            const p = przypiete?.[i]
+            if (p?.kind === 'block') return { ...n, data: { ...n.data, versionId: p.versionId } }
+            if (p?.kind === 'fusion') return { ...n, data: { ...n.data, parts: p.parts } }
+            return n
+          }
+          // reszta tekstów tej wersji przechodzi razem z nią na nową
+          const wlasne: WlasneTresci = {}
+          for (const [k, v] of Object.entries((n.data.wlasneTresci as WlasneTresci) ?? {})) {
+            if (k === wyslany) continue
+            if (!k.startsWith(`${versionId}:`)) {
+              wlasne[k] = v
+              continue
+            }
+            const strona = k.slice(versionId.length + 1) || null
+            wlasne[kluczWlasnej(wersjaId, strona ? (mapaStron[strona] ?? strona) : null)] = v
+          }
+          const strona = n.data.subpageId as string | null | undefined
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              wlasneTresci: wlasne,
+              versionId: null,
+              subpageId: strona ? (mapaStron[strona] ?? strona) : strona,
+            },
+          }
+        })
+      })
+    },
+    [pathId],
+  )
+
   /** Przenosi kilka segmentów naraz — każdy ląduje za poprzednim, więc
    *  wzajemna kolejność zaznaczenia zostaje zachowana. */
   const moveSegments = (ids: string[], afterId: string | null, beforeId: string | null) => {
@@ -3454,6 +3548,7 @@ function CanvasInner({
   return (
     <section className="path-canvas">
       <header className="path-toolbar">
+        <span className="path-ukosnik">/</span>
         <input
           className="input path-name"
           value={name}
@@ -3474,7 +3569,7 @@ function CanvasInner({
             onClick={() => setZakryte((z) => !z)}
           >
             <Icon name={zakryte ? 'odkryj' : 'zakryj'} size={1} />
-            <span className="btn-napis">{zakryte ? 'Odkryj' : 'Zakryj'}</span>
+            <span className="btn-napis">{zakryte ? 'Odkryj' : 'Zakryj treści'}</span>
           </button>
         )}
         {onZakotwicz && (
@@ -3487,7 +3582,7 @@ function CanvasInner({
             }
             onClick={onZakotwicz}
           >
-            ⚓
+            <Icon name="anchor" size={1} />
           </button>
         )}
         <div className="view-switch">
@@ -3522,6 +3617,15 @@ function CanvasInner({
             Drukuj / PDF
           </button>
         )}
+        {onPrzelaczPdf && (
+          <button
+            className={`btn ${pdfWidoczny ? 'btn-active' : ''}`}
+            title={pdfWidoczny ? 'Schowaj panel PDF' : 'Pokaż panel PDF'}
+            onClick={onPrzelaczPdf}
+          >
+            PDF
+          </button>
+        )}
         <button className="btn btn-close" title="Zamknij ścieżkę" onClick={onClose}>
           ✕
         </button>
@@ -3547,14 +3651,14 @@ function CanvasInner({
             }}
             title="Dodaj komentarz do ścieżki (nie trafia do skryptu)"
           >
-            + 💬 Komentarz
+            <Icon name="komentarz" size={1} /> Komentarz
           </button>
           <button
             className="btn"
             onClick={() => handleAddHeading(1)}
             title="Dodaj rozdział (dwuklik na kafelku zmienia nazwę, § zmienia poziom)"
           >
-            + § Rozdział
+            <Icon name="rozdzial" size={1} /> Rozdział
           </button>
           <button
             className="btn"
@@ -3583,17 +3687,16 @@ function CanvasInner({
             disabled={selectedBlocks < 2}
             title="Scal zaznaczone kafelki w jeden bloczek (w tej ścieżce)"
           >
-            ⧉ Scal ({selectedBlocks})
+            <Icon name="scal" size={1} /> Scal ({selectedBlocks})
           </button>
         </div>
       )}
-      {/* W Linii podpowiedzi nie ma: to warsztat pisania, a nie instrukcja —
-          pasek narzędzi zajmuje górę i drugi napis nad nim tylko przeszkadza. */}
-      {mode !== 'linear' && (
+      {/* Podpowiedź tylko na Mapie: Linia to warsztat pisania, a Skrypt książka. */}
+      {mode === 'map' && (
         <div className="path-hint">
-          {mode === 'map'
-            ? 'Przeciągnij kafelki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) · prawy przycisk = nowy kafelek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift = przyciąganie do siatki · Delete usuwa'
-            : 'Gotowy skrypt ścieżki (tylko odczyt) — edytuj na Mapie albo w Linii'}
+          Przeciągnij kafelki z listy po lewej · łącz strzałkami (od dolnej kropki do górnej) ·
+          prawy przycisk = nowy kafelek/notatka/komentarz · Ctrl+klik zaznacza wiele · Shift =
+          przyciąganie do siatki · Delete usuwa
         </div>
       )}
       {mode === 'script' && (
@@ -3647,6 +3750,7 @@ function CanvasInner({
           onEditBlock={(nodeId, versionId, subpageId, md) =>
             zapiszTresc(nodeId, versionId, subpageId, md)
           }
+          onWyslijDoBiblioteki={wyslijTekst}
           onWrocDoKlocka={(nodeId, versionId, subpageId) =>
             wrocDoKlocka(nodeId, kluczWlasnej(versionId, subpageId))
           }
@@ -3809,7 +3913,7 @@ function CanvasInner({
                 setCtxMenu(null)
               }}
             >
-              💬 Nowy komentarz tutaj
+              <Icon name="komentarz" size={1} /> Nowy komentarz tutaj
             </button>
           </div>
         )}
@@ -3851,7 +3955,7 @@ function CanvasInner({
                   setNodeMenu(null)
                 }}
               >
-                ⇱ Rozdziel fuzję
+                <Icon name="rozdziel" size={1} /> Rozdziel fuzję
               </button>
             )}
             <button

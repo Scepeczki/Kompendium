@@ -242,8 +242,11 @@ function Widok() {
   }
 
   const cols = [`${sidebarW}px`, '5px', 'minmax(300px, 1fr)']
+  // Przy otwartej ścieżce przycisk PDF stoi na górnym pasku, więc boczny
+  // pasek do przywracania tylko zabierałby miejsce.
+  const sciezkaNaEkranie = !!openPathId && !showSettings && !showGraph
   if (showPdf) cols.push('5px', `${pdfW}px`)
-  else cols.push('30px')
+  else if (!sciezkaNaEkranie) cols.push('30px')
 
   return (
     <div
@@ -325,6 +328,8 @@ function Widok() {
           onClose={() => setOpenPathId(null)}
           onOpenConcept={selectConcept}
           onJumpToSource={jumpToSource}
+          pdfWidoczny={showPdf}
+          onPrzelaczPdf={() => setShowPdf((p) => !p)}
         />
       ) : concept && version ? (
         <BlockEditor
@@ -376,7 +381,7 @@ function Widok() {
             onOpenConcept={selectConcept}
           />
         </>
-      ) : (
+      ) : sciezkaNaEkranie ? null : (
         <button
           className="pdf-reopen"
           title="Pokaż panel PDF"

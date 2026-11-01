@@ -81,14 +81,10 @@ await page.waitForSelector('.path-node')
 await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-block')
 await page.waitForTimeout(400)
-const toggleText = await page.locator('.source-list-toggle').textContent()
-console.log(`✓ źródła pod treścią bloku: „${toggleText.trim()}"`)
-
-// 5. rozwinięcie listy i podgląd po najechaniu
-await page.click('.source-list-toggle')
+// 5. nazwy źródeł widać od razu, podgląd po najechaniu
 await page.waitForSelector('.source-list-item')
 const items = await page.locator('.source-list-item').count()
-console.log(`✓ lista rozwinięta: ${items} źródła`)
+console.log(`✓ źródła pod treścią bloku: ${items}`)
 await page.hover('.source-list-item')
 await page.waitForSelector('.source-preview', { timeout: 15000 })
 await page.waitForTimeout(1500)

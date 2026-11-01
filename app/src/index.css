@@ -5,26 +5,33 @@
 
 :root {
   /* paleta „papier i atrament" */
-  --paper: #f6f4ee;
-  --panel: #fffdf8;
-  --panel-alt: #faf8f2;
+  --paper: #f4efe6;
+  --panel: #fffdf9;
+  --panel-alt: #f2ede3;
   --ink: #2b2620;
   --ink-soft: #55503f;
   --muted: #8d8677;
-  --line: #e6e1d4;
-  --line-strong: #d5cfbf;
-  --accent: #3d6b54;
-  --accent-ink: #2c5240;
-  --accent-soft: #e5eee8;
+  --line: #e8e1d4;
+  --line-strong: #dcd4c4;
+  --accent: #2f6b52;
+  --accent-ink: #27593f;
+  --accent-soft: #e2eee6;
   --danger: #a8452f;
 
+  /* łagodne kształty: jedna skala zaokrągleń i jeden cień na cały program */
+  --r-karta: 14px;
+  --r-pole: 11px;
+  --r-mala: 8px;
+  --cien-karta: 0 1px 2px rgba(70, 55, 30, 0.05), 0 6px 18px rgba(70, 55, 30, 0.05);
+  --wys-paska: 60px;
+
   /* kolory typów kafelków (spokojne, akademickie) */
-  --c-definicja: #31619e;
-  --c-twierdzenie: #6d4a9e;
-  --c-lemat: #8a5fb0;
-  --c-dowod: #6b6b66;
-  --c-przyklad: #3d7a52;
-  --c-uwaga: #a9742c;
+  --c-definicja: #c2612c;
+  --c-twierdzenie: #b0384a;
+  --c-lemat: #8c4f86;
+  --c-dowod: #7a7468;
+  --c-przyklad: #3f8a5f;
+  --c-uwaga: #b0862c;
   --c-intuicja: #b05575;
 
   /* Kroje pisma. Inter — interfejs (czytelny w małych rozmiarach, neutralny),
@@ -78,6 +85,7 @@
   --accent-ink: #85b89b;
   --accent-soft: #27382e;
   --danger: #d58467;
+  --cien-karta: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.18);
 
   --c-definicja: #5c8cc9;
   --c-twierdzenie: #9a79c9;
@@ -3374,8 +3382,43 @@ button.version-pill.new {
 
 .linear-append-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   justify-content: center;
+}
+
+/* Podpis rzędu mówi to, co plusy przy guzikach mówiły pięć razy. */
+.linear-append-label {
+  font-size: var(--fs-2);
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+/* Guziki dokładania: ciasno, bez obwódek krzyczących o uwagę. Rząd ma się
+   mieścić w kolumnie tekstu, a nie rozpychać jej łokciami. */
+.btn-dolacz {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-color: var(--line);
+  background: none;
+  color: var(--muted);
+}
+
+.btn-dolacz > .ico {
+  color: var(--muted);
+}
+
+.btn-dolacz:hover:not(:disabled) {
+  background: var(--panel);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.btn-dolacz:hover > .ico {
+  color: inherit;
 }
 
 /* --------------------------------------------------------------------------
@@ -5656,13 +5699,14 @@ body.ciagne-szerokosc * {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Komponowanie to praca, a nie okienko z pytaniem — ma zająć ekran.
-     Zostawiamy tyle ramki, żeby było widać, że to warstwa nad ścieżką. */
-  padding: 14px;
+  /* Komponowanie to praca, a nie okienko z pytaniem — ale rozciągnięte na
+     całą szerokość monitora robi się nieczytelne: kartka pływa wtedy
+     w pustce, a wzrok wędruje od nazwy w lewym rogu do „Gotowe" w prawym. */
+  padding: 20px;
 }
 
 .komp-okno {
-  width: min(1800px, 100%);
+  width: min(1240px, 100%);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -5738,9 +5782,9 @@ body.ciagne-szerokosc * {
 }
 
 .komp-material {
-  /* Rośnie razem z oknem: przy szerokim ekranie materiał ma gdzie się
-     rozłożyć, przy wąskim nie zjada miejsca na pisanie. */
-  width: clamp(340px, 32%, 560px);
+  /* Rośnie razem z oknem, ale z umiarem: materiał ma być czytelny, a nie
+     zajmować pół ekranu — obok musi się zmieścić cała kartka do pisania. */
+  width: clamp(320px, 30%, 420px);
   flex: none;
   border-right: 1px solid var(--line);
   overflow-y: auto;
@@ -5951,5 +5995,1033 @@ body.ciagne-szerokosc * {
     max-height: 40%;
     border-right: none;
     border-bottom: 1px solid var(--line);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   MENU POD PRAWYM PRZYCISKIEM — jeden język znaczków
+   ---------------------------------------------------------------------------
+   Wcześniej w jednym menu spotykały się emoji (🗑 ✎ 💬), znaki typograficzne
+   (§ ⌂ ⧉ ↺) i plakietki rodzajów (PRZ, ZAD): każde innej wielkości, innego
+   koloru i inaczej odsunięte od podpisu. Teraz wszystko idzie z tej samej
+   rodziny znaczków, a plakietki rodzajów zajmują dokładnie tę samą kolumnę.
+   ------------------------------------------------------------------------- */
+
+.tree-menu-item > .ico {
+  width: 1.15em;
+  color: var(--muted);
+}
+
+.tree-menu-item:hover > .ico {
+  color: inherit;
+}
+
+.tree-menu-item.tree-menu-groznie > .ico,
+.tree-menu-item.grozne > .ico {
+  color: var(--danger);
+}
+
+/* plakietka rodzaju w tej samej kolumnie, co znaczki */
+.tree-menu-item > .menu-mini {
+  width: 1.15em;
+  margin-right: 0;
+  text-align: center;
+}
+
+/* Przełącznik widoków jako jeden segmentowany klocek, a nie trzy osobne
+   guziki: podświetlony jest ten, w którym się jest, reszta siedzi cicho. */
+.view-switch {
+  display: flex;
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-alt);
+}
+
+.view-switch .btn,
+.view-switch .btn:first-child,
+.view-switch .btn:last-child {
+  border: none;
+  border-radius: 7px;
+  margin-left: 0;
+  background: none;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.view-switch .btn:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.view-switch .btn.btn-active {
+  background: var(--paper);
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Guzik ze znaczkiem I podpisem — znaczek obok tekstu, nie nad nim.
+   Bez tego „Zakryj" łamało się na dwie linie i pasek robił się wyższy
+   od sąsiadów. */
+.btn:has(> .ico) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==========================================================================
+   Nowy wygląd: ciepły papier, miękkie karty, jeden górny pasek.
+   Stoi na końcu arkusza, bo przestraja reguły rozsiane wyżej.
+   ========================================================================== */
+
+/* --- jeden górny pasek: nagłówek listy i pasek ścieżki mają tę samą
+   wysokość i tę samą kreskę, więc czytają się jak ciągły pas --- */
+
+.splitter {
+  background: transparent;
+}
+
+.splitter:hover {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.sidebar {
+  background: var(--panel-alt);
+  border-right: none;
+}
+
+.sidebar-header {
+  box-sizing: border-box;
+  height: var(--wys-paska);
+  padding: 0 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.app-title {
+  font-family: var(--font-read);
+  font-size: var(--fs-7);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.path-canvas {
+  background: var(--paper);
+}
+
+.path-toolbar {
+  box-sizing: border-box;
+  min-height: var(--wys-paska);
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+/* na telefonie lewy brzeg należy do przycisków szuflady */
+@media (min-width: 761px) {
+  .path-toolbar {
+    padding: 8px 16px 8px 4px;
+  }
+
+  .sidebar-footer {
+    padding: 8px 12px;
+  }
+}
+
+.path-ukosnik {
+  color: var(--muted);
+  font-size: var(--fs-6);
+}
+
+.path-name {
+  font-size: var(--fs-5);
+  padding-left: 4px;
+}
+
+.btn {
+  border-radius: var(--r-pole);
+  padding: 6px 13px;
+  font-weight: 500;
+  border-color: var(--line);
+}
+
+.btn-active,
+.btn.btn-active {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  color: var(--accent-ink);
+}
+
+.input {
+  border-radius: var(--r-pole);
+}
+
+/* przełącznik widoków: szara rynna, biała wybrana pozycja */
+.view-switch {
+  padding: 3px;
+  gap: 2px;
+  border-radius: var(--r-pole);
+  background: var(--panel-alt);
+  border: none;
+}
+
+.view-switch .btn,
+.view-switch .btn:first-child,
+.view-switch .btn:last-child {
+  border: none;
+  border-radius: var(--r-mala);
+  background: transparent;
+  padding: 5px 13px;
+  color: var(--muted);
+}
+
+.view-switch .btn.btn-active {
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(70, 55, 30, 0.12);
+}
+
+/* --- lista po lewej --- */
+
+.sidebar-filters {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  align-items: center;
+  padding: 14px 14px 10px;
+  color: var(--muted);
+}
+
+.sidebar-filters > .ico {
+  position: absolute;
+  left: 26px;
+  top: calc(50% + 2px);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.sidebar-filters .input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px 56px 8px 32px;
+  font-size: var(--fs-3);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+.sidebar-klawisz {
+  position: absolute;
+  right: 22px;
+  top: calc(50% + 2px);
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--fs-1);
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--panel-alt);
+  pointer-events: none;
+}
+
+.sidebar-chipy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 12px;
+}
+
+.sidebar-chip {
+  font: inherit;
+  font-size: var(--fs-2);
+  font-weight: 500;
+  padding: 3px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.sidebar-chip:hover {
+  border-color: var(--line-strong);
+}
+
+.sidebar-chip.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--panel);
+}
+
+.sidebar-create {
+  display: flex;
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+
+.sidebar-create-btn {
+  flex: 1;
+  width: auto;
+  height: 34px;
+  font: inherit;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pole);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(70, 55, 30, 0.05);
+}
+
+.sidebar-create-btn.sidebar-create-ikona {
+  flex: 0 0 38px;
+}
+
+.concept-item {
+  border-radius: var(--r-mala);
+}
+
+.concept-item.selected {
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(70, 55, 30, 0.08);
+}
+
+.sidebar-foot-btn span {
+  font-size: var(--fs-2);
+}
+
+.sidebar-counts {
+  flex: 1;
+  text-align: right;
+  font-size: var(--fs-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* --- Linia: spis, kolumna kart, prawy panel --- */
+
+.linear-view {
+  background: var(--paper);
+}
+
+.linear-column {
+  padding-top: 14px;
+}
+
+.linear-seg {
+  padding: 9px 0;
+}
+
+.linear-seg.zaznaczony {
+  background: none;
+  box-shadow: none;
+}
+
+.linear-seg.zaznaczony .script-block {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.linear-content .script-block {
+  margin: 0;
+}
+
+/* Karta kafelka: biała, z paskiem w barwie rodzaju po lewej. Pasek rysuje
+   cień, a nie obramowanie — nic nie przesuwa się o piksel po zaznaczeniu. */
+.script-block {
+  position: relative;
+  border-radius: var(--r-karta);
+  overflow: visible;
+  /* nasycenie z Ustawień barwi całą kartę; domyślnie to ledwie echo rodzaju */
+  background: color-mix(
+    in srgb,
+    var(--block-color) calc(var(--block-tint, 14) * 0.15%),
+    var(--panel)
+  );
+  box-shadow: inset 4px 0 0 var(--block-color), 0 0 0 1px var(--line), var(--cien-karta);
+}
+
+.script-block-head {
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 20px 2px 24px;
+  background: none;
+}
+
+.script-block-title {
+  flex: 1 1 220px;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-5);
+  font-weight: 650;
+  color: var(--ink);
+}
+
+/* pasek rodzaju jest teraz krawędzią karty, więc treść nie potrzebuje swojego */
+.block-content {
+  border-left: none;
+  padding-left: 0;
+  margin-left: 0;
+}
+
+/* Pasek narzędzi unosi się u dołu okna i tylko przy pisaniu — karty nie
+   skaczą, gdy się pojawia, a stojąc na dole nie zasłania pisanego wiersza. */
+.linear-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.linear-toolbar {
+  order: 2;
+  position: sticky;
+  bottom: 14px;
+  z-index: 6;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  /* przezroczystość, nie visibility: klik w przycisk na chwilę zabiera fokus
+     z pola, a przycisk niewidoczny nie umie go przejąć i klik przepada */
+  opacity: 0;
+  pointer-events: none;
+}
+
+.linear-main:has(.tiptap:focus, .linear-toolbar:focus-within) .linear-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.linear-toolbar .rich-toolbar {
+  flex: none;
+  width: auto;
+  max-width: calc(100% - 32px);
+  height: auto;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-karta);
+  background: var(--panel);
+  box-shadow: var(--cien-karta);
+}
+
+.linear-seg .script-heading-node .inline-title {
+  width: 100%;
+}
+
+.script-block-title .type-mini,
+.script-block-type {
+  letter-spacing: 0.05em;
+  text-transform: none;
+  font-weight: 700;
+}
+
+.script-block-title .inline-title {
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.script-block-body {
+  padding: 4px 20px 12px 24px;
+}
+
+/* strony kafelka w nagłówku: mały przełącznik jak ten od widoków */
+.block-pages {
+  display: inline-flex;
+  gap: 2px;
+  margin: 0;
+  padding: 2px;
+  border-radius: var(--r-mala);
+  background: var(--panel-alt);
+}
+
+.block-page {
+  border: none;
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: var(--fs-2);
+  background: none;
+  color: var(--muted);
+}
+
+.block-page.active {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(70, 55, 30, 0.12);
+}
+
+/* skąd pochodzi tekst: spokojna plakietka z kropką */
+.block-pochodzenie {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: var(--fs-1);
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.block-pochodzenie::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.block-pochodzenie[data-rodzaj='tutejszy']::before,
+.block-pochodzenie[data-rodzaj='sciezka']::before {
+  background: var(--c-uwaga);
+}
+
+.btn-wyslij {
+  flex: none;
+  padding: 2px 11px;
+  font-size: var(--fs-2);
+  border-radius: var(--r-mala);
+}
+
+/* Pisanie: zielona ramka i napis, że biblioteka zostaje bez zmian. Tutejszy
+   kafelek napisu nie dostaje — on nie ma w bibliotece drugiej kopii. */
+.linear-seg:focus-within .script-block {
+  box-shadow: inset 4px 0 0 var(--block-color), 0 0 0 1.5px var(--accent), var(--cien-karta);
+}
+
+.linear-seg:focus-within .script-block:is([data-skad='biblioteka'], [data-skad='sciezka'], [data-skad='zlozony'])::before {
+  content: 'Piszesz w tej ścieżce — biblioteka bez zmian';
+  position: absolute;
+  z-index: 1;
+  top: -9px;
+  left: 22px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: var(--fs-1);
+  font-weight: 600;
+  line-height: 18px;
+  color: #fff;
+  background: var(--accent);
+}
+
+/* źródła: same nazwy, pod cienką kreską */
+.source-list {
+  margin: 0;
+  padding: 9px 20px 11px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.source-list-items {
+  gap: 4px 18px;
+  margin: 0;
+}
+
+.source-jump {
+  font-size: var(--fs-2);
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: none;
+}
+
+.source-jump:hover {
+  color: var(--accent-ink);
+  background: none;
+  text-decoration: underline;
+}
+
+.outline {
+  padding: 18px 12px 20px 16px;
+  border-right: none;
+}
+
+.outline-rodzaj {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  padding: 2px;
+  border-radius: var(--r-mala);
+  background: var(--panel-alt);
+}
+
+.outline-rodzaj button {
+  flex: 1;
+  font: inherit;
+  font-size: var(--fs-2);
+  padding: 2px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.outline-rodzaj button.wybrany {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(70, 55, 30, 0.12);
+}
+
+.outline-item {
+  border-left: none;
+  border-radius: 6px;
+}
+
+.outline-item.active {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* spis ogólny: przebieg przez rozdziały na jednej szynie */
+.outline-ogolny .outline-rozdzial {
+  background: linear-gradient(var(--line-strong), var(--line-strong)) 7px 0 / 2px 100% no-repeat;
+}
+
+.outline-ogolny .outline-kafelek {
+  padding-left: 24px;
+  margin-left: 0;
+  background: linear-gradient(var(--line-strong), var(--line-strong)) 7px 0 / 2px 100% no-repeat;
+}
+
+.outline-ogolny .outline-kafelek:hover {
+  background-color: var(--panel-alt);
+}
+
+.outline-ogolny .outline-chev {
+  flex: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font-size: 0;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--paper);
+  transform: none;
+}
+
+.outline-ogolny .outline-rozdzial.level-2 .outline-chev,
+.outline-ogolny .outline-rozdzial.level-3 .outline-chev {
+  width: 10px;
+  height: 10px;
+  margin: 0 3px;
+}
+
+.outline-ogolny [data-etap='miniety'] > .outline-wiersz .outline-chev {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.outline-ogolny [data-etap='biezacy'] > .outline-wiersz .outline-chev {
+  border-color: var(--accent);
+  border-width: 3px;
+}
+
+.outline-ogolny [data-etap='przed'] > .outline-wiersz .outline-item {
+  color: var(--muted);
+}
+
+.outline-ogolny .outline-item.level-1 {
+  font-weight: 600;
+  color: var(--ink);
+  white-space: normal;
+  padding: 4px 6px 4px 8px;
+}
+
+.outline-kropki {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 1px 0 8px 26px;
+}
+
+.outline-kropka {
+  flex: none;
+  align-self: center;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: var(--kropka, var(--muted));
+}
+
+.outline-kafelek .outline-kropka {
+  background: var(--muted);
+}
+
+/* rozdział jeszcze przed nami: same obwódki */
+[data-etap='przed'] .outline-kropki .outline-kropka {
+  background: none;
+  border: 1.5px solid var(--line-strong);
+}
+
+.outline-kafelek.outline-tu {
+  color: var(--ink);
+  font-weight: 600;
+  background-color: var(--accent-soft);
+}
+
+.outline-znacznik-tu {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+/* spis szczegółowy: plakietki w jednej kolumnie, żeby nazwy stały równo */
+.outline-szczegolowy .outline-kafelek {
+  padding-left: 22px;
+}
+
+.outline-szczegolowy .outline-znak {
+  min-width: 2.7em;
+}
+
+/* prawy panel */
+.kontekst {
+  position: sticky;
+  top: 0;
+  flex: none;
+  box-sizing: border-box;
+  width: 262px;
+  min-height: 100%;
+  align-self: stretch;
+  padding: 20px 18px;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  font-size: var(--fs-3);
+}
+
+.kontekst-etykieta {
+  margin: 18px 0 8px;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.kontekst-etykieta:first-child {
+  margin-top: 0;
+}
+
+.kontekst-nazwa {
+  font-size: var(--fs-5);
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.kontekst-meta,
+.kontekst-dopisek,
+.kontekst-pusto {
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.kontekst-pusto {
+  margin: 0;
+}
+
+.kontekst-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.kontekst-lista li {
+  overflow-wrap: anywhere;
+}
+
+.kontekst-link {
+  display: inline;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.kontekst-link + .kontekst-dopisek {
+  display: block;
+}
+
+.kontekst-link:hover {
+  color: var(--accent-ink);
+  text-decoration: underline;
+}
+
+/* prawy panel ustępuje treści, gdy robi się ciasno (np. przy otwartym PDF) */
+@container (max-width: 1040px) {
+  .kontekst {
+    display: none;
+  }
+}
+
+/* --- Skrypt: kafelki tracą ramki i stają się numerowanymi akapitami --- */
+
+.script-embed {
+  background: var(--paper);
+  container-type: inline-size;
+}
+
+.script-body {
+  --ks-numer: 58px;
+  --ks-margines: 200px;
+  max-width: calc(var(--page-width, 800px) + var(--ks-numer) + var(--ks-margines));
+}
+
+.script-heading {
+  font-family: var(--font-read);
+  margin-left: var(--ks-numer);
+}
+
+.script-body .script-heading-node.level-1 {
+  font-family: var(--font-read);
+  font-size: var(--fs-8);
+  margin: 42px 0 18px var(--ks-numer);
+  border: none;
+}
+
+.script-body .script-heading-node.level-1::before {
+  content: 'Rozdział ' attr(data-rozdzial);
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.script-body .script-heading-node.level-2,
+.script-body .script-heading-node.level-3 {
+  margin-left: var(--ks-numer);
+}
+
+.script-body > .script-text {
+  margin-left: var(--ks-numer);
+  margin-right: var(--ks-margines);
+}
+
+.ks-blok {
+  display: grid;
+  grid-template-columns: var(--ks-numer) minmax(0, 1fr) var(--ks-margines);
+  margin: 0 0 20px;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  font-family: var(--font-read);
+}
+
+.ks-numer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.ks-liczba {
+  font-family: var(--font-read);
+  font-size: var(--fs-7);
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.ks-numer .type-mini {
+  min-width: 0;
+}
+
+/* „otwórz kafelek" chowa się pod numerem i wychodzi dopiero po najechaniu */
+.ks-blok .script-block-open {
+  position: absolute;
+  top: 54px;
+  left: 2px;
+  opacity: 0;
+}
+
+.ks-blok:hover .script-block-open {
+  opacity: 1;
+}
+
+.ks-blok .script-block-head {
+  display: block;
+  float: left;
+  max-width: 100%;
+  margin-right: 6px;
+  padding: 0;
+}
+
+.ks-blok .script-block-title {
+  display: inline;
+  font-size: var(--fs-5);
+  font-weight: 700;
+}
+
+.ks-slowo {
+  font-weight: 700;
+}
+
+.ks-nazwa {
+  font-weight: 400;
+  font-style: italic;
+}
+
+.ks-nazwa::before {
+  content: ' (';
+}
+
+.ks-nazwa::after {
+  content: ').';
+}
+
+.ks-blok .script-block-body {
+  padding: 0;
+}
+
+.ks-blok .block-pages {
+  float: right;
+  margin-left: 10px;
+}
+
+.ks-blok .block-pick {
+  float: right;
+  margin-left: 10px;
+}
+
+.ks-blok .markdown-body {
+  font-family: var(--font-read);
+}
+
+.ks-blok .source-list {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  margin-left: 18px;
+  padding: 2px 0 2px 14px;
+  border-top: none;
+  border-left: 1px solid var(--line);
+}
+
+.ks-blok .source-list-items {
+  flex-direction: column;
+}
+
+/* wąsko i na papierze nie ma marginesu: źródła schodzą pod akapit */
+@container (max-width: 1000px) {
+  .ks-blok {
+    grid-template-columns: var(--ks-numer) minmax(0, 1fr);
+  }
+
+  .ks-blok .source-list {
+    grid-column: 2;
+    grid-row: auto;
+    margin: 6px 0 0;
+    padding: 0;
+    border-left: none;
+  }
+
+  .script-body > .script-text {
+    margin-right: 0;
+  }
+}
+
+@media print {
+  .ks-blok {
+    grid-template-columns: var(--ks-numer) minmax(0, 1fr);
+    box-shadow: none;
+  }
+
+  .ks-blok .source-list {
+    display: none;
+  }
+
+  .script-body > .script-text {
+    margin-right: 0;
+  }
+}
+
+/* --- telefon: te same karty, tylko bez marginesów na bokach --- */
+
+@media (max-width: 760px) {
+  .script-body {
+    --ks-numer: 40px;
+  }
+
+  .sidebar-klawisz {
+    display: none;
+  }
+
+  .sidebar-filters .input {
+    padding-right: 12px;
+  }
+
+  .kontekst {
+    display: none;
+  }
+}
+
+/* ramkę pisania niesie cała karta, pole w środku nie dokłada swojej */
+.linear-pole .rich-content .tiptap,
+.linear-pole .rich-content .tiptap:hover,
+.linear-pole .rich-content .tiptap.ProseMirror-focused {
+  border-color: transparent;
+  box-shadow: none;
+  background: none;
+  outline: none;
+}
+
+.sidebar .concept-list {
+  min-height: 0;
+}
+
+.sidebar-footer {
+  flex: none;
+}
+
+.sidebar-foot-btn {
+  white-space: nowrap;
+}
+
+/* Zapas pod listą jako jej zawartość, a nie padding: padding liczy się do
+   najmniejszej wysokości listy i przy wyższej górze panelu wypychał stopkę. */
+.sidebar .concept-list {
+  padding-bottom: 6px;
+}
+
+.sidebar .concept-list::after {
+  content: '';
+  display: block;
+  height: 75vh;
+}
+
+@media (max-width: 760px) {
+  /* nazwa ścieżki zaczyna się za przyciskami szuflady */
+  .path-toolbar {
+    padding-left: 106px;
+  }
+
+  .path-ukosnik {
+    display: none;
   }
 }

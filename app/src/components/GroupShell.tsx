@@ -39,6 +39,10 @@ interface Props {
   /** Zapis treści: `null` = strona główna. */
   onEditContent?: (md: string, stronaId: string | null) => void
   onStartEdit?: () => void
+  /** Numer w Skrypcie — blok czyta się wtedy jak akapit książki. */
+  numer?: string
+  /** Plakietka w nagłówku: złożony tekst istnieje tylko w tej ścieżce. */
+  pochodzenie?: boolean
 }
 
 /** Sklejka treści materiałów — tak wyglądał scalony blok w starym modelu.
@@ -85,6 +89,8 @@ export function GroupShell({
   edytor,
   onEditContent,
   onStartEdit,
+  numer,
+  pochodzenie,
 }: Props) {
   const typy = useBlockTypes()
   /** Która strona złożonego kafelka jest pokazana; null = główna. */
@@ -129,17 +135,56 @@ export function GroupShell({
       return wersja?.sourceRefs ?? []
     })
 
+  const ksiazka = numer !== undefined
+  const slowo = type ? typy.label(type) : 'Blok'
+  const znak = type ? typy.short(type) : 'BLOK'
+  const zakladki = listaStron.length > 0 && (
+    <div className="block-pages">
+      <button
+        className={`block-page ${strona ? '' : 'active'}`}
+        onClick={() => setWybrana(null)}
+      >
+        Treść
+      </button>
+      {listaStron.map((s) => (
+        <button
+          key={s.id}
+          className={`block-page ${strona?.id === s.id ? 'active' : ''}`}
+          onClick={() => setWybrana(s.id)}
+        >
+          {s.name}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <section
-      className="script-block script-group-block"
+      className={`script-block script-group-block ${ksiazka ? 'ks-blok' : ''}`}
       data-typ={type}
+      data-skad={pochodzenie ? 'zlozony' : undefined}
       style={type ? typy.style(type) : undefined}
     >
+      {ksiazka && (
+        <div className="ks-numer">
+          <span className="ks-liczba">{numer}</span>
+          <span className="script-block-type type-mini" title={slowo}>
+            {znak}
+          </span>
+        </div>
+      )}
+      <div className="script-block-glowa">
       <header className="script-block-head">
         <h3 className="script-block-title">
-          <span className="script-block-type">
-            {type ? typy.label(type) : 'Blok'}:
-          </span>{' '}
+          {ksiazka ? (
+            <span className="ks-slowo">
+              {slowo} {numer}
+            </span>
+          ) : (
+            <span className="script-block-type type-mini" title={slowo}>
+              {znak}
+            </span>
+          )}{' '}
           {onRename ? (
             <input
               className="inline-title"
@@ -149,34 +194,23 @@ export function GroupShell({
               onChange={(e) => onRename(e.target.value)}
               onClick={(e) => e.stopPropagation()}
             />
+          ) : ksiazka ? (
+            name && <span className="ks-nazwa">{name}</span>
           ) : (
             name || 'bez nazwy'
           )}
         </h3>
+        {!ksiazka && zakladki}
+        {pochodzenie && (
+          <span className="block-pochodzenie" data-rodzaj="sciezka">
+            złożony tutaj
+          </span>
+        )}
       </header>
 
       <div className="script-block-body">
-        {listaStron.length > 0 && (
-          <div className="block-pages">
-            <button
-              className={`block-page ${strona ? '' : 'active'}`}
-              onClick={() => setWybrana(null)}
-            >
-              Treść
-            </button>
-            {listaStron.map((s) => (
-              <button
-                key={s.id}
-                className={`block-page ${strona?.id === s.id ? 'active' : ''}`}
-                onClick={() => setWybrana(s.id)}
-              >
-                {s.name}
-              </button>
-            ))}
-          </div>
-        )}
-
         <div className="block-content">
+          {ksiazka && zakladki}
           {edytor && onEditContent ? (
             edytor(stronaId ?? 'tresc', tresc, (md) => onEditContent(md, stronaId))
           ) : (
@@ -200,9 +234,9 @@ export function GroupShell({
             />
           )}
         </div>
-
-        <SourceList refs={refs} onJump={onJumpToSource} />
       </div>
+      </div>
+      <SourceList refs={refs} onJump={onJumpToSource} />
     </section>
   )
 }

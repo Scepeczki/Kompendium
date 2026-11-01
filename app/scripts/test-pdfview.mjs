@@ -143,7 +143,7 @@ await page.click('button[title*="Nowa ścieżka"]')
 await nazwij(page, "Ścieżka z rozdziałami")
 await page.waitForSelector('.path-canvas')
 
-await page.click('button:has-text("+ § Rozdział")')
+await page.click('button:has-text("Rozdział")')
 await podaj(page, 'Rozdział I: Podstawy')
 await page.waitForSelector('.path-node-heading')
 console.log('✓ rozdział dodany na mapie')
@@ -161,7 +161,7 @@ await page.click('.path-node-heading .heading-level button') // z powrotem na 1
 // w Linii: dodaj podrozdział
 await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
-await page.click('.linear-append button:has-text("+ §§ Podrozdział")')
+await page.click('.linear-append button:has-text("Podrozdział")')
 await podaj(page, 'Podrozdział 1.1')
 await page.waitForTimeout(700)
 const inLinear = await page.locator('.linear-content .script-heading-node').count()

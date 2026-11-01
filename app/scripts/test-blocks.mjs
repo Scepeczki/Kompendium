@@ -116,11 +116,13 @@ console.log(
 )
 
 // 4a. po powrocie do skryptu nagłówek faktycznie ma nowy kolor
+// nasycenie barwi kartę w Linii — w Skrypcie kafelki nie mają tła
 await page.click('.settings-page-head button:has-text("Wróć")')
-await page.waitForSelector('.script-block-head')
-await page.waitForTimeout(400)
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-seg .script-block')
+await page.waitForTimeout(600)
 const headAfter = await page.evaluate(
-  () => getComputedStyle(document.querySelector('.script-block-head')).backgroundColor,
+  () => getComputedStyle(document.querySelector('.linear-seg .script-block')).backgroundColor,
 )
 console.log(
   `✓ blok przestrojony po powrocie: ${struct.headBg} → ${headAfter} (${
@@ -134,11 +136,11 @@ await page.waitForSelector('text=Kompendium')
 // widok nie jest zapamiętywany — wracamy do Skryptu tej samej ścieżki
 await page.click('.concept-item.path-item')
 await page.waitForSelector('.path-canvas')
-await page.click('.view-switch button:has-text("Skrypt")')
-await page.waitForSelector('.script-block-head')
-await page.waitForTimeout(500)
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-seg .script-block')
+await page.waitForTimeout(600)
 const headAfterReload = await page.evaluate(
-  () => getComputedStyle(document.querySelector('.script-block-head')).backgroundColor,
+  () => getComputedStyle(document.querySelector('.linear-seg .script-block')).backgroundColor,
 )
 console.log(
   `✓ barwa typu po przeładowaniu: ${headAfterReload} (${
@@ -147,7 +149,9 @@ console.log(
 )
 
 // 6. przycisk ↗ w nagłówku otwiera kafelek w edytorze
-await page.waitForSelector('.script-block-open')
+await page.click('.view-switch button:has-text("Skrypt")')
+await page.waitForSelector('.script-block-open', { state: 'attached' })
+await page.hover('.script-block')
 await page.click('.script-block-open')
 await page.waitForSelector('.editor-name')
 const openedName = await page.inputValue('.editor-name')

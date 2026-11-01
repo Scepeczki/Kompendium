@@ -41,15 +41,15 @@ await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 
 // rozdział → kafelek → podrozdział → kafelek → rozdział → kafelek
-await page.click('.linear-append button:has-text("+ § Rozdział")')
+await page.click('.linear-append button:has-text("Rozdział")')
 await podaj(page, 'Rozdział I: Liczby')
 await page.dragAndDrop('.concept-item:has-text("Alfa")', '.linear-append')
 await page.waitForTimeout(400)
-await page.click('.linear-append button:has-text("+ §§ Podrozdział")')
+await page.click('.linear-append button:has-text("Podrozdział")')
 await podaj(page, 'Podrozdział 1.1: Kresy')
 await page.dragAndDrop('.concept-item:has-text("Beta")', '.linear-append')
 await page.waitForTimeout(400)
-await page.click('.linear-append button:has-text("+ § Rozdział")')
+await page.click('.linear-append button:has-text("Rozdział")')
 await podaj(page, 'Rozdział II: Ciągi')
 await page.dragAndDrop('.concept-item:has-text("Gamma")', '.linear-append')
 await page.waitForTimeout(600)
@@ -58,7 +58,7 @@ await page.waitForTimeout(600)
 await page.waitForSelector('.outline')
 const itemsLinear = await page.evaluate(() =>
   [...document.querySelectorAll('.outline-item')].map(
-    (b) => `${b.className.match(/level-\d/)[0]}: ${b.textContent}`,
+    (b) => `${b.className.match(/level-\d/)?.[0] ?? 'kafelek'}: ${b.textContent}`,
   ),
 )
 console.log(`✓ spis treści w Linii:\n   ${itemsLinear.join('\n   ')}`)

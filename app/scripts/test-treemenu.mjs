@@ -86,7 +86,8 @@ check('prawy przycisk na kafelku nie proponuje tworzenia',
 await page.keyboard.press('Escape')
 
 // 7. menu mieści się w oknie także przy dolnej krawędzi
-await page.click('.concept-list', { button: 'right', position: { x: 100, y: 700 } })
+const lista = await page.locator('.concept-list').boundingBox()
+await page.click('.concept-list', { button: 'right', position: { x: 100, y: lista.height - 12 } })
 await page.waitForSelector('.tree-menu')
 const fits = await page.evaluate(() => {
   const r = document.querySelector('.tree-menu').getBoundingClientRect()

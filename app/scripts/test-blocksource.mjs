@@ -116,7 +116,6 @@ await page.dragAndDrop('.concept-item:has-text("moje ujecie")', '.path-flow', {
 await page.waitForSelector('.path-node')
 await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-block')
-await page.click('.source-list-toggle')
 await page.waitForSelector('.source-list-item')
 const listed = await page.evaluate(() =>
   [...document.querySelectorAll('.source-list-item .source-jump')].map((b) =>

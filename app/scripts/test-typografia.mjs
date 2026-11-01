@@ -62,7 +62,7 @@ const tooSmall = await page.evaluate(() =>
 check('nic nie jest drobniejsze niż 10,5px', tooSmall.length === 0,
   JSON.stringify(tooSmall.slice(0, 5)))
 
-// 4. przyciski tworzenia to same znaczki — bez napisów, z dymkiem
+// 4. przyciski tworzenia: dwa z napisem, folder jako znaczek — każdy z dymkiem
 const create = await page.evaluate(() =>
   [...document.querySelectorAll('.sidebar-create-btn')].map((b) => ({
     txt: b.textContent.trim(),
@@ -70,7 +70,7 @@ const create = await page.evaluate(() =>
     svg: b.querySelectorAll('svg').length,
   })),
 )
-check('przyciski tworzenia bez napisów', create.every((b) => b.txt === '' && b.svg === 1),
+check('przyciski tworzenia podpisane', create[0].txt === '+ Kafelek' && create[1].txt === '+ Ścieżka' && create[2].svg === 1,
   JSON.stringify(create))
 check('każdy ma dymek z opisem', create.every((b) => (b.tip ?? '').length > 4),
   create.map((b) => b.tip).join(' · '))
@@ -84,7 +84,7 @@ const icons = await page.evaluate(() => {
     kolory: [...new Set(svgs.map((s) => s.getAttribute('stroke')))],
   }
 })
-check('znaczki paska bocznego rysowane kreską', icons.ile >= 6, `sztuk: ${icons.ile}`)
+check('znaczki paska bocznego rysowane kreską', icons.ile >= 4, `sztuk: ${icons.ile}`)
 check('jedna grubość kreski w całym pasku', icons.grubosci.length === 1,
   icons.grubosci.join(', '))
 check('znaczki biorą kolor z tekstu', icons.kolory.every((k) => k === 'currentColor'),

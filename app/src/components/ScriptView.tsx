@@ -5,7 +5,8 @@ import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
-import { Outline, outlineId, type OutlineItem } from './Outline'
+import { Outline, outlineId, pozycjeSpisu } from './Outline'
+import { useBlockTypes } from '../blockTypes'
 import { kluczWlasnej, type PathNodeBlock, type SourceRef } from '../types'
 
 interface Props {
@@ -26,12 +27,13 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
   // ale niczego nie zapisuje: to tylko sposób czytania, nie zmiana skryptu.
   const [pageOverride, setPageOverride] = useState<Record<string, string | null>>({})
   const [verOverride, setVerOverride] = useState<Record<string, string | null>>({})
+  const typy = useBlockTypes()
 
   if (!path) return null
 
   const conceptById = new Map(concepts.map((c) => [c.id, c]))
 
-  const blockSection = (n: PathNodeBlock) => {
+  const blockSection = (n: PathNodeBlock, numer: string) => {
     const c = conceptById.get(n.conceptId)
     if (!c) return null
     const key = n.id
@@ -60,14 +62,26 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
         pickHint="Przełącz przy czytaniu — nie zmienia ustawień ścieżki"
         nazwaWlasna={n.nazwa}
         trescWlasna={trescWlasna}
+        numer={numer}
       />
     )
   }
 
   const ordered = topoOrder(path.nodes, path.edges)
-  const outline: OutlineItem[] = ordered
-    .filter((n) => n.kind === 'heading')
-    .map((n) => ({ domId: outlineId(n.id), nodeId: n.id, text: n.text, level: n.level }))
+  // komentarze nie wchodzą do skryptu, więc i do jego spisu
+  const outline = pozycjeSpisu(
+    ordered.filter((n) => n.kind !== 'comment'),
+    (id) => conceptById.get(id),
+    typy,
+  )
+
+  /** Numeracja jak w książce: rozdział.pozycja, licząc od nowa w rozdziale. */
+  let rozdzial = 0
+  let pozycja = 0
+  const kolejny = () => {
+    pozycja++
+    return rozdzial > 0 ? `${rozdzial}.${pozycja}` : String(pozycja)
+  }
 
   return (
     <div className="script-embed">
@@ -81,10 +95,15 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
           if (n.kind === 'comment') return null // komentarze nie wchodzą do skryptu
           if (n.kind === 'heading') {
             const H = (`h${n.level + 1}` as unknown) as 'h2'
+            if (n.level === 1) {
+              rozdzial++
+              pozycja = 0
+            }
             return (
               <H
                 key={n.id}
                 id={outlineId(n.id)}
+                data-rozdzial={n.level === 1 ? rozdzial : undefined}
                 className={`script-heading-node level-${n.level}`}
               >
                 {n.text}
@@ -95,24 +114,33 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
             return (
               <div
                 key={n.id}
+                data-seg={n.id}
                 className="script-text markdown-body"
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(n.text) }}
               />
             )
           }
-          if (n.kind === 'block') return blockSection(n)
+          if (n.kind === 'block') {
+            return (
+              <div key={n.id} data-seg={n.id}>
+                {blockSection(n, kolejny())}
+              </div>
+            )
+          }
           // złożony kafelek czyta się jak zwykły blok danego typu
           return (
-            <GroupShell
-              key={n.id}
-              name={n.name}
-              type={n.type}
-              parts={n.parts}
-              content={n.content}
-              strony={n.strony}
-              zrodla={n.zrodla}
-              onJumpToSource={onJumpToSource}
-            />
+            <div key={n.id} data-seg={n.id}>
+              <GroupShell
+                name={n.name}
+                type={n.type}
+                parts={n.parts}
+                content={n.content}
+                strony={n.strony}
+                zrodla={n.zrodla}
+                onJumpToSource={onJumpToSource}
+                numer={kolejny()}
+              />
+            </div>
           )
         })}
       </article>
