@@ -51,7 +51,7 @@ await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
 await page.fill('.editor-name', 'Metryka — test źródła')
 
 // import PDF
-await page.setInputFiles('input[type=file]', 'scripts/test.pdf')
+await page.setInputFiles('input[type=file][accept*="pdf"]', 'scripts/test.pdf')
 await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })
 await page.waitForTimeout(500)
 

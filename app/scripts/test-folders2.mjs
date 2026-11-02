@@ -82,7 +82,7 @@ console.log('✓ kafelek w folderze, prowadnica renderowana (screenshot)')
 // 3. GRUPY ŹRÓDEŁ: podepnij źródło i przypisz grupę „Rysunki"
 await page.click('.folder-children .concept-item:has-text("Kafelek A")')
 await page.waitForSelector('.editor-name')
-await page.setInputFiles('input[type=file]', 'scripts/test.pdf')
+await page.setInputFiles('input[type=file][accept*="pdf"]', 'scripts/test.pdf')
 await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })
 await page.click('button:has-text("Podepnij źródło")')
 const canvas = await page.locator('.pdf-page-wrap canvas').boundingBox()

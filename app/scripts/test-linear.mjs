@@ -136,7 +136,7 @@ await page.waitForSelector('.path-canvas')
 console.log('✓ zamknięcie kafelka wraca do ścieżki (nie do ekranu startowego)')
 
 // powrót z PDF do biblioteki strzałką ←
-await page.setInputFiles('input[type=file]', 'scripts/test.pdf').catch(() => {})
+await page.setInputFiles('input[type=file][accept*="pdf"]', 'scripts/test.pdf').catch(() => {})
 console.log('BŁĘDY KONSOLI:', errors.length === 0 ? 'brak' : errors.join('\n---\n'))
 await page.screenshot({ path: 'scripts/shot-15-linear.png' })
 await browser.close()

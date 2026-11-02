@@ -81,7 +81,7 @@ const names = await page.$$eval('.concept-list > li .concept-name', (els) =>
 console.log('✓ kolejność po przeciągnięciu:', names.join(' | '))
 
 // biblioteka PDF: import, folder, przeciągnięcie
-await page.setInputFiles('input[type=file]', 'scripts/test.pdf')
+await page.setInputFiles('input[type=file][accept*="pdf"]', 'scripts/test.pdf')
 await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 })
 await page.click('.pdf-lib-toggle')
 await page.waitForSelector('.pdf-library')

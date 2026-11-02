@@ -351,7 +351,7 @@ await page.waitForTimeout(500)
 check('pasek narzędzi stoi w stopce pisanego kafelka',
   await page.isVisible('[data-seg="n1"] .block-stopka .rich-btn >> nth=0'))
 check('w stopce zostają tylko najczęstsze znaki',
-  (await page.locator('[data-seg="n1"] .block-stopka .rich-btn').count()) === 5)
+  (await page.locator('[data-seg="n1"] .block-stopka .rich-btn').count()) === 6)
 await page.click('[data-seg="n1"] .rich-polecenia')
 await page.waitForTimeout(200)
 check('polecenia rozwijają resztę narzędzi',
