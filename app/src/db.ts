@@ -15,6 +15,7 @@ import type {
   Relation,
   RelationKind,
   Subpage,
+  Obraz,
 } from './types'
 
 class KompendiumDB extends Dexie {
@@ -26,6 +27,7 @@ class KompendiumDB extends Dexie {
   subpages!: Table<Subpage, string>
   relations!: Table<Relation, string>
   blockTypes!: Table<BlockTypeDef, string>
+  obrazy!: Table<Obraz, string>
 
   constructor() {
     super('kompendium')
@@ -138,6 +140,8 @@ class KompendiumDB extends Dexie {
     // wszystkim naraz. Migracja nie kasuje niczego: istniejąca strona zostaje
     // przy wersji bieżącej, a każda pozostała wersja dostaje własną kopię z tą
     // samą treścią. Nikt nic nie traci, a od teraz wersje idą swoimi drogami.
+    // Tylko nowa tabela: istniejące dane zostają nietknięte.
+    this.version(9).stores({ obrazy: 'id, dodano' })
     this.version(8)
       .stores({
         concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',

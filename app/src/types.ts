@@ -461,6 +461,17 @@ export interface LearningPath {
 }
 
 /** Zaimportowany dokument PDF, przechowywany lokalnie w IndexedDB. */
+/** Zdjęcie dodane do treści. W tekście stoi tylko odnośnik `![opis](obraz:id)`,
+ *  dzięki czemu kolejne wersje kafelka nie powielają obrazka. Plik trzymamy jako
+ *  tekst data:, bo tak samo jak reszta danych przejdzie przez kopię zapasową
+ *  i migawkę na telefon. */
+export interface Obraz {
+  id: string
+  /** Pełny adres data:image/… */
+  dane: string
+  dodano: string
+}
+
 export interface PdfDoc {
   id: string
   title: string

@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
 import { db } from './db'
+import { wczytajObrazy } from './obrazy'
 import type {
   BlockTypeDef,
   BlockVersion,
@@ -8,8 +9,7 @@ import type {
   LearningPath,
   PdfDoc,
   Relation,
-  Subpage,
-} from './types'
+  Subpage, Obraz } from './types'
 
 /** Struktura pliku danych wewnątrz archiwum kopii zapasowej. Blob-y PDF-ów
  *  leżą osobno jako prawdziwe pliki .pdf (nie base64 — mniejszy plik,
@@ -28,6 +28,8 @@ export interface BackupData {
   relations?: Relation[]
   /** Typy kafelków — brak w kopiach sprzed edytora typów. */
   blockTypes?: BlockTypeDef[]
+  /** Zdjęcia z treści — brak w kopiach sprzed zdjęć. */
+  obrazy?: Obraz[]
   /** Ustawienia wyglądu (localStorage, klucze ui.*). Nie są danymi, ale
    *  kopia zapasowa ma odtworzyć program takim, jakim się go zostawiło. */
   ustawienia?: Record<string, string>
@@ -55,7 +57,7 @@ function backupFileName(): string {
  *  jadą osobno jako pliki. Wspólne dla kopii zapasowej i dla migawki na
  *  telefon, żeby nie były dwiema implementacjami tego samego. */
 export async function zbierzDane(): Promise<{ dane: BackupData; pdfy: PdfDoc[] }> {
-  const [concepts, versions, folders, paths, pdfs, subpages, relations, blockTypes] =
+  const [concepts, versions, folders, paths, pdfs, subpages, relations, blockTypes, obrazy] =
     await Promise.all([
       db.concepts.toArray(),
       db.versions.toArray(),
@@ -65,6 +67,7 @@ export async function zbierzDane(): Promise<{ dane: BackupData; pdfy: PdfDoc[] }
       db.subpages.toArray(),
       db.relations.toArray(),
       db.blockTypes.toArray(),
+      db.obrazy.toArray(),
     ])
   return {
     dane: {
@@ -78,6 +81,7 @@ export async function zbierzDane(): Promise<{ dane: BackupData; pdfy: PdfDoc[] }
       subpages,
       relations,
       blockTypes,
+      obrazy,
       ustawienia: zbierzUstawienia(),
     },
     pdfy: pdfs,
@@ -108,6 +112,7 @@ export async function wczytajDane(
       db.subpages,
       db.relations,
       db.blockTypes,
+      db.obrazy,
     ],
     async () => {
       await db.concepts.bulkPut(data.concepts)
@@ -118,8 +123,10 @@ export async function wczytajDane(
       await db.subpages.bulkPut(data.subpages ?? [])
       await db.relations.bulkPut(data.relations ?? [])
       await db.blockTypes.bulkPut(data.blockTypes ?? [])
+      await db.obrazy.bulkPut(data.obrazy ?? [])
     },
   )
+  await wczytajObrazy()
   // ustawienia wracają na końcu: to zmiana wyglądu, nie danych, więc nie
   // ma po co blokować nią transakcji na bazie
   if (zUstawieniami) {

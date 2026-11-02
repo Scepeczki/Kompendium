@@ -12,6 +12,7 @@ import App from './App.tsx'
 import { initUiSettings } from './uiSettings'
 import { seedBlockTypes } from './db'
 import { wlaczKopiowanieZrodla } from './kopiowanie'
+import { wczytajObrazy } from './obrazy'
 
 // motyw: zapamiętany wybór albo preferencja systemowa
 const savedTheme = localStorage.getItem('ui.theme')
@@ -45,8 +46,14 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 // a nie sklejkę trzech kopii wzoru, które KaTeX trzyma w drzewie strony.
 wlaczKopiowanieZrodla()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// Zdjęcia muszą być pod ręką przed pierwszym narysowaniem treści, a brak
+// któregoś nie może zatrzymać programu.
+wczytajObrazy()
+  .catch(() => {})
+  .finally(() => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+  })

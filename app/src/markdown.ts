@@ -1,6 +1,7 @@
 import { marked } from 'marked'
 import katex from 'katex'
 import DOMPurify from 'dompurify'
+import { adresObrazu } from './obrazy'
 
 marked.setOptions({ gfm: true, breaks: false })
 
@@ -97,6 +98,8 @@ function renderMarkdownUncached(src: string, opts: RenderOptions): string {
 
   let html = marked.parse(text) as string
   html = html.replace(/%%STASH(\d+)%%/g, (_, i: string) => stashed[Number(i)])
+  // odnośnik do zdjęcia zamieniamy przed czyszczeniem: nieznany adres by wyleciał
+  html = html.replace(/src="(obraz:[^"]+)"/g, (_, src: string) => `src="${adresObrazu(src)}"`)
   // `semantics`/`annotation` MUSZĄ przetrwać czyszczenie.
   //
   // KaTeX chowa w nich ŹRÓDŁOWY TeX wzoru — to jedyne miejsce, z którego da

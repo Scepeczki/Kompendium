@@ -205,6 +205,7 @@ w bloku, rozdzielenie).
 | `concepts` | `id, name, type, createdAt, updatedAt, folderId, *tags` | kafelki |
 | `versions` | `id, conceptId, [conceptId+version], createdAt` | wersje treści |
 | `subpages` | `id, conceptId` | strony kafelka |
+| `obrazy` | `id, dodano` | zdjęcia z treści: `dane` to adres data:, a w tekście stoi `![opis](obraz:id)` |
 | `relations` | `id, fromId, toId, kind` | powiązania |
 | `paths` | `id, name, folderId, createdAt, updatedAt` | ścieżki |
 | `folders` | `id, kind, parentId, name` | foldery (`concepts` / `pdfs`) |

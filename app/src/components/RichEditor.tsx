@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
-import { Extension } from '@tiptap/core'
+import { Extension, Node } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
@@ -9,6 +9,8 @@ import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
 import { OBEJMUJACE } from '../cmShortcuts'
 import { zachowajPusteLinie } from '../markdown'
+import { adresObrazu, dodajObraz } from '../obrazy'
+import { Icon } from './Icon'
 import { PageRuler } from './PageRuler'
 import { SpacingMenu } from './SpacingMenu'
 import { INDENT_RE, INDENT_RE_ANY, indentStyle, parseIndents } from '../indent'
@@ -417,6 +419,53 @@ function PoleRozmiaru({ editor }: { editor: Editor }) {
 
 /** Pasek narzędzi edytora. Osobno, bo w ścieżce jeden pasek obsługuje
  *  wszystkie kafelki naraz — działa na tym polu, w którym stoi kursor. */
+/** Zdjęcie w edytorze. W dokumencie siedzi odnośnik, a podmieniamy go tylko
+ *  przy rysowaniu; `data-obraz` wraca przy kopiowaniu i wklejaniu, żeby do
+ *  treści nie trafił cały plik zamiast krótkiego odnośnika. Nazwa `image` jest
+ *  ta sama, co w tiptap-markdown: stamtąd bierze się zapis `![opis](adres)`. */
+const Zdjecie = Node.create({
+  name: 'image',
+  inline: true,
+  group: 'inline',
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-obraz') ?? el.getAttribute('src'),
+      },
+      alt: { default: null },
+      title: { default: null },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'img[src]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const src = String(HTMLAttributes.src ?? '')
+    return ['img', { ...HTMLAttributes, src: adresObrazu(src), 'data-obraz': src }]
+  },
+})
+
+const obrazyZ = (pliki?: FileList | null) =>
+  [...(pliki ?? [])].filter((p) => p.type.startsWith('image/'))
+
+/** `pos`: miejsce upuszczenia. Bez niego zdjęcie staje tam, gdzie kursor. */
+async function wstawObrazy(editor: Editor, pliki: File[], pos?: number) {
+  try {
+    for (const plik of pliki) {
+      const src = await dodajObraz(plik)
+      const alt = plik.name.replace(/\.[^.]*$/, '').replace(/[[\]()]/g, ' ')
+      const lancuch = editor.chain().focus()
+      if (pos !== undefined) lancuch.setTextSelection(pos)
+      lancuch.insertContent({ type: 'image', attrs: { src, alt } }).run()
+    }
+  } catch {
+    window.alert('Nie udało się dodać zdjęcia. Sprawdź, czy ten plik otwiera się jako obraz.')
+  }
+}
+
 /** `zwarty`: w stopce kafelka tylko najczęstsze znaki, resztę rozwija przycisk polecenia. */
 export function RichToolbar({ editor, zwarty }: { editor: Editor | null; zwarty?: boolean }) {
   const [rozwiniety, setRozwiniety] = useState(false)
@@ -461,6 +510,19 @@ export function RichToolbar({ editor, zwarty }: { editor: Editor | null; zwarty?
       >
         <i>I</i>
       </button>
+      <label className="btn rich-btn" title="Dodaj zdjęcie. Można je też wkleić (Ctrl+V) albo upuścić w tekście">
+        <Icon name="zdjecie" size={1.1} />
+        <input
+          className="rich-plik"
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => {
+            void wstawObrazy(editor, obrazyZ(e.target.files))
+            e.target.value = ''
+          }}
+        />
+      </label>
       {zwarty && (
         <>
           <button
@@ -724,6 +786,7 @@ export function RichEditor({
       // uczciwa zamiana za brak ramek, które robią się same.
       StarterKit.configure({ paragraph: false, codeBlock: false }),
       BlankParagraph,
+      Zdjecie,
       MathRender,
       IndentRender,
       SizeRender,
@@ -751,6 +814,19 @@ MarkdownBezWciec.configure({
     onFocus: () => onFocus?.(),
     onBlur: () => oddajTeraz(),
     editorProps: {
+      handlePaste(_view, event) {
+        const pliki = obrazyZ(event.clipboardData?.files)
+        if (!pliki.length || !edRef.current) return false
+        void wstawObrazy(edRef.current, pliki)
+        return true
+      },
+      handleDrop(view, event) {
+        const pliki = obrazyZ(event.dataTransfer?.files)
+        if (!pliki.length || !edRef.current) return false
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
+        void wstawObrazy(edRef.current, pliki, pos)
+        return true
+      },
       /** Zaznaczasz wzór, wciskasz `$` — i tekst jest w `$…$`, a nie
        *  skasowany. Zaznaczenie zostaje w środku, więc drugie naciśnięcie
        *  daje `$$…$$`. To samo dla pozostałych par znaków. */

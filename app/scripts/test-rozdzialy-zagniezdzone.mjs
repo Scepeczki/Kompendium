@@ -145,6 +145,17 @@ const poUchwycie = await kolejnosc()
 check('uchwyt w Linii też przenosi rozdział z zawartością',
   poUchwycie.join() === 'Pod a1,Beta,Glowny B,Gamma,Glowny A,Alfa', poUchwycie.join())
 
+// w górę, na kafelek sąsiedniego rozdziału: kiedyś wracało na stare miejsce
+await page.locator('.linear-seg:has(input[value="Glowny A"])').hover()
+await page.locator('.linear-seg:has(input[value="Glowny A"]) .linear-grip').dragTo(
+  page.locator('.linear-seg:has(input[value="Gamma"])'),
+  { targetPosition: { x: 200, y: 4 } },
+)
+await page.waitForTimeout(900)
+const wGore = await kolejnosc()
+check('rozdział upuszczony na kafelek sąsiada staje przed tym sąsiadem',
+  wGore.join() === 'Pod a1,Beta,Glowny A,Alfa,Glowny B,Gamma', wGore.join())
+
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
 for (const e of errors.slice(0, 5)) console.log(`   ${e.slice(0, 200)}`)

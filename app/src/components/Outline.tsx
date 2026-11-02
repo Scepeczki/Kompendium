@@ -31,7 +31,11 @@ export function pozycjeSpisu(
     if (n.kind === 'text' || n.kind === 'comment') {
       // notatka nie ma nazwy — bierzemy jej pierwszą linijkę, żeby dało się
       // ją poznać, a gdy jest pusta, zostaje samo słowo
-      const pierwsza = (n.text ?? '').split('\n').find((w) => w.trim() !== '')?.trim()
+      const pierwsza = (n.text ?? '')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, 'Zdjęcie')
+        .split('\n')
+        .find((w) => w.trim() !== '')
+        ?.trim()
       return {
         domId: n.id,
         nodeId: n.id,
@@ -87,12 +91,17 @@ export const najglebszyPoziom = (poziomy: (number | null)[], i: number) =>
   Math.max(...poziomy.slice(i, koniecSekcji(poziomy, i)).map((p) => p ?? 0))
 
 /** Gdzie naprawdę wyląduje przeniesiona sekcja, gdy upuszczono ją w szczelinie
- *  `g`. Staje przed następnym rozdziałem: gdyby stanęła między kafelkami, te za
- *  nią zaczęłyby należeć do niej. Null: to miejsce leży w niej samej. */
+ *  `g`. Nie staje między kafelkami, bo te za nią zaczęłyby należeć do niej:
+ *  jadąc w dół, mija je do następnego rozdziału, a jadąc w górę, cofa się przed
+ *  rozdział, do którego należą. Gdyby w górę też szła naprzód, z kafelków
+ *  sąsiedniego rozdziału wracałaby na swoje miejsce i nic by się nie działo.
+ *  Null: to miejsce leży w niej samej. */
 export function ladowanieSekcji(poziomy: (number | null)[], start: number, g: number) {
+  if (g >= start && g <= koniecSekcji(poziomy, start)) return null
+  const krok = g < start ? -1 : 1
   let cel = g
-  while (cel < poziomy.length && poziomy[cel] === null) cel++
-  return cel >= start && cel <= koniecSekcji(poziomy, start) ? null : cel
+  while (cel > 0 && cel < poziomy.length && poziomy[cel] === null) cel += krok
+  return cel
 }
 
 /** Identyfikator elementu nagłówka — wspólny dla spisu i samego dokumentu. */
