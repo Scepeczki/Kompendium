@@ -8041,6 +8041,13 @@ body.ciagne-szerokosc * {
   vertical-align: middle;
 }
 
+/* przy opływanym zdjęciu długie słowo łamie się obok niego, zamiast spadać
+   pod zdjęcie w całości */
+.markdown-body :has(> img.zdj-oplyw-lewo, > img.zdj-oplyw-prawo),
+.markdown-body :has(> img.zdj-oplyw-lewo, > img.zdj-oplyw-prawo) ~ * {
+  overflow-wrap: anywhere;
+}
+
 /* opływane zdjęcie nie wchodzi na następny kafelek */
 .markdown-body::after,
 .rich-content .tiptap::after {
