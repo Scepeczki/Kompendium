@@ -17,6 +17,14 @@ marked.use({ tokenizer: { code: () => undefined } })
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+/** Wzór skopiowany z tabeli Markdowna (np. z czatu) ma `\|` w opisie kolumn
+ *  `{c\|c}`, bo tam kreskę trzeba było zabezpieczyć. W tym miejscu `\|` nie
+ *  znaczy nic innego, więc rysujemy zwykłą kreskę. Tekstu nie zmieniamy. */
+export const poprawWzor = (tex: string): string =>
+  tex.replace(/(\\begin\{(?:array|tabular)\}\{)([^}]*)/g, (_, p: string, k: string) =>
+    p + k.replace(/\\\|/g, '|'),
+  )
+
 export interface RenderOptions {
   /** Czy pojęcie o danej nazwie istnieje (do stylowania brakujących linków). */
   exists?: (name: string) => boolean
@@ -75,10 +83,10 @@ function renderMarkdownUncached(src: string, opts: RenderOptions): string {
   const stash = (html: string) => `%%STASH${stashed.push(html) - 1}%%`
 
   let text = zachowajPusteLinie(src).replace(/\$\$([\s\S]+?)\$\$/g, (_, tex: string) =>
-    stash(katex.renderToString(tex, { displayMode: true, throwOnError: false })),
+    stash(katex.renderToString(poprawWzor(tex), { displayMode: true, throwOnError: false })),
   )
   text = text.replace(/\$([^$\n]+?)\$/g, (_, tex: string) =>
-    stash(katex.renderToString(tex, { displayMode: false, throwOnError: false })),
+    stash(katex.renderToString(poprawWzor(tex), { displayMode: false, throwOnError: false })),
   )
 
   // wiki-linki: [[Nazwa]] albo [[Nazwa|wyświetlany tekst]]

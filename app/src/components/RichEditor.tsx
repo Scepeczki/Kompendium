@@ -8,7 +8,7 @@ import Paragraph from '@tiptap/extension-paragraph'
 import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
 import { OBEJMUJACE } from '../cmShortcuts'
-import { zachowajPusteLinie } from '../markdown'
+import { poprawWzor, zachowajPusteLinie } from '../markdown'
 import { adresObrazu, czytajUklad, dodajObraz } from '../obrazy'
 import { Icon } from './Icon'
 import { PasekZdjecia } from './PasekZdjecia'
@@ -43,7 +43,7 @@ function zapamietanyWzor(tex: string, display: boolean, surowy: string): string 
   if (gotowy !== undefined) return gotowy
   let html: string
   try {
-    html = katex.renderToString(tex, { displayMode: display, throwOnError: false })
+    html = katex.renderToString(poprawWzor(tex), { displayMode: display, throwOnError: false })
   } catch {
     // niepoprawny wzór pokazujemy tak, jak go napisano
     const div = document.createElement('div')
