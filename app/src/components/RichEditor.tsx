@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import { Extension, Node } from '@tiptap/core'
-import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
+import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import Paragraph from '@tiptap/extension-paragraph'
@@ -9,8 +9,9 @@ import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
 import { OBEJMUJACE } from '../cmShortcuts'
 import { zachowajPusteLinie } from '../markdown'
-import { adresObrazu, dodajObraz } from '../obrazy'
+import { adresObrazu, czytajUklad, dodajObraz } from '../obrazy'
 import { Icon } from './Icon'
+import { PasekZdjecia } from './PasekZdjecia'
 import { PageRuler } from './PageRuler'
 import { SpacingMenu } from './SpacingMenu'
 import { INDENT_RE, INDENT_RE_ANY, indentStyle, parseIndents } from '../indent'
@@ -422,7 +423,9 @@ function PoleRozmiaru({ editor }: { editor: Editor }) {
 /** Zdjęcie w edytorze. W dokumencie siedzi odnośnik, a podmieniamy go tylko
  *  przy rysowaniu; `data-obraz` wraca przy kopiowaniu i wklejaniu, żeby do
  *  treści nie trafił cały plik zamiast krótkiego odnośnika. Nazwa `image` jest
- *  ta sama, co w tiptap-markdown: stamtąd bierze się zapis `![opis](adres)`. */
+ *  ta sama, co w tiptap-markdown: stamtąd bierze się zapis `![opis](adres)`.
+ *  Własny widok zmienia styl w miejscu: nowy element przy każdym ruchu uchwytu
+ *  dekodowałby plik od nowa i zdjęcie by migało. */
 const Zdjecie = Node.create({
   name: 'image',
   inline: true,
@@ -445,6 +448,34 @@ const Zdjecie = Node.create({
   renderHTML({ HTMLAttributes }) {
     const src = String(HTMLAttributes.src ?? '')
     return ['img', { ...HTMLAttributes, src: adresObrazu(src), 'data-obraz': src }]
+  },
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('img')
+      const rysuj = (n: typeof node) => {
+        const src = String(n.attrs.src ?? '')
+        if (dom.getAttribute('data-obraz') !== src) {
+          dom.setAttribute('data-obraz', src)
+          dom.src = adresObrazu(src)
+        }
+        dom.alt = n.attrs.alt ?? ''
+        const { szerokosc, polozenie } = czytajUklad(n.attrs.title)
+        for (const k of [...dom.classList]) if (k.startsWith('zdj-')) dom.classList.remove(k)
+        dom.classList.add(`zdj-${polozenie}`)
+        dom.style.width = szerokosc ? `${szerokosc}%` : ''
+        dom.style.maxWidth = szerokosc ? '100%' : ''
+      }
+      rysuj(node)
+      return {
+        dom,
+        update(n) {
+          if (n.type.name !== 'image') return false
+          rysuj(n)
+          return true
+        },
+        ignoreMutation: () => true,
+      }
+    }
   },
 })
 
@@ -827,6 +858,18 @@ MarkdownBezWciec.configure({
         void wstawObrazy(edRef.current, pliki, pos)
         return true
       },
+      handleDOMEvents: {
+        // prawy przycisk na zdjęciu pokazuje jego pasek, a nie menu kafelka
+        contextmenu(view, event) {
+          if (!(event.target instanceof HTMLImageElement) || !view.editable) return false
+          event.preventDefault()
+          event.stopPropagation()
+          const pos = view.posAtDOM(event.target, 0)
+          view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)))
+          view.focus()
+          return true
+        },
+      },
       /** Zaznaczasz wzór, wciskasz `$` — i tekst jest w `$…$`, a nie
        *  skasowany. Zaznaczenie zostaje w środku, więc drugie naciśnięcie
        *  daje `$$…$$`. To samo dla pozostałych par znaków. */
@@ -907,6 +950,7 @@ MarkdownBezWciec.configure({
       {editable && !bezPaska && <RichToolbar editor={editor} />}
       {editable && ruler && <PageRuler editor={editor} />}
       <EditorContent editor={editor} className="rich-content markdown-body" />
+      {editable && <PasekZdjecia editor={editor} />}
     </div>
   )
 }

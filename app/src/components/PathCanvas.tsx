@@ -899,7 +899,10 @@ const PoleTresci = memo(function PoleTresci({
           // kursor tam, gdzie padło kliknięcie — inaczej skakałby na początek
           requestAnimationFrame(() => {
             const trafiony = ed.view.posAtCoords({ left: p.x, top: p.y })
-            ed.chain().focus().setTextSelection(trafiony?.pos ?? 0).run()
+            const pod = trafiony && trafiony.inside >= 0 ? ed.state.doc.nodeAt(trafiony.inside) : null
+            // kliknięte zdjęcie od razu dostaje swój pasek
+            if (pod?.type.name === 'image') ed.chain().focus().setNodeSelection(trafiony!.inside).run()
+            else ed.chain().focus().setTextSelection(trafiony?.pos ?? 0).run()
             naKursor()
           })
         }}

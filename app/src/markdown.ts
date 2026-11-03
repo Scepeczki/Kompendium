@@ -1,7 +1,7 @@
 import { marked } from 'marked'
 import katex from 'katex'
 import DOMPurify from 'dompurify'
-import { adresObrazu } from './obrazy'
+import { adresObrazu, czytajUklad } from './obrazy'
 
 marked.setOptions({ gfm: true, breaks: false })
 
@@ -110,6 +110,12 @@ function renderMarkdownUncached(src: string, opts: RenderOptions): string {
   html = DOMPurify.sanitize(html, {
     ADD_TAGS: ['semantics', 'annotation'],
     ADD_ATTR: ['encoding'],
+  })
+  // układ zdjęcia z tytułu obrazka; patrz src/obrazy.ts
+  html = html.replace(/(<img\b[^>]*?)title="(zdjecie[^"]*)"/g, (_, poczatek: string, tytul: string) => {
+    const { szerokosc, polozenie } = czytajUklad(tytul)
+    const styl = szerokosc ? ` style="width:${szerokosc}%;max-width:100%"` : ''
+    return `${poczatek}class="zdj-${polozenie}"${styl}`
   })
   // znaczniki wcięć akapitów ⟦wL,F⟧ / ⟦wL,F,R⟧ (px) → style; patrz src/indent.ts
   html = html.replace(

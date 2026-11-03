@@ -17,6 +17,8 @@ import {
   BG_PATTERN_OPTIONS,
   BLOCK_TINT_MAX,
   BLOCK_TINT_MIN,
+  ZDJECIE_SZEROKOSC_MAX,
+  ZDJECIE_SZEROKOSC_MIN,
   CONTENT_FONT_OPTIONS,
   type BgPattern,
   type ContentFont,
@@ -34,6 +36,7 @@ import {
   TREE_SIZE_MIN,
   getBgPattern,
   getBlockTint,
+  getZdjecieSzerokosc,
   getContentFont,
   getIndOffset,
   getLineSpacing,
@@ -46,6 +49,7 @@ import {
   getTreeSize,
   setBgPattern,
   setBlockTint,
+  setZdjecieSzerokosc,
   setContentFont,
   setIndOffset,
   setLineSpacing,
@@ -57,6 +61,7 @@ import {
   setTekstKafelka,
   setTreeSize,
 } from '../uiSettings'
+import { PoleLiczby } from './PoleLiczby'
 import { TypeEditor } from './TypeEditor'
 import { useDialogs } from './Dialogs'
 
@@ -94,6 +99,7 @@ export function SettingsPage({ onClose }: Props) {
   const [treeSize, setTree] = useState(getTreeSize)
   const [tekstKafelka, setTekst] = useState(getTekstKafelka)
   const [tint, setTint] = useState(getBlockTint)
+  const [zdjecie, setZdjecie] = useState(getZdjecieSzerokosc)
   const [line, setLine] = useState(getLineSpacing)
   const [para, setPara] = useState(getParaSpacing)
   const [mScale, setMScale] = useState(getMathScale)
@@ -110,6 +116,7 @@ export function SettingsPage({ onClose }: Props) {
       setTree(getTreeSize())
       setTekst(getTekstKafelka())
       setTint(getBlockTint())
+      setZdjecie(getZdjecieSzerokosc())
       setLine(getLineSpacing())
       setPara(getParaSpacing())
       setMScale(getMathScale())
@@ -493,6 +500,20 @@ export function SettingsPage({ onClose }: Props) {
                   `${Math.round(v * 100)}%`,
                 )}
                 <p className="settings-hint">Przy 100% wzór jest wielkości sąsiedniego tekstu.</p>
+              </div>
+              <div className="settings-row">
+                <span className="settings-label">Domyślna wielkość zdjęć</span>
+                <label className="menu-wielkosc">
+                  <PoleLiczby
+                    wartosc={zdjecie}
+                    min={ZDJECIE_SZEROKOSC_MIN}
+                    max={ZDJECIE_SZEROKOSC_MAX}
+                    tytul={`Największa szerokość zdjęcia, od ${ZDJECIE_SZEROKOSC_MIN} do ${ZDJECIE_SZEROKOSC_MAX}% kolumny`}
+                    onZmien={setZdjecieSzerokosc}
+                  />
+                  <span>% kolumny</span>
+                </label>
+                <p className="settings-hint">Dotyczy zdjęć bez własnego rozmiaru. Własny ustawisz po kliknięciu w zdjęcie.</p>
               </div>
               <div className="settings-row">
                 <span className="settings-label">Odstęp wzorów wystawionych ($$)</span>

@@ -6,6 +6,36 @@ const MAKS_BOK = 1600
 const JAKOSC = 0.85
 const PRZEDROSTEK = 'obraz:'
 
+export const SZEROKOSC_ZDJECIA_MIN = 5
+export const SZEROKOSC_ZDJECIA_MAX = 100
+
+export type PolozenieZdjecia = 'lewo' | 'srodek' | 'prawo' | 'oplyw-lewo' | 'oplyw-prawo' | 'wiersz'
+
+/** Szerokość w procentach kolumny, żeby zdjęcie trzymało proporcje w każdym
+ *  widoku i na telefonie. `null`: domyślna z Ustawień. */
+export interface UkladZdjecia {
+  szerokosc: number | null
+  polozenie: PolozenieZdjecia
+}
+
+/** Układ jedzie w tytule obrazka, np. `![opis](obraz:id "zdjecie 40% oplyw-prawo")`:
+ *  to zwykły Markdown, a kafelek bez układu nie zmienia się ani o znak. */
+const TYTUL_UKLADU = /^zdjecie(?: (\d{1,3})%)?(?: (srodek|prawo|oplyw-lewo|oplyw-prawo|wiersz))?$/
+
+export function czytajUklad(tytul?: string | null): UkladZdjecia {
+  const m = TYTUL_UKLADU.exec(tytul ?? '')
+  return {
+    szerokosc: m?.[1] ? Number(m[1]) : null,
+    polozenie: (m?.[2] ?? 'lewo') as PolozenieZdjecia,
+  }
+}
+
+export function zapiszUklad({ szerokosc, polozenie }: UkladZdjecia): string | null {
+  const czesci = [szerokosc !== null && `${szerokosc}%`, polozenie !== 'lewo' && polozenie]
+  const tekst = czesci.filter(Boolean).join(' ')
+  return tekst ? `zdjecie ${tekst}` : null
+}
+
 /** Treść renderuje się synchronicznie, więc zdjęcia trzymamy też w pamięci. */
 const pamiec = new Map<string, string>()
 

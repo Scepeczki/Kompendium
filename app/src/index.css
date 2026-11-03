@@ -8009,13 +8009,120 @@ body.ciagne-szerokosc * {
 }
 
 /* zdjęcia w treści */
-.markdown-body img,
-.rich-content .tiptap img {
+.markdown-body img {
   display: block;
-  max-width: 100%;
+  max-width: var(--zdjecie-szerokosc, 60%);
   height: auto;
   margin: 8px 0;
   border-radius: 6px;
+}
+
+.markdown-body img.zdj-srodek {
+  margin-inline: auto;
+}
+
+.markdown-body img.zdj-prawo {
+  margin-left: auto;
+}
+
+.markdown-body img.zdj-oplyw-lewo {
+  float: left;
+  margin: 4px 14px 6px 0;
+}
+
+.markdown-body img.zdj-oplyw-prawo {
+  float: right;
+  margin: 4px 0 6px 14px;
+}
+
+.markdown-body img.zdj-wiersz {
+  display: inline-block;
+  margin: 2px 4px;
+  vertical-align: middle;
+}
+
+/* opływane zdjęcie nie wchodzi na następny kafelek */
+.markdown-body::after,
+.rich-content .tiptap::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+.zdjecie-pasek {
+  position: fixed;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+  font-size: var(--fs-3);
+  flex-wrap: wrap;
+  max-width: calc(100vw - 16px);
+}
+
+.zdjecie-grupa {
+  display: flex;
+  gap: 2px;
+}
+
+.zdjecie-pasek button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.zdjecie-pasek button:hover {
+  background: var(--panel-alt);
+}
+
+.zdjecie-pasek button.wybrany {
+  background: var(--accent);
+  color: #fff;
+}
+
+.zdjecie-pasek .menu-wielkosc {
+  padding: 0;
+}
+
+.zdjecie-uchwyt {
+  position: fixed;
+  z-index: 90;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 3px;
+  background: var(--accent);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.zdjecie-uchwyt.z-lewej {
+  cursor: nesw-resize;
+}
+
+@media print {
+  .zdjecie-pasek,
+  .zdjecie-uchwyt {
+    display: none;
+  }
+
+  .markdown-body img {
+    break-inside: avoid;
+  }
 }
 
 .rich-content .tiptap img.ProseMirror-selectednode {

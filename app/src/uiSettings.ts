@@ -266,6 +266,26 @@ export const TEKST_KAFELKA_MAX = 20
 export const TEKST_WLASNY_MIN = 10
 export const TEKST_WLASNY_MAX = 40
 
+/** Największa szerokość zdjęcia bez własnego rozmiaru, w procentach kolumny. */
+export const ZDJECIE_SZEROKOSC_DEFAULT = 60
+export const ZDJECIE_SZEROKOSC_MIN = 10
+export const ZDJECIE_SZEROKOSC_MAX = 100
+
+export function getZdjecieSzerokosc(): number {
+  return readNum(
+    'ui.zdjecieSzerokosc',
+    (v) => v >= ZDJECIE_SZEROKOSC_MIN && v <= ZDJECIE_SZEROKOSC_MAX,
+    ZDJECIE_SZEROKOSC_DEFAULT,
+  )
+}
+
+export function setZdjecieSzerokosc(v: number): void {
+  const val = clamp(Math.round(v), ZDJECIE_SZEROKOSC_MIN, ZDJECIE_SZEROKOSC_MAX)
+  document.documentElement.style.setProperty('--zdjecie-szerokosc', `${val}%`)
+  localStorage.setItem('ui.zdjecieSzerokosc', String(val))
+  notify()
+}
+
 export function getTekstKafelka(): number {
   return readNum(
     'ui.tekstKafelka',
@@ -314,6 +334,7 @@ export function initUiSettings(): void {
   document.documentElement.style.setProperty('--block-tint', String(getBlockTint()))
   document.documentElement.style.setProperty('--tree-size', `${getTreeSize()}px`)
   document.documentElement.style.setProperty('--tekst-kafelka', `${getTekstKafelka()}px`)
+  document.documentElement.style.setProperty('--zdjecie-szerokosc', `${getZdjecieSzerokosc()}%`)
   setContentFontVar(getContentFont())
   setBgPatternAttr(getBgPattern())
   // barwy typów przeniosły się do bazy (tabela blockTypes) — nie ma tu już
