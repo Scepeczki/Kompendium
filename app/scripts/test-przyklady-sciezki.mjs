@@ -38,11 +38,24 @@ await page.waitForSelector('.linear-append')
 await page.dragAndDrop('.concept-item:has-text("Zbiór")', '.linear-append')
 await page.waitForTimeout(500)
 
-const wBibliotece = async (nazwa) =>
-  (await page.locator(`.concept-item:has-text("${nazwa}")`).count()) > 0
+// kafelki widoczne w rozwiniętej ścieżce mieszkają w niej, a nie w bibliotece
+const wBibliotece = (nazwa) =>
+  page.evaluate(
+    (n) =>
+      [...document.querySelectorAll('.concept-item')].some(
+        (el) => !el.closest('.sciezka-dzieci') && el.textContent.includes(n),
+      ),
+    nazwa,
+  )
+
+/** „Kafelek" na dole Linii, a w nim rodzaj z listy po najechaniu. */
+const dolozRodzaj = async (rodzaj) => {
+  await page.hover('.dodaj-kafelek-pasek > .btn-dolacz')
+  await page.click(`.dodaj-kafelek-pasek .dodaj-kafelek-rodzaje .tree-menu-item:has-text("${rodzaj}")`)
+}
 
 // --- przykład rodzi się wprost w ścieżce ---
-await page.click('.linear-append-actions .btn:has-text("Przykład")')
+await dolozRodzaj('Przykład')
 await page.waitForTimeout(700)
 check('przykład wskakuje do ścieżki',
   (await page.locator('.linear-seg').count()) === 2,
@@ -82,14 +95,16 @@ await page.waitForTimeout(400)
 await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 8 } })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Usuń ze ścieżki")')
+// mieszkał tylko tutaj, więc program pyta, czy usunąć go na dobre
+await page.click('.ask-foot .btn:has-text("Zachowaj w liście")')
 await page.waitForTimeout(900)
-check('po wyjęciu ze ścieżki przykład wraca do biblioteki', await wBibliotece('Przykład'))
+check('po wyjęciu ze ścieżki i „Zachowaj w liście" przykład wraca do biblioteki', await wBibliotece('Przykład'))
 check('i nie ma go już w ścieżce',
   (await page.locator('.linear-seg').count()) === 1,
   `segmentów: ${await page.locator('.linear-seg').count()}`)
 
 // --- to samo działa dla zadań: „mieszka w ścieżce" to cecha RODZAJU ---
-await page.click('.linear-append-actions .btn:has-text("Zadanie")')
+await dolozRodzaj('Zadanie')
 await page.waitForTimeout(700)
 check('zadanie też wskakuje wprost do ścieżki',
   (await page.locator('.linear-seg').count()) === 2,
@@ -98,6 +113,7 @@ check('i też nie idzie do biblioteki', !(await wBibliotece('Zadanie')))
 await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 8 } })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Usuń ze ścieżki")')
+await page.click('.ask-foot .btn:has-text("Zachowaj w liście")')
 await page.waitForTimeout(900)
 
 // --- kafelek z listy wciągnięty do ścieżki ZOSTAJE w liście ---
@@ -132,18 +148,20 @@ await page.waitForTimeout(900)
 check('kafelek już obecny w ścieżce nie robi sobie kopii',
   (await page.locator('.linear-seg').count()) === 2,
   `segmentów: ${await page.locator('.linear-seg').count()}`)
+// ścieżka jest folderem: upuszczony na nią kafelek przeprowadza się do niej
+check('upuszczony na ścieżkę kafelek przeprowadza się do niej', !(await wBibliotece('Zbiór')))
 
-// i dopiero ręczna decyzja zabiera go z listy
+// wciągnięty do Linii zostaje w liście, dopiero ręczna decyzja go zabiera
+check('przykład wciągnięty do Linii dalej jest w liście', await wBibliotece('Stary przykład'))
 await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 8 } })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Trzymaj tylko tutaj")')
 await page.waitForTimeout(800)
 check('dopiero „Trzymaj tylko tutaj" zabiera go z listy',
   !(await wBibliotece('Stary przykład')))
-check('a zwykły kafelek zostaje w liście', await wBibliotece('Zbiór'))
 
 // --- skasowanie ścieżki też nie może połknąć przykładu ---
-await page.click('.linear-append-actions .btn:has-text("Przykład")')
+await dolozRodzaj('Przykład')
 await page.waitForTimeout(700)
 check('przed skasowaniem ścieżki przykładów nie widać',
   !(await wBibliotece('Stary przykład')))

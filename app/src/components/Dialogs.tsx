@@ -27,6 +27,8 @@ interface ConfirmOpts {
   confirmLabel?: string
   /** Czerwony przycisk — dla rzeczy, których nie da się cofnąć. */
   danger?: boolean
+  /** Napis na drugim przycisku, gdy „Anuluj" nie mówi, co się wtedy stanie. */
+  cancelLabel?: string
 }
 
 interface PromptOpts {
@@ -133,7 +135,7 @@ function ConfirmBox({ opts, onDone }: { opts: ConfirmOpts; onDone: (v: boolean) 
         {opts.message && <p className="ask-message">{opts.message}</p>}
         <footer className="ask-foot">
           <button className="btn" onClick={() => onDone(false)}>
-            Anuluj
+            {opts.cancelLabel ?? 'Anuluj'}
           </button>
           <button
             ref={okRef}

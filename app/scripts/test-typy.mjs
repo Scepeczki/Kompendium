@@ -52,8 +52,8 @@ const doWyboru = await page.evaluate(
       (r) => r.querySelector('input[type=checkbox]').checked,
     ).length,
 )
-check('wszystkie typy fabryczne widoczne w edytorze', wiersze === 8, `${wiersze}`)
-check('sześć typów proponowanych przy kafelku', doWyboru === 6, `${doWyboru}`)
+check('wszystkie typy fabryczne widoczne w edytorze', wiersze === 9, `${wiersze}`)
+check('siedem typów proponowanych przy kafelku', doWyboru === 7, `${doWyboru}`)
 check('każdy typ da się usunąć, także fabryczny',
   (await page.locator('.type-row-del:disabled').count()) === 0)
 
@@ -83,7 +83,7 @@ await page.fill('.type-row-nowy .type-row-name', 'Aksjomat')
 await page.fill('.type-row-nowy .type-row-abbr', 'AKS')
 await page.click('.type-row-nowy button:has-text("Dodaj")')
 await page.waitForTimeout(400)
-check('własny typ dopisany', (await page.locator('.type-row').count()) === 9)
+check('własny typ dopisany', (await page.locator('.type-row').count()) === 10)
 
 // 5. własny typ jest do wyboru przy kafelku i barwi plakietkę
 await page.click('.settings-page-head button:has-text("Wróć")')
@@ -120,7 +120,7 @@ await page.waitForSelector('.ask-dialog')
 const pytanie = await page.textContent('.ask-message')
 check('pytanie o usunięcie mówi, ile kafelków zmieni typ', pytanie.includes('1'), pytanie)
 await potwierdz(page)
-check('typ usunięty', (await page.locator('.type-row').count()) === 8)
+check('typ usunięty', (await page.locator('.type-row').count()) === 9)
 await page.click('.settings-page-head button:has-text("Wróć")')
 await page.waitForTimeout(500)
 const poUsunieciu = await page.locator('.concept-item .type-mini').textContent()
@@ -132,7 +132,7 @@ await doTypow()
 await page.click('.type-row:has(input[value="Intuicja"]) .type-row-del')
 await potwierdz(page)
 const poKasacjiFabrycznego = await page.locator('.type-row').count()
-check('typ fabryczny daje się usunąć', poKasacjiFabrycznego === 7, `${poKasacjiFabrycznego}`)
+check('typ fabryczny daje się usunąć', poKasacjiFabrycznego === 8, `${poKasacjiFabrycznego}`)
 check('pojawia się „Przywróć fabryczne"',
   (await page.locator('button:has-text("Przywróć fabryczne")').count()) === 1)
 await page.click('button:has-text("Przywróć fabryczne")')

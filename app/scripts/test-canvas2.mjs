@@ -26,8 +26,8 @@ const at = (fx, fy) => ({ x: flow.x + flow.width * fx, y: flow.y + flow.height *
 const p1 = at(0.45, 0.15)
 await page.mouse.click(p1.x, p1.y, { button: 'right' })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=🧱 Nowy kafelek tutaj')
-await page.waitForSelector('.path-node:has-text("Nowe pojęcie")')
+await page.click('.path-ctxmenu .dodaj-kafelek > button')
+await page.waitForSelector('.path-node:has-text("Ogólny")')
 console.log('✓ prawy przycisk → nowy kafelek na mapie (i w bazie)')
 
 const p2 = at(0.15, 0.75)
@@ -57,7 +57,7 @@ await page.waitForSelector('.react-flow__background')
 console.log('✓ siatka włączona przełącznikiem')
 
 // przesuń kafelek z Shiftem — pozycja powinna trafić na wielokrotność 20
-const node = await page.locator('.path-node:has-text("Nowe pojęcie")').boundingBox()
+const node = await page.locator('.path-node:has-text("Ogólny")').boundingBox()
 await page.keyboard.down('Shift')
 await page.mouse.move(node.x + 60, node.y + 15) // za nagłówek
 await page.mouse.down()

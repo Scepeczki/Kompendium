@@ -224,6 +224,18 @@ export async function seedBlockTypes(): Promise<void> {
   // Jednorazowe dosypanie dla baz założonych, zanim rodzaje umiały mieszkać
   // w ścieżce. Robimy to raz — potem użytkownik jest panem swojej listy
   // i skasowanego „Zadania" nie wskrzeszamy przy każdym uruchomieniu.
+  // tak samo raz: rodzaj „Ogólny" dla baz założonych przed nim
+  if (!localStorage.getItem('ui.rodzajOgolny.v1')) {
+    localStorage.setItem('ui.rodzajOgolny.v1', '1')
+    if (!(await db.blockTypes.get('ogolny'))) {
+      const wzor = BUILTIN_BLOCK_TYPES.find((t) => t.id === 'ogolny')!
+      const zajete = await db.blockTypes.toArray()
+      await db.blockTypes.add({
+        ...wzor,
+        order: zajete.length ? Math.min(...zajete.map((t) => t.order)) - 1 : wzor.order,
+      })
+    }
+  }
   const znacznik = 'ui.rodzajeWSciezce.v1'
   if (localStorage.getItem(znacznik)) return
   localStorage.setItem(znacznik, '1')
@@ -402,7 +414,16 @@ export async function moveConcept(
   order?: number,
 ) {
   const o = order ?? (await nextConceptOrder(folderId))
-  await db.concepts.update(id, { folderId, order: o })
+  // włożony do folderu kafelek wychodzi ze ścieżki, w której mieszkał;
+  // w samej ścieżce zostaje na swoim miejscu
+  await db.concepts
+    .where('id')
+    .equals(id)
+    .modify((c) => {
+      c.folderId = folderId
+      c.order = o
+      delete c.pathId
+    })
 }
 
 export async function updateVersion(
@@ -596,13 +617,20 @@ function copyName(base: string, taken: string[]): string {
 }
 
 /** Powiela kafelek z całą historią: wszystkie wersje, wszystkie strony.
- *  Kopia ląduje tuż obok pierwowzoru, w tym samym folderze.
+ *  Kopia ląduje tuż obok pierwowzoru, w tym samym folderze — albo w `cel`:
+ *  na końcu wskazanego folderu lub w ścieżce (wklejanie).
  *
  *  Powiązań (relacji) celowo nie kopiujemy: mówią o konkretnym kafelku,
  *  a nie o jego treści — świeża kopia zaczyna bez cudzych zobowiązań. */
-export async function duplicateConcept(id: string): Promise<string | null> {
+export async function duplicateConcept(
+  id: string,
+  cel?: { folderId: string | null; pathId?: string },
+): Promise<string | null> {
   const src = await db.concepts.get(id)
   if (!src) return null
+  const folderId = cel ? cel.folderId : (src.folderId ?? null)
+  const pathId = cel ? cel.pathId : src.pathId
+  const order = cel ? await nextConceptOrder(folderId) : (src.order ?? 0) + 0.5
   const versions = await db.versions.where('conceptId').equals(id).toArray()
   const pages = await db.subpages.where('conceptId').equals(id).toArray()
   const siblings = await db.concepts.toArray()
@@ -635,22 +663,27 @@ export async function duplicateConcept(id: string): Promise<string | null> {
         updatedAt: t,
       })),
     )
-    await db.concepts.add({
+    const sasiedzi = siblings
+      .filter((c) =>
+        pathId ? c.pathId === pathId : !c.pathId && (c.folderId ?? null) === folderId,
+      )
+      .map((c) => c.name)
+    const kopia: Concept = {
       ...src,
       id: newId,
-      name: copyName(
-        src.name,
-        siblings
-          .filter((c) => (c.folderId ?? null) === (src.folderId ?? null))
-          .map((c) => c.name),
-      ),
+      folderId,
+      // w innym miejscu kopia może nosić tę samą nazwę — „(kopia)" tylko obok imiennika
+      name: sasiedzi.includes(src.name) ? copyName(src.name, sasiedzi) : src.name,
       tags: [...src.tags],
       // ułamkowa kolejność: kopia siada zaraz za pierwowzorem
-      order: (src.order ?? 0) + 0.5,
+      order,
       currentVersionId: verMap.get(src.currentVersionId) ?? verMap.values().next().value!,
       createdAt: t,
       updatedAt: t,
-    })
+    }
+    if (pathId) kopia.pathId = pathId
+    else delete kopia.pathId
+    await db.concepts.add(kopia)
   })
   return newId
 }
@@ -851,6 +884,13 @@ export async function addConceptToPath(pathId: string, conceptId: string) {
   })
 }
 
+
+/** Przenosi kafelek do ścieżki jak do folderu: staje na jej końcu (jeśli go
+ *  tam nie było) i od tej chwili w niej mieszka, a nie w bibliotece. */
+export async function przeniesDoSciezki(pathId: string, conceptId: string) {
+  await addConceptToPath(pathId, conceptId)
+  await db.concepts.update(conceptId, { pathId })
+}
 
 /** Ścieżki, w których ten kafelek występuje (także jako składnik scalonego
  *  bloku) — edytor kafelka pokazuje, gdzie on właściwie pracuje. */

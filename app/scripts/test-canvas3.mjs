@@ -95,7 +95,7 @@ await page.mouse.click(flow.x + flow.width * 0.4, flow.y + flow.height * 0.7, {
   button: 'right',
 })
 await page.waitForSelector('.path-ctxmenu')
-await page.click('text=🧱 Nowy kafelek tutaj')
+await page.click('.path-ctxmenu .dodaj-kafelek > button')
 await page.waitForSelector('.path-node-head')
 await page.waitForTimeout(800) // autozapis ścieżki
 await page.click('.view-switch button:has-text("Skrypt")')

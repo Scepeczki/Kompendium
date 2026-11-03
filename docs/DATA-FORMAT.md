@@ -40,7 +40,7 @@ BlockTypeDef
 └─ hidden?   true = nie proponuj przy nowym kafelku; istniejące działają
 ```
 
-Fabryczne id (`definicja`, `twierdzenie`, `lemat`, `przyklad`, `uwaga`,
+Fabryczne id (`ogolny`, `definicja`, `twierdzenie`, `lemat`, `przyklad`, `uwaga`,
 `dowod`, `intuicja`) zostały te same, co przed edytorem typów — stare kafelki
 działają bez migracji. `dowod` i `intuicja` startują jako `hidden`.
 
@@ -176,22 +176,22 @@ w bloku, rozdzielenie).
    lewej**. Tak trzyma się przykłady i rozwiązane zadania: biblioteka ma być
    listą pojęć, a nie wysypiskiem przykładów do nich.
 
-   **Decyduje się o tym ręcznie, kafelek po kafelku**, w ścieżce pod prawym
-   przyciskiem: „⌂ Trzymaj tylko tutaj" / „↗ Odeślij do biblioteki". Działa dla
-   każdego kafelka, także zwyczajnej definicji, i nie pyta o nic. **Nic innego
-   `pathId` nie ustawia** (poza kafelkiem od razu napisanym w ścieżce, punkt
-   niżej) — wciągnięcie kafelka do ścieżki to tylko układanie wykładu i nie
-   rusza tego, gdzie on mieszka.
+   **Ścieżka jest folderem.** `pathId` ustawiają: kafelek zrobiony w ścieżce
+   („Kafelek" w Linii i w menu mapy), upuszczenie kafelka na wiersz ścieżki
+   w liście po lewej, wklejenie (Ctrl+V) w otwartą ścieżkę i ręczne
+   „⌂ Trzymaj tylko tutaj". Wciągnięcie kafelka do Linii to tylko układanie
+   wykładu i nie rusza tego, gdzie on mieszka. Rozwinięta ścieżka w liście
+   pokazuje swoje kafelki; wyciągnięty z niej do folderu kafelek traci
+   `pathId`, a w samej ścieżce zostaje na miejscu.
 
-   **Nic nie ginie.** Wyjęcie ze ścieżki, skasowanie ścieżki albo „↗ Odeślij do
-   biblioteki" kasują `pathId` i kafelek wraca do listy. Kafelek już obecny
-   w ścieżce nigdy się przy wkładaniu nie dubluje.
-8. **`BlockTypeDef.wSciezce` to co innego** — „ten rodzaj da się napisać wprost
-   w ścieżce". Takie rodzaje dostają w Linii i w menu mapy przycisk „nowy
-   ‹rodzaj›", a kafelek tak zrobiony rodzi się od razu z `pathId` swojej
-   ścieżki. Fabrycznie mają to Przykład i Zadanie; przełącznik „nowy w ścieżce"
-   w edytorze rodzajów pozwala dołożyć własne. O tym, gdzie kafelek mieszka,
-   rodzaj nie mówi nic.
+   **Usunięcie ze ścieżki.** Kafelek tutejszy, który stoi jeszcze w innej
+   ścieżce, przeprowadza się tam. Niestojący nigdzie indziej — program pyta:
+   „Usuń na dobre" kasuje go z wersjami i stronami, „Zachowaj w liście" kasuje
+   `pathId`. Skasowanie ścieżki i „↗ Odeślij do biblioteki" kasują `pathId`
+   bez pytania. Kafelek już obecny w ścieżce nigdy się przy wkładaniu nie dubluje.
+8. **`BlockTypeDef.wSciezce` zostaje w danych, ale przycisków już nie
+   wybiera** — „Kafelek" w ścieżce proponuje każdy widoczny rodzaj, a sam klik
+   daje rodzaj `ogolny`. O tym, gdzie kafelek mieszka, rodzaj nie mówi nic.
 9. **Chronologia** — `createdAt` kafelka to punkt na osi zdobywania wiedzy.
 10. **Znaczek to nazwa, nie obrazek** — `icon` (kafelka, folderu, ścieżki) trzyma
    nazwę z zestawu Lucide, np. `"sigma"`, a `iconColor` barwę `#rrggbb`. Nieznana

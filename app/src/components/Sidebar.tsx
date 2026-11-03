@@ -17,11 +17,20 @@ import {
   moveConcept,
   moveFolder,
   movePath,
+  przeniesDoSciezki,
   updateConcept,
   updateFolder,
   updatePath,
 } from '../db'
 import { type Concept, type Folder, type LearningPath } from '../types'
+import { topoOrder } from '../topo'
+import {
+  WKLEJ_DO_SCIEZKI,
+  kafelkiZeSchowka,
+  kopiujKafelki,
+  piszeTekst,
+  wklejKopie,
+} from '../schowekKafelkow'
 import { Icon, isIconName, type IconName } from './Icon'
 import { useBlockTypes } from '../blockTypes'
 import { NameDialog } from './NameDialog'
@@ -300,6 +309,33 @@ export function Sidebar({
    *  jest jedynym miejscem, w którym widać je wszystkie naraz. */
   const tutejsze =
     useLiveQuery(() => db.concepts.filter((c) => !!c.pathId).toArray(), []) ?? []
+  /** Kafelki mieszkające w ścieżce, w kolejności, w jakiej w niej stoją.
+   *  Ścieżka pokazuje je jak folder swoją zawartość. */
+  const kafelkiSciezki = (p: LearningPath): Concept[] => {
+    const miejsce = new Map<string, number>()
+    topoOrder(p.nodes, p.edges).forEach((n, i) => {
+      if (n.kind === 'block') miejsce.set(n.conceptId, i)
+      if (n.kind === 'fusion') for (const c of n.parts) miejsce.set(c.conceptId, i)
+    })
+    const gdzie = (c: Concept) => miejsce.get(c.id) ?? Number.MAX_SAFE_INTEGER
+    return tutejsze.filter((c) => c.pathId === p.id).sort((a, b) => gdzie(a) - gdzie(b))
+  }
+
+  /** Krótka wiadomość pod listą („Skopiowano 3 kafelki"). */
+  const [komunikat, setKomunikat] = useState<string | null>(null)
+  const komunikatT = useRef(0)
+  const pokaz = (tekst: string) => {
+    setKomunikat(tekst)
+    window.clearTimeout(komunikatT.current)
+    komunikatT.current = window.setTimeout(() => setKomunikat(null), 2600)
+  }
+  // inne części programu (Linia) też mają tu coś do powiedzenia
+  useEffect(() => {
+    const h = (e: Event) => pokaz(String((e as CustomEvent<string>).detail))
+    window.addEventListener('komp:komunikat', h)
+    return () => window.removeEventListener('komp:komunikat', h)
+  }, [])
+
   /** Rodzaje do filtrowania: tylko te, które naprawdę są na liście. */
   const rodzajeNaLiscie = typy.all.filter((t) => concepts.some((c) => c.type === t.id))
   const przelaczTyp = (id: string) =>
@@ -339,6 +375,11 @@ export function Sidebar({
       for (const n of children(parentId)) {
         out.push(n)
         if (n.kind === 'folder' && expanded.has(n.id)) zejdz(n.id)
+        if (n.kind === 'path' && expanded.has(n.id)) {
+          for (const c of kafelkiSciezki(n.path)) {
+            out.push({ kind: 'concept', id: c.id, order: c.order ?? 0, concept: c })
+          }
+        }
       }
     }
     zejdz(null)
@@ -461,6 +502,15 @@ export function Sidebar({
       else await moveFolder(it.id, parentId, order)
     }
     setZaznaczone(new Set())
+  }
+
+  /** Upuszczenie na ścieżkę: kafelki się do niej przeprowadzają, jak do folderu. */
+  const doSciezki = async (payload: DragPayload, pathId: string) => {
+    for (const it of pozycje(payload)) {
+      if (it.kind === 'concept') await przeniesDoSciezki(pathId, it.id)
+    }
+    setZaznaczone(new Set())
+    setExpanded((prev) => persistExpanded(new Set(prev).add(pathId)))
   }
 
   const dropOnRoot = async (payload: DragPayload) => {
@@ -598,7 +648,14 @@ export function Sidebar({
     if (ok) await deleteConcept(c.id)
   }
 
-  const conceptRow = (c: Concept, parentId: string | null, node: TreeNode) => {
+  /** `sciezka`: kafelek stoi w rozwiniętej ścieżce — upuszczone na niego
+   *  rzeczy też do niej wchodzą. */
+  const conceptRow = (
+    c: Concept,
+    parentId: string | null,
+    node: TreeNode,
+    sciezka?: LearningPath,
+  ) => {
     const hint = dropHint?.id === c.id ? dropHint.pos : null
     return (
       <li key={c.id}>
@@ -627,7 +684,8 @@ export function Sidebar({
             const p = getDragData(e)
             const pos = dropHint?.id === c.id && dropHint.pos !== 'into' ? dropHint.pos : 'after'
             clearHints()
-            if (p) dropRelative(p, node, parentId, pos)
+            if (p && sciezka) doSciezki(p, sciezka.id)
+            else if (p) dropRelative(p, node, parentId, pos)
           }}
         >
           {c.iconText ? (
@@ -739,6 +797,8 @@ export function Sidebar({
 
   const pathRow = (p: LearningPath, parentId: string | null, node: TreeNode) => {
     const hint = dropHint?.id === p.id ? dropHint.pos : null
+    const isOpen = expanded.has(p.id)
+    const kids = kafelkiSciezki(p)
     return (
       <li key={p.id}>
         <div
@@ -780,13 +840,7 @@ export function Sidebar({
             clearHints()
             if (!pl) return
             if (pos === 'into') {
-              const klocki =
-                pl.kind === 'concept'
-                  ? [pl.id]
-                  : pl.kind === 'wiele'
-                    ? pl.items.filter((i) => i.kind === 'concept').map((i) => i.id)
-                    : []
-              for (const id of klocki) addConceptToPath(p.id, id)
+              doSciezki(pl, p.id)
               return
             }
             dropRelative(pl, node, parentId, pos)
@@ -810,10 +864,98 @@ export function Sidebar({
             </span>
           )}
           <span className="concept-name">{p.name}</span>
+          <button
+            className={`sciezka-rozwin ${isOpen ? 'open' : ''}`}
+            title={isOpen ? 'Zwiń kafelki tej ścieżki' : 'Pokaż kafelki, które mieszkają w tej ścieżce'}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleExpanded(p.id)
+            }}
+          >
+            <span className="folder-count">{kids.length}</span>
+            <Icon name="rozwin" size={0.9} />
+          </button>
         </div>
+        {isOpen && (
+          <ul className="folder-children sciezka-dzieci" data-sciezka={p.id}>
+            {kids.length === 0 && <li className="folder-empty">nic tu nie mieszka</li>}
+            {kids.map((c) =>
+              conceptRow(c, null, { kind: 'concept', id: c.id, order: c.order ?? 0, concept: c }, p),
+            )}
+          </ul>
+        )}
       </li>
     )
   }
+
+  // -------------------------------------------------------------------------
+  // Kopiowanie i wklejanie kafelków
+  // -------------------------------------------------------------------------
+
+  /** Co kopiuje Ctrl+C: zaznaczone kafelki, a bez zaznaczenia otwarty kafelek. */
+  const doKopii = (): string[] => {
+    const znane = new Set([...concepts, ...tutejsze].map((c) => c.id))
+    const kolejno = widoczneWiersze()
+      .filter((n) => n.kind === 'concept' && zaznaczone.has(n.id))
+      .map((n) => n.id)
+    const ids = [...new Set([...kolejno, ...zaznaczone])].filter((id) => znane.has(id))
+    if (ids.length) return ids
+    return !openPathId && selectedId && znane.has(selectedId) ? [selectedId] : []
+  }
+
+  /** Dokąd wkleić bez otwartej ścieżki: tam, gdzie ostatnio kliknięto. */
+  const wklejBezSciezki = async (ids: string[]) => {
+    const k = kotwicaRef.current
+    const kafelek = [...concepts, ...tutejsze].find((c) => c.id === k)
+    const sciezka = paths.find((p) => p.id === k)?.id ?? kafelek?.pathId
+    let nowe: string[]
+    if (sciezka) {
+      nowe = await wklejKopie(ids, { folderId: null, pathId: sciezka })
+      for (const id of nowe) await addConceptToPath(sciezka, id)
+      setExpanded((prev) => persistExpanded(new Set(prev).add(sciezka)))
+    } else {
+      const folderId = folders.some((f) => f.id === k) ? k : effectiveParent(kafelek?.folderId ?? null)
+      nowe = await wklejKopie(ids, { folderId })
+      revealFolder(folderId)
+    }
+    setZaznaczone(new Set(nowe))
+    pokaz(`Wklejono ${odmien(nowe.length, 'kafelek', 'kafelki', 'kafelków')}`)
+  }
+
+  const schowekRef = useRef({ doKopii, wklejBezSciezki, openPathId, label: typy.label })
+  schowekRef.current = { doKopii, wklejBezSciezki, openPathId, label: typy.label }
+
+  useEffect(() => {
+    const klawisz = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'c' || e.defaultPrevented) return
+      if (piszeTekst(e.target)) return
+      const ids = schowekRef.current.doKopii()
+      if (!ids.length) return
+      e.preventDefault()
+      kopiujKafelki(ids, schowekRef.current.label)
+        .then((n) => pokaz(`Skopiowano ${odmien(n, 'kafelek', 'kafelki', 'kafelków')}`))
+        .catch(() => pokaz('Nie udało się skopiować — przeglądarka nie dała dostępu do schowka'))
+    }
+    const wklej = (e: ClipboardEvent) => {
+      const el = e.target instanceof Element ? e.target : null
+      if (el?.closest('input, textarea, select, [contenteditable="true"], .cm-editor')) return
+      const ids = kafelkiZeSchowka(e.clipboardData?.getData('text/plain') ?? '')
+      if (!ids) return
+      e.preventDefault()
+      // otwarta ścieżka sama wie, gdzie stoi zaznaczone miejsce
+      if (schowekRef.current.openPathId) {
+        window.dispatchEvent(new CustomEvent(WKLEJ_DO_SCIEZKI, { detail: ids }))
+        pokaz(`Wklejono ${odmien(ids.length, 'kafelek', 'kafelki', 'kafelków')} do ścieżki`)
+      } else void schowekRef.current.wklejBezSciezki(ids)
+    }
+    window.addEventListener('keydown', klawisz)
+    document.addEventListener('paste', wklej)
+    return () => {
+      window.removeEventListener('keydown', klawisz)
+      document.removeEventListener('paste', wklej)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const renderNode = (n: TreeNode, parentId: string | null) =>
     n.kind === 'folder'
@@ -1067,6 +1209,11 @@ export function Sidebar({
               {menuItem('usun', 'Usuń', handleMenuDelete, true)}
             </>
           )}
+        </div>
+      )}
+      {komunikat && (
+        <div className="sidebar-komunikat" role="status">
+          {komunikat}
         </div>
       )}
       {/* dół: rzeczy dotyczące całej aplikacji, nie zawartości drzewa */}

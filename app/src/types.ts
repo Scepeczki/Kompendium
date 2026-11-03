@@ -39,6 +39,9 @@ export interface BlockTypeDef {
  *  (dowody mają własne strony kafelka, intuicję zastąpiły notatki na ścieżce),
  *  ale teraz można je odsłonić jednym kliknięciem zamiast zmieniać kod. */
 export const BUILTIN_BLOCK_TYPES: BlockTypeDef[] = [
+  /** Kafelek bez szczególnego rodzaju — dostaje go „Kafelek" w ścieżce,
+   *  kiedy nie wybierze się żadnego rodzaju z listy. */
+  { id: 'ogolny', label: 'Ogólny', short: 'OG', color: '#6f7d8c', order: 0, builtin: true },
   { id: 'definicja', label: 'Definicja', short: 'DEF', color: '#c2612c', order: 1, builtin: true },
   { id: 'twierdzenie', label: 'Twierdzenie', short: 'TW', color: '#b0384a', order: 2, builtin: true },
   { id: 'lemat', label: 'Lemat', short: 'LEM', color: '#8c4f86', order: 3, builtin: true },

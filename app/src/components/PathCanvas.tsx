@@ -53,7 +53,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   createConcept,
   db,
+  deleteConcept,
   keepConceptInPath,
+  pathsWithConcept,
   przypnijTekstDoWersji,
   releaseConceptToLibrary,
   updateConcept,
@@ -64,6 +66,8 @@ import {
 } from '../db'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
+import { odmien } from '../odmiana'
+import { WKLEJ_DO_SCIEZKI, kopiujKafelki, piszeTekst, wklejKopie } from '../schowekKafelkow'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
@@ -469,6 +473,43 @@ const isRelationChange = (c: EdgeChange): boolean => {
 // Tryb liniowy: pionowe doklejanie segmentów skryptu
 // ---------------------------------------------------------------------------
 
+/** „Kafelek" z rodzajami po najechaniu. Klik w sam przycisk robi kafelek
+ *  ogólny, klik w rodzaj — kafelek tego rodzaju. `klasa`: wygląd pozycji
+ *  menu, w którym stoi; bez niej to guzik z dolnego paska Linii. */
+function DodajKafelek({ onWybierz, klasa }: { onWybierz: (typeId: string) => void; klasa?: string }) {
+  const typy = useBlockTypes()
+  const ogolny = typy.all.some((t) => t.id === 'ogolny')
+    ? 'ogolny'
+    : (typy.choices[0]?.id ?? 'definicja')
+  return (
+    <div className={`tree-menu-podmenu dodaj-kafelek ${klasa ? '' : 'dodaj-kafelek-pasek'}`}>
+      <button
+        className={klasa ? `${klasa} tree-menu-rozwija` : 'btn btn-dolacz'}
+        title="Nowy kafelek w tej ścieżce. Najedź, żeby wybrać rodzaj; sam klik daje kafelek ogólny"
+        onClick={() => onWybierz(ogolny)}
+      >
+        <span>
+          <Icon name="kafelek" size={1} /> Kafelek
+        </span>
+        <span className="tree-menu-strzalka">›</span>
+      </button>
+      {/* bez klasy tree-menu: to nie jest osobne menu, tylko część przycisku */}
+      <div className="tree-menu-boczne dodaj-kafelek-rodzaje">
+        {typy.choices
+          .filter((t) => t.id !== 'ogolny')
+          .map((t) => (
+            <button key={t.id} className="tree-menu-item" onClick={() => onWybierz(t.id)}>
+              <span className="type-mini menu-mini" data-typ={t.id} style={typy.style(t.id)}>
+                {t.short}
+              </span>{' '}
+              {t.label}
+            </button>
+          ))}
+      </div>
+    </div>
+  )
+}
+
 interface LinearViewProps {
   ordered: PathNode[]
   onDropConcept: (conceptId: string, afterId: string | null, beforeId: string | null) => void
@@ -499,6 +540,9 @@ interface LinearViewProps {
   onGroupWithNext: (segId: string) => void
   /** Scala zaznaczone kafelki — także takie, które nie sąsiadują ze sobą. */
   onFuseSelected: (ids: string[]) => void
+  /** Gdzie wkleić kafelki: za tym segmentem (null = na koniec). Linia
+   *  wpisuje tu swoją odpowiedź, bo tylko ona zna zaznaczenie. */
+  miejsceWklejenia?: { current: (() => string | null) | null }
   /** Kafelek, do którego trzeba podskoczyć po otwarciu ścieżki. */
   celKlocek?: string | null
   /** Do zapamiętania miejsca czytania — osobno dla każdej ścieżki. */
@@ -928,6 +972,7 @@ function LinearView({
   onAddHeading,
   onGroupWithNext,
   onFuseSelected,
+  miejsceWklejenia,
   celKlocek,
   pathId,
   zakryte,
@@ -949,9 +994,6 @@ function LinearView({
   const [aktywny, setAktywny] = useState<Editor | null>(null)
   /** Rodzaje kafelków — do plakietek w spisie treści. */
   const typy = useBlockTypes()
-  /** Rodzaje mieszkające w ścieżce (przykład, zadanie…) — z nich robią się
-   *  przyciski „nowy tutejszy" w menu szczeliny i na dole Linii. */
-  const tutejszeRodzaje = typy.choices.filter((t) => t.wSciezce)
   /** Kafelek, przy którym się pracuje — ostatnio kliknięty. Pokazuje go prawy
    *  panel i spis treści. */
   const [biezacy, setBiezacy] = useState<string | null>(null)
@@ -1189,6 +1231,39 @@ function LinearView({
    *  uchwytu któregokolwiek z nich przenosi całą grupę. */
   const [zazSeg, setZazSeg] = useState<Set<string>>(new Set())
   const kotwicaRef = useRef<string | null>(null)
+
+  // wklejone kafelki stają za zaznaczonymi, a bez zaznaczenia za bieżącym
+  useEffect(() => {
+    if (!miejsceWklejenia) return
+    miejsceWklejenia.current = () => {
+      const zaz = ordered.filter((n) => zazSeg.has(n.id))
+      if (zaz.length) return zaz[zaz.length - 1].id
+      return biezacy && ordered.some((n) => n.id === biezacy) ? biezacy : null
+    }
+    return () => {
+      miejsceWklejenia.current = null
+    }
+  })
+
+  // Ctrl+C na zaznaczonych segmentach kopiuje ich kafelki
+  useEffect(() => {
+    const klawisz = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'c' || e.defaultPrevented) return
+      if (zazSeg.size === 0 || piszeTekst(e.target)) return
+      const ids = ordered
+        .filter((n) => zazSeg.has(n.id))
+        .flatMap((n) =>
+          n.kind === 'block' ? [n.conceptId] : n.kind === 'fusion' ? n.parts.map((p) => p.conceptId) : [],
+        )
+      if (!ids.length) return
+      e.preventDefault()
+      kopiujKafelki(ids, typy.label)
+        .then((n) => window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: `Skopiowano ${odmien(n, 'kafelek', 'kafelki', 'kafelków')}` })))
+        .catch(() => {})
+    }
+    window.addEventListener('keydown', klawisz)
+    return () => window.removeEventListener('keydown', klawisz)
+  }, [zazSeg, ordered, typy])
 
   /** Zwraca true, jeśli klik był zaznaczaniem — wtedy nic innego się nie dzieje. */
   const klikSegmentu = (e: React.MouseEvent, id: string): boolean => {
@@ -1889,19 +1964,7 @@ function LinearView({
               się mieścić. */}
           <div className="linear-append-actions">
             <span className="linear-append-label">Dołóż:</span>
-            {tutejszeRodzaje.map((t) => (
-              <button
-                key={t.id}
-                className="btn btn-dolacz"
-                title={`${t.label} należy do tej ścieżki — nie trafia do listy po lewej`}
-                onClick={() => onAddExample(t.id, last?.id ?? null, null)}
-              >
-                <span className="type-mini menu-mini" data-typ={t.id} style={typy.style(t.id)}>
-                  {t.short}
-                </span>
-                {t.label}
-              </button>
-            ))}
+            <DodajKafelek onWybierz={(id) => onAddExample(id, last?.id ?? null, null)} />
             <button
               className="btn btn-dolacz"
               title="Rozdział — dzieli skrypt na części"
@@ -2238,19 +2301,10 @@ function LinearView({
               <div className="tree-menu-where">
                 Wstaw {segMenu.pos === 'before' ? 'przed' : 'po'} „{opis(sasiad)}"
               </div>
-              {tutejszeRodzaje.map((t) => (
-                <button
-                  key={t.id}
-                  className="tree-menu-item"
-                  title={`${t.label} mieszka w tej ścieżce — nie ma go w liście po lewej`}
-                  onClick={wstaw(() => onAddExample(t.id, afterId, beforeId))}
-                >
-                  <span className="type-mini menu-mini" data-typ={t.id} style={typy.style(t.id)}>
-                    {t.short}
-                  </span>{' '}
-                  {t.label}
-                </button>
-              ))}
+              <DodajKafelek
+                klasa="tree-menu-item"
+                onWybierz={(id) => wstaw(() => onAddExample(id, afterId, beforeId))()}
+              />
               <button
                 className="tree-menu-item"
                 onClick={wstaw(() => onAddHeading(1, afterId, beforeId))}
@@ -2478,10 +2532,6 @@ function CanvasInner({
   const dlgRef = useRef(dlg)
   dlgRef.current = dlg
   const typy = useBlockTypes()
-  /** Rodzaje kafelków, które mieszkają w ścieżce — przykłady, zadania.
-   *  Lista jest w rękach użytkownika (edytor rodzajów), więc przyciski
-   *  „nowy tutejszy" biorą się właśnie stąd, a nie z nazwy wpisanej w kod. */
-  const tutejszeRodzaje = typy.choices.filter((t) => t.wSciezce)
   const [name, setName] = useState('')
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
@@ -3003,20 +3053,6 @@ function CanvasInner({
     ])
   }
 
-  /** Tworzy nowe pojęcie w bazie i od razu kładzie jego kafelek na mapie. */
-  const addBlockAt = async (fx: number, fy: number) => {
-    const conceptId = await createConcept()
-    setRfNodes((ns) => [
-      ...ns,
-      {
-        id: crypto.randomUUID(),
-        type: 'block',
-        position: { x: fx, y: fy },
-        data: { conceptId, versionId: null },
-      },
-    ])
-  }
-
   /** Kafelek należący do ścieżki (przykład, zadanie…). Rodzi się tutaj, tutaj
    *  mieszka i nie pokazuje się w bibliotece — ścieżka jest jego folderem. */
   const nowyTutejszy = async (typeId: string) => {
@@ -3100,8 +3136,9 @@ function CanvasInner({
     return lista
   }
 
-  /** Przykład wyjęty ze ścieżki wraca do biblioteki. Nie kasujemy go — po
-   *  usunięciu z jedynego miejsca, w którym był widoczny, zniknąłby na dobre. */
+  /** Kafelek mieszkający w tej ścieżce, który z niej wychodzi. Stoi jeszcze
+   *  w innej ścieżce — przeprowadza się tam. Nie stoi nigdzie — pytamy, czy
+   *  usunąć go na dobre; kto nie chce, ten dostaje go z powrotem w liście. */
   const wypuscZeSciezki = useCallback((usuwane: string[]) => {
     const zostaja = new Set(
       nodesRef.current
@@ -3113,9 +3150,36 @@ function CanvasInner({
         .flatMap((id) => klockiSegmentu(nodesRef.current.find((n) => n.id === id)))
         .filter((c) => wlasneKlockiRef.current.has(c) && !zostaja.has(c)),
     )
-    for (const c of doBiblioteki) releaseConceptToLibrary(c)
+    if (!doBiblioteki.size) return
+    void (async () => {
+      const bezDomu: string[] = []
+      for (const c of doBiblioteki) {
+        const inne = (await pathsWithConcept(c)).filter((p) => p.id !== pathId)
+        if (inne.length) await keepConceptInPath(inne[0].id, c)
+        else bezDomu.push(c)
+      }
+      if (!bezDomu.length) return
+      const nazwy = (await db.concepts.bulkGet(bezDomu)).map((k) => `„${k?.name ?? '?'}"`)
+      const ok = await dlgRef.current.confirm({
+        title:
+          bezDomu.length === 1
+            ? `Usunąć kafelek ${nazwy[0]} na dobre?`
+            : `Usunąć na dobre ${odmien(bezDomu.length, 'kafelek', 'kafelki', 'kafelków')}?`,
+        message:
+          (bezDomu.length > 1 ? `${nazwy.join(', ')}. ` : '') +
+          'Mieszkały tylko w tej ścieżce i nie ma ich w żadnej innej. Usunięte znikną razem z wersjami i stronami. ' +
+          'Jeśli chcesz je zachować, trafią do listy po lewej.',
+        confirmLabel: 'Usuń na dobre',
+        cancelLabel: 'Zachowaj w liście',
+        danger: true,
+      })
+      for (const c of bezDomu) {
+        if (ok) await deleteConcept(c)
+        else await releaseConceptToLibrary(c)
+      }
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [pathId])
 
   /** Usuwa kafelek ze ścieżki (kafelek zostaje w bazie) wraz z jego strzałkami. */
   const removeNode = (id: string) => {
@@ -3209,6 +3273,37 @@ function CanvasInner({
       return [...rest, ...add]
     })
   }
+
+  /** Wklejone kafelki: kopie zamieszkują w tej ścieżce i stają za
+   *  zaznaczonym miejscem w Linii (bez niego — na końcu). */
+  const miejsceWklejenia = useRef<(() => string | null) | null>(null)
+  const wklejRef = useRef<(ids: string[]) => Promise<void>>(async () => {})
+  wklejRef.current = async (ids) => {
+    const nowe = await wklejKopie(ids, { folderId: null, pathId })
+    const chain = topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))
+    let afterId = miejsceWklejenia.current?.() ?? chain[chain.length - 1]?.id ?? null
+    const i = chain.findIndex((n) => n.id === afterId)
+    const beforeId = i >= 0 ? (chain[i + 1]?.id ?? null) : null
+    for (const conceptId of nowe) {
+      const id = crypto.randomUUID()
+      chainInsert(
+        {
+          id,
+          type: 'block',
+          position: positionBetween(afterId, beforeId),
+          data: { conceptId, versionId: null },
+        },
+        afterId,
+        beforeId,
+      )
+      afterId = id
+    }
+  }
+  useEffect(() => {
+    const wklej = (e: Event) => void wklejRef.current((e as CustomEvent<string[]>).detail)
+    window.addEventListener(WKLEJ_DO_SCIEZKI, wklej)
+    return () => window.removeEventListener(WKLEJ_DO_SCIEZKI, wklej)
+  }, [])
 
   /** Usuwa segment i zszywa łańcuch (poprzednik → następnik). */
   const removeSegmentHeal = (id: string) => {
@@ -3896,6 +3991,7 @@ function CanvasInner({
           celKlocek={celKlocek}
           pathId={pathId}
           zakryte={zakryte}
+          miejsceWklejenia={miejsceWklejenia}
           onDropConcept={linearDropConcept}
           onMoveSegment={moveSegment}
           onMoveSegments={moveSegments}
@@ -4041,31 +4137,13 @@ function CanvasInner({
             style={{ left: ctxMenu.sx, top: ctxMenu.sy }}
             onContextMenu={(e) => e.preventDefault()}
           >
-            <button
-              className="path-ctxmenu-item"
-              onClick={() => {
-                addBlockAt(ctxMenu.fx, ctxMenu.fy)
+            <DodajKafelek
+              klasa="path-ctxmenu-item"
+              onWybierz={(id) => {
+                addExampleAt(ctxMenu.fx, ctxMenu.fy, id)
                 setCtxMenu(null)
               }}
-            >
-              🧱 Nowy kafelek tutaj
-            </button>
-            {tutejszeRodzaje.map((t) => (
-              <button
-                key={t.id}
-                className="path-ctxmenu-item"
-                title={`${t.label} mieszka w tej ścieżce — nie ma go w liście po lewej`}
-                onClick={() => {
-                  addExampleAt(ctxMenu.fx, ctxMenu.fy, t.id)
-                  setCtxMenu(null)
-                }}
-              >
-                <span className="type-mini menu-mini" data-typ={t.id} style={typy.style(t.id)}>
-                  {t.short}
-                </span>{' '}
-                Nowy — {t.label.toLowerCase()}
-              </button>
-            ))}
+            />
             <button
               className="path-ctxmenu-item"
               onClick={() => {
