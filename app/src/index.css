@@ -8017,6 +8017,12 @@ body.ciagne-szerokosc * {
   border-radius: 6px;
 }
 
+/* zdjęcie w osobnym wierszu ma cały wiersz: w Skrypcie nazwa kafelka stoi
+   obok treści i bez tego środek liczyłby się od końca nazwy */
+.markdown-body img:not(.zdj-wiersz, .zdj-oplyw-lewo, .zdj-oplyw-prawo) {
+  clear: both;
+}
+
 .markdown-body img.zdj-srodek {
   margin-inline: auto;
 }
