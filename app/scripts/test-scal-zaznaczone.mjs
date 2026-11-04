@@ -95,7 +95,7 @@ const menuNad = async (nr) => {
   const seg = page.locator('.linear-seg').nth(nr)
   await seg.evaluate((el) => el.scrollIntoView({ block: 'center' }))
   const b = await seg.boundingBox()
-  await page.mouse.click(b.x + b.width / 2, b.y + 6, { button: 'right' })
+  await page.mouse.click(b.x + b.width / 2, b.y + 30, { button: 'right' })
   await page.waitForSelector('.linear-menu')
 }
 await menuNad(1)

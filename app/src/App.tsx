@@ -325,7 +325,9 @@ function Widok() {
           title={`Wróć do ścieżki „${kotwicaSciezka.name}" (Alt+Z)`}
           onClick={() => openPath(kotwicaSciezka.id)}
         >
-          ⚓ <span className="kotwica-nazwa">{kotwicaSciezka.name}</span>
+          <Icon name="anchor" size={1} />
+          <span className="kotwica-nazwa">{kotwicaSciezka.name}</span>
+          <span className="kotwica-skrot">Alt+Z</span>
         </button>
       )}
 

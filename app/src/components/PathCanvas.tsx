@@ -67,7 +67,7 @@ import {
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { odmien } from '../odmiana'
-import { WKLEJ_DO_SCIEZKI, kopiujKafelki, piszeTekst, wklejKopie } from '../schowekKafelkow'
+import { WKLEJ_DO_SCIEZKI, kopiujKafelki, piszeTekst, wPolu, wklejKopie } from '../schowekKafelkow'
 import { ZAPOMNIJ_WLASNE, wlozDoFolderuSciezki } from '../folderSciezki'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
@@ -562,6 +562,8 @@ interface LinearViewProps {
   /** Ręczne „ten kafelek mieszka tutaj" / „wróć do biblioteki". */
   onKeepHere: (conceptId: string, tutaj: boolean) => void
   onRemove: (id: string) => void
+  /** Usuwa kilka segmentów naraz (jedno pytanie o kafelki bez domu). */
+  onRemoveMany: (ids: string[]) => void
   onEdit: (n: PathNode) => void
   onUnfuse: (id: string) => void
   onToggleSide: (id: string) => void
@@ -903,13 +905,21 @@ const PoleTresci = memo(function PoleTresci({
    *
    *  Pole trzyma własną kopię treści i nie podgląda propsów — po komponowaniu
    *  albo po poprawce w kafelku pokazywałoby więc starą wersję, a najbliższy
-   *  zapis by ją utrwalił. Własnego pisania nie ruszamy: tam skakałby kursor. */
+   *  zapis by ją utrwalił. Pomijamy tylko echo własnego zapisu i zmianę, która
+   *  przychodzi w trakcie pisania (skakałby kursor). Wcześniej wystarczyło raz
+   *  kliknąć w pole, żeby przestało przyjmować poprawki z biblioteki — np. nowy
+   *  układ zdjęcia. */
   const [odswiezenie, setOdswiezenie] = useState(0)
   const ostatniaRef = useRef(wartosc)
+  const zapisanaRef = useRef<string | null>(null)
   useEffect(() => {
     if (wartosc === ostatniaRef.current) return
     ostatniaRef.current = wartosc
-    if (dotknieteRef.current) return
+    if (wartosc === zapisanaRef.current) return
+    if (edytorRef.current?.isFocused) return
+    // świeżo wczytany tekst nie jest jeszcze pisaniem — inaczej samo
+    // wczytanie zrobiłoby ścieżce własną kopię
+    dotknieteRef.current = false
     setOdswiezenie((n) => n + 1)
   }, [wartosc])
 
@@ -964,6 +974,7 @@ const PoleTresci = memo(function PoleTresci({
          *  odcinał się od kafelka w bibliotece. */
         onChange={(md) => {
           if (!dotknieteRef.current) return
+          zapisanaRef.current = md
           zapisz(md)
         }}
         onFocus={() => {
@@ -1000,6 +1011,7 @@ function LinearView({
   onAddExample,
   onKeepHere,
   onRemove,
+  onRemoveMany,
   onEdit,
   onUnfuse,
   onToggleSide,
@@ -1281,9 +1293,17 @@ function LinearView({
     }
   })
 
-  // Ctrl+C na zaznaczonych segmentach kopiuje ich kafelki
+  // Ctrl+C na zaznaczonych segmentach kopiuje ich kafelki, Delete je usuwa
   useEffect(() => {
     const klawisz = (e: KeyboardEvent) => {
+      // bez sprawdzania defaultPrevented: mapa ścieżki zajmuje Delete dla
+      // siebie, nawet gdy na ekranie jest Linia
+      if (e.key === 'Delete' && zazSeg.size > 0 && !wPolu(e.target)) {
+        e.preventDefault()
+        onRemoveMany(ordered.filter((n) => zazSeg.has(n.id)).map((n) => n.id))
+        setZazSeg(new Set())
+        return
+      }
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'c' || e.defaultPrevented) return
       if (zazSeg.size === 0 || piszeTekst(e.target)) return
       const ids = ordered
@@ -1299,6 +1319,7 @@ function LinearView({
     }
     window.addEventListener('keydown', klawisz)
     return () => window.removeEventListener('keydown', klawisz)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zazSeg, ordered, typy])
 
   /** Zwraca true, jeśli klik był zaznaczaniem — wtedy nic innego się nie dzieje. */
@@ -1336,6 +1357,8 @@ function LinearView({
     y: number
     index: number
     pos: 'before' | 'after'
+    /** Kliknięto w przerwę między kafelkami: menu ma tylko „wstaw". */
+    przerwa?: boolean
   } | null>(null)
 
   useEffect(() => {
@@ -1543,7 +1566,9 @@ function LinearView({
         e.preventDefault()
         const r = e.currentTarget.getBoundingClientRect()
         const pos = e.clientY - r.top < r.height / 2 ? 'before' : 'after'
-        setSegMenu({ x: e.clientX, y: e.clientY, index: i, pos })
+        // sam segment, a nie jego karta, to odstęp nad albo pod kafelkiem
+        const przerwa = e.target === e.currentTarget
+        setSegMenu({ x: e.clientX, y: e.clientY, index: i, pos, przerwa })
       },
       chwyt: (e, id) => {
         const { zazSeg: zaz, ordered: lista } = biezaceRef.current
@@ -1876,6 +1901,23 @@ function LinearView({
         if ((e.target as Element).closest('.linear-seg, .linear-menu')) return
         if (zazSeg.size > 0) setZazSeg(new Set())
       }}
+      /* prawy przycisk między kafelkami: menu „wstaw tutaj", bez kafelka */
+      onContextMenu={(e) => {
+        const el = e.target as Element
+        if (!el.closest('.linear-column') || el.closest('.linear-seg, .linear-menu, .linear-append')) return
+        const segi = [...e.currentTarget.querySelectorAll<HTMLElement>('.linear-seg[data-idx]')]
+        if (!segi.length) return
+        e.preventDefault()
+        const ponizej = segi.findIndex((s) => s.getBoundingClientRect().top > e.clientY)
+        const cel = segi[ponizej < 0 ? segi.length - 1 : ponizej]
+        setSegMenu({
+          x: e.clientX,
+          y: e.clientY,
+          index: Number(cel.dataset.idx),
+          pos: ponizej < 0 ? 'after' : 'before',
+          przerwa: true,
+        })
+      }}
     >
       <Outline
         items={outline}
@@ -2050,6 +2092,9 @@ function LinearView({
             setSegMenu(null)
             fn()
           }
+          /** Prawy przycisk na jednym z zaznaczonych dotyczy całej grupy. */
+          const zaznaczoneKolejno = ordered.filter((n) => zazSeg.has(n.id)).map((n) => n.id)
+          const wieleZaznaczonych = !!sasiad && zazSeg.has(sasiad.id) && zaznaczoneKolejno.length > 1
           /** Zaznaczone kafelki, które da się scalić — w kolejności z Linii. */
           const doScalenia = ordered
             .filter((n) => zazSeg.has(n.id) && (n.kind === 'block' || n.kind === 'fusion'))
@@ -2166,6 +2211,9 @@ function LinearView({
                 if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
               }}
             >
+              {/* przerwa między kafelkami: tylko wstawianie, bez rzeczy o kafelku */}
+              {!segMenu.przerwa && (
+                <>
               {sasiad?.kind === 'heading' && onPoziomRozdzialu && onRozmiarRozdzialu && (
                 <>
                   <div className="tree-menu-where">Poziom: {nazwaPoziomu(sasiad.level)}</div>
@@ -2308,16 +2356,23 @@ function LinearView({
                 <>
                   <button
                     className="tree-menu-item tree-menu-groznie"
-                    onClick={wstaw(() => onRemove(sasiad.id))}
+                    onClick={wstaw(() =>
+                      wieleZaznaczonych ? onRemoveMany(zaznaczoneKolejno) : onRemove(sasiad.id),
+                    )}
                   >
-                    <Icon name="usun" size={1} /> Usuń ze ścieżki
+                    <Icon name="usun" size={1} />{' '}
+                    {wieleZaznaczonych
+                      ? `Usuń zaznaczone ze ścieżki (${zaznaczoneKolejno.length})`
+                      : 'Usuń ze ścieżki'}
                   </button>
                   {sasiad.kind !== 'heading' && <div className="tree-menu-sep" />}
                 </>
               )}
+                </>
+              )}
               {/* Menu rozdziału dotyczy samego rozdziału, a wstawianie tu tylko
                   myliło się z wyborem poziomu. */}
-              {sasiad?.kind !== 'heading' && (
+              {(segMenu.przerwa || sasiad?.kind !== 'heading') && (
                 <>
               <div className="tree-menu-where">
                 Wstaw {segMenu.pos === 'before' ? 'przed' : 'po'} „{opis(sasiad)}"
@@ -3503,7 +3558,11 @@ function CanvasInner({
     const doUporzadkowania = [
       ...new Set(
         wezly
-          .filter((n) => n.kind === 'block' && n.wlasneTresci && Object.keys(n.wlasneTresci).length)
+          .filter(
+            (n) =>
+              n.kind === 'block' &&
+              ((n.wlasneTresci && Object.keys(n.wlasneTresci).length) || n.nazwa !== undefined),
+          )
           .map((n) => (n.kind === 'block' ? n.conceptId : ''))
           .filter((c) => pojeciaZBazy.some((k) => k.id === c && k.pathId === pathId)),
       ),
@@ -3523,8 +3582,8 @@ function CanvasInner({
       if (p !== pathId) return
       setRfNodes((ns) =>
         ns.map((n) =>
-          n.data.conceptId === conceptId && n.data.wlasneTresci
-            ? { ...n, data: { ...n.data, wlasneTresci: undefined } }
+          n.data.conceptId === conceptId && (n.data.wlasneTresci || n.data.nazwa)
+            ? { ...n, data: { ...n.data, wlasneTresci: undefined, nazwa: undefined } }
             : n,
         ),
       )
@@ -4116,11 +4175,33 @@ function CanvasInner({
             tutaj ? trzymajTutaj(conceptId) : releaseConceptToLibrary(conceptId)
           }
           onRemove={removeSegmentHeal}
+          onRemoveMany={(ids) => {
+            wypuscZeSciezki(ids)
+            for (const id of ids) zszyjBez(id)
+          }}
           onEdit={(n) => {
             if (n.kind === 'block') onOpenConcept(n.conceptId)
             else if (n.kind === 'fusion') setKomponowany(n.id)
           }}
-          onRenameSegment={(nodeId, nazwa) => api.updateData(nodeId, { nazwa })}
+          onRenameSegment={(nodeId, nazwa) => {
+            api.updateData(nodeId, { nazwa })
+            // w folderze ścieżki nazwa jest jedna: po chwili ciszy idzie do
+            // kafelka, a ścieżka przestaje trzymać swoją
+            const n = nodesRef.current.find((x) => x.id === nodeId)
+            const cid = typeof n?.data.conceptId === 'string' ? n.data.conceptId : null
+            if (!cid || !wlasneKlockiRef.current.has(cid) || !nazwa.trim()) return
+            odloz(`${nodeId}|nazwa`, () => {
+              void updateConcept(cid, { name: nazwa.trim() }).then(() =>
+                setRfNodes((ns) =>
+                  ns.map((x) =>
+                    x.id === nodeId && x.data.nazwa === nazwa
+                      ? { ...x, data: { ...x.data, nazwa: undefined } }
+                      : x,
+                  ),
+                ),
+              )
+            })
+          }}
           /* Tekst pisany w ścieżce zostaje w ścieżce. Kafelek w bibliotece
              zachowuje swoją treść — poprawiona tutaj definicja nie zmienia
              tamtej i nie rozjeżdża innych ścieżek. */

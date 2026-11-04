@@ -1,12 +1,14 @@
-import { db, keepConceptInPath, przeniesDoSciezki } from './db'
+import { db, keepConceptInPath, przeniesDoSciezki, updateConcept } from './db'
 import type { PathNode } from './types'
 
 /** Kafelek w folderze ścieżki ma JEDEN tekst: pisanie w ścieżce zmienia go
  *  w bibliotece i odwrotnie. Poza folderem ścieżka trzyma własną kopię tekstu
  *  (pisanie w ścieżce nie rusza biblioteki).
  *
- *  Kafelek, który wchodzi do folderu, mógł mieć w ścieżce już własny tekst,
- *  inny niż w bibliotece. Wtedy pytamy, który zostaje bieżący; drugi trafia do
+ *  To samo dotyczy nazwy kafelka.
+ *
+ *  Kafelek, który wchodzi do folderu, mógł mieć w ścieżce już własny tekst
+ *  albo własną nazwę, inne niż w bibliotece. Wtedy pytamy, który zostaje bieżący; drugi trafia do
  *  osobnej wersji kafelka, więc nic nie przepada. */
 
 type Pytanie = (opts: {
@@ -23,6 +25,13 @@ const wlasneKafelka = (nodes: PathNode[], conceptId: string): [string, string][]
   nodes.flatMap((n) =>
     n.kind === 'block' && n.conceptId === conceptId ? Object.entries(n.wlasneTresci ?? {}) : [],
   )
+
+/** Własna nazwa kafelka w ścieżce — ostatnia, jeśli stoi w niej kilka razy. */
+const nazwaWSciezce = (nodes: PathNode[], conceptId: string): string | undefined =>
+  nodes
+    .filter((n) => n.kind === 'block' && n.conceptId === conceptId && n.nazwa)
+    .map((n) => (n.kind === 'block' ? n.nazwa : undefined))
+    .pop()
 
 /** Własne teksty ścieżki, które różnią się od tekstu w bibliotece (klucz: wersja:strona). */
 async function rozneTeksty(nodes: PathNode[], conceptId: string): Promise<Map<string, string>> {
@@ -103,25 +112,33 @@ export async function wlozDoFolderuSciezki(
 ) {
   const wezly = nodes ?? (await db.paths.get(pathId))?.nodes ?? []
   const rozne = await rozneTeksty(wezly, conceptId)
-  if (rozne.size) {
-    const nazwa = (await db.concepts.get(conceptId))?.name ?? ''
+  const nazwa = (await db.concepts.get(conceptId))?.name ?? ''
+  const innaNazwa = nazwaWSciezce(wezly, conceptId)
+  const nazwaRozna = innaNazwa !== undefined && innaNazwa.trim() !== nazwa.trim()
+  if (rozne.size || nazwaRozna) {
+    const co = rozne.size && nazwaRozna ? 'tekst i nazwę' : rozne.size ? 'tekst' : 'nazwę'
     const zeSciezki = await pytaj({
-      title: `Który tekst kafelka „${nazwa}" zachować?`,
+      title: `Który ${rozne.size ? 'tekst' : 'nazwę'} kafelka „${nazwa}" zachować?`,
       message:
-        'W tej ścieżce kafelek ma tekst inny niż w bibliotece. W folderze ścieżki ' +
-        'kafelek ma jeden tekst: zmiana w ścieżce zmienia go w bibliotece i odwrotnie. ' +
-        'Wybrany tekst będzie bieżący, a drugi zostanie zachowany jako osobna wersja kafelka.',
-      confirmLabel: 'Tekst ze ścieżki',
-      cancelLabel: 'Tekst z biblioteki',
+        `W tej ścieżce kafelek ma ${co} inn${co === 'tekst' ? 'y' : 'ą'} niż w bibliotece` +
+        (nazwaRozna ? ` (w ścieżce: „${innaNazwa}")` : '') +
+        '. W folderze ścieżki kafelek ma jedną treść i nazwę: zmiana w ścieżce zmienia go ' +
+        'w bibliotece i odwrotnie.' +
+        (rozne.size ? ' Drugi tekst zostanie zachowany jako osobna wersja kafelka.' : ''),
+      confirmLabel: 'Ze ścieżki',
+      cancelLabel: 'Z biblioteki',
     })
-    await scal(conceptId, rozne, zeSciezki)
+    if (rozne.size) await scal(conceptId, rozne, zeSciezki)
+    if (nazwaRozna && zeSciezki) await updateConcept(conceptId, { name: innaNazwa!.trim() })
   }
-  if (wlasneKafelka(wezly, conceptId).length) {
+  if (wlasneKafelka(wezly, conceptId).length || innaNazwa !== undefined) {
     const p = await db.paths.get(pathId)
     if (p) {
       await db.paths.update(pathId, {
         nodes: p.nodes.map((n) =>
-          n.kind === 'block' && n.conceptId === conceptId ? { ...n, wlasneTresci: undefined } : n,
+          n.kind === 'block' && n.conceptId === conceptId
+            ? { ...n, wlasneTresci: undefined, nazwa: undefined }
+            : n,
         ),
       })
     }

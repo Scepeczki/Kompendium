@@ -29,6 +29,7 @@ import {
   kafelkiZeSchowka,
   kopiujKafelki,
   piszeTekst,
+  wPolu,
   wklejKopie,
 } from '../schowekKafelkow'
 import { Icon, isIconName, type IconName } from './Icon'
@@ -991,8 +992,9 @@ export function Sidebar({
   useEffect(() => {
     const klawisz = (e: KeyboardEvent) => {
       // Delete usuwa zaznaczenie z listy (po pytaniu), o ile nie pisze się tekstu
-      if (e.key === 'Delete' && !e.defaultPrevented && schowekRef.current.ileZaznaczonych > 0) {
-        if (piszeTekst(e.target)) return
+      // mapa ścieżki zajmuje Delete dla siebie, więc nie czekamy na wolny klawisz
+      if (e.key === 'Delete' && schowekRef.current.ileZaznaczonych > 0) {
+        if (wPolu(e.target)) return
         e.preventDefault()
         void schowekRef.current.usunZaznaczone()
         return

@@ -78,7 +78,7 @@ await page.waitForTimeout(1200)
 const tresc = await page.locator('.linear-seg').nth(1).innerText()
 check('napisany tekst zostaje po przeładowaniu', tresc.includes('parzystych'), tresc.slice(0, 60))
 
-await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 8 } })
+await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Otwórz kafelek w edytorze")')
 await page.waitForSelector('.editor-name')
@@ -92,7 +92,7 @@ check('edytor mówi, że kafelek mieszka tylko w ścieżce',
 // --- wyjęty ze ścieżki wraca do biblioteki ---
 await page.click('.btn-close[title*="Zamknij kafelek"]')
 await page.waitForTimeout(400)
-await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 8 } })
+await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Usuń ze ścieżki")')
 // mieszkał tylko tutaj, więc program pyta, czy usunąć go na dobre
@@ -110,7 +110,7 @@ check('zadanie też wskakuje wprost do ścieżki',
   (await page.locator('.linear-seg').count()) === 2,
   `segmentów: ${await page.locator('.linear-seg').count()}`)
 check('i też nie idzie do biblioteki', !(await wBibliotece('Zadanie')))
-await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 8 } })
+await page.locator('.linear-seg').nth(1).click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Usuń ze ścieżki")')
 await page.click('.ask-foot .btn:has-text("Zachowaj w liście")')
@@ -153,7 +153,7 @@ check('upuszczony na ścieżkę kafelek przeprowadza się do niej', !(await wBib
 
 // wciągnięty do Linii zostaje w liście, dopiero ręczna decyzja go zabiera
 check('przykład wciągnięty do Linii dalej jest w liście', await wBibliotece('Stary przykład'))
-await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 8 } })
+await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Trzymaj tylko tutaj")')
 await page.waitForTimeout(800)
@@ -192,13 +192,13 @@ await page.dragAndDrop('.concept-item:has-text("Tylko na ten wykład")', '.linea
 await page.waitForTimeout(900)
 check('definicja przeciągnięta w skrypt zostaje w bibliotece',
   await wBibliotece('Tylko na ten wykład'))
-await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 8 } })
+await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.tree-menu')
 await page.click('.tree-menu-item:has-text("Trzymaj tylko tutaj")')
 await page.waitForTimeout(800)
 check('„Trzymaj tylko tutaj" zabiera ją z listy',
   !(await wBibliotece('Tylko na ten wykład')))
-await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 8 } })
+await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.tree-menu')
 check('a menu proponuje teraz drogę powrotną',
   (await page.locator('.tree-menu-item:has-text("Odeślij do biblioteki")').count()) === 1)

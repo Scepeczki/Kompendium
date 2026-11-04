@@ -75,7 +75,7 @@ check('poza folderem pisanie w ścieżce nie rusza biblioteki',
 await page.dragAndDrop('.concept-list > li > .concept-item:has-text("Wspolny")', '.path-item:has-text("Wyklad J")')
 await page.waitForSelector('.ask-dialog')
 check('wkładanie do folderu pyta, który tekst zachować', (await page.locator('.ask-dialog').innerText()).includes('Który tekst'))
-await page.click('.ask-foot .btn:has-text("Tekst ze ścieżki")')
+await page.click('.ask-foot .btn:has-text("Ze ścieżki")')
 await page.waitForTimeout(1500)
 let k = await kafelek('Wspolny')
 check('wybrany tekst ścieżki staje się tekstem kafelka', k.biezaca.includes('Dopisane w sciezce'), k.biezaca)
@@ -111,12 +111,35 @@ if (!(await page.locator('.linear-seg').count())) {
 await page.waitForTimeout(1200)
 check('poprawka w bibliotece widać w ścieżce', (await seg('Wspolny').innerText()).includes('Z edytora'))
 
+// --- nazwa też jest jedna ---
+const tytul = seg('Wspolny').locator('input').first()
+await tytul.click()
+await tytul.press('End')
+await tytul.type(' 2')
+await page.waitForTimeout(1500)
+k = await kafelek('Wspolny 2')
+check('nazwa zmieniona w ścieżce zmienia kafelek w bibliotece', !!k?.c, '')
+check('a ścieżka nie trzyma własnej nazwy', k?.wezel?.nazwa === undefined, String(k?.wezel?.nazwa))
+await page.click('.sciezka-dzieci .concept-item:has-text("Wspolny 2")')
+await page.waitForSelector('.editor-name')
+await page.fill('.editor-name', 'Wspolny trzy')
+await page.waitForTimeout(900)
+await page.click('.btn-close[title*="Zamknij kafelek"]')
+await page.waitForTimeout(500)
+if (!(await page.locator('.linear-seg').count())) {
+  await page.click('.path-item:has-text("Wyklad J")')
+  await page.click('.view-switch button:has-text("Linia")')
+}
+await page.waitForTimeout(1200)
+check('nazwa zmieniona w bibliotece widać w ścieżce',
+  (await page.locator('.linear-seg input').evaluateAll((els) => els.map((e) => e.value))).includes('Wspolny trzy'))
+
 // --- „Trzymaj tylko tutaj" i wybór tekstu z biblioteki ---
-await seg('Drugi').click({ button: 'right', position: { x: 240, y: 8 } })
+await seg('Drugi').click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.linear-menu')
 await page.click('.tree-menu-item:has-text("Trzymaj tylko tutaj")')
 await page.waitForSelector('.ask-dialog')
-await page.click('.ask-foot .btn:has-text("Tekst z biblioteki")')
+await page.click('.ask-foot .btn:has-text("Z biblioteki")')
 await page.waitForTimeout(1500)
 k = await kafelek('Drugi')
 check('wybór biblioteki zostawia jej tekst bieżącym', k.biezaca === 'Tekst biblioteki Drugi.', k.biezaca)

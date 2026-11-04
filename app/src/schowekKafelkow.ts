@@ -102,11 +102,15 @@ export async function wklejKopie(
 /** Zdarzenie, którym lista po lewej oddaje wklejenie otwartej ścieżce. */
 export const WKLEJ_DO_SCIEZKI = 'komp:wklej-kafelki'
 
-/** Czy klawisz trafia w miejsce do pisania — wtedy Ctrl+C/V należy do tekstu. */
-export function piszeTekst(cel: EventTarget | null): boolean {
+/** Czy kursor stoi w polu do pisania — wtedy Delete należy do tekstu. */
+export function wPolu(cel: EventTarget | null): boolean {
   const el = cel instanceof Element ? cel : null
-  if (!el) return false
-  if (el.closest('input, textarea, select, [contenteditable="true"], .cm-editor')) return true
+  return !!el?.closest('input, textarea, select, [contenteditable="true"], .cm-editor')
+}
+
+/** Czy Ctrl+C dotyczy tekstu: kursor w polu albo zaznaczony kawałek strony. */
+export function piszeTekst(cel: EventTarget | null): boolean {
+  if (wPolu(cel)) return true
   const zaznaczenie = window.getSelection()
   return !!zaznaczenie && !zaznaczenie.isCollapsed && zaznaczenie.toString().trim() !== ''
 }

@@ -71,7 +71,7 @@ await page.click('.dodaj-kafelek-pasek:has-text("Kafelek") > .btn-dolacz')
 await page.click('.dodaj-kafelek-pasek:has-text("Kafelek") > .btn-dolacz')
 await page.waitForTimeout(800)
 // menu kafelka (na rozdziale wstawiania celowo nie ma)
-await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 8 } })
+await page.locator('.linear-seg').last().click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.linear-menu')
 check('menu w Linii też ma „Rozdział" z poziomami',
   (await page.locator('.linear-menu .dodaj-kafelek:has-text("Rozdział") .tree-menu-boczne .tree-menu-item').count()) === 6)

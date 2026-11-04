@@ -68,7 +68,7 @@ check('oba stoją w Linii', (await page.locator('.linear-seg').count()) === 2)
 check('nie ma ich w liście po lewej', (await naLiscie('Ogólny')) === 0 && (await naLiscie('Definicja')) === 0)
 
 // menu szczeliny ma to samo
-await page.locator('.linear-seg').first().click({ button: 'right', position: { x: 240, y: 8 } })
+await page.locator('.linear-seg').first().click({ button: 'right', position: { x: 240, y: 30 } })
 await page.waitForSelector('.linear-menu')
 check('menu kafelka w Linii też ma „Kafelek" z rodzajami',
   (await page.locator('.linear-menu .dodaj-kafelek .tree-menu-rozwija:has-text("Kafelek")').count()) === 1)
@@ -128,7 +128,7 @@ check('wklejone w ścieżce to nowe kafelki, które w niej mieszkają', kopie.le
 
 // --- usuwanie ze ścieżki ---
 const usun = async (i) => {
-  await page.locator('.linear-seg').nth(i).click({ button: 'right', position: { x: 240, y: 8 } })
+  await page.locator('.linear-seg').nth(i).click({ button: 'right', position: { x: 240, y: 30 } })
   await page.waitForSelector('.linear-menu')
   await page.click('.linear-menu .tree-menu-item:has-text("Usuń ze ścieżki")')
   await page.waitForTimeout(500)

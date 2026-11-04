@@ -57,7 +57,7 @@ const menuNad = async (nr) => {
   })
   await page.waitForTimeout(400)
   const b = await seg.boundingBox()
-  await page.mouse.click(b.x + b.width / 2, b.y + 6, { button: 'right' })
+  await page.mouse.click(b.x + b.width / 2, b.y + 30, { button: 'right' })
   await page.waitForSelector('.linear-menu')
 }
 

@@ -3261,7 +3261,15 @@ button.version-pill.new {
   min-width: 0;
   max-width: var(--page-width, 800px);
   margin: 0 auto;
-  padding: 22px 24px 60px;
+  /* zapas pod spodem: dolne miejsce na dokładanie da się przewinąć aż pod
+     górną krawędź, a dalej przewijanie się zatrzymuje */
+  padding: 22px 24px max(60px, calc(100vh - 340px));
+}
+
+@media print {
+  .linear-column {
+    padding-bottom: 0;
+  }
 }
 
 /* wąski panel: komentarze boczne wchodzą do kolumny zamiast na margines */
@@ -4032,18 +4040,29 @@ body.ciagne-szerokosc * {
   max-width: 220px;
   font: inherit;
   font-size: var(--fs-2);
-  padding: 4px 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--ink-soft);
-  box-shadow: 0 2px 8px rgba(43, 38, 32, 0.12);
+  padding: 5px 12px 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 500;
+  box-shadow: 0 1px 4px rgba(43, 38, 32, 0.1);
   cursor: pointer;
 }
 
 .kotwica-powrot:hover {
   border-color: var(--accent);
-  color: var(--accent-ink);
+}
+
+.kotwica-powrot .ico {
+  flex: none;
+}
+
+.kotwica-skrot {
+  flex: none;
+  font-size: 0.85em;
+  font-weight: 400;
+  opacity: 0.6;
 }
 
 .kotwica-nazwa {
@@ -7271,7 +7290,7 @@ body.ciagne-szerokosc * {
 /* karty szerokie jak na zdjęciu; większą szerokość z linijki dalej szanujemy */
 .linear-main > .linear-column {
   max-width: max(var(--page-width, 800px), 960px);
-  padding: 16px 36px 60px 8px;
+  padding: 16px 36px max(60px, calc(100vh - 340px)) 8px;
 }
 
 .script-block-body {
@@ -7547,7 +7566,7 @@ body.ciagne-szerokosc * {
 
 .linear-main > .linear-column {
   max-width: max(var(--page-width, 800px), 740px);
-  padding: 20px 28px 60px 0;
+  padding: 20px 28px max(60px, calc(100vh - 340px)) 0;
 }
 
 .linear-content .script-block-head {

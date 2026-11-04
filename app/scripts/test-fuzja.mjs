@@ -107,7 +107,7 @@ check('ani ramki wokół pola, w którym się pisze',
 // 2. nazwa i rodzaj — na ekranie komponowania, nie w osobnym okienku
 await page.hover('.linear-seg:first-child')
 const pud = await page.locator('.linear-seg:first-child').boundingBox()
-await page.mouse.click(pud.x + pud.width / 2, pud.y + 6, { button: 'right' })
+await page.mouse.click(pud.x + pud.width / 2, pud.y + 30, { button: 'right' })
 await page.waitForSelector('.linear-menu')
 await page.click('.linear-menu .tree-menu-item:has-text("Komponuj")')
 await page.waitForSelector('.komp-okno')
