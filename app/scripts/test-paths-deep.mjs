@@ -268,9 +268,12 @@ await page.waitForTimeout(600)
 await page.click('.concept-item:has-text("Sciezka testowa")')
 await page.waitForSelector('.path-canvas')
 await page.waitForTimeout(700)
+// usunięty kafelek wychodzi też ze ścieżki — nie zostaje po nim pusta łuska
 const missing = await page.locator('.path-node-missing').count()
-check('usunięty kafelek pokazany jako brakujący, ścieżka działa', missing === 1,
-  `kafelków „usunięte": ${missing}`)
+const poUsunieciu = await readPath()
+check('usunięty kafelek znika ze ścieżki bez łuski, ścieżka działa',
+  missing === 0 && poUsunieciu.wezly.filter((k) => k === 'block').length === 3,
+  `łusek: ${missing}, bloków: ${poUsunieciu.wezly.filter((k) => k === 'block').length}`)
 await page.click('.view-switch button:has-text("Skrypt")')
 await page.waitForSelector('.script-body')
 await page.waitForTimeout(500)

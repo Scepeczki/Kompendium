@@ -106,7 +106,7 @@ check('Ctrl+Z cofa scalenie',
 
 // 4. cofnięcie dołożonego rozdziału
 await menuNad(0)
-await page.click('.linear-menu .tree-menu-item:has-text("Rozdział"):not(:has-text("Pod"))')
+await page.click('.linear-menu .tree-menu-rozwija:has-text("Rozdział")')
 await podaj(page, 'Rozdzial')
 await page.waitForTimeout(1200)
 check('rozdział doszedł', (await ile()) === 4, `${await ile()}`)

@@ -4219,6 +4219,14 @@ body.ciagne-szerokosc * {
   z-index: 40;
 }
 
+.poziom-h {
+  display: inline-block;
+  min-width: 22px;
+  font-weight: 700;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
 .dodaj-kafelek > button > span:first-child {
   display: flex;
   align-items: center;
@@ -7488,6 +7496,13 @@ body.ciagne-szerokosc * {
   box-shadow: none;
   color: var(--muted);
   opacity: 0.75;
+}
+
+/* włączony mały przycisk (kotwica) ma być widać, a nie szarzeć jak reszta */
+.path-toolbar .btn.path-maly.btn-active {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  opacity: 1;
 }
 
 .path-toolbar .view-switch .btn {

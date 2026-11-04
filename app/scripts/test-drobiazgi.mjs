@@ -99,7 +99,7 @@ check('menu mówi, gdzie wstawi',
   (await page.locator('.linear-menu .tree-menu-where').last().textContent()).includes('przed'),
   await page.locator('.linear-menu .tree-menu-where').last().textContent())
 
-await page.click('.linear-menu .tree-menu-item:has-text("Rozdział"):not(:has-text("Pod"))')
+await page.click('.linear-menu .tree-menu-rozwija:has-text("Rozdział")')
 await podaj(page, 'Rozdzial I')
 await page.waitForTimeout(700)
 const kolejnosc = await page.evaluate(() =>

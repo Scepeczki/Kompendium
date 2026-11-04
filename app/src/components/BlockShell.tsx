@@ -54,6 +54,59 @@ interface Props {
 /** Blok kafelka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
  *  żeby oba wyglądały dokładnie tak samo. Kolejność elementów:
  *  pasek nagłówka → wersja → strony i treść → stopka ze źródłami. */
+/** Inna strona ma inną długość. Przy końcu ścieżki krótsza strona skracała
+ *  całość, przeglądarka cofała przewinięcie i cały widok odjeżdżał. Przez chwilę po kliknięciu
+ *  poprawiamy przewinięcie tak, żeby kliknięte zakładki stały tam, gdzie były. */
+function trzymajNaMiejscu(zakladka: HTMLElement) {
+  const pasek = zakladka.closest('.block-pages') ?? zakladka
+  const kafelek = zakladka.closest<HTMLElement>('[data-seg]')
+  let pojemnik = pasek.parentElement
+  while (pojemnik && !/(auto|scroll)/.test(getComputedStyle(pojemnik).overflowY)) {
+    pojemnik = pojemnik.parentElement
+  }
+  // Zapas pod kafelkiem dajemy od razu, zanim treść się zmieni: wtedy krótsza
+  // strona przy końcu ścieżki nie ma czego skracać i widok nie mrugnie.
+  if (kafelek && kafelek.dataset.marginesBazowy === undefined) {
+    kafelek.dataset.marginesBazowy = kafelek.style.marginBottom
+  }
+  const zapas = (px: number) => {
+    if (!kafelek) return
+    kafelek.dataset.zapas = String(px)
+    kafelek.style.marginBottom =
+      px > 0 ? `calc(${kafelek.dataset.marginesBazowy || '0px'} + ${px}px)` : (kafelek.dataset.marginesBazowy ?? '')
+  }
+  if (kafelek) zapas(kafelek.getBoundingClientRect().height)
+
+  const start = pasek.getBoundingClientRect().top
+  const koniec = performance.now() + 900
+  let przerwane = false
+  const przerwij = () => (przerwane = true)
+  window.addEventListener('wheel', przerwij, { once: true, passive: true })
+  const krok = () => {
+    // pasek bywa rysowany od nowa, więc szukamy go w tym samym kafelku
+    const teraz = pasek.isConnected ? pasek : kafelek?.querySelector('.block-pages')
+    if (!przerwane && teraz) {
+      const d = teraz.getBoundingClientRect().top - start
+      if (Math.abs(d) > 0.5) {
+        if (pojemnik) pojemnik.scrollTop += d
+        else window.scrollBy(0, d)
+      }
+    }
+    if (performance.now() < koniec && !przerwane) {
+      requestAnimationFrame(krok)
+      return
+    }
+    window.removeEventListener('wheel', przerwij)
+    // treść się ułożyła: zostaje tylko tyle zapasu, ile trzeba, żeby widok
+    // nie musiał się cofnąć
+    if (pojemnik && kafelek) {
+      const tresc = pojemnik.scrollHeight - (Number(kafelek.dataset.zapas) || 0)
+      zapas(Math.max(0, Math.ceil(pojemnik.scrollTop + pojemnik.clientHeight - tresc)))
+    }
+  }
+  requestAnimationFrame(krok)
+}
+
 export function BlockShell({
   concept,
   versions,
@@ -113,7 +166,10 @@ export function BlockShell({
       <button
         className={`block-page ${!sub ? 'active' : ''}`}
         title={pickHint ?? 'Strona kafelka'}
-        onClick={() => onSubpageChange?.(null)}
+        onClick={(e) => {
+          trzymajNaMiejscu(e.currentTarget)
+          onSubpageChange?.(null)
+        }}
       >
         {mainPageName(concept)}
       </button>
@@ -122,7 +178,10 @@ export function BlockShell({
           key={s.id}
           className={`block-page ${sub?.id === s.id ? 'active' : ''}`}
           title={pickHint ?? 'Strona kafelka'}
-          onClick={() => onSubpageChange?.(s.id)}
+          onClick={(e) => {
+            trzymajNaMiejscu(e.currentTarget)
+            onSubpageChange?.(s.id)
+          }}
         >
           {s.name}
         </button>

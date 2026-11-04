@@ -175,7 +175,7 @@ check('pasek działa na kafelku, w którym stoi kursor',
 
 // 3. rozdział — nazwa wpisywana wprost
 await menuNad(0)
-await page.click('.linear-menu .tree-menu-item:has-text("Rozdział"):not(:has-text("Pod"))')
+await page.click('.linear-menu .tree-menu-rozwija:has-text("Rozdział")')
 await podaj(page, 'Rozdzial I')
 await page.waitForTimeout(700)
 await page.fill('.linear-seg:first-child .inline-title', 'Rozdzial I: Kresy')

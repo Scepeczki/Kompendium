@@ -71,7 +71,7 @@ check('nie ma ich w liście po lewej', (await naLiscie('Ogólny')) === 0 && (awa
 await page.locator('.linear-seg').first().click({ button: 'right', position: { x: 240, y: 8 } })
 await page.waitForSelector('.linear-menu')
 check('menu kafelka w Linii też ma „Kafelek" z rodzajami',
-  (await page.locator('.linear-menu .dodaj-kafelek .tree-menu-rozwija').count()) === 1)
+  (await page.locator('.linear-menu .dodaj-kafelek .tree-menu-rozwija:has-text("Kafelek")').count()) === 1)
 await page.keyboard.press('Escape')
 await page.mouse.click(5, 500)
 

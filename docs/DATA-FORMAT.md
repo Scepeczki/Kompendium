@@ -189,6 +189,9 @@ w bloku, rozdzielenie).
    „Usuń na dobre" kasuje go z wersjami i stronami, „Zachowaj w liście" kasuje
    `pathId`. Skasowanie ścieżki i „↗ Odeślij do biblioteki" kasują `pathId`
    bez pytania. Kafelek już obecny w ścieżce nigdy się przy wkładaniu nie dubluje.
+   Usunięty kafelek wychodzi ze wszystkich ścieżek (łańcuch się zszywa), więc
+   nie zostaje po nim pusty węzeł; scalony blok traci go dopiero wtedy, gdy
+   nie ma w nim innych kafelków.
 8. **`BlockTypeDef.wSciezce` zostaje w danych, ale przycisków już nie
    wybiera** — „Kafelek" w ścieżce proponuje każdy widoczny rodzaj, a sam klik
    daje rodzaj `ogolny`. O tym, gdzie kafelek mieszka, rodzaj nie mówi nic.

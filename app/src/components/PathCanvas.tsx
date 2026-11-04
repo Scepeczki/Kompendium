@@ -510,6 +510,41 @@ function DodajKafelek({ onWybierz, klasa }: { onWybierz: (typeId: string) => voi
   )
 }
 
+/** Nazwa poziomu w dopełniaczu — do pytania „Nazwa rozdziału". */
+const NAZWA_CZEGO = ['rozdziału', 'podrozdziału', 'sekcji', 'podsekcji', 'poziomu 5', 'poziomu 6']
+
+/** „Rozdział" z poziomami po najechaniu, tak samo jak „Kafelek". Sam klik daje
+ *  rozdział, a z listy wybiera się H1–H6. */
+function DodajRozdzial({
+  onWybierz,
+  klasa,
+}: {
+  onWybierz: (level: PoziomRozdzialu) => void
+  klasa?: string
+}) {
+  return (
+    <div className={`tree-menu-podmenu dodaj-kafelek ${klasa ? '' : 'dodaj-kafelek-pasek'}`}>
+      <button
+        className={klasa ? `${klasa} tree-menu-rozwija` : 'btn btn-dolacz'}
+        title="Nowy rozdział. Najedź, żeby wybrać poziom"
+        onClick={() => onWybierz(1)}
+      >
+        <span>
+          <Icon name="rozdzial" size={1} /> Rozdział
+        </span>
+        <span className="tree-menu-strzalka">›</span>
+      </button>
+      <div className="tree-menu-boczne dodaj-kafelek-rodzaje">
+        {POZIOMY.map((p) => (
+          <button key={p} className="tree-menu-item" onClick={() => onWybierz(p)}>
+            <span className="poziom-h">H{p}</span> {nazwaPoziomu(p)}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 interface LinearViewProps {
   ordered: PathNode[]
   onDropConcept: (conceptId: string, afterId: string | null, beforeId: string | null) => void
@@ -535,7 +570,7 @@ interface LinearViewProps {
   onSetPartVersion: (segId: string, index: number, versionId: string | null) => void
   /** Strona pojedynczego kafelka w grupie. */
   onSetPartSubpage: (segId: string, index: number, subpageId: string | null) => void
-  onAddHeading: (level: 1 | 2 | 3, afterId: string | null, beforeId: string | null) => void
+  onAddHeading: (level: PoziomRozdzialu, afterId: string | null, beforeId: string | null) => void
   /** Scala segment z następnym (albo dokłada następny do grupy). */
   onGroupWithNext: (segId: string) => void
   /** Scala zaznaczone kafelki — także takie, które nie sąsiadują ze sobą. */
@@ -1965,22 +2000,7 @@ function LinearView({
           <div className="linear-append-actions">
             <span className="linear-append-label">Dołóż:</span>
             <DodajKafelek onWybierz={(id) => onAddExample(id, last?.id ?? null, null)} />
-            <button
-              className="btn btn-dolacz"
-              title="Rozdział — dzieli skrypt na części"
-              onClick={() => onAddHeading(1, last?.id ?? null, null)}
-            >
-              <Icon name="rozdzial" size={1} />
-              Rozdział
-            </button>
-            <button
-              className="btn btn-dolacz"
-              title="Podrozdział"
-              onClick={() => onAddHeading(2, last?.id ?? null, null)}
-            >
-              <Icon name="podrozdzial" size={1} />
-              Podrozdział
-            </button>
+            <DodajRozdzial onWybierz={(p) => onAddHeading(p, last?.id ?? null, null)} />
             <button
               className="btn btn-dolacz"
               title="Notatka — twój komentarz w ciągu skryptu"
@@ -2305,18 +2325,10 @@ function LinearView({
                 klasa="tree-menu-item"
                 onWybierz={(id) => wstaw(() => onAddExample(id, afterId, beforeId))()}
               />
-              <button
-                className="tree-menu-item"
-                onClick={wstaw(() => onAddHeading(1, afterId, beforeId))}
-              >
-                <Icon name="rozdzial" size={1} /> Rozdział
-              </button>
-              <button
-                className="tree-menu-item"
-                onClick={wstaw(() => onAddHeading(2, afterId, beforeId))}
-              >
-                <Icon name="podrozdzial" size={1} /> Podrozdział
-              </button>
+              <DodajRozdzial
+                klasa="tree-menu-item"
+                onWybierz={(p) => wstaw(() => onAddHeading(p, afterId, beforeId))()}
+              />
               <div className="tree-menu-sep" />
               <button
                 className="tree-menu-item"
@@ -2603,7 +2615,8 @@ function CanvasInner({
   }, [noteView])
 
   // nazwy pojęć do podpowiedzi wiki-linków w notatkach
-  const allConcepts = useLiveQuery(() => db.concepts.toArray(), []) ?? []
+  const pojeciaZBazy = useLiveQuery(() => db.concepts.toArray(), [])
+  const allConcepts = pojeciaZBazy ?? []
   // Wersje i strony wczytujemy tylko wtedy, gdy naprawdę są potrzebne (okno
   // edycji grupy). Stałe `useLiveQuery` na całych tabelach kazało kanwie
   // przerysować się przy każdym uderzeniu w klawisz w dowolnym kafelku —
@@ -2775,6 +2788,29 @@ function CanvasInner({
       return [...es.filter((e) => !mostki.has(`${e.source}→${e.target}`)), ...doda.map(toRfEdge)]
     })
   }, [zBazy])
+
+  // Kafelek usunięty gdzie indziej znika też z otwartej ścieżki — inaczej
+  // zostawała po nim pusta łuska, a autozapis wpisywał ją z powrotem do bazy.
+  // Brak sprawdzamy jeszcze raz w samej bazie: lista, która dopiero się
+  // wczytuje, nie może opróżnić ścieżki.
+  useEffect(() => {
+    if (!loadedRef.current || !pojeciaZBazy) return
+    const sa = new Set(pojeciaZBazy.map((c) => c.id))
+    const bezKafelka = (n: Node) => {
+      const k = klockiSegmentu(n)
+      return k.length > 0 && k.every((c) => !sa.has(c))
+    }
+    const podejrzane = rfNodes.filter(bezKafelka)
+    if (!podejrzane.length) return
+    void (async () => {
+      const ids = [...new Set(podejrzane.flatMap((n) => klockiSegmentu(n)))]
+      const naPewno = new Set((await db.concepts.bulkGet(ids)).filter(Boolean).map((c) => c!.id))
+      for (const n of podejrzane) {
+        if (klockiSegmentu(n).every((c) => !naPewno.has(c))) zszyjBez(n.id)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pojeciaZBazy])
 
   // autozapis
   useEffect(() => {
@@ -3084,9 +3120,8 @@ function CanvasInner({
   }
 
   /** Rozdział na mapie — nazwa od razu w oknie pytania (jak przy folderach). */
-  const addHeadingAt = async (fx: number, fy: number, level: 1 | 2 | 3 = 1) => {
-    const label = level === 1 ? 'rozdziału' : level === 2 ? 'podrozdziału' : 'sekcji'
-    const text = await dlg.prompt({ title: `Nazwa ${label}`, confirmLabel: 'Dodaj' })
+  const addHeadingAt = async (fx: number, fy: number, level: PoziomRozdzialu = 1) => {
+    const text = await dlg.prompt({ title: `Nazwa ${NAZWA_CZEGO[level - 1]}`, confirmLabel: 'Dodaj' })
     if (!text) return
     setRfNodes((ns) => [
       ...ns,
@@ -3099,7 +3134,7 @@ function CanvasInner({
     ])
   }
 
-  const handleAddHeading = (level: 1 | 2 | 3 = 1) => {
+  const handleAddHeading = (level: PoziomRozdzialu = 1) => {
     const rect = wrapRef.current?.getBoundingClientRect()
     const pos = screenToFlowPosition({
       x: (rect?.left ?? 0) + (rect?.width ?? 600) / 2,
@@ -3308,6 +3343,11 @@ function CanvasInner({
   /** Usuwa segment i zszywa łańcuch (poprzednik → następnik). */
   const removeSegmentHeal = (id: string) => {
     wypuscZeSciezki([id])
+    zszyjBez(id)
+  }
+
+  /** Wyjmuje segment z łańcucha i łączy jego sąsiadów. */
+  const zszyjBez = (id: string) => {
     setRfEdges((es) => {
       const inc = es.filter((e) => e.target === id).map((e) => e.source)
       const outs = es.filter((e) => e.source === id).map((e) => e.target)
@@ -3590,12 +3630,11 @@ function CanvasInner({
 
   /** Rozdział w widoku liniowym — wstawiany w łańcuch jak zwykły segment. */
   const linearAddHeading = async (
-    level: 1 | 2 | 3,
+    level: PoziomRozdzialu,
     afterId: string | null,
     beforeId: string | null,
   ) => {
-    const label = level === 1 ? 'rozdziału' : level === 2 ? 'podrozdziału' : 'sekcji'
-    const text = await dlg.prompt({ title: `Nazwa ${label}`, confirmLabel: 'Dodaj' })
+    const text = await dlg.prompt({ title: `Nazwa ${NAZWA_CZEGO[level - 1]}`, confirmLabel: 'Dodaj' })
     if (!text) return
     chainInsert(
       {
@@ -4144,24 +4183,13 @@ function CanvasInner({
                 setCtxMenu(null)
               }}
             />
-            <button
-              className="path-ctxmenu-item"
-              onClick={() => {
-                addHeadingAt(ctxMenu.fx, ctxMenu.fy, 1)
+            <DodajRozdzial
+              klasa="path-ctxmenu-item"
+              onWybierz={(p) => {
+                addHeadingAt(ctxMenu.fx, ctxMenu.fy, p)
                 setCtxMenu(null)
               }}
-            >
-              § Nowy rozdział tutaj
-            </button>
-            <button
-              className="path-ctxmenu-item"
-              onClick={() => {
-                addHeadingAt(ctxMenu.fx, ctxMenu.fy, 2)
-                setCtxMenu(null)
-              }}
-            >
-              §§ Nowy podrozdział tutaj
-            </button>
+            />
             <button
               className="path-ctxmenu-item"
               onClick={() => {

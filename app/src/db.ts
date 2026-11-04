@@ -587,7 +587,41 @@ export async function deleteVersion(versionId: string) {
   })
 }
 
+/** Wyjmuje kafelek ze wszystkich ścieżek i zszywa łańcuch: poprzednik
+ *  wskazuje wtedy następnika. Scalony blok traci go dopiero, gdy nie zostaje
+ *  w nim żaden inny kafelek. */
+async function usunZeSciezek(conceptId: string) {
+  for (const p of await db.paths.toArray()) {
+    const usuwane = new Set(
+      p.nodes
+        .filter(
+          (n) =>
+            (n.kind === 'block' && n.conceptId === conceptId) ||
+            (n.kind === 'fusion' && n.parts.every((c) => c.conceptId === conceptId)),
+        )
+        .map((n) => n.id),
+    )
+    if (!usuwane.size) continue
+    let edges = p.edges
+    for (const id of usuwane) {
+      const przed = edges.filter((e) => e.to === id).map((e) => e.from)
+      const po = edges.filter((e) => e.from === id).map((e) => e.to)
+      edges = edges.filter((e) => e.from !== id && e.to !== id)
+      if (przed.length === 1 && po.length === 1 && przed[0] !== po[0]) {
+        edges = [...edges, { id: uid(), from: przed[0], to: po[0] }]
+      }
+    }
+    await db.paths.update(p.id, {
+      nodes: p.nodes.filter((n) => !usuwane.has(n.id)),
+      edges,
+      updatedAt: now(),
+    })
+  }
+}
+
 export async function deleteConcept(id: string) {
+  // usunięty kafelek nie może zostawić po sobie pustej łuski w ścieżce
+  await usunZeSciezek(id)
   await db.transaction(
     'rw',
     [db.concepts, db.versions, db.subpages, db.relations],

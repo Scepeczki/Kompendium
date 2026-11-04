@@ -265,8 +265,55 @@ export function Sidebar({
     for (const id of ids) await addConceptToPath(pathId, id)
   }
 
+  /** Id rzeczy spod prawego przycisku (puste tło nie ma żadnego). */
+  const idCelu = (cel: MenuTarget) =>
+    cel.kind === 'concept'
+      ? cel.concept.id
+      : cel.kind === 'folder'
+        ? cel.folder.id
+        : cel.kind === 'path'
+          ? cel.path.id
+          : null
+  /** Prawy przycisk na jednej z zaznaczonych rzeczy dotyczy całej grupy. */
+  const naGrupie = !!menu && zaznaczone.size > 1 && zaznaczone.has(idCelu(menu.cel) ?? '')
+
+  /** Usuwa całe zaznaczenie po jednym pytaniu. */
+  const usunZaznaczone = async () => {
+    const k = [...concepts, ...tutejsze].filter((c) => zaznaczone.has(c.id))
+    const s = paths.filter((p) => zaznaczone.has(p.id))
+    const f = folders.filter((x) => zaznaczone.has(x.id))
+    if (!k.length && !s.length && !f.length) return
+    const czesci = [
+      k.length ? odmien(k.length, 'kafelek', 'kafelki', 'kafelków') : '',
+      s.length ? odmien(s.length, 'ścieżkę', 'ścieżki', 'ścieżek') : '',
+      f.length ? odmien(f.length, 'folder', 'foldery', 'folderów') : '',
+    ].filter(Boolean)
+    const ok = await dlg.confirm({
+      title: `Usunąć zaznaczone: ${czesci.join(', ')}?`,
+      message:
+        (k.length
+          ? 'Kafelki znikną razem z wersjami, stronami i powiązaniami, także ze ścieżek, w których stoją. '
+          : '') +
+        (s.length ? 'Kafelki z usuniętych ścieżek zostają w liście. ' : '') +
+        (f.length ? 'Zawartość usuniętych folderów przechodzi poziom wyżej. ' : '') +
+        'Tego nie da się cofnąć.',
+      confirmLabel: 'Usuń zaznaczone',
+      danger: true,
+    })
+    if (!ok) return
+    for (const c of k) await deleteConcept(c.id)
+    for (const p of s) await deletePath(p.id)
+    for (const x of f) await deleteFolder(x.id)
+    setZaznaczone(new Set())
+    pokaz(`Usunięto: ${czesci.join(', ')}`)
+  }
+
   const handleMenuDelete = () => {
     if (!menu) return
+    if (naGrupie) {
+      void usunZaznaczone()
+      return
+    }
     if (menu.cel.kind === 'concept') handleDeleteConcept(menu.cel.concept)
     else if (menu.cel.kind === 'folder') handleDeleteFolder(menu.cel.folder)
     else if (menu.cel.kind === 'path') handleDeletePath(menu.cel.path)
@@ -922,11 +969,32 @@ export function Sidebar({
     pokaz(`Wklejono ${odmien(nowe.length, 'kafelek', 'kafelki', 'kafelków')}`)
   }
 
-  const schowekRef = useRef({ doKopii, wklejBezSciezki, openPathId, label: typy.label })
-  schowekRef.current = { doKopii, wklejBezSciezki, openPathId, label: typy.label }
+  const schowekRef = useRef({
+    doKopii,
+    wklejBezSciezki,
+    openPathId,
+    label: typy.label,
+    usunZaznaczone,
+    ileZaznaczonych: zaznaczone.size,
+  })
+  schowekRef.current = {
+    doKopii,
+    wklejBezSciezki,
+    openPathId,
+    label: typy.label,
+    usunZaznaczone,
+    ileZaznaczonych: zaznaczone.size,
+  }
 
   useEffect(() => {
     const klawisz = (e: KeyboardEvent) => {
+      // Delete usuwa zaznaczenie z listy (po pytaniu), o ile nie pisze się tekstu
+      if (e.key === 'Delete' && !e.defaultPrevented && schowekRef.current.ileZaznaczonych > 0) {
+        if (piszeTekst(e.target)) return
+        e.preventDefault()
+        void schowekRef.current.usunZaznaczone()
+        return
+      }
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'c' || e.defaultPrevented) return
       if (piszeTekst(e.target)) return
       const ids = schowekRef.current.doKopii()
@@ -1206,7 +1274,12 @@ export function Sidebar({
                 </div>
               )}
               <div className="tree-menu-sep" />
-              {menuItem('usun', 'Usuń', handleMenuDelete, true)}
+              {menuItem(
+                'usun',
+                naGrupie ? `Usuń zaznaczone (${zaznaczone.size})` : 'Usuń',
+                handleMenuDelete,
+                true,
+              )}
             </>
           )}
         </div>

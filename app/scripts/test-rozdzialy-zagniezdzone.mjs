@@ -35,7 +35,11 @@ await page.click('.view-switch button:has-text("Linia")')
 await page.waitForSelector('.linear-append')
 
 const dolozRozdzial = async (rodzaj, nazwa) => {
-  await page.click(`.linear-append .btn:has-text("${rodzaj}")`)
+  // „Rozdział" na dole Linii: sam klik to rozdział, podrozdział wybiera się z listy
+  if (rodzaj === 'Podrozdział') {
+    await page.hover('.linear-append .btn-dolacz:has-text("Rozdział")')
+    await page.click('.linear-append .dodaj-kafelek-rodzaje .tree-menu-item:has-text("H2")')
+  } else await page.click('.linear-append .btn-dolacz:has-text("Rozdział")')
   await podaj(page, nazwa)
   await page.waitForTimeout(300)
 }
