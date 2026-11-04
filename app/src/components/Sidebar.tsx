@@ -17,13 +17,13 @@ import {
   moveConcept,
   moveFolder,
   movePath,
-  przeniesDoSciezki,
   updateConcept,
   updateFolder,
   updatePath,
 } from '../db'
 import { type Concept, type Folder, type LearningPath } from '../types'
 import { topoOrder } from '../topo'
+import { wlozDoFolderuSciezki } from '../folderSciezki'
 import {
   WKLEJ_DO_SCIEZKI,
   kafelkiZeSchowka,
@@ -554,7 +554,9 @@ export function Sidebar({
   /** Upuszczenie na ścieżkę: kafelki się do niej przeprowadzają, jak do folderu. */
   const doSciezki = async (payload: DragPayload, pathId: string) => {
     for (const it of pozycje(payload)) {
-      if (it.kind === 'concept') await przeniesDoSciezki(pathId, it.id)
+      if (it.kind === 'concept') {
+        await wlozDoFolderuSciezki(pathId, it.id, dlg.confirm, { naKoniec: true })
+      }
     }
     setZaznaczone(new Set())
     setExpanded((prev) => persistExpanded(new Set(prev).add(pathId)))

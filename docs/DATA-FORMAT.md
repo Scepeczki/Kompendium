@@ -167,10 +167,13 @@ w bloku, rozdzielenie).
 
    Skrypt czyta dokładnie to samo, co Linia — i **zostaje tylko do czytania**.
 
-   **Wyjątek: kafelki tutejsze.** Przykład albo zadanie zrobione w ścieżce ma
-   `Concept.pathId` i nie istnieje poza nią, więc pisanie w nim idzie **prosto
-   do kafelka** — inaczej tekst zostałby „obok", a sam kafelek byłby pusty.
-   Zasada z punktu 6 chroni bibliotekę; tutaj biblioteki nie ma czego chronić.
+   **Wyjątek: kafelki w folderze ścieżki.** Kafelek z `Concept.pathId` tej
+   ścieżki ma jeden tekst: pisanie w ścieżce idzie **prosto do kafelka**,
+   a poprawka w bibliotece od razu widać w ścieżce. Gdy kafelek z własnym
+   tekstem ścieżki (`wlasneTresci`) wchodzi do folderu, program pyta, który
+   tekst zachować; drugi trafia do nowej, niebieżącej wersji kafelka,
+   a `wlasneTresci` węzła znikają. Tak samo raz po otwarciu ścieżki dla
+   kafelków, które trafiły do folderu wcześniej.
 7. **Kafelek może mieszkać w ścieżce zamiast w bibliotece.** `Concept.pathId`
    znaczy „ten kafelek należy do tego wykładu" — **znika wtedy z listy po
    lewej**. Tak trzyma się przykłady i rozwiązane zadania: biblioteka ma być

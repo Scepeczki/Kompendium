@@ -68,6 +68,7 @@ import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { odmien } from '../odmiana'
 import { WKLEJ_DO_SCIEZKI, kopiujKafelki, piszeTekst, wklejKopie } from '../schowekKafelkow'
+import { ZAPOMNIJ_WLASNE, wlozDoFolderuSciezki } from '../folderSciezki'
 import { ScriptBody } from './ScriptView'
 import { SubpageTabs } from './SubpageTabs'
 import { BlockShell } from './BlockShell'
@@ -3475,6 +3476,63 @@ function CanvasInner({
     zapiszWlasna(nodeId, kluczWlasnej(versionId, subpageId), md)
   }
 
+  /** „Trzymaj tylko tutaj": kafelek wchodzi do folderu ścieżki i od teraz ma
+   *  jeden tekst. Najpierw dopisujemy to, co czeka na zapis — świeżo wpisane
+   *  słowa też biorą udział w wyborze tekstu. */
+  const trzymajTutaj = async (conceptId: string) => {
+    for (const { t, akcja } of odlozoneRef.current.values()) {
+      window.clearTimeout(t)
+      akcja()
+    }
+    odlozoneRef.current.clear()
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    await wlozDoFolderuSciezki(pathId, conceptId, dlgRef.current.confirm, {
+      naKoniec: false,
+      nodes: nodesRef.current.map(fromRfNode),
+    })
+  }
+
+  // Kafelki, które trafiły do folderu ścieżki, zanim obowiązywał jeden tekst,
+  // mogą mieć jeszcze własną kopię. Raz po otwarciu porządkujemy je tym samym
+  // pytaniem co przy wkładaniu (jeśli teksty są takie same — bez pytania).
+  const uporzadkowaneRef = useRef(false)
+  useEffect(() => {
+    if (uporzadkowaneRef.current || !loadedRef.current || !pojeciaZBazy || !rfNodes.length) return
+    uporzadkowaneRef.current = true
+    const wezly = rfNodes.map(fromRfNode)
+    const doUporzadkowania = [
+      ...new Set(
+        wezly
+          .filter((n) => n.kind === 'block' && n.wlasneTresci && Object.keys(n.wlasneTresci).length)
+          .map((n) => (n.kind === 'block' ? n.conceptId : ''))
+          .filter((c) => pojeciaZBazy.some((k) => k.id === c && k.pathId === pathId)),
+      ),
+    ]
+    void (async () => {
+      for (const c of doUporzadkowania) {
+        await wlozDoFolderuSciezki(pathId, c, dlgRef.current.confirm, { naKoniec: false, nodes: wezly })
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pojeciaZBazy, rfNodes.length])
+
+  // tekst kafelka w folderze ścieżki jest jeden — własna kopia ścieżki znika
+  useEffect(() => {
+    const zapomnij = (e: Event) => {
+      const { pathId: p, conceptId } = (e as CustomEvent<{ pathId: string; conceptId: string }>).detail
+      if (p !== pathId) return
+      setRfNodes((ns) =>
+        ns.map((n) =>
+          n.data.conceptId === conceptId && n.data.wlasneTresci
+            ? { ...n, data: { ...n.data, wlasneTresci: undefined } }
+            : n,
+        ),
+      )
+    }
+    window.addEventListener(ZAPOMNIJ_WLASNE, zapomnij)
+    return () => window.removeEventListener(ZAPOMNIJ_WLASNE, zapomnij)
+  }, [pathId])
+
   /** Zapis treści ZŁOŻONEGO kafelka: strona główna albo jedna z jego stron.
    *
    *  Pierwszy zapis utrwala tekst w węźle. Do tej chwili blok pokazywał
@@ -4055,7 +4113,7 @@ function CanvasInner({
             )
           }
           onKeepHere={(conceptId, tutaj) =>
-            tutaj ? keepConceptInPath(pathId, conceptId) : releaseConceptToLibrary(conceptId)
+            tutaj ? trzymajTutaj(conceptId) : releaseConceptToLibrary(conceptId)
           }
           onRemove={removeSegmentHeal}
           onEdit={(n) => {
