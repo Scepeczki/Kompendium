@@ -11,6 +11,10 @@ import { PdfPanel, type PdfTarget } from './components/PdfPanel'
 import { SettingsPage } from './components/SettingsPage'
 import { DialogProvider } from './components/Dialogs'
 import { Icon } from './components/Icon'
+import { Powtorki } from './components/Powtorki'
+import { SesjaNauki, type CelSesji } from './components/SesjaNauki'
+import { minutyPrzerwy, planNauki } from './nauka'
+import { wez } from './naukaUstawienia'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
 
@@ -87,6 +91,34 @@ function Widok() {
   /** Ścieżka, do której wracamy po zamknięciu kafelka otwartego z jej poziomu. */
   const [returnPathId, setReturnPathId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  /** Strona Powtórek i otwarta sesja (test / powtórka). */
+  const [showPowtorki, setShowPowtorki] = useState(false)
+  const [sesja, setSesja] = useState<CelSesji | null>(null)
+  /** Ile na dziś — licznik przy przycisku Powtórek. */
+  const planDzis = useLiveQuery(() => planNauki(), [])
+  const doPowtorki = planDzis?.dzis.length ?? 0
+
+  // Po przerwie (powtórka zero) — przypomnienie o teście. Raz na przerwę;
+  // systemowe powiadomienie tylko, jeśli przeglądarka na nie pozwoliła.
+  useEffect(() => {
+    const juz = new Set<string>()
+    const sprawdz = async () => {
+      const wPrzerwie = await db.nauka.where('etap').equals('przerwa').toArray()
+      for (const j of wPrzerwie) {
+        const klucz = `${j.id}|${j.etapOd}`
+        if (juz.has(klucz) || minutyPrzerwy(j) < wez('przypomnij')) continue
+        juz.add(klucz)
+        const tekst = `Przerwa minęła — czas na test sektora „${j.nazwa}".`
+        window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: tekst }))
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Kompendium', { body: tekst })
+        }
+      }
+    }
+    void sprawdz()
+    const t = window.setInterval(() => void sprawdz(), 30000)
+    return () => window.clearInterval(t)
+  }, [])
   const [gornySlot, setGornySlot] = useState<HTMLDivElement | null>(null)
 
   // Układ paneli — zapamiętywany między sesjami.
@@ -150,6 +182,8 @@ function Widok() {
     // Ustawienia zajmują cały środkowy panel, więc wybór czegokolwiek
     // z listy musi je zamknąć — inaczej klik w kafelek nic nie robi.
     setShowSettings(false)
+    setShowPowtorki(false)
+    setSesja(null)
   }
 
   /** Otwiera ścieżkę; z drugim argumentem od razu skacze do miejsca, w którym
@@ -162,6 +196,8 @@ function Widok() {
     setShowGraph(false)
     setSelecting(false)
     setShowSettings(false)
+    setShowPowtorki(false)
+    setSesja(null)
   }
 
   /** Zakotwiczona ścieżka: ta, do której chce się wracać.
@@ -253,7 +289,7 @@ function Widok() {
   const cols = [`${sidebarW}px`, '5px', 'minmax(300px, 1fr)']
   // Przy otwartej ścieżce przycisk PDF stoi na górnym pasku, więc boczny
   // pasek do przywracania tylko zabierałby miejsce.
-  const sciezkaNaEkranie = !!openPathId && !showSettings && !showGraph
+  const sciezkaNaEkranie = !!openPathId && !showSettings && !showGraph && !showPowtorki && !sesja
   if (showPdf) cols.push('5px', `${pdfW}px`)
   else if (!sciezkaNaEkranie) cols.push('30px')
 
@@ -305,9 +341,20 @@ function Widok() {
           setSzuflada(false)
           setShowGraph((g) => !g)
           setShowSettings(false)
+          setShowPowtorki(false)
+          setSesja(null)
         }}
         openPathId={openPathId}
         onOpenPath={openPath}
+        doPowtorki={doPowtorki}
+        powtorkiActive={showPowtorki && !showSettings}
+        onOpenPowtorki={() => {
+          setSzuflada(false)
+          setShowPowtorki(true)
+          setShowSettings(false)
+          setShowGraph(false)
+          setSesja(null)
+        }}
         onOpenSettings={() => {
           // wszystko, co otwiera się na całą szerokość, chowa szufladę —
           // inaczej lista zostaje na wierzchu i zasłania to, co otwarłeś
@@ -333,6 +380,19 @@ function Widok() {
 
       {showSettings ? (
         <SettingsPage onClose={() => setShowSettings(false)} />
+      ) : sesja ? (
+        <SesjaNauki
+          key={JSON.stringify(sesja)}
+          cel={sesja}
+          onZamknij={() => setSesja(null)}
+          onJumpToSource={jumpToSource}
+        />
+      ) : showPowtorki ? (
+        <Powtorki
+          onStart={setSesja}
+          onOpenPath={(id) => openPath(id)}
+          onClose={() => setShowPowtorki(false)}
+        />
       ) : showGraph ? (
         <GraphView onOpen={selectConcept} />
       ) : openPathId ? (
@@ -349,6 +409,7 @@ function Widok() {
           pasekCel={gornySlot}
           pdfWidoczny={showPdf}
           onPrzelaczPdf={() => setShowPdf((p) => !p)}
+          onStartNauka={setSesja}
         />
       ) : concept && version ? (
         <BlockEditor

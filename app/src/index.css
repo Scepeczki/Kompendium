@@ -8246,3 +8246,951 @@ body.ciagne-szerokosc * {
 .rich-plik {
   display: none;
 }
+
+/* ===========================================================================
+   NAUKA I POWTÓRKI (VISION.md §5)
+   =========================================================================== */
+
+/* Linia i Nauka: Linia z ewentualnym panelem obok */
+.linia-uklad,
+.nauka-uklad {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.panel-nauki {
+  width: clamp(300px, 30vw, 420px);
+  flex-shrink: 0;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-nauki-zakladki {
+  display: flex;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-nauki-tresc {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel-nauki .hint,
+.powtorki .hint,
+.sesja .hint {
+  color: var(--muted);
+  font-size: var(--fs-3);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.panel-nauki .btn-maly,
+.powtorki .btn-maly {
+  padding: 2px 8px;
+  font-size: var(--fs-2);
+}
+
+.btn-link {
+  font: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.panel-nauki-akcje {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.panel-nauki-rozdzialy {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.panel-nauki-rozdzialy .btn {
+  padding: 2px 7px;
+}
+
+.panel-nauki-naglowek {
+  font-size: var(--fs-4);
+  margin: 6px 0 0;
+}
+
+.panel-nauki-pytania {
+  margin: 0;
+  padding-left: 1.3em;
+  font-size: var(--fs-4);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.panel-nauki .znaczek,
+.powtorki .znaczek {
+  display: inline-block;
+  font-size: var(--fs-1);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  margin-left: 4px;
+}
+
+.powtorki .znaczek-zalegle {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
+/* --- karta sektora --- */
+.sektory-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.karta-sektora {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--sektor, var(--muted));
+  border-radius: var(--r-mala, 8px);
+  padding: 8px 10px;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.karta-sektora.aktywna {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sektor, var(--accent)) 35%, transparent);
+}
+
+.karta-sektora-glowa {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.karta-sektora-nazwa {
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--fs-5);
+  border: none;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.karta-sektora-kropka {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--sektor, var(--muted));
+  flex-shrink: 0;
+}
+
+.karta-sektora-ile,
+.karta-sektora-czas {
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.karta-sektora-uwaga {
+  margin: 0;
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.karta-sektora-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.karta-sektora-etap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-3);
+  color: var(--ink-soft);
+}
+
+.karta-sektora-przerwa {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--accent-ink);
+}
+
+.karta-sektora-spis {
+  margin: 2px 0 0;
+  padding-left: 1.4em;
+  font-size: var(--fs-3);
+}
+
+.karta-sektora-spis button,
+.sektory-poza-nazwa {
+  font: inherit;
+  border: none;
+  background: none;
+  padding: 1px 0;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-align: left;
+}
+
+.karta-sektora-spis button:hover,
+.sektory-poza-nazwa:hover {
+  color: var(--accent);
+}
+
+.karta-sektora-spis .spis-rozdzial {
+  list-style: none;
+  margin-left: -1.4em;
+  font-weight: 600;
+}
+
+.karta-sektora-spis .do-poprawy button {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.sektory-poza summary {
+  cursor: pointer;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.sektory-poza ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--fs-3);
+}
+
+.sektory-poza li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- mapa sektora w panelu --- */
+.mapa-sektora {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mapa-sektora-wybor {
+  font: inherit;
+  font-weight: 600;
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pole, 6px);
+  background: var(--paper);
+  color: var(--ink);
+  max-width: 100%;
+}
+
+.mapa-sektora-zasady summary {
+  cursor: pointer;
+  font-size: var(--fs-3);
+  color: var(--muted);
+}
+
+.mapa-sektora-zasady ul {
+  margin: 6px 0 0;
+  padding-left: 1.2em;
+  font-size: var(--fs-3);
+  color: var(--ink-soft);
+}
+
+.mapa-sektora-pole {
+  border: 1px solid var(--line);
+  border-radius: var(--r-mala, 8px);
+  background: var(--paper);
+  min-height: 220px;
+}
+
+/* --- pasma sektorów w Linii ---
+   Segment Linii ma content-visibility: auto, czyli obcina wszystko, co
+   wystaje poza jego pudełko — dlatego pasmo stoi W ŚRODKU, na marginesie
+   z uchwytem, a nie obok. */
+.linear-seg.w-sektorze .sektor-pasmo {
+  position: absolute;
+  left: 9px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--sektor);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.linear-seg.w-sektorze .sektor-pasmo.pierwszy {
+  top: 6px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+.linear-seg.w-sektorze .sektor-pasmo.ostatni {
+  bottom: 6px;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+
+.linear-seg.w-sektorze .sektor-pasmo.szerokie {
+  width: 5px;
+  left: 8px;
+  opacity: 0.9;
+}
+
+.sektor-etykieta {
+  position: absolute;
+  top: 0;
+  left: -6px;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--sektor);
+  background: var(--paper);
+  border: 1px solid color-mix(in srgb, var(--sektor) 45%, transparent);
+  border-radius: 999px;
+  padding: 1px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+/* w zwykłej Linii tylko znaczek mapy przy pasku, widoczny po najechaniu */
+.sektor-pasmo:not(.szerokie) .sektor-etykieta {
+  left: -7px;
+  padding: 1px 3px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.linear-seg.w-sektorze:hover .sektor-pasmo:not(.szerokie) .sektor-etykieta {
+  opacity: 1;
+}
+
+/* w Nauce nazwa sektora nad pierwszym kafelkiem */
+.linear-seg.sektor-poczatek {
+  padding-top: 32px;
+}
+
+.linear-seg.sektor-poczatek .sektor-etykieta {
+  top: 4px;
+  left: -8px;
+}
+
+/* uchwyt przeciągania nad pasmem */
+.linear-seg.w-sektorze .linear-side {
+  position: relative;
+  z-index: 1;
+}
+
+.linear-seg.do-poprawy .linear-content {
+  outline: 2px dashed color-mix(in srgb, var(--danger) 55%, transparent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+@media print {
+  .sektor-pasmo {
+    display: none;
+  }
+}
+
+/* --- przycisk Powtórek w stopce listy --- */
+.sidebar-powtorki {
+  position: relative;
+}
+
+.licznik-powtorek {
+  font-size: var(--fs-1);
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- strona Powtórek --- */
+.powtorki {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.powtorki h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.powtorki-tresc {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 22px 60px;
+  max-width: 760px;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.powtorki-podsumowanie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.powtorki-karta {
+  border: 1px solid var(--line);
+  border-radius: var(--r-karta, 10px);
+  background: var(--paper);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-4);
+  color: var(--ink-soft);
+}
+
+.powtorki-karta strong {
+  font-size: var(--fs-8);
+  color: var(--ink);
+}
+
+.powtorki-karta-tytul {
+  font-size: var(--fs-2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.powtorki-karta-dopisek {
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.powtorki-rada {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-mala, 8px);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--fs-4);
+  line-height: 1.5;
+}
+
+.powtorki-naglowek {
+  font-size: var(--fs-6);
+  margin: 10px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.powtorki-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.powtorki-pozycja {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-mala, 8px);
+  background: var(--paper);
+  font-size: var(--fs-4);
+  flex-wrap: wrap;
+}
+
+.powtorki-rodzaj {
+  font-size: var(--fs-1);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  min-width: 52px;
+}
+
+.powtorki-nazwa {
+  flex: 1;
+  min-width: 140px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.powtorki-gdzie {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.powtorki-info {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: var(--fs-3);
+}
+
+.powtorki-jutro summary {
+  cursor: pointer;
+  font-size: var(--fs-4);
+  color: var(--ink-soft);
+  margin: 6px 0;
+}
+
+/* --- ekran sesji --- */
+.sesja {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-alt);
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.sesja-glowa {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.sesja-glowa h2 {
+  margin: 2px 0 0;
+  font-size: var(--fs-7);
+}
+
+.sesja-rodzaj {
+  font-size: var(--fs-2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-ink);
+}
+
+.sesja-gdzie {
+  font-size: var(--fs-3);
+  color: var(--muted);
+}
+
+.sesja-tresc {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 22px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: var(--page-width, 800px);
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.sesja-zasada {
+  margin: 0;
+  font-size: var(--fs-3);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.sesja-blok,
+.sesja-element {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-karta, 10px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sesja-blok h3 {
+  margin: 0;
+  font-size: var(--fs-6);
+}
+
+.sesja-pytania {
+  margin: 0;
+  padding-left: 1.3em;
+  font-size: var(--fs-4);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.sesja-pole {
+  font: inherit;
+  font-family: var(--font-content, inherit);
+  font-size: var(--fs-5);
+  line-height: 1.5;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pole, 6px);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.sesja-element-glowa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sesja-znak {
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.sesja-nazwa {
+  font-weight: 600;
+  font-size: var(--fs-5);
+  color: var(--ink);
+}
+
+.sesja-przyciski {
+  display: flex;
+  gap: 8px;
+}
+
+.sesja-przyciski .btn,
+.sesja-mapa-porownaj .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sesja-twoja {
+  font-size: var(--fs-3);
+  color: var(--ink-soft);
+}
+
+.sesja-twoja summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.sesja-twoja p {
+  white-space: pre-wrap;
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-left: 3px solid var(--line-strong);
+}
+
+.sesja-zaznaczenie {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--fs-3);
+  color: var(--ink-soft);
+}
+
+.sesja-zaznaczenie > span {
+  margin-right: 4px;
+}
+
+.sesja-zaznaczenie .zaznacz-tak.btn-active {
+  background: #2f8f5b;
+  border-color: #2f8f5b;
+  color: #fff;
+}
+
+.sesja-zaznaczenie .zaznacz-czesciowo.btn-active {
+  background: #c7881d;
+  border-color: #c7881d;
+  color: #fff;
+}
+
+.sesja-zaznaczenie .zaznacz-nie.btn-active {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.sesja-rozdzial {
+  margin: 6px 0 -4px;
+  font-size: var(--fs-6);
+  color: var(--ink-soft);
+}
+
+.sesja-notatka-zakryta {
+  font: inherit;
+  font-size: var(--fs-3);
+  color: var(--muted);
+  background: none;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-mala, 8px);
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sesja-notatka {
+  padding: 4px 6px;
+}
+
+.sesja-mapa {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+}
+
+.sesja-oceny {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sesja-ocena-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  white-space: normal;
+}
+
+.sesja-ocena-nazwa {
+  font-weight: 600;
+}
+
+.sesja-ocena-dni {
+  font-size: var(--fs-2);
+  opacity: 0.85;
+}
+
+.sesja-ocena-podp {
+  font-size: var(--fs-1);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.sesja-zapisz {
+  align-self: flex-start;
+}
+
+.sesja-wynik {
+  padding: 24px 22px;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: var(--fs-5);
+  line-height: 1.55;
+}
+
+.sesja-wynik p {
+  margin: 0;
+}
+
+.sesja-wynik .btn {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.sesja-uparte {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--danger);
+}
+
+/* --- Ustawienia → Nauka --- */
+.settings-grupa {
+  margin: 8px 0 -8px;
+  font-size: var(--fs-6);
+  color: var(--ink);
+}
+
+.settings-textarea {
+  font: inherit;
+  font-size: var(--fs-4);
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pole, 6px);
+  background: var(--paper);
+  color: var(--ink);
+  resize: vertical;
+}
+
+/* --- telefon: panel nauki pod Linią --- */
+@media (max-width: 760px) {
+  .nauka-uklad {
+    flex-direction: column;
+  }
+
+  .panel-nauki {
+    width: auto;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    max-height: 45vh;
+  }
+
+  .sesja-oceny {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sesja-tresc,
+  .powtorki-tresc {
+    padding: 14px 16px 60px;
+  }
+}
+
+/* --- test czatem --- */
+.test-czatem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--fs-3);
+}
+
+.test-czatem-krok,
+.test-czatem-wynik,
+.test-czatem-wklej {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.test-czatem-krok .btn-primary {
+  white-space: normal;
+  text-align: left;
+}
+
+.test-czatem-wynik > span {
+  color: var(--ink-soft);
+  margin-right: 2px;
+}
+
+.test-czatem-wynik .zaznacz-tak.btn-active {
+  background: #2f8f5b;
+  border-color: #2f8f5b;
+  color: #fff;
+}
+
+.test-czatem-wynik .zaznacz-nie.btn-active {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.test-czatem-wklej {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.test-czatem-wklej .btn {
+  align-self: flex-start;
+}
+
+.test-czatem-polecenie {
+  width: 100%;
+}
+
+.test-czatem-polecenie summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.test-czatem-polecenie textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-2);
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pole, 6px);
+  background: var(--panel);
+  color: var(--ink-soft);
+}
+
+.test-czatem-luki {
+  padding: 8px 10px;
+  border-radius: var(--r-mala, 8px);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  color: var(--ink);
+  font-size: var(--fs-3);
+}
+
+.test-czatem-luki pre,
+.test-czatem-zapisane {
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: var(--fs-3);
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+}
+
+.sesja-eksperyment {
+  margin: 0;
+}
+
+.settings-check .settings-label {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}

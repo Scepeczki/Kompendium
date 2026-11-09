@@ -62,6 +62,7 @@ import {
   setTreeSize,
 } from '../uiSettings'
 import { PoleLiczby } from './PoleLiczby'
+import { UstawieniaNauki } from './UstawieniaNauki'
 import { TypeEditor } from './TypeEditor'
 import { useDialogs } from './Dialogs'
 
@@ -69,12 +70,13 @@ interface Props {
   onClose: () => void
 }
 
-type Section = 'wyglad' | 'tekst' | 'typy' | 'dane'
+type Section = 'wyglad' | 'tekst' | 'typy' | 'nauka' | 'dane'
 
 const SECTIONS: { id: Section; label: string; hint: string }[] = [
   { id: 'wyglad', label: 'Wygląd', hint: 'Motyw, wielkość list, szerokość strony' },
   { id: 'tekst', label: 'Tekst', hint: 'Odstępy, wzory, linijka' },
   { id: 'typy', label: 'Typy kafelków', hint: 'Nazwy, skróty, barwy, własne typy' },
+  { id: 'nauka', label: 'Nauka', hint: 'Cel zapamiętania, przerwa, pytania' },
   { id: 'dane', label: 'Dane', hint: 'Kopia zapasowa i gdzie to wszystko siedzi' },
 ]
 
@@ -335,6 +337,7 @@ export function SettingsPage({ onClose }: Props) {
         </nav>
 
         <div className="settings-content">
+          {section === 'nauka' && <UstawieniaNauki />}
           {section === 'wyglad' && (
             <>
               <div className="settings-row">

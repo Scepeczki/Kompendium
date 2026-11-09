@@ -55,6 +55,26 @@
 | **Mapa** | Przestrzenne układanie: kafelki i strzałki na nieskończonej tablicy. Tu się buduje strukturę. |
 | **Linia** | Doklejanie segmentów jeden pod drugim — i **warsztat**: tytuły i treść zmienia się wprost w kafelkach, bez otwierania edytora. |
 | **Skrypt** | Gotowy, ciągły dokument do czytania i druku (tylko odczyt). |
+| **Nauka** | Linia z sektorami i panelem nauki obok: spis po sektorach, mapa sektora, pytania, postęp powtórki zero. |
+
+---
+
+## 2a. Nauka i powtórki
+
+| Nazwa | Co to jest | Czym NIE jest |
+|---|---|---|
+| **Sektor** | Spójna grupa kafelków w Linii ścieżki, której uczy się razem. Ma nazwę, mapę i własny termin powtórki. W jednej ścieżce kafelek należy najwyżej do jednego sektora. | Nie jest rozdziałem — rozdział porządkuje tekst, sektor porcję nauki (można je zrobić z rozdziałów jednym kliknięciem). |
+| **Mapa sektora** | Najprostsza forma przedstawienia sektora: tekst, punkty, wzory, zdjęcie. Nie stoi w Linii, otwiera się z boku. | Nie jest Mapą ścieżki (widokiem z kafelkami i strzałkami). |
+| **Pytania nauki** | Jedna lista celów i pytań (sens, struktura, metodyka…). W mapowaniu do wglądu, w teście jako polecenia, w czacie jako zakres. | Nie jest szablonem do wypełniania. |
+| **Powtórka zero** | Pierwsza nauka sektora: mapowanie → przerwa → test (później też czat, zadania, test końcowy). | — |
+| **Powtórka** | Zakryj, napisz z pamięci, odsłoń, oceń. Termin liczy FSRS. | — |
+| **Powtórka rozszerzona** | Co jakiś czas dłuższa powtórka: czat, zadanie albo trudny tryb, na zmianę. | Nie co dzień i nigdy w pierwszych dwóch powtórkach. |
+| **Trudny tryb** | Zakryte są też nazwy kafelków — przypominasz sobie, co w ogóle stoi w sektorze. | — |
+| **Pojedyncza fiszka** | Kafelek uczony osobno, poza sektorem; można zakryć tylko jedną stronę (np. dowód). | — |
+| **Słaby kafelek** | Kafelek, który nie szedł w powtórce sektora; ma własne, krótsze terminy, aż dogoni sektor. Słabość liczy się we wszystkich ścieżkach. | — |
+| **Uparty kafelek** | Kafelek z wieloma wpadkami — sygnał, że trzeba go przemapować (rozbić, dodać przykład). | — |
+| **Cel zapamiętania** | Szansa, że pamiętasz w chwili powtórki (domyślnie 95%). Między powtórkami pamiętasz więcej. | — |
+| **Próg obciążenia** | Minuty dziennie, powyżej których aplikacja odradza (nie blokuje) zaczynanie nowego sektora. | Nie jest dziennym limitem powtórek. |
 
 ---
 

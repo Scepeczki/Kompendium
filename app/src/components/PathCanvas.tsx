@@ -84,6 +84,9 @@ import {
   stylTekstu,
 } from './Outline'
 import { KontekstKafelka } from './KontekstKafelka'
+import { PanelNauki, type ZakladkaNauki } from './PanelNauki'
+import type { CelSesji } from './SesjaNauki'
+import type { JednostkaNauki } from '../types'
 import { ConceptPicker } from './ConceptPicker'
 import { Icon } from './Icon'
 import { Komponowanie } from './Komponowanie'
@@ -587,6 +590,14 @@ interface LinearViewProps {
   pathId: string
   /** Tryb przypominania: treści zakryte, odsłaniane kliknięciem. */
   zakryte?: boolean
+  /** Sektory nauki tej ścieżki — pasma na lewym marginesie. */
+  sektory?: JednostkaNauki[]
+  /** Widok Nauka: pasma szersze, z nazwą sektora nad pierwszym kafelkiem. */
+  trybNauki?: boolean
+  /** Zaznaczenie w Linii — panel nauki robi z niego sektor. */
+  onZaznaczenie?: (ids: string[]) => void
+  /** Klik w znaczek mapy na paśmie sektora. */
+  onMapaSektora?: (sektorId: string) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 
@@ -732,9 +743,24 @@ interface ApiSegmentu {
   usun: (id: string) => void
 }
 
+/** Pasmo sektora przy segmencie Linii. `klucz` zbiera wszystko, od czego
+ *  zależy wygląd — po nim zapamiętana ramka wie, że ma się przerysować. */
+interface Pasmo {
+  id: string
+  kolor: string
+  nazwa: string
+  pierwszy: boolean
+  ostatni: boolean
+  doPoprawy: boolean
+  nauka: boolean
+  klucz: string
+}
+
 interface RamkaProps {
   n: PathNode
   i: number
+  pasmo?: Pasmo
+  onMapaSektora?: (id: string) => void
   pelny: boolean
   zaznaczony: boolean
   kreska: 'before' | 'after' | null
@@ -767,6 +793,8 @@ const RamkaSegmentu = memo(
     rysuj,
     api,
     pilnuj,
+    pasmo,
+    onMapaSektora,
   }: RamkaProps) {
     return (
       <div
@@ -774,19 +802,45 @@ const RamkaSegmentu = memo(
         data-seg={n.id}
         data-idx={i}
         data-pelny={pelny ? '1' : '0'}
-        style={
-          pelny
+        data-sektor={pasmo?.id}
+        style={{
+          ...(pelny
             ? stylTekstu(n.kind === 'heading' ? undefined : n.rozmiarTekstu)
-            : { height: wysokosc, boxSizing: 'border-box' }
-        }
+            : { height: wysokosc, boxSizing: 'border-box' }),
+          ...(pasmo ? ({ '--sektor': pasmo.kolor } as React.CSSProperties) : {}),
+        }}
         className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
           zaznaczony ? 'zaznaczony' : ''
-        } ${kreska === 'before' ? 'drop-before' : kreska === 'after' ? 'drop-after' : ''}`}
+        } ${kreska === 'before' ? 'drop-before' : kreska === 'after' ? 'drop-after' : ''} ${
+          pasmo ? 'w-sektorze' : ''
+        } ${pasmo?.nauka && pasmo.pierwszy ? 'sektor-poczatek' : ''} ${pasmo?.doPoprawy ? 'do-poprawy' : ''}`}
         onClick={(e) => api.klik(e, n.id)}
         onDragOver={(e) => api.nadCiagniete(e, i)}
         onDrop={(e) => api.upuszczone(e, i)}
         onContextMenu={(e) => api.menu(e, i)}
       >
+        {pasmo && n.kind !== 'comment' && (
+          <span
+            className={`sektor-pasmo ${pasmo.pierwszy ? 'pierwszy' : ''} ${pasmo.ostatni ? 'ostatni' : ''} ${
+              pasmo.nauka ? 'szerokie' : ''
+            }`}
+            aria-hidden={!pasmo.pierwszy}
+          >
+            {pasmo.pierwszy && (
+              <button
+                className="sektor-etykieta"
+                title={`Sektor „${pasmo.nazwa}" — pokaż mapę`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMapaSektora?.(pasmo.id)
+                }}
+              >
+                <Icon name="map" size={0.85} />
+                {pasmo.nauka && <span className="sektor-etykieta-nazwa">{pasmo.nazwa}</span>}
+              </button>
+            )}
+          </span>
+        )}
         {pelny && n.kind !== 'comment' && (
           <div className="linear-side">
             <button
@@ -844,7 +898,8 @@ const RamkaSegmentu = memo(
     a.kreska === b.kreska &&
     a.wysokosc === b.wysokosc &&
     a.mozeScalic === b.mozeScalic &&
-    a.sygnatura === b.sygnatura,
+    a.sygnatura === b.sygnatura &&
+    a.pasmo?.klucz === b.pasmo?.klucz,
 )
 
 /** Kafelek w trybie przypominania: widać, że tu coś stoi i czego dotyczy,
@@ -1024,6 +1079,10 @@ function LinearView({
   celKlocek,
   pathId,
   zakryte,
+  sektory,
+  trybNauki,
+  onZaznaczenie,
+  onMapaSektora,
   onJumpToSource,
   onOpenConcept,
   onRenameSegment,
@@ -1279,6 +1338,45 @@ function LinearView({
    *  uchwytu któregokolwiek z nich przenosi całą grupę. */
   const [zazSeg, setZazSeg] = useState<Set<string>>(new Set())
   const kotwicaRef = useRef<string | null>(null)
+  // panel nauki robi sektor z tego, co zaznaczone w Linii
+  const zaznaczenieRef = useRef(onZaznaczenie)
+  zaznaczenieRef.current = onZaznaczenie
+  useEffect(() => {
+    zaznaczenieRef.current?.([...zazSeg])
+  }, [zazSeg])
+  // stała tożsamość dla zapamiętanych ramek — inaczej klik trafiałby w starą funkcję
+  const mapaSektoraRef = useRef(onMapaSektora)
+  mapaSektoraRef.current = onMapaSektora
+  const pokazMapeSektora = useCallback((id: string) => mapaSektoraRef.current?.(id), [])
+  /** Pasma sektorów: który węzeł do którego sektora należy i gdzie pasmo
+   *  się zaczyna i kończy (sektor może być rozcięty innymi kafelkami). */
+  const pasma = useMemo(() => {
+    const out = new Map<string, Pasmo>()
+    if (!sektory?.length) return out
+    const doSektora = new Map<string, JednostkaNauki>()
+    for (const s of sektory) if (s.rodzaj === 'sektor') for (const w of s.wezly) doSektora.set(w, s)
+    // komentarze stoją z boku — nie przerywają pasma
+    const wLinii = ordered.filter((n) => n.kind !== 'comment')
+    wLinii.forEach((n, i) => {
+      const s = doSektora.get(n.id)
+      if (!s) return
+      const pierwszy = doSektora.get(wLinii[i - 1]?.id ?? '') !== s
+      const ostatni = doSektora.get(wLinii[i + 1]?.id ?? '') !== s
+      const doPoprawy = s.etap === 'mapowanie' && !!s.doPoprawy?.includes(n.id)
+      const kolor = s.kolor ?? '#7a869a'
+      out.set(n.id, {
+        id: s.id,
+        kolor,
+        nazwa: s.nazwa,
+        pierwszy,
+        ostatni,
+        doPoprawy,
+        nauka: !!trybNauki,
+        klucz: `${s.id}|${kolor}|${s.nazwa}|${pierwszy}|${ostatni}|${doPoprawy}|${!!trybNauki}`,
+      })
+    })
+    return out
+  }, [sektory, ordered, trybNauki])
 
   // wklejone kafelki stają za zaznaczonymi, a bez zaznaczenia za bieżącym
   useEffect(() => {
@@ -1991,6 +2089,8 @@ function LinearView({
               i={i}
               pelny={pelny}
               zaznaczony={zazSeg.has(n.id) || podswietlony === n.id}
+              pasmo={pasma.get(n.id)}
+              onMapaSektora={pokazMapeSektora}
               kreska={h}
               wysokosc={zmierz(n.id)}
               mozeScalic={
@@ -2580,6 +2680,8 @@ interface Props {
   pasekCel?: HTMLElement | null
   pdfWidoczny?: boolean
   onPrzelaczPdf?: () => void
+  /** Otwiera ekran powtórki (test, powtórka sektora). */
+  onStartNauka?: (cel: CelSesji) => void
 }
 
 function CanvasInner({
@@ -2593,6 +2695,7 @@ function CanvasInner({
   pasekCel,
   pdfWidoczny,
   onPrzelaczPdf,
+  onStartNauka,
 }: Props) {
   const dlg = useDialogs()
   // przez pudełko, żeby `api` mapy zachowało stałą tożsamość (od niej zależy
@@ -2695,15 +2798,35 @@ function CanvasInner({
    *  kliknięciem, sprawdzając po kolei, ile się pamięta. */
   const [zakryte, setZakryte] = useState(false)
 
-  const [mode, setMode] = useState<'map' | 'linear' | 'script'>(() => {
+  const [mode, setMode] = useState<'map' | 'linear' | 'script' | 'nauka'>(() => {
     const m = localStorage.getItem('ui.pathMode')
-    return m === 'linear' || m === 'script' ? m : 'map'
+    return m === 'linear' || m === 'script' || m === 'nauka' ? m : 'map'
   })
   // Skok „do tego kafelka w tej ścieżce" ma sens w Linii — tam widać, co jest
   // przed nim i za nim. Na Mapie kafelek bywa gdzieś w rogu tablicy.
   useEffect(() => {
-    if (celKlocek) setMode('linear')
+    if (celKlocek) setMode((m) => (m === 'nauka' ? m : 'linear'))
   }, [celKlocek])
+
+  // ---- nauka: sektory tej ścieżki i panel obok Linii ----
+  const sektoryNauki = useLiveQuery(
+    () => db.nauka.where('pathId').equals(pathId).toArray(),
+    [pathId],
+  )
+  const [zaznaczoneWLinii, setZaznaczoneWLinii] = useState<string[]>([])
+  const [zakladkaNauki, setZakladkaNauki] = useState<ZakladkaNauki>('sektory')
+  const [sektorNauki, setSektorNauki] = useState<string | null>(null)
+  // Nauka stoi tam, gdzie zwykle PDF — wchodząc w nią, chowamy panel PDF
+  const pdfRef = useRef({ pdfWidoczny, onPrzelaczPdf })
+  pdfRef.current = { pdfWidoczny, onPrzelaczPdf }
+  useEffect(() => {
+    if (mode === 'nauka' && pdfRef.current.pdfWidoczny) pdfRef.current.onPrzelaczPdf?.()
+  }, [mode])
+  const pokazMapeSektora = (id: string) => {
+    setSektorNauki(id)
+    setZakladkaNauki('mapa')
+    setMode('nauka')
+  }
   useEffect(() => {
     localStorage.setItem('ui.pathMode', mode)
   }, [mode])
@@ -3803,7 +3926,7 @@ function CanvasInner({
     // W Linii nowa notatka nie otwiera okienka — pisze się ją na miejscu,
     // klikając w „pusta notatka". Okienko zostaje dla mapy, gdzie kafelek
     // jest za mały, żeby w nim pisać.
-    if (mode !== 'linear') setEditingNote(id)
+    if (mode !== 'linear' && mode !== 'nauka') setEditingNote(id)
   }
 
   const handlePaneContextMenu = (e: React.MouseEvent | MouseEvent) => {
@@ -4034,6 +4157,13 @@ function CanvasInner({
             Linia
           </button>
           <button
+            className={`btn ${mode === 'nauka' ? 'btn-active' : ''}`}
+            title="Nauka: Linia z sektorami, a obok panel — mapa sektora, pytania, powtórka zero"
+            onClick={() => setMode('nauka')}
+          >
+            Nauka
+          </button>
+          <button
             className={`btn ${mode === 'script' ? 'btn-active' : ''}`}
             title="Skrypt: gotowy ciągły dokument (tylko odczyt)"
             onClick={() => setMode('script')}
@@ -4141,7 +4271,8 @@ function CanvasInner({
           onJumpToSource={onJumpToSource}
         />
       )}
-      {mode === 'linear' && (
+      {(mode === 'linear' || mode === 'nauka') && (
+        <div className={mode === 'nauka' ? 'nauka-uklad' : 'linia-uklad'}>
         <LinearView
           ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
           celKlocek={celKlocek}
@@ -4260,7 +4391,24 @@ function CanvasInner({
           onFuseSelected={(ids) => groupNodes(ids)}
           onJumpToSource={onJumpToSource}
           onOpenConcept={onOpenConcept}
+          sektory={sektoryNauki}
+          trybNauki={mode === 'nauka'}
+          onZaznaczenie={setZaznaczoneWLinii}
+          onMapaSektora={pokazMapeSektora}
         />
+        {mode === 'nauka' && (
+          <PanelNauki
+            pathId={pathId}
+            ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
+            zaznaczone={zaznaczoneWLinii}
+            zakladka={zakladkaNauki}
+            onZakladka={setZakladkaNauki}
+            wybrany={sektorNauki}
+            onWybierz={setSektorNauki}
+            onStart={onStartNauka}
+          />
+        )}
+        </div>
       )}
       <div
         className="path-flow"

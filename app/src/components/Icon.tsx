@@ -13,6 +13,7 @@
 
 import {
   Anchor,
+  Hourglass,
   Atom,
   Binary,
   Book,
@@ -123,6 +124,9 @@ const ICONS = {
   usun: Trash2,
   przesun: Move,
   zakryj: Contrast,
+  nauka: GraduationCap,
+  uwaga: TriangleAlert,
+  przerwa: Hourglass,
   odkryj: Eye,
   // czynności w menu pod prawym przyciskiem — wcześniej emoji i znaki
   // typograficzne (🗑 ✎ 💬 § ⌂ ⧉ ↺), czyli jarmark w jednym menu

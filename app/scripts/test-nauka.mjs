@@ -1,0 +1,291 @@
+// Nauka: sektor z zaznaczonych kafelków, mapa, powtórka zero (mapowanie →
+// przerwa → test z pisaniem i odsłanianiem), termin FSRS, słaby kafelek,
+// fiszka, strona Powtórek z licznikiem, powtórka rozszerzona (trudny tryb)
+// i Ustawienia → Nauka.
+import { chromium } from 'playwright'
+import { potwierdz, podaj } from './lib.mjs'
+
+const problems = []
+const errors = []
+const check = (nazwa, ok, szczegol = '') => {
+  console.log(`${ok ? '✓' : '✗ BŁĄD:'} ${nazwa}${szczegol ? ` — ${szczegol}` : ''}`)
+  if (!ok) problems.push(nazwa)
+}
+
+const browser = await chromium.launch({
+  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  headless: true,
+})
+const kontekst = await browser.newContext({ viewport: { width: 1500, height: 950 } })
+await kontekst.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://localhost:5173' })
+// czat otwiera się w nowej karcie — w teście tylko zapamiętujemy adres
+await kontekst.addInitScript(() => {
+  window.__otwarte = []
+  window.open = (u) => {
+    window.__otwarte.push(String(u))
+    return null
+  }
+})
+const page = await kontekst.newPage()
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+page.on('pageerror', (e) => errors.push(String(e)))
+
+await page.goto('http://localhost:5173')
+await page.waitForSelector('text=Kompendium')
+
+const baza = () =>
+  page.evaluate(async () => {
+    const req = indexedDB.open('kompendium')
+    await new Promise((r) => (req.onsuccess = r))
+    const db = req.result
+    const wez = (t) =>
+      new Promise((r) => {
+        const q = db.transaction(t).objectStore(t).getAll()
+        q.onsuccess = () => r(q.result)
+      })
+    const [nauka, pamiec, historia] = [await wez('nauka'), await wez('pamiec'), await wez('historia')]
+    db.close()
+    return { nauka, pamiec, historia }
+  })
+const zmienJednostke = (id, zmiany) =>
+  page.evaluate(
+    async ([id, zmiany]) => {
+      const req = indexedDB.open('kompendium')
+      await new Promise((r) => (req.onsuccess = r))
+      const db = req.result
+      const t = db.transaction('nauka', 'readwrite')
+      const s = t.objectStore('nauka')
+      const g = s.get(id)
+      await new Promise((r) => (g.onsuccess = r))
+      s.put({ ...g.result, ...zmiany })
+      await new Promise((r) => (t.oncomplete = r))
+      db.close()
+    },
+    [id, zmiany],
+  )
+
+// --- ścieżka z trzema kafelkami ---
+await page.evaluate(async () => {
+  const req = indexedDB.open('kompendium')
+  await new Promise((r) => (req.onsuccess = r))
+  const db = req.result
+  const T = db.transaction(['concepts', 'versions', 'paths'], 'readwrite')
+  const now = new Date().toISOString()
+  const nodes = []
+  const tresci = ['Zbiór otwarty to taki, który…', 'Przestrzeń metryczna to para (X, d)…', 'Ciąg Cauchy’ego…']
+  const nazwy = ['Zbiór otwarty', 'Przestrzeń metryczna', 'Ciąg Cauchyego']
+  for (let i = 0; i < 3; i++) {
+    T.objectStore('concepts').put({ id: 'nc' + i, name: nazwy[i], type: 'definicja', currentVersionId: 'nv' + i, folderId: null, tags: [], createdAt: now, updatedAt: now, order: 300 + i })
+    T.objectStore('versions').put({ id: 'nv' + i, conceptId: 'nc' + i, version: 1, content: tresci[i], sourceRefs: [], createdAt: now, updatedAt: now })
+    nodes.push({ id: 'nn' + i, kind: 'block', conceptId: 'nc' + i, versionId: null, subpageId: null, x: 0, y: i * 200 })
+  }
+  const edges = nodes.slice(1).map((n, i) => ({ id: 'ne' + i, from: nodes[i].id, to: n.id }))
+  T.objectStore('paths').put({ id: 'np', name: 'Topologia', folderId: null, order: 0, nodes, edges, createdAt: now, updatedAt: now })
+  await new Promise((r) => (T.oncomplete = r))
+})
+await page.reload()
+await page.waitForSelector('text=Kompendium')
+await page.waitForTimeout(600)
+await page.click('.path-item:has-text("Topologia")')
+await page.click('.view-switch button:has-text("Nauka")')
+await page.waitForSelector('.panel-nauki')
+check('widok Nauka ma panel obok Linii', await page.locator('.nauka-uklad .linear-view').isVisible())
+
+// --- sektor z zaznaczonych ---
+await page.locator('.linear-seg[data-seg="nn0"]').click({ position: { x: 240, y: 8 }, modifiers: ['Control'] })
+await page.locator('.linear-seg[data-seg="nn1"]').click({ position: { x: 240, y: 8 }, modifiers: ['Control'] })
+await page.waitForTimeout(200)
+check('przycisk liczy zaznaczone', (await page.locator('.panel-nauki-akcje .btn-primary').innerText()).includes('(2)'))
+await page.click('.panel-nauki-akcje .btn-primary')
+await podaj(page, 'Podstawy')
+await page.waitForTimeout(500)
+let d = await baza()
+const sektor = d.nauka.find((j) => j.rodzaj === 'sektor')
+check('sektor powstaje z zaznaczonych węzłów', sektor?.nazwa === 'Podstawy' && sektor.wezly.join() === 'nn0,nn1', JSON.stringify(sektor?.wezly))
+check('pasmo sektora w Linii', (await page.locator('.linear-seg[data-sektor]').count()) === 2)
+check('nazwa sektora nad pierwszym kafelkiem', await page.locator('.linear-seg.sektor-poczatek .sektor-etykieta-nazwa:has-text("Podstawy")').isVisible())
+check('mały sektor dostaje cichą uwagę', await page.locator('.karta-sektora-uwaga:has-text("Mały sektor")').isVisible())
+
+// --- poza sektorami → fiszka ---
+check('lista „poza sektorami" jest rozwinięta, gdy są sektory', (await page.locator('.sektory-poza[open]').count()) === 1)
+const poza = page.locator('.sektory-poza li:has-text("Ciąg Cauchyego")')
+check('kafelek poza sektorem jest na liście', (await poza.count()) === 1)
+await poza.locator('button:has-text("Ucz się osobno")').click()
+await page.waitForTimeout(400)
+d = await baza()
+check('„Ucz się osobno" robi fiszkę', d.nauka.some((j) => j.rodzaj === 'fiszka' && j.conceptId === 'nc2'))
+
+// --- mapa ---
+await page.click('.panel-nauki-zakladki button:has-text("Mapa")')
+await page.waitForSelector('.mapa-sektora .tiptap')
+await page.click('.mapa-sektora .tiptap')
+await page.keyboard.type('Metryka → kule → zbiory otwarte')
+await page.waitForTimeout(900)
+d = await baza()
+check('mapa zapisuje się w sektorze', (d.nauka.find((j) => j.id === sektor.id)?.mapa ?? '').includes('kule'))
+
+// --- powtórka zero ---
+await page.click('.panel-nauki-zakladki button:has-text("Sektory")')
+await page.click('.karta-sektora button:has-text("Zacznij naukę")')
+await page.waitForSelector('.ask-dialog')
+check('przed nauką uprzedza o czasie', (await page.locator('.ask-dialog').innerText()).includes('przerwę'))
+await potwierdz(page)
+await page.waitForTimeout(400)
+check('po starcie mapowanie i mapa', (await baza()).nauka.find((j) => j.id === sektor.id)?.etap === 'mapowanie')
+await page.click('.panel-nauki-zakladki button:has-text("Sektory")')
+await page.click('.karta-sektora button:has-text("Skończyłem mapowanie")')
+await page.waitForTimeout(400)
+check('przerwa blokuje test', await page.locator('.karta-sektora-przerwa:has-text("test za")').isVisible())
+// przerwa minęła
+await zmienJednostke(sektor.id, { etapOd: new Date(Date.now() - 21 * 60000).toISOString() })
+// zmiana z boku bazy — aplikacja zobaczy ją po odświeżeniu
+await page.reload()
+await page.waitForSelector('text=Kompendium')
+await page.click('.path-item:has-text("Topologia")')
+await page.waitForSelector('.panel-nauki')
+await page.waitForSelector('.karta-sektora button:has-text("Zacznij test")', { timeout: 20000 })
+check('po przerwie test jest gotowy', true)
+await page.click('.karta-sektora button:has-text("Zacznij test")')
+await page.waitForSelector('.sesja')
+await page.waitForSelector('.sesja-rodzaj')
+check('sesja: test po mapowaniu', (await page.locator('.sesja-rodzaj').textContent()).includes('Test po mapowaniu'), await page.locator('.sesja-rodzaj').textContent())
+check('sesja: pytania i pole na mapę z pamięci', (await page.locator('.sesja-mapa-pamiec .sesja-pytania li').count()) > 3)
+check('kafelki są zakryte', (await page.locator('.sesja-element:not(.odkryty)').count()) === 2 && (await page.locator('.sesja-element .block-content, .sesja-element .markdown-body').count()) === 0)
+await page.fill('.sesja-mapa-pamiec textarea', 'metryka, kule, otwarte')
+const el0 = page.locator('.sesja-element').nth(0)
+await el0.locator('textarea').fill('zbiór, który z każdym punktem zawiera kulę')
+await el0.locator('button:has-text("Sprawdź")').click()
+check('„Sprawdź" odsłania treść i twoją odpowiedź', (await el0.innerText()).includes('Zbiór otwarty to taki') && (await el0.innerText()).includes('z każdym punktem'))
+await el0.locator('button:has-text("Tak")').click()
+const el1 = page.locator('.sesja-element').nth(1)
+await el1.locator('button:has-text("Podejrzyj")').click()
+check('podejrzenie liczy się jako „Nie" i jest zablokowane',
+  (await el1.locator('.zaznacz-nie.btn-active').count()) === 1 && (await el1.locator('.zaznacz-tak').isDisabled()))
+await page.click('button:has-text("Odkryj mapę")')
+check('mapa odkrywa się na końcu', (await page.locator('.sesja-mapa').innerText()).includes('kule'))
+await page.click('.sesja-mapa-porownaj .zaznacz-tak')
+const podp = await page.locator('.sesja-ocena-btn.btn-active .sesja-ocena-nazwa').innerText()
+check('podpowiedź oceny z zaznaczeń (1 z 2 nie poszedł → Trudno)', podp === 'Trudno', podp)
+await page.click('.sesja-zapisz')
+await page.waitForSelector('.sesja-wynik')
+const wynik = await page.locator('.sesja-wynik').innerText()
+check('po zapisie: dalej test czatem i słaby kafelek', wynik.includes('test czatem') && wynik.includes('Słabe kafelki: 1'), wynik.slice(0, 160))
+d = await baza()
+check('po teście sektor czeka na czat (z kartą FSRS)', d.nauka.find((j) => j.id === sektor.id)?.etap === 'czat' && !!d.nauka.find((j) => j.id === sektor.id)?.karta)
+
+// --- test czatem w powtórce zero ---
+await page.click('.sesja-wynik .test-czatem-krok .btn-primary')
+await page.waitForTimeout(600)
+const polecenieCzatu = await page.evaluate(() => navigator.clipboard.readText())
+check('polecenie czatu w schowku: zasady, pytania i materiał',
+  polecenieCzatu.includes('egzaminatorem') && polecenieCzatu.includes('Jakie są konsekwencje definicji') &&
+    polecenieCzatu.includes('Zbiór otwarty to taki') && polecenieCzatu.includes('Metryka → kule'),
+  polecenieCzatu.slice(0, 60))
+check('otwiera wybrany czat (domyślnie Gemini)', (await page.evaluate(() => window.__otwarte.at(-1))) === 'https://gemini.google.com/app')
+await page.click('.sesja-wynik .test-czatem-wynik button:has-text("Są luki")')
+await page.fill('.sesja-wynik .test-czatem-wklej textarea', 'Dobrze ci poszło.\nWYNIK: NIEZALICZONE\nLUKI:\n- brak przykładu kuli\n- myli kulę z otoczeniem')
+await page.click('.sesja-wynik .test-czatem-wklej button:has-text("Zapisz luki")')
+await page.waitForTimeout(500)
+d = await baza()
+const poCzacie = d.nauka.find((j) => j.id === sektor.id)
+check('luki z czatu zapisane, sektor dalej w czacie', poCzacie.etap === 'czat' && poCzacie.luki?.startsWith('- brak przykładu') && !poCzacie.luki.includes('WYNIK'), poCzacie.luki)
+check('dogrywka: przycisk i lista luk', (await page.locator('.sesja-wynik .test-czatem-krok .btn-primary').innerText()).startsWith('Dogrywka') &&
+  (await page.locator('.sesja-wynik .test-czatem-luki').innerText()).includes('myli kulę'))
+await page.click('.sesja-wynik .test-czatem-krok .btn-primary')
+await page.waitForTimeout(500)
+const dogrywka = await page.evaluate(() => navigator.clipboard.readText())
+check('polecenie dogrywki ma tylko luki', dogrywka.includes('TYLKO te luki') && dogrywka.includes('myli kulę z otoczeniem'))
+await page.click('.sesja-wynik .test-czatem-wynik button:has-text("Zaliczone")')
+await page.waitForTimeout(500)
+check('zaliczona dogrywka kończy powtórkę zero', (await page.locator('.sesja-wynik').innerText()).includes('Powtórka zero skończona'))
+d = await baza()
+const s2 = d.nauka.find((j) => j.id === sektor.id)
+check('sektor przeszedł do powtórek z kartą FSRS', s2.etap === 'powtorki' && !!s2.karta && s2.termin > new Date().toISOString() && !s2.luki)
+check('historia czatu: luki, potem zaliczone', d.historia.filter((h) => h.typ === 'czat').map((h) => h.czat).join() === 'luki,zaliczone')
+check('pamięć kafelków: jeden słaby', d.pamiec.length === 2 && d.pamiec.filter((p) => p.slaby).length === 1 && d.pamiec.find((p) => p.slaby)?.klucz === 'nc1')
+check('historia ma wpis testu z odpowiedziami', d.historia.filter((h) => h.typ === 'test').length === 1 && d.historia.find((h) => h.typ === 'test').odpowiedzi?.nc0?.includes('kulę'))
+await page.click('.sesja-wynik button:has-text("Gotowe")')
+
+// --- Powtórki ---
+await page.waitForTimeout(500)
+check('licznik powtórek na dziś (fiszka)', (await page.locator('.licznik-powtorek').innerText()) === '1')
+await page.click('.sidebar-powtorki')
+await page.waitForSelector('.powtorki')
+check('Powtórki: na dziś fiszka', (await page.locator('.powtorki-pozycja:has-text("Ciąg Cauchyego")').count()) === 1)
+check('Powtórki: jutro słaby kafelek', (await page.locator('.powtorki-jutro summary').innerText()).startsWith('Jutro: 1'))
+await page.click('.powtorki-pozycja:has-text("Ciąg Cauchyego") button:has-text("Zacznij")')
+await page.waitForSelector('.sesja-element')
+await page.click('.sesja-element button:has-text("Sprawdź")')
+await page.click('.sesja-element button:has-text("Tak")')
+await page.click('.sesja-zapisz')
+await page.waitForSelector('.sesja-wynik')
+await page.click('.sesja-wynik button:has-text("Gotowe")')
+await page.waitForTimeout(500)
+check('po fiszce licznik znika', (await page.locator('.licznik-powtorek').count()) === 0)
+
+// --- powtórka rozszerzona: najpierw czat ---
+const zalegly = {
+  termin: new Date(Date.now() - 86400000).toISOString(),
+  karta: { ...s2.karta, due: new Date(Date.now() - 86400000).toISOString() },
+  powtorek: 2,
+  ostatniaRozszerzona: 0,
+}
+await zmienJednostke(sektor.id, zalegly)
+await page.reload()
+await page.waitForSelector('text=Kompendium')
+await page.waitForTimeout(600)
+await page.click('.sidebar-powtorki')
+await page.click('.powtorki-pozycja[data-rodzaj="sektor"]:has-text("Podstawy") button:has-text("Zacznij")')
+await page.waitForSelector('.sesja-element')
+check('pierwsza rozszerzona to test czatem', (await page.locator('.sesja-rodzaj').textContent()).includes('czatem') &&
+  (await page.locator('.sesja-czat').count()) === 1)
+for (let i = 0; i < 2; i++) {
+  await page.locator('.sesja-element').nth(i).locator('button:has-text("Sprawdź")').click()
+  await page.locator('.sesja-element').nth(i).locator('button:has-text("Tak")').click()
+}
+await page.click('button:has-text("Odkryj mapę")')
+await page.click('.sesja-mapa-porownaj .zaznacz-tak')
+check('ocena czeka na wynik czatu', (await page.locator('.sesja-zapisz').count()) === 0)
+await page.click('.sesja-czat button:has-text("Są luki")')
+await page.fill('.sesja-czat .test-czatem-wklej textarea', '- zapomniał o symetrii')
+await page.click('.sesja-czat button:has-text("Zapisz luki")')
+const podpCzat = await page.locator('.sesja-ocena-btn.btn-active .sesja-ocena-nazwa').innerText()
+check('luki w czacie obniżają podpowiedź do „Trudno"', podpCzat === 'Trudno', podpCzat)
+await page.click('.sesja-zapisz')
+await page.waitForSelector('.sesja-wynik')
+d = await baza()
+const s3 = d.nauka.find((j) => j.id === sektor.id)
+check('rozszerzona policzona, luki przy sektorze', s3.rozszerzonych === 1 && s3.ostatniaRozszerzona === 3 && s3.luki === '- zapomniał o symetrii')
+await page.click('.sesja-wynik button:has-text("Gotowe")')
+
+// --- następna rozszerzona: trudny tryb ---
+await zmienJednostke(sektor.id, { ...zalegly, karta: { ...s3.karta, due: zalegly.termin }, powtorek: 5, ostatniaRozszerzona: 3, rozszerzonych: 1 })
+await page.reload()
+await page.waitForSelector('text=Kompendium')
+await page.waitForTimeout(600)
+await page.click('.sidebar-powtorki')
+await page.waitForSelector('.powtorki-pozycja[data-rodzaj="sektor"]:has-text("Podstawy")')
+const poz = page.locator('.powtorki-pozycja[data-rodzaj="sektor"]:has-text("Podstawy")')
+check('zaległy sektor z napisem „rozszerzona"', (await poz.innerText()).includes('rozszerzona') && (await poz.innerText()).includes('zaległe'))
+await poz.locator('button:has-text("Zacznij")').click()
+await page.waitForSelector('.sesja')
+check('trudny tryb: nazwy kafelków zakryte', (await page.locator('.sesja-rodzaj').textContent()).includes('trudny') &&
+  (await page.locator('.sesja-nazwa:has-text("Co tu stoi?")').count()) === 2)
+await page.click('.sesja .btn:has-text("Wróć")')
+
+// --- Ustawienia → Nauka ---
+await page.click('.sidebar-foot-btn[title="Ustawienia"]')
+await page.click('.settings-nav-item:has-text("Nauka")')
+await page.waitForSelector('[data-nauka="cel"]')
+check('Ustawienia: cel zapamiętania domyślnie 95%', (await page.locator('[data-nauka="cel"] input').inputValue()) === '95')
+await page.fill('[data-nauka="cel"] input', '97')
+await page.waitForTimeout(200)
+check('Ustawienia: zmiana celu zapisuje się', (await page.evaluate(() => localStorage.getItem('ui.nauka.cel'))) === '97')
+check('Ustawienia: pytania nauki do edycji', (await page.locator('.settings-textarea').first().inputValue()).includes('sens'))
+
+console.log('')
+console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)
+for (const e of errors.slice(0, 5)) console.log(`   ${e.slice(0, 200)}`)
+console.log(problems.length === 0 ? '>>> WSZYSTKO POPRAWNE' : `>>> NIEPOPRAWNE (${problems.length}): ${problems.join('; ')}`)
+await browser.close()
+if (problems.length || errors.length) process.exit(1)

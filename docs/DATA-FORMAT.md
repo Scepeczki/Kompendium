@@ -204,7 +204,7 @@ w bloku, rozdzielenie).
    nazwa jest po cichu ignorowana i wraca domyślny wygląd, więc kopia zapasowa
    z przyszłej wersji nic nie psuje.
 
-## Baza (IndexedDB przez Dexie, baza `kompendium`, schemat v7)
+## Baza (IndexedDB przez Dexie, baza `kompendium`, schemat v10)
 
 | Tabela | Indeksy | Zawiera |
 |---|---|---|
@@ -217,10 +217,18 @@ w bloku, rozdzielenie).
 | `folders` | `id, kind, parentId, name` | foldery (`concepts` / `pdfs`) |
 | `pdfs` | `id, title, addedAt, folderId` | pliki PDF jako `Blob` |
 | `blockTypes` | `id, order` | typy kafelków |
+| `nauka` | `id, rodzaj, pathId, etap, termin` | jednostki nauki: `sektor` (węzły ścieżki w `wezly`, mapa w `mapa` jako Markdown) albo `fiszka` (`conceptId`, opcjonalnie zakryta strona `zakryjStrone`); `etap`: `nowy` → `mapowanie` → `przerwa` → `powtorki`; `karta` to stan FSRS, `termin` jego kopia do szukania |
+| `pamiec` | `klucz, termin, slaby` | pamięć kafelka, wspólna dla wszystkich ścieżek: kluczem jest id kafelka (dla grupy `grupa:<ścieżka>:<węzeł>`); `slaby` = ma własne terminy, aż dogoni sektor; `wpadki` liczą upartość |
+| `historia` | `id, kiedy, jednostkaId` | wpisy powtórek — **tylko dopisywane, nigdy zmieniane**: ocena (1–4), zaznaczenia kafelków, odpowiedzi pisane przed odsłonięciem, czas, cel zapamiętania |
 
 Historia schematu: v1 podstawy → v2 foldery i kolejność → v3 wspólna kolejność
 folderów z kafelkami → v4 ścieżki → v5 strony kafelka → v6 powiązania →
-v7 typy kafelków jako dane (migracja przenosi barwy z localStorage).
+v7 typy kafelków jako dane (migracja przenosi barwy z localStorage) → v8 strony
+osobno dla każdej wersji → v9 zdjęcia → v10 nauka (`nauka`, `pamiec`,
+`historia` — tylko nowe tabele).
+
+Ustawienia nauki (cel zapamiętania, przerwa, progi, pytania) leżą w localStorage
+pod kluczami `ui.nauka.*`, więc jadą z kopią zapasową jak reszta ustawień.
 
 ## Kopia zapasowa
 

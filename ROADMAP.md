@@ -68,6 +68,22 @@ Poniżej to, co działa, pogrupowane tak, jak się z tego korzysta.
 
 ## Kolejka — co dalej
 
+**Najpierw: system nauki** ([VISION.md](VISION.md) §5), etapami, każdy
+od razu do użytku:
+
+1. **Da się uczyć:** sektory w Linii i widok „Nauka" (spis po sektorach,
+   kafelki poza sektorami, mapa sektora jako tekst i zdjęcie, pytania do
+   wglądu), powtórka zero z przerwą, ekran sesji (pisanie odpowiedzi,
+   odsłanianie z oceną, trudny tryb), terminy FSRS, strona „Powtórki"
+   (dziś / jutro), pojedyncze fiszki, słabe i uparte kafelki, historia.
+2. **Czat:** polecenie w Ustawieniach, schowek + nowa karta, luki
+   i dogrywka; eksperyment „czat sprawdza moją odpowiedź".
+3. **Zadania:** kafelek-zadanie (Treść / Rozwiązanie / Metoda), zwinięty
+   pasek „Zadania" na końcu sektora, generowanie czatem, zadania w teście.
+4. **Później:** mapa jako tablica, telefon w obie strony, statystyki.
+
+Reszta kolejki, po nauce:
+
 1. **Układ paska bocznego** — obecny jest doraźny; do przemyślenia (inspiracja
    Obsidianem: ustawienia na dole, przyciski tworzenia nad listą).
 2. **Tworzenie powiązań** — osobna mapa pojęć zamiast wycofanych paneli.
@@ -80,6 +96,11 @@ Poniżej to, co działa, pogrupowane tak, jak się z tego korzysta.
 
 ## Decyzje rozstrzygnięte
 
+- **2026-11-09 — System nauki.** Jednostką nauki jest sektor, nie fiszka;
+  powtórka zero z przerwą przed testem; zwykła powtórka bez czatu,
+  rozszerzona co 3. (przy dalekich terminach co 2.); FSRS z celem 95%;
+  słabe kafelki osobno, aż dogonią sektor; próg obciążenia tylko informuje.
+  Szczegóły: [VISION.md](VISION.md) §5.
 - **2026-08-03 — Grupowanie.** Scalanie to zabieg **estetyczny**: grupa czyta się
   jak jeden blok wybranego typu, a kafelki w środku tracą własne ramki i tytuły.
   W bazie pozostają osobnymi kafelkami.

@@ -16,6 +16,9 @@ import type {
   RelationKind,
   Subpage,
   Obraz,
+  JednostkaNauki,
+  PamiecKafelka,
+  WpisNauki,
 } from './types'
 
 class KompendiumDB extends Dexie {
@@ -28,6 +31,9 @@ class KompendiumDB extends Dexie {
   relations!: Table<Relation, string>
   blockTypes!: Table<BlockTypeDef, string>
   obrazy!: Table<Obraz, string>
+  nauka!: Table<JednostkaNauki, string>
+  pamiec!: Table<PamiecKafelka, string>
+  historia!: Table<WpisNauki, string>
 
   constructor() {
     super('kompendium')
@@ -142,6 +148,12 @@ class KompendiumDB extends Dexie {
     // samą treścią. Nikt nic nie traci, a od teraz wersje idą swoimi drogami.
     // Tylko nowa tabela: istniejące dane zostają nietknięte.
     this.version(9).stores({ obrazy: 'id, dodano' })
+    // v10: nauka i powtórki — tylko nowe tabele, nic istniejącego się nie zmienia.
+    this.version(10).stores({
+      nauka: 'id, rodzaj, pathId, etap, termin',
+      pamiec: 'klucz, termin, slaby',
+      historia: 'id, kiedy, jednostkaId',
+    })
     this.version(8)
       .stores({
         concepts: 'id, name, type, createdAt, updatedAt, folderId, *tags',

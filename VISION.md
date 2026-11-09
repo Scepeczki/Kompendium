@@ -173,7 +173,86 @@ to oś **dydaktyczna**, nie ontologiczna — do rozważenia osobno przy porządk
 
 ---
 
-## 5. Czym to NIE jest
+## 5. Nauka i utrwalanie (ustalone 2026-11-09)
+
+Kompendium nie kończy się na notatkach. Droga jest trzystopniowa:
+**NOTOWANIE → NAUKA → UTRWALENIE**. Notowanie to kafelki i ścieżki. Nauka
+i utrwalanie to system powtórek w duchu Anki, ale dla wiedzy strukturalnej.
+
+### Co ma umieć ten, kto się nauczył
+
+Przywołać sens treści, strukturę relacji w niej i metodykę (z jej
+konsekwencjami), wyjaśnić konsekwencje definicji, podać przykłady zastosowań
+albo uogólnień i podać strukturalne uzasadnienie treści, jeśli jest znane.
+Ta lista (połączona z pytaniami mapowania) jest **jedna**, stoi
+w Ustawieniach i służy trzem rzeczom: wsparciu przy mapowaniu (do wglądu,
+nie jako szablon do wypełniania — mapowanie zawsze jest bez schematu),
+poleceniom w teście i poleceniu dla czatu.
+
+### Sektor zamiast pojedynczej fiszki
+
+Uczenie się kafelek po kafelku jest niewykonalne, więc jednostką nauki jest
+**sektor**: spójna grupa kafelków w Linii ścieżki. W jednej ścieżce kafelek
+należy najwyżej do jednego sektora. Kafelki spoza sektorów można uczyć się
+osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
+3–12 kafelków; ostrzeżenie informuje, nie blokuje).
+
+### Powtórka zero (pierwsza nauka sektora)
+
+1. **Mapowanie**: przedstawia, kluczowe pojęcia, zakres, celowość, sens
+   struktury, granice, połączenia, przykład i kontrprzykład, mapa
+   (najprostsza forma). Mapę najlepiej robić z dystansu od źródła. Przed
+   startem aplikacja uprzedza, ile czasu trzeba na całość.
+2. **Przerwa 20–30 min**: test odblokowuje się po 20 min, w 25. przychodzi
+   powiadomienie. Zaraz po nauce wszystko „siedzi" w głowie i test mierzyłby
+   to, a nie pamięć (efekt opóźnionej oceny).
+3. **Test zakryty**: kafelki i mapa zakryte. Najpierw **piszesz**
+   odpowiedź, dopiero potem odsłaniasz. Odsłonięcie jest oceną kafelka
+   (Tak / Częściowo / Nie); podejrzenie przed przypomnieniem = „Nie". Ocenę
+   sektora podpowiadają zaznaczenia. Źle → wracasz do mapowania tylko tych
+   miejsc.
+4. **Test czatem** (etap 2): jedno stałe polecenie, czat jest egzaminatorem,
+   nie nauczycielem. Wynik źle → luki → poprawka mapowania → dogrywka tylko
+   z luk.
+5. **Zadania** (etap 3, opcjonalne): z podręcznika albo wygenerowane czatem;
+   rozwiązanie i metoda wchodzą do treści sektora.
+6. **Test końcowy**, zakryty, już z zadaniami. Zaliczony → sektor idzie do
+   powtórek.
+
+### Powtórki
+
+Zwykła powtórka jest bez czatu: zakryj, napisz, odsłoń, oceń. **Co jakiś
+czas** powtórka jest **rozszerzona** (czat, zadanie albo trudny tryb, na
+zmianę), nigdy w pierwszych dwóch: domyślnie co 3. powtórkę, a gdy terminy
+się oddalą (ponad 60 dni), co 2. Terminy liczy **FSRS** (darmowy algorytm
+z Anki) przy celu **95%**, ustawialnym do 97%.
+
+- Sektor ocenia się większością; **słaby kafelek** ma własne, krótsze
+  terminy, aż dogoni sektor. Słabość kafelka liczy się we wszystkich
+  ścieżkach.
+- **Uparty kafelek** (wiele wpadek) → „przemapuj go: rozbij, dodaj
+  przykład, dopisz do mapy".
+- Zmieniony sektor dostaje znaczek; można go „nauczyć od nowa". Nowy
+  kafelek w nauczonym sektorze uczy się osobno. Usunięcie sektora nigdy nie
+  usuwa kafelków, a historia zostaje.
+- Strona Powtórek pokazuje, **ile dziś i ile jutro łącznie** (bez dziennego
+  limitu); czego nie zrobisz, przechodzi dalej. Opuszczone dni nie zerują
+  nauki — spóźniona, a zdana powtórka wydłuża odstęp.
+- **Próg obciążenia** (minuty dziennie) tylko informuje przy rozpoczynaniu
+  nowego sektora; powtórek nie da się obciąć bez zapominania, da się
+  pilnować wejścia nowego materiału.
+
+Symulacja (FSRS, sektor 7 kafelków, cel 95%): nowy sektor codziennie to po
+roku ok. 2 h powtórek dziennie, co dwa dni ok. 1 h. Obciążenie robią
+głównie sektory z ostatnich miesięcy.
+
+**Świadomie odrzucone:** zadania mieszane z wielu sektorów. **Później:**
+mapa jako tablica ze strzałkami, nauka na telefonie (tam głównie czytanie;
+historia powtórek jest zapisywana tak, żeby dało się ją potem łączyć).
+
+---
+
+## 6. Czym to NIE jest
 
 - To nie jest kolejny generyczny notatnik „do wszystkiego" — jest wyspecjalizowany
   w wiedzy strukturalnej (definicja → twierdzenie → dowód → przykład).

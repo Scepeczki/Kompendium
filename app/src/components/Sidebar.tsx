@@ -45,6 +45,10 @@ interface Props {
   openPathId: string | null
   onOpenPath: (id: string) => void
   onOpenSettings: () => void
+  /** Ile powtórek na dziś (licznik przy przycisku). */
+  doPowtorki?: number
+  powtorkiActive?: boolean
+  onOpenPowtorki?: () => void
 }
 
 /** Ładunek przeciągania: pojedyncza rzecz albo całe zaznaczenie. */
@@ -108,6 +112,9 @@ export function Sidebar({
   openPathId,
   onOpenPath,
   onOpenSettings,
+  doPowtorki,
+  powtorkiActive,
+  onOpenPowtorki,
 }: Props) {
   const typy = useBlockTypes()
   const dlg = useDialogs()
@@ -1301,6 +1308,17 @@ export function Sidebar({
         <span className="wersja-budowy" title="Wersja programu (data zbudowania)">
           wersja {__WERSJA__}
         </span>
+        {onOpenPowtorki && (
+          <button
+            className={`sidebar-foot-btn sidebar-powtorki ${powtorkiActive ? 'active' : ''}`}
+            title={doPowtorki ? `Powtórki — na dziś: ${doPowtorki}` : 'Powtórki — na dziś nic'}
+            onClick={onOpenPowtorki}
+          >
+            <Icon name="nauka" />
+            <span>Powtórki</span>
+            {!!doPowtorki && <span className="licznik-powtorek">{doPowtorki}</span>}
+          </button>
+        )}
         <button
           className={`sidebar-foot-btn ${graphActive ? 'active' : ''}`}
           title="Graf powiązań"

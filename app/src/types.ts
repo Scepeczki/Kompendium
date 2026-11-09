@@ -484,3 +484,125 @@ export interface PdfDoc {
   addedAt: string
   data: Blob
 }
+
+// ============================================================================
+// Nauka i powtórki (VISION.md §5)
+// ============================================================================
+
+/** Stan karty FSRS zapisany w bazie. Daty jako tekst ISO, bo tak jedzie
+ *  wszystko inne przez kopię zapasową i migawkę. */
+export interface KartaFsrs {
+  due: string
+  stability: number
+  difficulty: number
+  scheduled_days: number
+  reps: number
+  lapses: number
+  learning_steps: number
+  /** 0 nowa, 1 nauka, 2 powtórki, 3 ponowna nauka (jak w FSRS). */
+  state: number
+  last_review?: string
+}
+
+/** Gdzie jest jednostka w nauce.
+ *  nowy → mapowanie → przerwa (po niej test) → czat → powtorki. Nieudany test (i „Nie
+ *  pamiętam" w powtórce) wraca do mapowania tylko tych miejsc, które nie szły. */
+export type EtapNauki = 'nowy' | 'mapowanie' | 'przerwa' | 'czat' | 'powtorki'
+
+/** Ocena jednego kafelka przy odsłonięciu. */
+export type Przypomnienie = 'tak' | 'czesciowo' | 'nie'
+
+/** Jednostka nauki: sektor ścieżki albo pojedyncza fiszka.
+ *
+ *  Sektor to spójna grupa kafelków w Linii — uczy się ich razem i ma jeden
+ *  termin. W jednej ścieżce kafelek należy najwyżej do jednego sektora.
+ *  Usunięcie sektora nie rusza kafelków. */
+export interface JednostkaNauki {
+  id: string
+  rodzaj: 'sektor' | 'fiszka'
+  /** Sektor: jego ścieżka. Fiszka: ścieżka, z której ją wzięto (jeśli z niej). */
+  pathId?: string
+  nazwa: string
+  /** Sektor: węzły ścieżki, które do niego należą. Kolejność bierze się z Linii. */
+  wezly: string[]
+  /** Fiszka: kafelek. */
+  conceptId?: string
+  /** Fiszka ze ścieżki: jej węzeł — żeby pokazać tekst taki jak w ścieżce. */
+  nodeId?: string
+  /** Fiszka: którą stronę zakryć (id strony, `null` = stronę główną).
+   *  Brak = zakryty cały kafelek. */
+  zakryjStrone?: string | null
+  /** Mapa sektora: Markdown (tekst, wzory, zdjęcia). */
+  mapa?: string
+  /** Barwa pasma w Linii (#rrggbb). */
+  kolor?: string
+  etap: EtapNauki
+  /** Kiedy zaczął się bieżący etap (przerwa liczy się od tej chwili). */
+  etapOd?: string
+  /** Po nieudanym teście: węzły do przemapowania. */
+  doPoprawy?: string[]
+  /** Karta FSRS — od zaliczenia pierwszego testu. */
+  karta?: KartaFsrs
+  /** Termin następnej powtórki (kopia `karta.due` do szukania w bazie). */
+  termin?: string
+  /** Ile powtórek było po powtórce zero. */
+  powtorek: number
+  /** Numer ostatniej powtórki rozszerzonej (0 = jeszcze żadnej). */
+  ostatniaRozszerzona: number
+  /** Kiedy była ostatnia powtórka albo test. */
+  ostatnia?: string
+  /** Luki z ostatniego testu czatem — do poprawy mapowania i dogrywki. */
+  luki?: string
+  /** Ile było powtórek rozszerzonych (wybiera, co tym razem: czat czy trudny tryb). */
+  rozszerzonych?: number
+  utworzono: string
+  zmieniono: string
+}
+
+/** Pamięć jednego kafelka — wspólna dla wszystkich ścieżek: jeśli nie
+ *  pamiętasz definicji w jednej, to w drugiej też nie. Kluczem jest id
+ *  kafelka, a dla grupy (złożonego kafelka) `grupa:<ścieżka>:<węzeł>`. */
+export interface PamiecKafelka {
+  klucz: string
+  karta: KartaFsrs
+  /** Słaby: nie szedł w powtórce sektora i ma własne, krótsze terminy,
+   *  dopóki nie dogoni sektora. */
+  slaby: boolean
+  termin: string
+  /** Wpadki w powtórkach — wiele znaczy „uparty kafelek, przemapuj go". */
+  wpadki: number
+  /** Gdzie był ostatnio powtarzany — żeby osobno pokazać go tak jak tam. */
+  jednostkaId?: string
+  pathId?: string
+  nodeId?: string
+  zmieniono: string
+}
+
+/** Wpis historii nauki. DOPISYWANY, nigdy niezmieniany: z historii da się
+ *  odtworzyć każdy termin, a połączenie dwóch urządzeń to po prostu suma
+ *  wpisów — nic nie może się nadpisać. */
+export interface WpisNauki {
+  id: string
+  kiedy: string
+  jednostkaId?: string
+  /** Kafelek powtarzany osobno (słaby albo nowy w nauczonym sektorze). */
+  klucz?: string
+  typ: 'test' | 'powtorka' | 'kafelek' | 'od-nowa' | 'czat'
+  /** Trudny tryb (zakryte także nazwy kafelków). */
+  trudny?: boolean
+  /** Powtórka rozszerzona: co ją rozszerzało. */
+  rozszerzona?: 'czat' | 'trudny'
+  /** Test czatem: wynik (albo pominięty) i luki, które wypisał czat. */
+  czat?: 'zaliczone' | 'luki' | 'pominiety'
+  luki?: string
+  /** 1 Nie pamiętam, 2 Trudno, 3 Dobrze, 4 Łatwo. */
+  ocena?: 1 | 2 | 3 | 4
+  kafelki?: Record<string, Przypomnienie>
+  /** Mapa i sens sektora. */
+  struktura?: Przypomnienie
+  /** Co napisałeś przed odsłonięciem (klucz kafelka albo „mapa"). */
+  odpowiedzi?: Record<string, string>
+  czasMs?: number
+  /** Cel zapamiętania w chwili powtórki. */
+  cel?: number
+}

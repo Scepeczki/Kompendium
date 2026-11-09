@@ -9,7 +9,7 @@ import type {
   LearningPath,
   PdfDoc,
   Relation,
-  Subpage, Obraz } from './types'
+  Subpage, Obraz, JednostkaNauki, PamiecKafelka, WpisNauki } from './types'
 
 /** Struktura pliku danych wewnątrz archiwum kopii zapasowej. Blob-y PDF-ów
  *  leżą osobno jako prawdziwe pliki .pdf (nie base64 — mniejszy plik,
@@ -30,6 +30,12 @@ export interface BackupData {
   blockTypes?: BlockTypeDef[]
   /** Zdjęcia z treści — brak w kopiach sprzed zdjęć. */
   obrazy?: Obraz[]
+  /** Nauka: sektory i fiszki, pamięć kafelków, historia powtórek — brak
+   *  w kopiach sprzed systemu nauki. Historia tylko się dopisuje, więc
+   *  wczytanie jej z drugiego urządzenia niczego nie gubi. */
+  nauka?: JednostkaNauki[]
+  pamiec?: PamiecKafelka[]
+  historia?: WpisNauki[]
   /** Ustawienia wyglądu (localStorage, klucze ui.*). Nie są danymi, ale
    *  kopia zapasowa ma odtworzyć program takim, jakim się go zostawiło. */
   ustawienia?: Record<string, string>
@@ -57,7 +63,7 @@ function backupFileName(): string {
  *  jadą osobno jako pliki. Wspólne dla kopii zapasowej i dla migawki na
  *  telefon, żeby nie były dwiema implementacjami tego samego. */
 export async function zbierzDane(): Promise<{ dane: BackupData; pdfy: PdfDoc[] }> {
-  const [concepts, versions, folders, paths, pdfs, subpages, relations, blockTypes, obrazy] =
+  const [concepts, versions, folders, paths, pdfs, subpages, relations, blockTypes, obrazy, nauka, pamiec, historia] =
     await Promise.all([
       db.concepts.toArray(),
       db.versions.toArray(),
@@ -68,6 +74,9 @@ export async function zbierzDane(): Promise<{ dane: BackupData; pdfy: PdfDoc[] }
       db.relations.toArray(),
       db.blockTypes.toArray(),
       db.obrazy.toArray(),
+      db.nauka.toArray(),
+      db.pamiec.toArray(),
+      db.historia.toArray(),
     ])
   return {
     dane: {
@@ -82,6 +91,9 @@ export async function zbierzDane(): Promise<{ dane: BackupData; pdfy: PdfDoc[] }
       relations,
       blockTypes,
       obrazy,
+      nauka,
+      pamiec,
+      historia,
       ustawienia: zbierzUstawienia(),
     },
     pdfy: pdfs,
@@ -113,6 +125,9 @@ export async function wczytajDane(
       db.relations,
       db.blockTypes,
       db.obrazy,
+      db.nauka,
+      db.pamiec,
+      db.historia,
     ],
     async () => {
       await db.concepts.bulkPut(data.concepts)
@@ -124,6 +139,9 @@ export async function wczytajDane(
       await db.relations.bulkPut(data.relations ?? [])
       await db.blockTypes.bulkPut(data.blockTypes ?? [])
       await db.obrazy.bulkPut(data.obrazy ?? [])
+      await db.nauka.bulkPut(data.nauka ?? [])
+      await db.pamiec.bulkPut(data.pamiec ?? [])
+      await db.historia.bulkPut(data.historia ?? [])
     },
   )
   await wczytajObrazy()
