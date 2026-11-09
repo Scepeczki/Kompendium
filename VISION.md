@@ -216,14 +216,15 @@ osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
    z luk.
 5. **Zadania** (opcjonalne, można je pominąć jednym kliknięciem): z
    podręcznika albo wygenerowane czatem. Zadanie to kafelek ze stronami
-   Treść / Rozwiązanie / Metoda; mieszka w folderze ścieżki i jest przypięte
+   Treść / Rozwiązanie (rodzaju „Zadanie"); mieszka w folderze ścieżki i jest przypięte
    do sektora. W Linii stoi w zwiniętym pasku „Zadania" na końcu sektora,
-   do Skryptu ani PDF nie trafia. Rozwiązanie i metoda wchodzą do treści
-   sektora (także tej dla czatu); metodę warto przeanalizować i dopisać do
+   do Skryptu ani PDF nie trafia. Rozwiązanie (z tokiem rozumowania) wchodzi
+   do treści sektora (także tej dla czatu); metodę warto przeanalizować i dopisać do
    mapy. Czat układa zadania w stałym formacie, a aplikacja tnie wklejoną
    odpowiedź na kafelki.
-6. **Test końcowy**, zakryty, już z zadaniami: treść zadania widać, metodę
-   i rozwiązanie odtwarzasz z pamięci (chodzi o metodę, nie o liczenie).
+6. **Test końcowy**, zakryty, już z zadaniami: treść zadania widać, rozwiązanie
+   odtwarzasz z pamięci (chodzi o pomysł i tok rozumowania, nie o liczenie).
+   Kafelek rodzaju „Zadanie" stojący w Linii sektora w teście też wygląda jak zadanie.
    Termin z pierwszego testu zostaje. Zaliczony → sektor idzie do powtórek;
    niezaliczony → poprawiasz zaznaczone miejsca i robisz go jeszcze raz.
 

@@ -78,7 +78,7 @@ od razu do użytku:
    (dziś / jutro), pojedyncze fiszki, słabe i uparte kafelki, historia.
 2. **Czat:** polecenie w Ustawieniach, schowek + nowa karta, luki
    i dogrywka; eksperyment „czat sprawdza moją odpowiedź".
-3. **Zadania** (zrobione): kafelek-zadanie (Treść / Rozwiązanie / Metoda),
+3. **Zadania** (zrobione): kafelek-zadanie (Treść / Rozwiązanie),
    zwinięty pasek „Zadania" na końcu sektora, generowanie czatem, test
    końcowy z zadaniami, zadania w powtórkach rozszerzonych.
 4. **Później:** mapa jako tablica, telefon w obie strony, statystyki.

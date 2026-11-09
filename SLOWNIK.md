@@ -67,7 +67,7 @@
 | **Mapa sektora** | Najprostsza forma przedstawienia sektora: tekst, punkty, wzory, zdjęcie. Nie stoi w Linii, otwiera się z boku. | Nie jest Mapą ścieżki (widokiem z kafelkami i strzałkami). |
 | **Pytania nauki** | Jedna lista celów i pytań (sens, struktura, metodyka…). W mapowaniu do wglądu, w teście jako polecenia, w czacie jako zakres. | Nie jest szablonem do wypełniania. |
 | **Powtórka zero** | Pierwsza nauka sektora: mapowanie → przerwa → test → test czatem → zadania → test końcowy (czat i zadania można pominąć). | — |
-| **Zadanie sektora** | Kafelek ze stronami Treść / Rozwiązanie / Metoda, przypięty do sektora; mieszka w folderze ścieżki. W Linii w zwiniętym pasku „Zadania" na końcu sektora. W teście widać treść, metodę odtwarzasz z pamięci. | Nie jest węzłem Linii — nie trafia do Skryptu ani PDF. Odpięcie nie usuwa kafelka. |
+| **Zadanie sektora** | Kafelek rodzaju „Zadanie" ze stronami Treść / Rozwiązanie, przypięty do sektora; mieszka w folderze ścieżki. W Linii w zwiniętym pasku „Zadania" na końcu sektora. W teście widać treść, rozwiązanie odtwarzasz z pamięci (tak samo każdy kafelek „Zadanie" stojący w Linii sektora). | Nie jest węzłem Linii — nie trafia do Skryptu ani PDF. Odpięcie nie usuwa kafelka. |
 | **Test końcowy** | Ostatni krok powtórki zero: zakryty test całego sektora, już z zadaniami. Nie zmienia terminu z pierwszego testu. | — |
 | **Powtórka** | Zakryj, napisz z pamięci, odsłoń, oceń. Termin liczy FSRS. | — |
 | **Powtórka rozszerzona** | Co jakiś czas dłuższa powtórka: czat, zadania (gdy sektor je ma) albo trudny tryb, na zmianę. | Nie co dzień i nigdy w pierwszych dwóch powtórkach. |

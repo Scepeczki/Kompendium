@@ -147,9 +147,7 @@ Odpowiedz WYŁĄCZNIE w tym formacie, bez wstępu i zakończenia, każde zadanie
 TREŚĆ:
 treść zadania
 ROZWIĄZANIE:
-pełne rozwiązanie
-METODA:
-metoda w kilku krokach — od czego zacząć, jaki jest pomysł, dlaczego działa; tak, żeby dało się ją odtworzyć z pamięci przy podobnym zadaniu
+rozwiązanie z tokiem rozumowania — od czego zacząć, jaki jest pomysł i dlaczego działa; tak, żeby dało się je odtworzyć z pamięci przy podobnym zadaniu
 
 Pisz po polsku, wzory w LaTeX-u ($…$).
 

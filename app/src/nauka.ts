@@ -16,6 +16,7 @@ import type {
   LearningPath,
   PamiecKafelka,
   PathNode,
+  BlockTypeDef,
   Przypomnienie,
   RodzajRozszerzonej,
   WpisNauki,
@@ -507,8 +508,42 @@ export interface NoweZadanie {
   metoda?: string
 }
 
-/** Strony zadania. Treść widać w teście, rozwiązanie i metoda są zakryte. */
-export const STRONY_ZADANIA = ['Rozwiązanie', 'Metoda'] as const
+/** Strony zadania. Treść widać w teście, rozwiązanie jest zakryte (z tokiem
+ *  rozumowania — o metodę tu chodzi, nie o rachunki). */
+export const STRONY_ZADANIA = ['Rozwiązanie'] as const
+
+/** Rodzaj „Zadanie" z listy rodzajów kafelków. Fabryczny ma id `zadanie`,
+ *  ale ktoś mógł go skasować i zrobić własny — wtedy szukamy po nazwie. */
+export function znajdzTypZadania(typy: BlockTypeDef[]): string {
+  return (
+    typy.find((t) => t.id === 'zadanie')?.id ??
+    typy.find((t) => /^zadani/i.test(t.label.trim()))?.id ??
+    typy.find((t) => /^zad$/i.test(t.short.trim()))?.id ??
+    'zadanie'
+  )
+}
+
+export const typZadania = async () => znajdzTypZadania(await db.blockTypes.toArray())
+
+/** Zadania sektora z rodzajem, którego już nie ma (szare), dostają
+ *  właściwy rodzaj „Zadanie". */
+export async function naprawTypZadan(ids: string[]) {
+  if (!ids.length) return
+  const typy = await db.blockTypes.toArray()
+  const znane = new Set(typy.map((t) => t.id))
+  const typ = znajdzTypZadania(typy)
+  if (!znane.has(typ)) return
+  const cs = await db.concepts.bulkGet(ids)
+  for (const c of cs) if (c && !znane.has(c.type)) await db.concepts.update(c.id, { type: typ })
+}
+
+/** Dokłada albo wyjmuje węzeł z sektora (tryb wybierania kafelków). */
+export async function przelaczWSektorze(id: string, nodeId: string) {
+  const j = await db.nauka.get(id)
+  if (!j) return
+  if (j.wezly.includes(nodeId)) await wyjmijZSektora(id, [nodeId])
+  else await dolozDoSektora(id, [nodeId])
+}
 
 /** Tworzy kafelki-zadania w folderze ścieżki i przypina je do sektora. */
 export async function utworzZadania(sektorId: string, lista: NoweZadanie[]): Promise<string[]> {
@@ -517,12 +552,15 @@ export async function utworzZadania(sektorId: string, lista: NoweZadanie[]): Pro
   const ids: string[] = []
   const bylo = j.zadania?.length ?? 0
   for (const [i, z] of lista.entries()) {
-    const id = await createConcept('zadanie', j.pathId)
+    const id = await createConcept(await typZadania(), j.pathId)
     const c = await db.concepts.get(id)
     if (!c) continue
     await db.concepts.update(id, { name: z.nazwa?.trim() || `Zadanie ${bylo + i + 1}` })
     await db.versions.update(c.currentVersionId, { content: z.tresc?.trim() ?? '' })
-    const tresci = [z.rozwiazanie, z.metoda]
+    // czat mógł jeszcze podać metodę osobno — dopisujemy ją do rozwiązania
+    const tresci = [
+      [z.rozwiazanie?.trim(), z.metoda?.trim() ? `**Metoda:** ${z.metoda.trim()}` : ''].filter(Boolean).join('\n\n'),
+    ]
     for (const [k, nazwa] of STRONY_ZADANIA.entries()) {
       const s = await createSubpage(id, c.currentVersionId, nazwa)
       if (tresci[k]?.trim()) await db.subpages.update(s, { content: tresci[k]!.trim() })

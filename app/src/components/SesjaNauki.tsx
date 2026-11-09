@@ -23,6 +23,7 @@ import {
   wezlySektora,
   zadaniaDoPowtorki,
   zapiszSesje,
+  znajdzTypZadania,
   type Ocena,
   type PoSesji,
 } from '../nauka'
@@ -61,7 +62,7 @@ interface Pozycja {
   conceptId?: string
   nazwa: string
   typ?: string
-  /** Zadanie sektora: treść widać, rozwiązanie i metoda są zakryte. */
+  /** Zadanie: treść widać, rozwiązanie jest zakryte. */
   zadanie?: boolean
 }
 
@@ -129,13 +130,17 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     return wybrane.map((id) => l.find((c) => c.id === id)!).filter(Boolean)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wszystkieZadania, koncowy, rozszerzona, sektor?.id, sektor?.rozszerzonych])
-  const stronyZadan =
-    useLiveQuery(
-      () => db.subpages.where('conceptId').anyOf(zadaniaSesji.map((c) => c.id)).toArray(),
-      [zadaniaSesji.map((c) => c.id).join()],
-    ) ?? []
-
   const wezly: PathNode[] = sektor ? wezlySektora(sektor, sciezka) : []
+  /** Kafelek rodzaju „Zadanie" stojący w Linii sektora to też zadanie:
+   *  w teście widać jego treść, a rozwiązanie jest zakryte. */
+  const typZadania = znajdzTypZadania(typy.all)
+  const zadanieWLinii = (n: PathNode) => n.kind === 'block' && kafelek.get(n.conceptId)?.type === typZadania
+  const idsZadan = [
+    ...zadaniaSesji.map((c) => c.id),
+    ...wezly.flatMap((n) => (n.kind === 'block' && zadanieWLinii(n) ? [n.conceptId] : [])),
+  ]
+  const stronyZadan =
+    useLiveQuery(() => db.subpages.where('conceptId').anyOf(idsZadan).toArray(), [idsZadan.join()]) ?? []
   const pozycje: Pozycja[] = useMemo(() => {
     if (sektor && sciezka) {
       const zad: Pozycja[] = zadaniaSesji.map((c) => ({
@@ -156,6 +161,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               ? n.name || 'Grupa'
               : '',
         typ: n.kind === 'block' ? kafelek.get(n.conceptId)?.type : n.kind === 'fusion' ? n.type : undefined,
+        zadanie: zadanieWLinii(n) || undefined,
       })), ...zad]
     }
     // fiszka albo kafelek osobno: szukamy go w ścieżce, żeby wyglądał jak tam
@@ -182,7 +188,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       },
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId, zadaniaSesji])
+  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId, zadaniaSesji, typZadania])
 
   // ---- stan sesji ----
   const [odpowiedzi, setOdpowiedzi] = useState<Record<string, string>>({})
@@ -381,6 +387,40 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const mapa = sektor?.mapa?.trim()
   const listaPytan = pytania()
 
+  /** Zadanie w sesji: nazwa i treść widoczne, pole na rozwiązanie z pamięci,
+   *  zakryte strony z rozwiązaniem. */
+  const elementZadania = (p: Pozycja) => {
+    const c = p.conceptId ? kafelek.get(p.conceptId) : undefined
+    const n = p.wezel?.kind === 'block' ? p.wezel : undefined
+    const v =
+      wersje.find((x) => x.id === n?.versionId && x.conceptId === c?.id) ??
+      wersje.find((x) => x.id === c?.currentVersionId)
+    const tresc = (v && n?.wlasneTresci?.[kluczWlasnej(v.id, null)]) ?? v?.content ?? ''
+    const strony = stronyZadan
+      .filter((x) => x.conceptId === c?.id && x.versionId === v?.id)
+      .sort((a, b) => a.order - b.order)
+    return (
+      <ElementSesji
+        key={p.klucz}
+        p={p}
+        trudny={false}
+        zadanie
+        odpowiedz={odpowiedzi[p.klucz] ?? ''}
+        onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
+        odkryty={odkryte.has(p.klucz)}
+        podejrzany={podejrzane.has(p.klucz)}
+        ocena={oceny[p.klucz]}
+        onOdslon={(pod) => odslon(p.klucz, pod)}
+        onOcena={(o) => setOceny((x) => ({ ...x, [p.klucz]: o }))}
+        widoczne={() => (
+          <div className="markdown-body sesja-zadanie-tresc" dangerouslySetInnerHTML={{ __html: renderMarkdown(tresc) }} />
+        )}
+        tresc={() => <RozwiazanieZadania strony={strony} />}
+        typy={typy}
+      />
+    )
+  }
+
   return (
     <section className="sesja">
       <header className="sesja-glowa">
@@ -432,6 +472,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               }
               const p = pozycje.find((x) => x.wezel?.id === n.id)
               if (!p) return null
+              if (p.zadanie) return elementZadania(p)
               return (
                 <ElementSesji
                   key={n.id}
@@ -501,40 +542,9 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           <div className="sesja-zadania">
             <h3 className="sesja-rozdzial poziom-1">Zadania</h3>
             <p className="hint">
-              Treść widać. Napisz, jak to rozwiązać: metodę i kluczowe kroki — liczyć do końca nie trzeba.
+              Treść widać. Napisz, jak to rozwiązać: pomysł i kluczowe kroki — liczyć do końca nie trzeba.
             </p>
-            {pozycje
-              .filter((p) => p.zadanie)
-              .map((p) => {
-                const c = p.conceptId ? kafelek.get(p.conceptId) : undefined
-                const v = wersje.find((x) => x.id === c?.currentVersionId)
-                const strony = stronyZadan
-                  .filter((s) => s.conceptId === c?.id && s.versionId === v?.id)
-                  .sort((a, b) => a.order - b.order)
-                return (
-                  <ElementSesji
-                    key={p.klucz}
-                    p={p}
-                    trudny={false}
-                    zadanie
-                    odpowiedz={odpowiedzi[p.klucz] ?? ''}
-                    onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
-                    odkryty={odkryte.has(p.klucz)}
-                    podejrzany={podejrzane.has(p.klucz)}
-                    ocena={oceny[p.klucz]}
-                    onOdslon={(pod) => odslon(p.klucz, pod)}
-                    onOcena={(o) => setOceny((x) => ({ ...x, [p.klucz]: o }))}
-                    widoczne={() => (
-                      <div
-                        className="markdown-body sesja-zadanie-tresc"
-                        dangerouslySetInnerHTML={{ __html: renderMarkdown(v?.content ?? '') }}
-                      />
-                    )}
-                    tresc={() => <RozwiazanieZadania strony={strony} />}
-                    typy={typy}
-                  />
-                )
-              })}
+            {pozycje.filter((p) => p.zadanie && !p.wezel).map(elementZadania)}
           </div>
         )}
 
@@ -789,7 +799,7 @@ function ElementSesji({
             rows={3}
             placeholder={
               zadanie
-                ? 'Jak to rozwiązać? Metoda i kluczowe kroki — z pamięci.'
+                ? 'Jak to rozwiązać? Pomysł i kluczowe kroki — z pamięci.'
                 : trudny
                   ? 'Co to za kafelek i co mówi?'
                   : 'Napisz z pamięci (albo na kartce obok).'
@@ -886,9 +896,9 @@ function TrescPozycji({
   )
 }
 
-/** Odsłonięte zadanie: jego strony (najpierw Metoda — o nią tu chodzi). */
+/** Odsłonięte zadanie: jego strony (najpierw Rozwiązanie). */
 function RozwiazanieZadania({ strony }: { strony: Subpage[] }) {
-  const domyslna = strony.find((s) => /metod/i.test(s.name)) ?? strony[0]
+  const domyslna = strony.find((s) => /rozwi/i.test(s.name)) ?? strony[0]
   const [wybrana, setWybrana] = useState<string | undefined>(domyslna?.id)
   const s = strony.find((x) => x.id === wybrana) ?? domyslna
   if (!s) {

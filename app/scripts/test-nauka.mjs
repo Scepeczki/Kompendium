@@ -214,7 +214,7 @@ await page.click('.zadania-sektora button:has-text("Wygeneruj czatem")')
 await page.click('.zadania-generuj .btn-primary')
 await page.waitForTimeout(500)
 const polecenieZadan = await page.evaluate(() => navigator.clipboard.readText())
-check('polecenie zadań: format, metoda i materiał', polecenieZadan.includes('=== ZADANIE:') && polecenieZadan.includes('METODA:') &&
+check('polecenie zadań: format, tok rozumowania i materiał', polecenieZadan.includes('=== ZADANIE:') && polecenieZadan.includes('tokiem rozumowania') &&
   polecenieZadan.includes('Ułóż 3 zadań') && polecenieZadan.includes('Metryka → kule'), polecenieZadan.slice(0, 80))
 await page.fill('.zadania-generuj textarea.sesja-pole', `Oto zadania:
 
@@ -251,9 +251,9 @@ const zadK = (sekZ.zadania ?? []).map((id) => zBazy.c.find((c) => c.id === id))
 check('dwa kafelki-zadania w folderze ścieżki, przypięte do sektora', zadK.length === 2 && zadK.every((c) => c?.type === 'zadanie' && c.pathId === 'np') &&
   zadK[0].name === 'Kula w metryce dyskretnej', zadK.map((c) => c?.name).join())
 const stronyK = zBazy.sp.filter((x) => x.conceptId === zadK[0]?.id).sort((a, b) => a.order - b.order).map((x) => x.name).join()
-check('zadanie ma treść oraz strony Rozwiązanie i Metoda', stronyK === 'Rozwiązanie,Metoda' &&
+check('zadanie ma treść i stronę Rozwiązanie (metoda czatu dopisana do niej)', stronyK === 'Rozwiązanie' &&
   zBazy.v.find((v) => v.conceptId === zadK[0]?.id)?.content.includes('Opisz kulę') &&
-  zBazy.sp.find((x) => x.conceptId === zadK[0]?.id && x.name === 'Metoda')?.content.includes('podstaw metrykę'), stronyK)
+  zBazy.sp.find((x) => x.conceptId === zadK[0]?.id && x.name === 'Rozwiązanie')?.content.includes('podstaw metrykę'), stronyK)
 check('zadania nie są węzłami ścieżki', !(await page.evaluate(async () => {
   const req = indexedDB.open('kompendium'); await new Promise((r) => (req.onsuccess = r))
   const q = req.result.transaction('paths').objectStore('paths').get('np'); await new Promise((r) => (q.onsuccess = r))
@@ -275,6 +275,41 @@ await page.waitForTimeout(500)
 check('Skrypt bez zadań', (await page.locator('.zadania-pasek').count()) === 0 && !(await page.locator('.script-body').innerText()).includes('Kula w metryce'))
 await page.click('.view-switch button:has-text("Nauka")')
 await page.waitForSelector('.panel-nauki')
+
+// --- Nauka: Linia tylko do czytania, sektor z prawego przycisku i klikaniem ---
+check('w Nauce nie ma pisania ani „Dołóż"', (await page.locator('.nauka-uklad .linear-seg .inline-title').count()) === 0 &&
+  !(await page.locator('.nauka-uklad .linear-append').isVisible()))
+await page.locator('.linear-seg[data-seg="nn2"] .linear-content').click({ button: 'right' })
+await page.waitForSelector('.menu-nauki')
+check('prawy przycisk: menu nauki zamiast wstawiania', (await page.locator('.menu-nauki').innerText()).includes('Dodaj do „Podstawy"') &&
+  (await page.locator('.linear-menu:has-text("Notatka")').count()) === 0)
+await page.click(".menu-nauki button:has-text('Dodaj do „Podstawy')")
+await page.waitForTimeout(400)
+d = await baza()
+check('„Dodaj do sektora" z prawego przycisku', d.nauka.find((j) => j.id === sektor.id).wezly.join() === 'nn0,nn1,nn2')
+await page.locator('.linear-seg[data-seg="nn2"] .linear-content').click({ button: 'right' })
+await page.click(".menu-nauki button:has-text('Wyjmij z „Podstawy')")
+await page.waitForTimeout(400)
+d = await baza()
+check('„Wyjmij z sektora" z prawego przycisku', d.nauka.find((j) => j.id === sektor.id).wezly.join() === 'nn0,nn1')
+await page.click('.karta-sektora[data-sektor="' + sektor.id + '"] button:has-text("Wybierz kafelki")')
+await page.locator('.linear-seg[data-seg="nn2"] .linear-content').click()
+await page.waitForTimeout(400)
+d = await baza()
+check('wybieranie: klik dokłada kafelek', d.nauka.find((j) => j.id === sektor.id).wezly.includes('nn2'))
+await page.locator('.linear-seg[data-seg="nn2"] .linear-content').click()
+await page.waitForTimeout(400)
+d = await baza()
+check('wybieranie: drugi klik wyjmuje', d.nauka.find((j) => j.id === sektor.id).wezly.join() === 'nn0,nn1')
+await page.click('.wybieranie-pasek button:has-text("Gotowe")')
+check('po „Gotowe" klik już nic nie zmienia', (await page.locator('.linear-view.wybieranie-sektora').count()) === 0)
+await page.click('.panel-nauki-akcje button:has-text("Nowy pusty sektor")')
+await podaj(page, 'Pusty')
+await page.waitForTimeout(400)
+check('pusty sektor od razu w trybie wybierania', (await page.locator('.wybieranie-pasek:has-text("Pusty")').count()) === 1)
+await page.click('.wybieranie-pasek button:has-text("Gotowe")')
+d = await baza()
+check('pusty sektor zapisany', d.nauka.some((j) => j.nazwa === 'Pusty' && j.wezly.length === 0))
 
 // --- test końcowy: najpierw nie wychodzi ---
 await page.click('.karta-sektora button:has-text("Test końcowy")')
@@ -307,7 +342,7 @@ for (let i = 0; i < 2; i++) {
 const z1 = page.locator('.sesja-element-zadanie').first()
 await z1.locator('textarea').fill('Definicja kuli, potem metryka dyskretna')
 await z1.locator('button:has-text("Sprawdź")').click()
-check('odsłonięte zadanie: najpierw metoda', (await z1.locator('.sesja-rozwiazanie .block-page.active').innerText()) === 'Metoda' &&
+check('odsłonięte zadanie: rozwiązanie', (await z1.locator('.sesja-rozwiazanie .block-page.active').innerText()) === 'Rozwiązanie' &&
   (await z1.locator('.sesja-rozwiazanie').innerText()).includes('podstaw metrykę'))
 await z1.locator('button:has-text("Tak")').click()
 const z2 = page.locator('.sesja-element-zadanie').nth(1)

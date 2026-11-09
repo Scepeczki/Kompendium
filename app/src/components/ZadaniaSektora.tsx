@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { BlockShell } from './BlockShell'
 import { Icon } from './Icon'
 import { CZATY, adresCzatu, czatWybrany, otworzCzat, podzielZadania, zlozPolecenie } from '../czat'
-import { odepnijZadanie, przesunZadanie, utworzZadania } from '../nauka'
+import { naprawTypZadan, odepnijZadanie, przesunZadanie, utworzZadania } from '../nauka'
 import { wez } from '../naukaUstawienia'
 import type { Concept, JednostkaNauki } from '../types'
 
@@ -12,6 +12,11 @@ import type { Concept, JednostkaNauki } from '../types'
  *  w bibliotece, a sektor pamięta tylko jego id. */
 export function useZadania(j: JednostkaNauki | undefined): Concept[] | undefined {
   const ids = j?.zadania ?? []
+  // zadania z rodzajem, którego nie ma (szare), dostają rodzaj „Zadanie"
+  useEffect(() => {
+    void naprawTypZadan(ids)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids.join()])
   return useLiveQuery(async () => {
     const cs = await db.concepts.bulkGet(ids)
     return cs.filter((c): c is Concept => !!c)
@@ -44,9 +49,9 @@ export function ListaZadan({
       </h4>
       {zadania.length === 0 && (
         <p className="hint">
-          Zadanie to kafelek ze stronami Treść, Rozwiązanie i Metoda. Mieszka w folderze ścieżki, a w Linii
+          Zadanie to kafelek rodzaju „Zadanie" ze stronami Treść i Rozwiązanie. Mieszka w folderze ścieżki, a w Linii
           stoi w zwiniętym pasku na końcu sektora (nie trafia do Skryptu ani PDF). W teście widać treść,
-          a rozwiązanie i metodę odtwarzasz z pamięci — chodzi o metodę, nie o liczenie.
+          a rozwiązanie odtwarzasz z pamięci — chodzi o pomysł i tok rozumowania, nie o liczenie.
         </p>
       )}
       {zadania.length > 0 && (
@@ -140,7 +145,6 @@ function GenerujZadania({ j, onGotowe }: { j: JednostkaNauki; onGotowe: () => vo
               {rozpoznane.map((z, i) => (
                 <li key={i}>
                   <strong>{z.nazwa || `Zadanie ${i + 1}`}</strong>
-                  {!z.metoda && <span className="znaczek znaczek-zalegle">bez metody</span>}
                   {!z.rozwiazanie && <span className="znaczek znaczek-zalegle">bez rozwiązania</span>}
                 </li>
               ))}

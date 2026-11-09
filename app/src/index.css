@@ -9376,3 +9376,58 @@ body.ciagne-szerokosc * {
 .sesja-oceny-koncowy {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
+/* --- widok Nauka: Linia tylko do czytania --- */
+.nauka-uklad .linear-side,
+.nauka-uklad .linear-append {
+  display: none;
+}
+
+/* wybieranie kafelków do sektora klikaniem */
+.linear-view.wybieranie-sektora .linear-seg:not(.linear-seg-sidenote) {
+  cursor: copy;
+}
+
+.linear-view.wybieranie-sektora .linear-seg:not(.linear-seg-sidenote):hover .linear-content {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-mala, 8px);
+}
+
+.linear-view.wybieranie-sektora .linear-seg:not(.w-sektorze) .linear-content {
+  opacity: 0.6;
+}
+
+.wybieranie-pasek {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-mala, 8px);
+  border: 1px solid color-mix(in srgb, var(--sektor, var(--accent)) 50%, transparent);
+  background: color-mix(in srgb, var(--sektor, var(--accent)) 10%, transparent);
+  font-size: var(--fs-3);
+}
+
+.wybieranie-pasek > span {
+  flex: 1;
+}
+
+.karta-sektora-sklad {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.karta-sektora.wybieranie {
+  box-shadow: 0 0 0 2px var(--sektor, var(--accent));
+}
+
+.menu-nauki-kropka {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--sektor, var(--muted));
+  margin: 0 3px 0 2px;
+}

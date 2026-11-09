@@ -46,6 +46,9 @@ interface Props {
   onStart?: (cel: CelSesji) => void
   /** Otwiera kafelek (zadanie) w edytorze. */
   onOtworz?: (conceptId: string) => void
+  /** Sektor, do którego wybiera się kafelki klikaniem w Linii. */
+  wybierany?: string | null
+  onWybieraj?: (id: string | null) => void
 }
 
 /** Pokazuje węzeł w Linii (przewija do niego). */
@@ -69,6 +72,8 @@ export function PanelNauki({
   onWybierz,
   onStart,
   onOtworz,
+  wybierany,
+  onWybieraj,
 }: Props) {
   const dlg = useDialogs()
   const jednostki = useLiveQuery(() => db.nauka.where('pathId').equals(pathId).toArray(), [pathId]) ?? []
@@ -136,6 +141,15 @@ export function PanelNauki({
     const wezly = ordered.filter((n) => zazOcenialne.includes(n.id)).map((n) => n.id)
     const id = await utworzSektor(pathId, nazwa.trim(), wezly)
     onWybierz(id)
+  }
+
+  /** Pusty sektor — kafelki wybiera się potem klikaniem w Linii. */
+  const pusty = async () => {
+    const nazwa = await dlg.prompt({ title: 'Nowy sektor', label: 'Nazwa sektora', value: '', confirmLabel: 'Utwórz' })
+    if (!nazwa?.trim()) return
+    const id = await utworzSektor(pathId, nazwa.trim(), [])
+    onWybierz(id)
+    onWybieraj?.(id)
   }
 
   const poziomy = [...new Set(ordered.filter((n) => n.kind === 'heading').map((n) => (n.kind === 'heading' ? n.level : 0)))].sort()
@@ -269,6 +283,9 @@ export function PanelNauki({
             >
               Sektor z zaznaczonych{zazOcenialne.length ? ` (${zazOcenialne.length})` : ''}
             </button>
+            <button className="btn" title="Pusty sektor — kafelki wybierzesz klikaniem w Linii" onClick={pusty}>
+              Nowy pusty sektor
+            </button>
             {poziomy.length > 0 && (
               <span className="panel-nauki-rozdzialy">
                 z rozdziałów:
@@ -280,10 +297,22 @@ export function PanelNauki({
               </span>
             )}
           </div>
+          {wybierany && sektory.some((s) => s.j.id === wybierany) && (
+            <div className="wybieranie-pasek" style={{ '--sektor': sektory.find((s) => s.j.id === wybierany)?.j.kolor } as React.CSSProperties}>
+              <span>
+                Wybierasz kafelki do <strong>„{sektory.find((s) => s.j.id === wybierany)?.j.nazwa}"</strong> — klikaj
+                w Linii, aby dodać albo wyjąć.
+              </span>
+              <button className="btn btn-primary btn-maly" onClick={() => onWybieraj?.(null)}>
+                Gotowe
+              </button>
+            </div>
+          )}
           {!sektory.length && (
             <p className="hint">
               Sektor to porcja nauki: kilka kafelków (rozsądnie {wez('sektorOd')}–{wez('sektorDo')}), które
-              mapujesz i powtarzasz razem. Zaznacz je w Linii Ctrl+klikiem albo zrób sektory z rozdziałów.
+              mapujesz i powtarzasz razem. Zaznacz je w Linii Ctrl+klikiem, zrób pusty sektor i wybierz kafelki
+              klikaniem albo kliknij prawym rozdział (w Linii lub w spisie treści) → „Zrób sektor z rozdziału".
             </p>
           )}
           <ul className="sektory-lista">
@@ -313,6 +342,11 @@ export function PanelNauki({
                 onDoloz={() => dolozDoSektora(s.j.id, zazOcenialne)}
                 onWyjmij={() => wyjmijZSektora(s.j.id, zazOcenialne)}
                 onOtworz={onOtworz}
+                wybieranie={wybierany === s.j.id}
+                onWybieranie={() => {
+                  onWybierz(s.j.id)
+                  onWybieraj?.(wybierany === s.j.id ? null : s.j.id)
+                }}
               />
             ))}
           </ul>
@@ -397,6 +431,8 @@ function KartaSektora({
   onDoloz,
   onWyjmij,
   onOtworz,
+  wybieranie,
+  onWybieranie,
 }: {
   s: { j: JednostkaNauki; wezly: PathNode[] }
   aktywny: boolean
@@ -415,6 +451,8 @@ function KartaSektora({
   onDoloz: () => void
   onWyjmij: () => void
   onOtworz?: (conceptId: string) => void
+  wybieranie?: boolean
+  onWybieranie?: () => void
 }) {
   const { j, wezly } = s
   const [menu, setMenu] = useState(false)
@@ -426,7 +464,7 @@ function KartaSektora({
   const spoza = zaznaczone.length - wTym
 
   return (
-    <li className={`karta-sektora ${aktywny ? 'aktywna' : ''}`} style={{ '--sektor': j.kolor } as React.CSSProperties} data-sektor={j.id}>
+    <li className={`karta-sektora ${aktywny ? 'aktywna' : ''} ${wybieranie ? 'wybieranie' : ''}`} style={{ '--sektor': j.kolor } as React.CSSProperties} data-sektor={j.id}>
       <div className="karta-sektora-glowa">
         <button className="karta-sektora-nazwa" onClick={onWybierz} title="Pokaż w Linii">
           <span className="karta-sektora-kropka" />
@@ -438,12 +476,29 @@ function KartaSektora({
         </button>
       </div>
       {uwaga && <p className="karta-sektora-uwaga">{uwaga}</p>}
+      <div className="karta-sektora-sklad">
+        <button
+          className={`btn btn-maly ${wybieranie ? 'btn-active' : ''}`}
+          title="Klikaj kafelki w Linii — każdy klik dodaje albo wyjmuje"
+          onClick={onWybieranie}
+        >
+          {wybieranie ? 'Gotowe' : 'Wybierz kafelki'}
+        </button>
+        {spoza > 0 && (
+          <button className="btn btn-maly" onClick={onDoloz}>
+            Dodaj zaznaczone ({spoza})
+          </button>
+        )}
+        {wTym > 0 && (
+          <button className="btn btn-maly" onClick={onWyjmij}>
+            Wyjmij zaznaczone ({wTym})
+          </button>
+        )}
+      </div>
       {menu && (
         <div className="karta-sektora-menu" onClick={() => setMenu(false)}>
           <button className="btn btn-maly" onClick={onNazwa}>Zmień nazwę</button>
           <button className="btn btn-maly" onClick={onMapa}>Mapa</button>
-          {spoza > 0 && <button className="btn btn-maly" onClick={onDoloz}>Dołóż zaznaczone ({spoza})</button>}
-          {wTym > 0 && <button className="btn btn-maly" onClick={onWyjmij}>Wyjmij zaznaczone ({wTym})</button>}
           {j.etap !== 'nowy' && <button className="btn btn-maly" onClick={onOdNowa}>Naucz od nowa</button>}
           <button className="btn btn-maly btn-danger" onClick={onUsun}>Usuń sektor</button>
         </div>

@@ -86,6 +86,8 @@ import {
 import { KontekstKafelka } from './KontekstKafelka'
 import { PanelNauki, type ZakladkaNauki } from './PanelNauki'
 import { PasekZadan } from './ZadaniaSektora'
+import { MenuNauki } from './MenuNauki'
+import { przelaczWSektorze } from '../nauka'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki } from '../types'
 import { ConceptPicker } from './ConceptPicker'
@@ -599,6 +601,9 @@ interface LinearViewProps {
   onZaznaczenie?: (ids: string[]) => void
   /** Klik w znaczek mapy na paśmie sektora. */
   onMapaSektora?: (sektorId: string) => void
+  /** Sektor, do którego wybiera się kafelki klikaniem (widok Nauka). */
+  wybieranySektor?: string | null
+  onWybieraj?: (sektorId: string | null) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 
@@ -1098,6 +1103,8 @@ function LinearView({
   trybNauki,
   onZaznaczenie,
   onMapaSektora,
+  wybieranySektor,
+  onWybieraj,
   onJumpToSource,
   onOpenConcept,
   onRenameSegment,
@@ -1400,6 +1407,10 @@ function LinearView({
   // wklejone kafelki stają za zaznaczonymi, a bez zaznaczenia za bieżącym
   useEffect(() => {
     if (!miejsceWklejenia) return
+    if (trybNauki) {
+      miejsceWklejenia.current = null
+      return
+    }
     miejsceWklejenia.current = () => {
       const zaz = ordered.filter((n) => zazSeg.has(n.id))
       if (zaz.length) return zaz[zaz.length - 1].id
@@ -1415,7 +1426,7 @@ function LinearView({
     const klawisz = (e: KeyboardEvent) => {
       // bez sprawdzania defaultPrevented: mapa ścieżki zajmuje Delete dla
       // siebie, nawet gdy na ekranie jest Linia
-      if (e.key === 'Delete' && zazSeg.size > 0 && !wPolu(e.target)) {
+      if (e.key === 'Delete' && zazSeg.size > 0 && !wPolu(e.target) && !trybNauki) {
         e.preventDefault()
         onRemoveMany(ordered.filter((n) => zazSeg.has(n.id)).map((n) => n.id))
         setZazSeg(new Set())
@@ -1437,7 +1448,7 @@ function LinearView({
     window.addEventListener('keydown', klawisz)
     return () => window.removeEventListener('keydown', klawisz)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zazSeg, ordered, typy])
+  }, [zazSeg, ordered, typy, trybNauki])
 
   /** Zwraca true, jeśli klik był zaznaczaniem — wtedy nic innego się nie dzieje. */
   const klikSegmentu = (e: React.MouseEvent, id: string): boolean => {
@@ -1586,7 +1597,9 @@ function LinearView({
   }
 
   const isOurs = (e: React.DragEvent) =>
-    e.dataTransfer.types.includes(MIME) || e.dataTransfer.types.includes(SEG_MIME)
+    // w widoku Nauka Linia jest tylko do czytania
+    !naukaRef.current.tryb &&
+    (e.dataTransfer.types.includes(MIME) || e.dataTransfer.types.includes(SEG_MIME))
 
   /** Sąsiedzi dla wstawienia względem segmentu o indeksie i. */
   const neighbors = (i: number, pos: 'before' | 'after') => ({
@@ -1651,10 +1664,23 @@ function LinearView({
     klikSegmentu,
     handleDrop,
   }
+  /** Widok Nauka: Linia tylko do czytania, a w trybie wybierania klik
+   *  dokłada kafelek do sektora albo go z niego wyjmuje. */
+  const naukaRef = useRef({ tryb: !!trybNauki, wybierany: wybieranySektor ?? null })
+  naukaRef.current = { tryb: !!trybNauki, wybierany: wybieranySektor ?? null }
 
   const apiSegmentu = useMemo<ApiSegmentu>(
     () => ({
       klik: (e, id) => {
+        const nauka = naukaRef.current
+        if (nauka.tryb && nauka.wybierany && !(e.ctrlKey || e.metaKey || e.shiftKey)) {
+          const n = biezaceRef.current.ordered.find((x) => x.id === id)
+          if (n && n.kind !== 'comment') {
+            e.preventDefault()
+            void przelaczWSektorze(nauka.wybierany, id)
+          }
+          return
+        }
         // zaznaczamy tylko z klawiszem — zwykły klik ma nadal trafiać
         // w treść (odnośniki, przełączanie stron)
         if (e.ctrlKey || e.metaKey || e.shiftKey) {
@@ -2009,7 +2035,7 @@ function LinearView({
 
   return (
     <div
-      className="linear-view"
+      className={`linear-view ${wybieranySektor ? 'wybieranie-sektora' : ''}`}
       ref={widokRef}
       /* Kliknięcie obok kolumny gasi zaznaczenie — tak samo jak wszędzie
          indziej. Bez tego zaznaczenie zostawało do następnego Ctrl+kliku
@@ -2038,8 +2064,8 @@ function LinearView({
     >
       <Outline
         items={outline}
-        onMove={onMoveSegment}
-        onMoveSekcja={onMoveSegments}
+        onMove={trybNauki ? () => {} : onMoveSegment}
+        onMoveSekcja={trybNauki ? () => {} : onMoveSegments}
         biezacy={biezacy}
         onPoziom={onPoziomRozdzialu && poziomSekcji}
         onMenu={(e, nodeId) => {
@@ -2192,7 +2218,37 @@ function LinearView({
         onOpenConcept={(id) => onOpenConcept?.(id)}
       />
 
-      {segMenu &&
+      {segMenu && trybNauki && (() => {
+        const sasiad = ordered[segMenu.index]
+        const zaz = ordered.filter((n) => zazSeg.has(n.id)).map((n) => n.id)
+        const cele = segMenu.przerwa || !sasiad ? [] : zazSeg.has(sasiad.id) && zaz.length > 1 ? zaz : [sasiad.id]
+        const nazwa = (n: PathNode) =>
+          n.kind === 'heading'
+            ? n.text || 'rozdział'
+            : n.kind === 'block'
+              ? (n.nazwa ?? conceptById(n.conceptId)?.name ?? 'kafelek')
+              : n.kind === 'fusion'
+                ? n.name || 'grupa'
+                : n.kind === 'comment'
+                  ? 'komentarz'
+                  : 'notatka'
+        return (
+          <MenuNauki
+            x={segMenu.x}
+            y={segMenu.y}
+            pathId={pathId}
+            wezel={segMenu.przerwa ? undefined : sasiad}
+            cele={cele}
+            ordered={ordered}
+            sektory={sektory ?? []}
+            nazwaWezla={nazwa}
+            onZamknij={() => setSegMenu(null)}
+            onOtworz={onOpenConcept}
+            onWybieraj={onWybieraj}
+          />
+        )
+      })()}
+      {segMenu && !trybNauki &&
         (() => {
           const { afterId, beforeId } = neighbors(segMenu.index, segMenu.pos)
           const sasiad = ordered[segMenu.index]
@@ -2836,6 +2892,11 @@ function CanvasInner({
   const [zaznaczoneWLinii, setZaznaczoneWLinii] = useState<string[]>([])
   const [zakladkaNauki, setZakladkaNauki] = useState<ZakladkaNauki>('sektory')
   const [sektorNauki, setSektorNauki] = useState<string | null>(null)
+  /** Sektor, do którego wybiera się kafelki klikaniem w Linii. */
+  const [wybieranySektor, setWybieranySektor] = useState<string | null>(null)
+  useEffect(() => {
+    if (mode !== 'nauka') setWybieranySektor(null)
+  }, [mode])
   // Nauka stoi tam, gdzie zwykle PDF — wchodząc w nią, chowamy panel PDF
   const pdfRef = useRef({ pdfWidoczny, onPrzelaczPdf })
   pdfRef.current = { pdfWidoczny, onPrzelaczPdf }
@@ -4334,7 +4395,7 @@ function CanvasInner({
             if (n.kind === 'block') onOpenConcept(n.conceptId)
             else if (n.kind === 'fusion') setKomponowany(n.id)
           }}
-          onRenameSegment={(nodeId, nazwa) => {
+          onRenameSegment={mode === 'nauka' ? undefined : (nodeId, nazwa) => {
             api.updateData(nodeId, { nazwa })
             // w folderze ścieżki nazwa jest jedna: po chwili ciszy idzie do
             // kafelka, a ścieżka przestaje trzymać swoją
@@ -4356,20 +4417,20 @@ function CanvasInner({
           /* Tekst pisany w ścieżce zostaje w ścieżce. Kafelek w bibliotece
              zachowuje swoją treść — poprawiona tutaj definicja nie zmienia
              tamtej i nie rozjeżdża innych ścieżek. */
-          onEditBlock={(nodeId, versionId, subpageId, md) =>
+          onEditBlock={mode === 'nauka' ? undefined : (nodeId, versionId, subpageId, md) =>
             zapiszTresc(nodeId, versionId, subpageId, md)
           }
           onWyslijDoBiblioteki={wyslijTekst}
           onWrocDoKlocka={(nodeId, versionId, subpageId) =>
             wrocDoKlocka(nodeId, kluczWlasnej(versionId, subpageId))
           }
-          onEditNote={(id, md) => api.updateData(id, { text: md })}
-          onEditHeading={(id, text) => api.updateData(id, { text })}
-          onPoziomRozdzialu={(id, level) => api.updateData(id, { level })}
-          onRozmiarRozdzialu={(id, rozmiar) => api.updateData(id, { rozmiar })}
-          onRozmiarTekstu={(id, rozmiarTekstu) => api.updateData(id, { rozmiarTekstu })}
-          onRenameFusion={(id, name) => api.updateData(id, { name })}
-          onEditFusion={(id, md, stronaId) => zapiszTrescBloku(id, md, stronaId)}
+          onEditNote={mode === 'nauka' ? undefined : (id, md) => api.updateData(id, { text: md })}
+          onEditHeading={mode === 'nauka' ? undefined : (id, text) => api.updateData(id, { text })}
+          onPoziomRozdzialu={mode === 'nauka' ? undefined : (id, level) => api.updateData(id, { level })}
+          onRozmiarRozdzialu={mode === 'nauka' ? undefined : (id, rozmiar) => api.updateData(id, { rozmiar })}
+          onRozmiarTekstu={mode === 'nauka' ? undefined : (id, rozmiarTekstu) => api.updateData(id, { rozmiarTekstu })}
+          onRenameFusion={mode === 'nauka' ? undefined : (id, name) => api.updateData(id, { name })}
+          onEditFusion={mode === 'nauka' ? undefined : (id, md, stronaId) => zapiszTrescBloku(id, md, stronaId)}
           onUnfuse={(id) => api.unfuse(id)}
           onToggleSide={(id) => {
             const n = rfNodes.find((x) => x.id === id)
@@ -4415,6 +4476,11 @@ function CanvasInner({
           trybNauki={mode === 'nauka'}
           onZaznaczenie={setZaznaczoneWLinii}
           onMapaSektora={pokazMapeSektora}
+          wybieranySektor={mode === 'nauka' ? wybieranySektor : null}
+          onWybieraj={(id) => {
+            setWybieranySektor(id)
+            if (id) setSektorNauki(id)
+          }}
         />
         {mode === 'nauka' && (
           <PanelNauki
@@ -4427,6 +4493,8 @@ function CanvasInner({
             onWybierz={setSektorNauki}
             onStart={onStartNauka}
             onOtworz={onOpenConcept}
+            wybierany={wybieranySektor}
+            onWybieraj={setWybieranySektor}
           />
         )}
         </div>
