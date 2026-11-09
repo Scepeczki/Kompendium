@@ -7,9 +7,9 @@
  *  odtworzyć, a wpisów nigdy się nie zmienia. */
 
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
-import { db } from './db'
+import { createConcept, createSubpage, db } from './db'
 import { topoOrder } from './topo'
-import { czatWZero, wez } from './naukaUstawienia'
+import { czatWZero, wez, zadaniaWZero } from './naukaUstawienia'
 import type {
   JednostkaNauki,
   KartaFsrs,
@@ -17,6 +17,7 @@ import type {
   PamiecKafelka,
   PathNode,
   Przypomnienie,
+  RodzajRozszerzonej,
   WpisNauki,
 } from './types'
 
@@ -270,7 +271,7 @@ export async function naukaOdNowa(id: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Powtórka zero: mapowanie → przerwa → test
+// Powtórka zero: mapowanie → przerwa → test (→ czat → zadania → test końcowy)
 
 export async function zacznijMapowanie(id: string) {
   await zmienJednostke(id, { etap: 'mapowanie', etapOd: teraz().toISOString() })
@@ -310,8 +311,8 @@ export interface WynikSesji {
   odpowiedzi?: Record<string, string>
   czasMs: number
   trudny?: boolean
-  /** Powtórka rozszerzona: czym (czat albo trudny tryb). */
-  rozszerzona?: 'czat' | 'trudny'
+  /** Powtórka rozszerzona: czym (czat, zadania albo trudny tryb). */
+  rozszerzona?: RodzajRozszerzonej
   /** Wynik testu czatem w powtórce rozszerzonej. */
   czat?: { zaliczone: boolean; luki?: string }
   /** Ścieżka sesji (do zapamiętania, gdzie kafelek był powtarzany). */
@@ -328,7 +329,16 @@ export interface PoSesji {
   uparte: string[]
   /** Powtórka zero idzie dalej: test czatem. */
   czat?: boolean
+  /** Powtórka zero idzie dalej: zadania i test końcowy. */
+  zadania?: boolean
+  /** To był test końcowy (zaliczony, jeśli jest termin). */
+  koncowy?: boolean
 }
+
+/** Klucz zadania w sesji. Zadania liczą się do oceny sektora, ale nie mają
+ *  własnej pamięci — wracają w powtórkach rozszerzonych, nie osobno. */
+export const kluczZadania = (conceptId: string) => `zadanie:${conceptId}`
+export const czyZadanie = (klucz: string) => klucz.startsWith('zadanie:')
 
 /** Zapisuje sesję: nowy termin, pamięć kafelków, wpis historii. */
 export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
@@ -340,6 +350,10 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
   await db.transaction('rw', db.nauka, db.pamiec, db.historia, async () => {
     const j = w.jednostkaId ? await db.nauka.get(w.jednostkaId) : undefined
     const zero = !!j && j.etap !== 'powtorki'
+    // test końcowy (po zadaniach): karta już jest z pierwszego testu, więc
+    // terminu nie rusza — zaliczony kończy powtórkę zero, niezaliczony
+    // zostawia sektor przy zadaniach z zaznaczonymi miejscami do poprawy
+    const koncowy = !!j && j.etap === 'zadania'
     // test powtórki zero, który nie wyszedł: bez terminu, wracasz do mapowania
     // tych miejsc, które nie szły — pamięci kafelków jeszcze nie ruszamy
     const nieudanyStart = !!j && zero && !j.karta && w.ocena === 1
@@ -350,7 +364,19 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
         .filter(([, p]) => p !== 'tak')
         .map(([k]) => w.wezlyKafelkow[k])
         .filter(Boolean)
-      if (nieudanyStart && j.rodzaj === 'fiszka') {
+      if (koncowy) {
+        const zle = w.ocena === 1
+        await db.nauka.update(j.id, {
+          etap: zle ? 'zadania' : 'powtorki',
+          etapOd: iso,
+          doPoprawy: zle ? doPoprawy : undefined,
+          ostatnia: iso,
+          zmieniono: iso,
+        })
+        wynik.koncowy = true
+        if (zle) wynik.doPoprawy = doPoprawy
+        else wynik.termin = j.termin
+      } else if (nieudanyStart && j.rodzaj === 'fiszka') {
         // fiszka nie ma mapowania: zostaje nowa i wraca jeszcze dziś
         await db.nauka.update(j.id, { ostatnia: iso, zmieniono: iso })
       } else if (nieudanyStart) {
@@ -368,11 +394,13 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
         const powtorek = zero ? j.powtorek : j.powtorek + 1
         // pierwszy zaliczony test sektora: powtórka zero idzie dalej — do czatu
         const doCzatu = zero && !j.karta && j.rodzaj === 'sektor' && czatWZero() && w.ocena !== 1
+        // bez czatu od razu zadania (też opcjonalne)
+        const doZadan = zero && !j.karta && j.rodzaj === 'sektor' && !doCzatu && zadaniaWZero() && w.ocena !== 1
         const rozsz = !!w.rozszerzona && !zero
         await db.nauka.update(j.id, {
           karta,
           termin: karta.due,
-          etap: w.ocena === 1 ? 'mapowanie' : doCzatu ? 'czat' : 'powtorki',
+          etap: w.ocena === 1 ? 'mapowanie' : doCzatu ? 'czat' : doZadan ? 'zadania' : 'powtorki',
           etapOd: iso,
           doPoprawy: w.ocena === 1 ? doPoprawy : undefined,
           powtorek,
@@ -384,13 +412,15 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
         })
         wynik.termin = karta.due
         if (doCzatu) wynik.czat = true
+        if (doZadan) wynik.zadania = true
         if (w.ocena === 1) wynik.doPoprawy = doPoprawy
       }
     }
 
-    // pamięć kafelków
-    if (!nieudanyStart) {
+    // pamięć kafelków (test końcowy jej nie rusza — kafelki oceniłeś dziś w pierwszym teście)
+    if (!nieudanyStart && !koncowy) {
       for (const [klucz, p] of Object.entries(w.kafelki)) {
+        if (czyZadanie(klucz)) continue
         const stara = await db.pamiec.get(klucz)
         // kafelek powtarzany osobno dostaje ocenę z całej sesji, w sektorze —
         // z własnego zaznaczenia
@@ -432,7 +462,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
       kiedy: iso,
       jednostkaId: j?.id,
       klucz: w.klucz,
-      typ: w.klucz ? 'kafelek' : zero ? 'test' : 'powtorka',
+      typ: w.klucz ? 'kafelek' : koncowy ? 'koncowy' : zero ? 'test' : 'powtorka',
       trudny: w.trudny || undefined,
       rozszerzona: w.rozszerzona,
       czat: w.czat ? (w.czat.zaliczone ? 'zaliczone' : 'luki') : undefined,
@@ -449,10 +479,84 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
   return wynik
 }
 
-/** Co rozszerza tę powtórkę: na zmianę czat i trudny tryb (później też
- *  zadania). Zaczyna czat — on sprawdza najwięcej. */
-export function rodzajRozszerzonej(j: JednostkaNauki): 'czat' | 'trudny' {
-  return (j.rozszerzonych ?? 0) % 2 === 0 ? 'czat' : 'trudny'
+/** Co rozszerza tę powtórkę: na zmianę czat, zadania (jeśli sektor je ma)
+ *  i trudny tryb. Zaczyna czat — on sprawdza najwięcej. */
+export function rodzajRozszerzonej(j: JednostkaNauki, ileZadan = j.zadania?.length ?? 0): RodzajRozszerzonej {
+  const kolej: RodzajRozszerzonej[] = ileZadan > 0 ? ['czat', 'zadanie', 'trudny'] : ['czat', 'trudny']
+  return kolej[(j.rozszerzonych ?? 0) % kolej.length]
+}
+
+/** Które zadania wchodzą do tej powtórki rozszerzonej: kilka naraz,
+ *  a następnym razem kolejne — po kolei przez wszystkie. */
+export function zadaniaDoPowtorki(j: JednostkaNauki, wazne: string[]): string[] {
+  const n = wazne.length
+  if (!n) return []
+  const k = Math.min(n, wez('zadanWPowtorce'))
+  const runda = Math.floor((j.rozszerzonych ?? 0) / 3)
+  const od = (runda * k) % n
+  return Array.from({ length: k }, (_, i) => wazne[(od + i) % n])
+}
+
+// ---------------------------------------------------------------------------
+// Zadania sektora
+
+export interface NoweZadanie {
+  nazwa?: string
+  tresc?: string
+  rozwiazanie?: string
+  metoda?: string
+}
+
+/** Strony zadania. Treść widać w teście, rozwiązanie i metoda są zakryte. */
+export const STRONY_ZADANIA = ['Rozwiązanie', 'Metoda'] as const
+
+/** Tworzy kafelki-zadania w folderze ścieżki i przypina je do sektora. */
+export async function utworzZadania(sektorId: string, lista: NoweZadanie[]): Promise<string[]> {
+  const j = await db.nauka.get(sektorId)
+  if (!j?.pathId) return []
+  const ids: string[] = []
+  const bylo = j.zadania?.length ?? 0
+  for (const [i, z] of lista.entries()) {
+    const id = await createConcept('zadanie', j.pathId)
+    const c = await db.concepts.get(id)
+    if (!c) continue
+    await db.concepts.update(id, { name: z.nazwa?.trim() || `Zadanie ${bylo + i + 1}` })
+    await db.versions.update(c.currentVersionId, { content: z.tresc?.trim() ?? '' })
+    const tresci = [z.rozwiazanie, z.metoda]
+    for (const [k, nazwa] of STRONY_ZADANIA.entries()) {
+      const s = await createSubpage(id, c.currentVersionId, nazwa)
+      if (tresci[k]?.trim()) await db.subpages.update(s, { content: tresci[k]!.trim() })
+    }
+    ids.push(id)
+  }
+  const pozniej = await db.nauka.get(sektorId)
+  await zmienJednostke(sektorId, { zadania: [...(pozniej?.zadania ?? []), ...ids] })
+  return ids
+}
+
+/** Odpina zadanie od sektora. Kafelek zostaje w folderze ścieżki. */
+export async function odepnijZadanie(sektorId: string, conceptId: string) {
+  const j = await db.nauka.get(sektorId)
+  if (!j) return
+  await zmienJednostke(sektorId, { zadania: (j.zadania ?? []).filter((x) => x !== conceptId) })
+}
+
+/** Zmienia kolejność zadań (o jedno miejsce w górę albo w dół). */
+export async function przesunZadanie(sektorId: string, conceptId: string, o: -1 | 1) {
+  const j = await db.nauka.get(sektorId)
+  const l = [...(j?.zadania ?? [])]
+  const i = l.indexOf(conceptId)
+  const k = i + o
+  if (i < 0 || k < 0 || k >= l.length) return
+  const x = l[i]
+  l[i] = l[k]
+  l[k] = x
+  await zmienJednostke(sektorId, { zadania: l })
+}
+
+/** Bez zadań tym razem — powtórka zero kończy się bez testu końcowego. */
+export async function pominZadania(id: string) {
+  await zmienJednostke(id, { etap: 'powtorki', doPoprawy: undefined })
 }
 
 /** Wynik testu czatem w powtórce zero. Zaliczony kończy powtórkę zero; luki
@@ -463,7 +567,7 @@ export async function wynikCzatu(id: string, zaliczone: boolean, luki?: string) 
     const j = await db.nauka.get(id)
     if (!j) return
     await db.nauka.update(id, {
-      etap: zaliczone && j.etap === 'czat' ? 'powtorki' : j.etap,
+      etap: zaliczone && j.etap === 'czat' ? (zadaniaWZero() ? 'zadania' : 'powtorki') : j.etap,
       luki: zaliczone ? undefined : luki?.trim() || j.luki,
       zmieniono: iso,
     })
@@ -482,7 +586,7 @@ export async function wynikCzatu(id: string, zaliczone: boolean, luki?: string) 
 export async function pominCzat(id: string) {
   const iso = teraz().toISOString()
   await db.transaction('rw', db.nauka, db.historia, async () => {
-    await db.nauka.update(id, { etap: 'powtorki', luki: undefined, zmieniono: iso })
+    await db.nauka.update(id, { etap: zadaniaWZero() ? 'zadania' : 'powtorki', luki: undefined, zmieniono: iso })
     await db.historia.add({ id: uid(), kiedy: iso, jednostkaId: id, typ: 'czat', czat: 'pominiety' })
   })
 }
@@ -553,7 +657,7 @@ export interface Pozycja {
 export interface Plan {
   dzis: Pozycja[]
   jutro: Pozycja[]
-  /** Powtórka zero w toku: mapowanie albo przerwa. */
+  /** Powtórka zero w toku: mapowanie, przerwa, czat albo zadania. */
   wToku: JednostkaNauki[]
   /** Uparte kafelki (wiele wpadek). */
   uparte: { pamiec: PamiecKafelka; nazwa: string }[]
@@ -593,7 +697,7 @@ export async function planNauki(kiedy = teraz()): Promise<Plan> {
 
   for (const j of jednostki) {
     if (j.rodzaj === 'sektor' && (!j.pathId || !sciezka.has(j.pathId))) continue
-    if (j.etap === 'mapowanie' || j.etap === 'przerwa' || j.etap === 'czat') {
+    if (j.etap === 'mapowanie' || j.etap === 'przerwa' || j.etap === 'czat' || j.etap === 'zadania') {
       wToku.push(j)
       continue
     }

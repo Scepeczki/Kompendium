@@ -214,16 +214,25 @@ osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
 4. **Test czatem** (etap 2): jedno stałe polecenie, czat jest egzaminatorem,
    nie nauczycielem. Wynik źle → luki → poprawka mapowania → dogrywka tylko
    z luk.
-5. **Zadania** (etap 3, opcjonalne): z podręcznika albo wygenerowane czatem;
-   rozwiązanie i metoda wchodzą do treści sektora.
-6. **Test końcowy**, zakryty, już z zadaniami. Zaliczony → sektor idzie do
-   powtórek.
+5. **Zadania** (opcjonalne, można je pominąć jednym kliknięciem): z
+   podręcznika albo wygenerowane czatem. Zadanie to kafelek ze stronami
+   Treść / Rozwiązanie / Metoda; mieszka w folderze ścieżki i jest przypięte
+   do sektora. W Linii stoi w zwiniętym pasku „Zadania" na końcu sektora,
+   do Skryptu ani PDF nie trafia. Rozwiązanie i metoda wchodzą do treści
+   sektora (także tej dla czatu); metodę warto przeanalizować i dopisać do
+   mapy. Czat układa zadania w stałym formacie, a aplikacja tnie wklejoną
+   odpowiedź na kafelki.
+6. **Test końcowy**, zakryty, już z zadaniami: treść zadania widać, metodę
+   i rozwiązanie odtwarzasz z pamięci (chodzi o metodę, nie o liczenie).
+   Termin z pierwszego testu zostaje. Zaliczony → sektor idzie do powtórek;
+   niezaliczony → poprawiasz zaznaczone miejsca i robisz go jeszcze raz.
 
 ### Powtórki
 
 Zwykła powtórka jest bez czatu: zakryj, napisz, odsłoń, oceń. **Co jakiś
-czas** powtórka jest **rozszerzona** (czat, zadanie albo trudny tryb, na
-zmianę), nigdy w pierwszych dwóch: domyślnie co 3. powtórkę, a gdy terminy
+czas** powtórka jest **rozszerzona** (czat, zadania albo trudny tryb, na
+zmianę; zadania tylko w sektorze, który je ma — po kilka naraz, za każdym
+razem kolejne), nigdy w pierwszych dwóch: domyślnie co 3. powtórkę, a gdy terminy
 się oddalą (ponad 60 dni), co 2. Terminy liczy **FSRS** (darmowy algorytm
 z Anki) przy celu **95%**, ustawialnym do 97%.
 

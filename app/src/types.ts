@@ -505,9 +505,13 @@ export interface KartaFsrs {
 }
 
 /** Gdzie jest jednostka w nauce.
- *  nowy → mapowanie → przerwa (po niej test) → czat → powtorki. Nieudany test (i „Nie
- *  pamiętam" w powtórce) wraca do mapowania tylko tych miejsc, które nie szły. */
-export type EtapNauki = 'nowy' | 'mapowanie' | 'przerwa' | 'czat' | 'powtorki'
+ *  nowy → mapowanie → przerwa (po niej test) → czat → zadania (po nich test
+ *  końcowy) → powtorki. Nieudany test (i „Nie pamiętam" w powtórce) wraca do
+ *  mapowania tylko tych miejsc, które nie szły. */
+export type EtapNauki = 'nowy' | 'mapowanie' | 'przerwa' | 'czat' | 'zadania' | 'powtorki'
+
+/** Czym jest powtórka rozszerzona: czat, zadania albo trudny tryb (na zmianę). */
+export type RodzajRozszerzonej = 'czat' | 'zadanie' | 'trudny'
 
 /** Ocena jednego kafelka przy odsłonięciu. */
 export type Przypomnienie = 'tak' | 'czesciowo' | 'nie'
@@ -553,8 +557,14 @@ export interface JednostkaNauki {
   ostatnia?: string
   /** Luki z ostatniego testu czatem — do poprawy mapowania i dogrywki. */
   luki?: string
-  /** Ile było powtórek rozszerzonych (wybiera, co tym razem: czat czy trudny tryb). */
+  /** Ile było powtórek rozszerzonych (wybiera, co tym razem: czat, zadania
+   *  czy trudny tryb). */
   rozszerzonych?: number
+  /** Zadania sektora: kafelki (id) w folderze ścieżki, w tej kolejności.
+   *  Nie są węzłami Linii, więc nie trafiają do Skryptu ani PDF — w Linii
+   *  stoją w zwiniętym pasku na końcu sektora. Odpięcie zadania nie usuwa
+   *  kafelka. */
+  zadania?: string[]
   utworzono: string
   zmieniono: string
 }
@@ -587,11 +597,12 @@ export interface WpisNauki {
   jednostkaId?: string
   /** Kafelek powtarzany osobno (słaby albo nowy w nauczonym sektorze). */
   klucz?: string
-  typ: 'test' | 'powtorka' | 'kafelek' | 'od-nowa' | 'czat'
+  /** `koncowy` — test końcowy powtórki zero, już z zadaniami. */
+  typ: 'test' | 'powtorka' | 'kafelek' | 'od-nowa' | 'czat' | 'koncowy'
   /** Trudny tryb (zakryte także nazwy kafelków). */
   trudny?: boolean
   /** Powtórka rozszerzona: co ją rozszerzało. */
-  rozszerzona?: 'czat' | 'trudny'
+  rozszerzona?: RodzajRozszerzonej
   /** Test czatem: wynik (albo pominięty) i luki, które wypisał czat. */
   czat?: 'zaliczone' | 'luki' | 'pominiety'
   luki?: string

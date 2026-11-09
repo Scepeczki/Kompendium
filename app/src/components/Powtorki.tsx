@@ -197,7 +197,13 @@ function WToku({
       <span className="powtorki-rodzaj rodzaj-sektor">Sektor</span>
       <span className="powtorki-nazwa">{j.nazwa}</span>
       <span className="powtorki-info">
-        {j.etap === 'czat'
+        {j.etap === 'zadania'
+          ? j.doPoprawy?.length
+            ? `test końcowy — do poprawy (${j.doPoprawy.length})`
+            : j.zadania?.length
+              ? `zadania (${j.zadania.length}) — potem test końcowy`
+              : 'zadania (opcjonalne) — potem test końcowy'
+          : j.etap === 'czat'
           ? j.luki
             ? 'luki z czatu — poprawki i dogrywka'
             : 'czeka na test czatem'
@@ -209,7 +215,11 @@ function WToku({
             ? 'po przerwie — test gotowy'
             : `przerwa · test za ${zostalo} min`}
       </span>
-      {j.etap === 'przerwa' && testOtwarty(j) ? (
+      {j.etap === 'zadania' && j.zadania?.length ? (
+        <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id })}>
+          Test końcowy
+        </button>
+      ) : j.etap === 'przerwa' && testOtwarty(j) ? (
         <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id })}>
           Zacznij test
         </button>

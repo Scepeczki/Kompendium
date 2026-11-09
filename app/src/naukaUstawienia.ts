@@ -41,10 +41,12 @@ export const NAUKA = {
   sektorDo: u('sektorDo', 'Sektor najwięcej', 'Większy sektor dostaje cichą uwagę, że lepiej go podzielić.', 12, 2, 100, 'kafelków'),
   przerwa: u('przerwa', 'Przerwa przed testem', 'Po mapowaniu test odblokowuje się dopiero po tylu minutach — zaraz po nauce wszystko jeszcze „siedzi" w głowie.', 20, 0, 180, 'min'),
   przypomnij: u('przypomnij', 'Przypomnienie o teście', 'Po tylu minutach od końca mapowania przychodzi powiadomienie.', 25, 0, 240, 'min'),
-  rozszOd: u('rozszOd', 'Powtórka rozszerzona od', 'Od której powtórki może się zdarzyć rozszerzona (trudny tryb, a później czat i zadania).', 3, 1, 20, '. powtórki'),
+  rozszOd: u('rozszOd', 'Powtórka rozszerzona od', 'Od której powtórki może się zdarzyć rozszerzona (czat, zadania albo trudny tryb).', 3, 1, 20, '. powtórki'),
   rozszCo: u('rozszCo', 'Rozszerzona co', 'Co ile powtórek, póki terminy są bliskie.', 3, 1, 20, 'powtórki'),
   rozszDaleko: u('rozszDaleko', 'Dalekie terminy od', 'Gdy odstęp między powtórkami jest co najmniej taki…', 60, 1, 3650, 'dni'),
   rozszCoDaleko: u('rozszCoDaleko', 'Rozszerzona przy dalekich', '…rozszerzona wypada co tyle powtórek.', 2, 1, 20, 'powtórki'),
+  zadanIle: u('zadanIle', 'Zadań z czatu', 'Ile zadań układa czat za jednym razem.', 3, 1, 10, 'zadań'),
+  zadanWPowtorce: u('zadanWPowtorce', 'Zadań w powtórce', 'Ile zadań sektora wchodzi do powtórki rozszerzonej z zadaniami (za każdym razem następne).', 2, 1, 20, 'zadań'),
   uparty: u('uparty', 'Uparty kafelek po', 'Po tylu wpadkach kafelek dostaje radę „przemapuj go".', 4, 2, 30, 'wpadkach'),
   progDobrze: u('progDobrze', '„Dobrze" do', 'Jaki odsetek kafelków może nie pójść (Częściowo albo Nie), a sektor wciąż jest „Dobrze".', 20, 0, 100, '%'),
   progNie: u('progNie', '„Nie pamiętam" od', 'Powyżej takiego odsetka sektor jest „Nie pamiętam" i wraca do mapowania tych miejsc.', 50, 0, 100, '%'),
@@ -115,5 +117,12 @@ export function ustawZasady(t: string) {
 export const czatWZero = () => localStorage.getItem('ui.nauka.czatWZero') !== '0'
 export function ustawCzatWZero(v: boolean) {
   localStorage.setItem('ui.nauka.czatWZero', v ? '1' : '0')
+  window.dispatchEvent(new Event('komp:ui'))
+}
+
+/** Czy w powtórce zero po czacie są zadania (opcjonalne — zawsze można je pominąć). */
+export const zadaniaWZero = () => localStorage.getItem('ui.nauka.zadaniaWZero') !== '0'
+export function ustawZadaniaWZero(v: boolean) {
+  localStorage.setItem('ui.nauka.zadaniaWZero', v ? '1' : '0')
   window.dispatchEvent(new Event('komp:ui'))
 }

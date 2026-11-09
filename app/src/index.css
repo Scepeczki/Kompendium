@@ -9194,3 +9194,185 @@ body.ciagne-szerokosc * {
   align-items: center;
   cursor: pointer;
 }
+
+/* --- zadania sektora --- */
+.zadania-sektora {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+
+.zadania-sektora-glowa {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+
+.zadania-sektora .hint {
+  margin: 0;
+  font-size: var(--fs-2);
+}
+
+.zadania-lista {
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-3);
+}
+
+.zadania-lista li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.zadania-lista li::marker {
+  color: var(--muted);
+}
+
+.zadania-nazwa {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 1px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zadania-nazwa:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.zadania-lista .do-poprawy .zadania-nazwa {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.zadania-akcje {
+  display: inline-flex;
+  gap: 1px;
+  opacity: 0.55;
+}
+
+.zadania-lista li:hover .zadania-akcje {
+  opacity: 1;
+}
+
+.zadania-przyciski {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.zadania-generuj {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.zadania-generuj > .btn {
+  align-self: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+
+.zadania-podglad {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: var(--fs-3);
+}
+
+.zadania-podglad li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.karta-sektora-rada {
+  margin: 0;
+  font-size: var(--fs-2);
+}
+
+/* pasek „Zadania (N)" na końcu sektora w Linii */
+.zadania-pasek {
+  margin: 4px 0 2px;
+  border: 1px dashed color-mix(in srgb, var(--sektor, var(--line)) 55%, var(--line));
+  border-radius: var(--r-mala, 8px);
+  background: color-mix(in srgb, var(--sektor, var(--muted)) 5%, transparent);
+}
+
+.zadania-pasek-glowa {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 5px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.zadania-pasek-glowa:hover {
+  color: var(--ink);
+}
+
+.zadania-pasek-strzalka {
+  display: inline-flex;
+  transition: transform 0.12s;
+  color: var(--sektor, var(--muted));
+}
+
+.zadania-pasek.otwarty .zadania-pasek-strzalka {
+  transform: rotate(90deg);
+}
+
+.zadania-pasek-sektor {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: var(--fs-2);
+}
+
+.zadania-pasek-tresc {
+  padding: 0 10px 6px;
+}
+
+/* zadania w sesji */
+.sesja-zadania {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sesja-zadania > .hint {
+  margin: 0;
+}
+
+.sesja-zadanie-tresc {
+  margin: 4px 0 8px;
+}
+
+.sesja-rozwiazanie .block-pages {
+  margin-bottom: 6px;
+}
+
+.sesja-oceny-koncowy {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}

@@ -7,18 +7,21 @@ import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Icon } from './Icon'
 import { TestCzatem } from './TestCzatem'
+import { useZadania } from './ZadaniaSektora'
 import { eksperyment, otworzCzat, zlozPolecenie } from '../czat'
 import {
   NAZWY_OCEN,
   czyRozszerzona,
   dniDo,
   kluczWezla,
+  kluczZadania,
   ocenialny,
   opisDni,
   podglad,
   podpowiedz,
   rodzajRozszerzonej,
   wezlySektora,
+  zadaniaDoPowtorki,
   zapiszSesje,
   type Ocena,
   type PoSesji,
@@ -30,7 +33,9 @@ import {
   type Concept,
   type PathNode,
   type Przypomnienie,
+  type RodzajRozszerzonej,
   type SourceRef,
+  type Subpage,
 } from '../types'
 
 /** Co powtarzamy: sektor / fiszkę albo jeden kafelek osobno. */
@@ -56,6 +61,8 @@ interface Pozycja {
   conceptId?: string
   nazwa: string
   typ?: string
+  /** Zadanie sektora: treść widać, rozwiązanie i metoda są zakryte. */
+  zadanie?: boolean
 }
 
 const NAPISY: Record<Przypomnienie, string> = { tak: 'Tak', czesciowo: 'Częściowo', nie: 'Nie' }
@@ -97,9 +104,9 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   // ---- co jest w sesji ----
   const sektor = j?.rodzaj === 'sektor' ? j : undefined
   const fiszka = j?.rodzaj === 'fiszka' ? j : undefined
-  /** Powtórka rozszerzona — czat albo trudny tryb (zakryte też nazwy).
+  /** Powtórka rozszerzona — czat, zadania albo trudny tryb (zakryte też nazwy).
    *  Liczona raz na otwarcie, żeby nie przeskoczyła w trakcie zapisu. */
-  const [rozszerzona, setRozszerzona] = useState<'czat' | 'trudny' | null | undefined>(undefined)
+  const [rozszerzona, setRozszerzona] = useState<RodzajRozszerzonej | null | undefined>(undefined)
   useEffect(() => {
     if (rozszerzona === undefined && j) setRozszerzona(czyRozszerzona(j) ? rodzajRozszerzonej(j) : null)
   }, [j, rozszerzona])
@@ -108,10 +115,37 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const [czat, setCzat] = useState<{ zaliczone: boolean; luki?: string } | undefined>()
   const [czatPominiety, setCzatPominiety] = useState(false)
 
+  /** Test końcowy powtórki zero — już z zadaniami. */
+  const koncowy = sektor?.etap === 'zadania'
+  const wszystkieZadania = useZadania(sektor)
+  /** Zadania w tej sesji: w teście końcowym wszystkie, w powtórce
+   *  rozszerzonej z zadaniami kilka (za każdym razem kolejne). */
+  const zadaniaSesji = useMemo(() => {
+    const l = wszystkieZadania ?? []
+    if (!sektor) return []
+    if (koncowy) return l
+    if (rozszerzona !== 'zadanie') return []
+    const wybrane = zadaniaDoPowtorki(sektor, l.map((c) => c.id))
+    return wybrane.map((id) => l.find((c) => c.id === id)!).filter(Boolean)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wszystkieZadania, koncowy, rozszerzona, sektor?.id, sektor?.rozszerzonych])
+  const stronyZadan =
+    useLiveQuery(
+      () => db.subpages.where('conceptId').anyOf(zadaniaSesji.map((c) => c.id)).toArray(),
+      [zadaniaSesji.map((c) => c.id).join()],
+    ) ?? []
+
   const wezly: PathNode[] = sektor ? wezlySektora(sektor, sciezka) : []
   const pozycje: Pozycja[] = useMemo(() => {
     if (sektor && sciezka) {
-      return wezly.filter(ocenialny).map((n) => ({
+      const zad: Pozycja[] = zadaniaSesji.map((c) => ({
+        klucz: kluczZadania(c.id),
+        conceptId: c.id,
+        nazwa: c.name,
+        typ: c.type,
+        zadanie: true,
+      }))
+      return [...wezly.filter(ocenialny).map((n) => ({
         klucz: kluczWezla(n, sciezka.id)!,
         wezel: n,
         conceptId: n.kind === 'block' ? n.conceptId : undefined,
@@ -122,7 +156,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               ? n.name || 'Grupa'
               : '',
         typ: n.kind === 'block' ? kafelek.get(n.conceptId)?.type : n.kind === 'fusion' ? n.type : undefined,
-      }))
+      })), ...zad]
     }
     // fiszka albo kafelek osobno: szukamy go w ścieżce, żeby wyglądał jak tam
     const klucz = fiszka?.conceptId ?? cel.klucz
@@ -148,7 +182,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       },
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId])
+  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId, zadaniaSesji])
 
   // ---- stan sesji ----
   const [odpowiedzi, setOdpowiedzi] = useState<Record<string, string>>({})
@@ -193,7 +227,11 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     if (zapisuje) return
     setZapisuje(true)
     const wezlyKafelkow: Record<string, string> = {}
-    for (const p of pozycje) if (p.wezel) wezlyKafelkow[p.klucz] = p.wezel.id
+    for (const p of pozycje) {
+      if (p.wezel) wezlyKafelkow[p.klucz] = p.wezel.id
+      // zadanie nie jest węzłem — do poprawy zaznacza się sam kafelek
+      else if (p.zadanie && p.conceptId) wezlyKafelkow[p.klucz] = p.conceptId
+    }
     const po = await zapiszSesje({
       jednostkaId: j?.id,
       klucz: cel.klucz,
@@ -232,7 +270,9 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       : (pozycje[0]?.nazwa ?? 'Kafelek')
   const rodzajSesji = cel.klucz
     ? 'Kafelek osobno'
-    : pierwszyTest
+    : koncowy
+      ? 'Test końcowy'
+      : pierwszyTest
       ? 'Test po mapowaniu'
       : zero
         ? 'Test po poprawkach'
@@ -240,7 +280,9 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           ? 'Powtórka rozszerzona · trudny tryb'
           : rozszerzona === 'czat'
             ? 'Powtórka rozszerzona · test czatem'
-            : 'Powtórka'
+            : rozszerzona === 'zadanie' && zadaniaSesji.length
+              ? 'Powtórka rozszerzona · zadania'
+              : 'Powtórka'
 
   // ---- po zapisie ----
   if (wynik) {
@@ -253,8 +295,31 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           </div>
         </header>
         <div className="sesja-wynik">
-          {wynik.czat && j ? (
-            j.etap === 'czat' ? (
+          {wynik.koncowy ? (
+            wynik.termin ? (
+              <p className="sesja-wynik-glowny">
+                Test końcowy zaliczony — powtórka zero skończona. Następna powtórka{' '}
+                <strong>{opisDni(dniDo(wynik.termin))}</strong> (
+                {new Date(wynik.termin).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}).
+              </p>
+            ) : (
+              <p className="sesja-wynik-glowny">
+                Do poprawy: <strong>{wynik.doPoprawy?.length ?? 0}</strong> — są zaznaczone w widoku Nauka.
+                Popraw je (mapa, rozwiązania, metody) i zrób test końcowy jeszcze raz.
+              </p>
+            )
+          ) : wynik.zadania ? (
+            <p className="sesja-wynik-glowny">
+              Test zaliczony (<strong>{NAZWY_OCEN[wynik.ocena]}</strong>). Powtórka zero idzie dalej:{' '}
+              <strong>zadania</strong> (opcjonalne), potem test końcowy — przy sektorze w widoku Nauka.
+            </p>
+          ) : wynik.czat && j ? (
+            j.etap === 'zadania' ? (
+              <p className="sesja-wynik-glowny">
+                Test czatem zaliczony. Teraz <strong>zadania</strong> (opcjonalne) i test końcowy — przy
+                sektorze w widoku Nauka. Możesz je też pominąć.
+              </p>
+            ) : j.etap === 'czat' ? (
               <>
                 <p className="sesja-wynik-glowny">
                   Test zaliczony (<strong>{NAZWY_OCEN[wynik.ocena]}</strong>). Powtórka zero idzie dalej:{' '}
@@ -285,7 +350,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           ) : (
             <p className="sesja-wynik-glowny">Zapisano. Ta fiszka wróci jeszcze dziś.</p>
           )}
-          {wynik.termin && wynik.doPoprawy && wynik.doPoprawy.length > 0 && (
+          {wynik.termin && !wynik.koncowy && wynik.doPoprawy && wynik.doPoprawy.length > 0 && (
             <p>
               Sektor wraca do mapowania tych miejsc, które nie szły ({wynik.doPoprawy.length}) — potem
               przerwa i test jeszcze raz.
@@ -432,6 +497,47 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               />
             ))}
 
+        {sektor && zadaniaSesji.length > 0 && (
+          <div className="sesja-zadania">
+            <h3 className="sesja-rozdzial poziom-1">Zadania</h3>
+            <p className="hint">
+              Treść widać. Napisz, jak to rozwiązać: metodę i kluczowe kroki — liczyć do końca nie trzeba.
+            </p>
+            {pozycje
+              .filter((p) => p.zadanie)
+              .map((p) => {
+                const c = p.conceptId ? kafelek.get(p.conceptId) : undefined
+                const v = wersje.find((x) => x.id === c?.currentVersionId)
+                const strony = stronyZadan
+                  .filter((s) => s.conceptId === c?.id && s.versionId === v?.id)
+                  .sort((a, b) => a.order - b.order)
+                return (
+                  <ElementSesji
+                    key={p.klucz}
+                    p={p}
+                    trudny={false}
+                    zadanie
+                    odpowiedz={odpowiedzi[p.klucz] ?? ''}
+                    onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
+                    odkryty={odkryte.has(p.klucz)}
+                    podejrzany={podejrzane.has(p.klucz)}
+                    ocena={oceny[p.klucz]}
+                    onOdslon={(pod) => odslon(p.klucz, pod)}
+                    onOcena={(o) => setOceny((x) => ({ ...x, [p.klucz]: o }))}
+                    widoczne={() => (
+                      <div
+                        className="markdown-body sesja-zadanie-tresc"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(v?.content ?? '') }}
+                      />
+                    )}
+                    tresc={() => <RozwiazanieZadania strony={strony} />}
+                    typy={typy}
+                  />
+                )
+              })}
+          </div>
+        )}
+
         {sektor && (
           <div className="sesja-blok sesja-mapa-porownaj">
             <h3>Porównaj z mapą</h3>
@@ -439,7 +545,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               <button
                 className="btn"
                 disabled={!wszystkieOcenione}
-                title={wszystkieOcenione ? '' : 'Najpierw sprawdź wszystkie kafelki'}
+                title={wszystkieOcenione ? '' : 'Najpierw sprawdź wszystkie kafelki i zadania'}
                 onClick={() => setMapaOdkryta(true)}
               >
                 <Icon name="odkryj" size={1} /> Odkryj mapę
@@ -524,6 +630,34 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                   ? 'Sprawdź wszystkie kafelki i porównaj mapę — wtedy podpowiem ocenę.'
                   : 'Sprawdź kafelek — wtedy podpowiem ocenę.'}
             </p>
+          ) : koncowy ? (
+            <>
+              <div className="sesja-oceny sesja-oceny-koncowy">
+                {([3, 1] as Ocena[]).map((o) => {
+                  const pod = proponowana === 1 ? 1 : 3
+                  return (
+                    <button
+                      key={o}
+                      className={`btn sesja-ocena-btn ocena-${o} ${o === (wybor ?? pod) ? 'btn-active' : ''}`}
+                      onClick={() => setWybor(o)}
+                    >
+                      <span className="sesja-ocena-nazwa">{o === 3 ? 'Zaliczony' : 'Do poprawy'}</span>
+                      <span className="sesja-ocena-dni">
+                        {o === 3 ? 'koniec powtórki zero — termin bez zmian' : 'popraw i zrób test końcowy jeszcze raz'}
+                      </span>
+                      {o === pod && <span className="sesja-ocena-podp">podpowiedź</span>}
+                    </button>
+                  )
+                })}
+              </div>
+              <button
+                className="btn btn-primary sesja-zapisz"
+                disabled={zapisuje}
+                onClick={() => zapisz(wybor ?? (proponowana === 1 ? 1 : 3))}
+              >
+                Zapisz: {(wybor ?? (proponowana === 1 ? 1 : 3)) === 1 ? 'do poprawy' : 'zaliczony'}
+              </button>
+            </>
           ) : (
             <>
               <div className="sesja-oceny">
@@ -613,9 +747,12 @@ function ElementSesji({
   tresc,
   widoczne,
   typy,
+  zadanie,
 }: {
   p: Pozycja
   trudny: boolean
+  /** Zadanie: najpierw nazwa i treść, pole na metodę, zakryte rozwiązanie. */
+  zadanie?: boolean
   odpowiedz: string
   onOdpowiedz: (t: string) => void
   odkryty: boolean
@@ -630,10 +767,11 @@ function ElementSesji({
 }) {
   const def = p.typ ? typy.def(p.typ) : undefined
   return (
-    <div className={`sesja-element ${odkryty ? 'odkryty' : ''}`} data-klucz={p.klucz}>
-      {widoczne?.()}
-      {/* po odsłonięciu nagłówek ma sam kafelek — drugi raz nazwy nie trzeba */}
-      {!odkryty && (
+    <div className={`sesja-element ${odkryty ? 'odkryty' : ''} ${zadanie ? 'sesja-element-zadanie' : ''}`} data-klucz={p.klucz}>
+      {!zadanie && widoczne?.()}
+      {/* po odsłonięciu nagłówek ma sam kafelek — drugi raz nazwy nie trzeba
+          (zadanie pokazuje odsłonięte tylko rozwiązanie, więc nazwa zostaje) */}
+      {(!odkryty || zadanie) && (
       <div className="sesja-element-glowa">
         {def && (
           <span className="sesja-znak" style={{ color: def.color }}>
@@ -643,12 +781,19 @@ function ElementSesji({
         <span className="sesja-nazwa">{trudny ? 'Co tu stoi?' : p.nazwa}</span>
       </div>
       )}
+      {zadanie && widoczne?.()}
       {!odkryty ? (
         <>
           <textarea
             className="sesja-pole"
             rows={3}
-            placeholder={trudny ? 'Co to za kafelek i co mówi?' : 'Napisz z pamięci (albo na kartce obok).'}
+            placeholder={
+              zadanie
+                ? 'Jak to rozwiązać? Metoda i kluczowe kroki — z pamięci.'
+                : trudny
+                  ? 'Co to za kafelek i co mówi?'
+                  : 'Napisz z pamięci (albo na kartce obok).'
+            }
             value={odpowiedz}
             onChange={(e) => onOdpowiedz(e.target.value)}
           />
@@ -738,5 +883,34 @@ function TrescPozycji({
       bezPaskaWersji
       key={pathId}
     />
+  )
+}
+
+/** Odsłonięte zadanie: jego strony (najpierw Metoda — o nią tu chodzi). */
+function RozwiazanieZadania({ strony }: { strony: Subpage[] }) {
+  const domyslna = strony.find((s) => /metod/i.test(s.name)) ?? strony[0]
+  const [wybrana, setWybrana] = useState<string | undefined>(domyslna?.id)
+  const s = strony.find((x) => x.id === wybrana) ?? domyslna
+  if (!s) {
+    return <p className="hint">To zadanie nie ma jeszcze stron z rozwiązaniem i metodą — dopisz je w kafelku.</p>
+  }
+  return (
+    <div className="sesja-rozwiazanie">
+      <div className="block-pages">
+        {strony.map((x) => (
+          <button
+            key={x.id}
+            className={`block-page ${x.id === s.id ? 'active' : ''}`}
+            onClick={() => setWybrana(x.id)}
+          >
+            {x.name}
+          </button>
+        ))}
+      </div>
+      <div
+        className="markdown-body"
+        dangerouslySetInnerHTML={{ __html: renderMarkdown(s.content || '_(pusto)_') }}
+      />
+    </div>
   )
 }

@@ -8,8 +8,8 @@
  *  a szkodził na samodzielnym teście.) */
 
 import { db, mainPageName } from './db'
-import { ocenialny, wezlySektora } from './nauka'
-import { pytania } from './naukaUstawienia'
+import { ocenialny, wezlySektora, type NoweZadanie } from './nauka'
+import { pytania, wez } from './naukaUstawienia'
 export { czatWZero, ustawCzatWZero } from './naukaUstawienia'
 import { kluczWlasnej, type JednostkaNauki, type PathNode } from './types'
 
@@ -28,6 +28,7 @@ const K = {
   test: 'ui.nauka.polecenieTest',
   dogrywka: 'ui.nauka.polecenieDogrywka',
   sprawdz: 'ui.nauka.polecenieSprawdz',
+  zadania: 'ui.nauka.polecenieZadania',
   tryb: 'ui.nauka.czatTryb',
   eksperyment: 'ui.nauka.eksperyment',
 }
@@ -133,12 +134,41 @@ Materiał — sektor „{NAZWA}":
 
 {MATERIAL}`
 
-export type RodzajPolecenia = 'test' | 'dogrywka' | 'sprawdz'
-const KLUCZ_POLECENIA: Record<RodzajPolecenia, string> = { test: K.test, dogrywka: K.dogrywka, sprawdz: K.sprawdz }
+/** Zadania: liczenie nie jest celem — chodzi o METODĘ, którą da się potem
+ *  odtworzyć z pamięci. Stały format odpowiedzi pozwala pociąć ją na
+ *  kafelki-zadania bez ręcznego przepisywania. */
+export const POLECENIE_ZADANIA = `Ułóż {ILE} zadań do materiału podanego na końcu (sektor „{NAZWA}"). Materiał jest jedynym źródłem prawdy.
+
+Zadania mają sprawdzać ZROZUMIENIE i METODĘ, a nie sprawność rachunkową: jak podejść do problemu, którego pojęcia albo twierdzenia użyć i dlaczego, na co uważać. Różne typy: zastosowanie, przykład albo kontrprzykład, „co się zmieni, gdy…", znalezienie błędu w rozumowaniu. Zadania niech nie powtarzają tego, co już jest w sekcji „Zadania" materiału.
+
+Odpowiedz WYŁĄCZNIE w tym formacie, bez wstępu i zakończenia, każde zadanie tak samo:
+
+=== ZADANIE: krótki tytuł
+TREŚĆ:
+treść zadania
+ROZWIĄZANIE:
+pełne rozwiązanie
+METODA:
+metoda w kilku krokach — od czego zacząć, jaki jest pomysł, dlaczego działa; tak, żeby dało się ją odtworzyć z pamięci przy podobnym zadaniu
+
+Pisz po polsku, wzory w LaTeX-u ($…$).
+
+Materiał — sektor „{NAZWA}":
+
+{MATERIAL}`
+
+export type RodzajPolecenia = 'test' | 'dogrywka' | 'sprawdz' | 'zadania'
+const KLUCZ_POLECENIA: Record<RodzajPolecenia, string> = {
+  test: K.test,
+  dogrywka: K.dogrywka,
+  sprawdz: K.sprawdz,
+  zadania: K.zadania,
+}
 export const DOMYSLNE: Record<RodzajPolecenia, string> = {
   test: POLECENIE_TEST,
   dogrywka: POLECENIE_DOGRYWKA,
   sprawdz: POLECENIE_SPRAWDZ,
+  zadania: POLECENIE_ZADANIA,
 }
 export const polecenie = (r: RodzajPolecenia) => localStorage.getItem(KLUCZ_POLECENIA[r]) ?? DOMYSLNE[r]
 export const ustawPolecenie = (r: RodzajPolecenia, t: string) => {
@@ -202,6 +232,11 @@ export async function materialSektora(j: JednostkaNauki): Promise<string> {
       czesci.push(t)
     }
   }
+  // zadania z rozwiązaniem i metodą też są treścią sektora
+  if (j.rodzaj === 'sektor' && j.zadania?.length) {
+    czesci.push('## Zadania')
+    for (const id of j.zadania) await kafelek(id)
+  }
   if (j.mapa?.trim()) czesci.push(`### Mapa sektora\n\n${j.mapa}`)
   return bezZdjec(czesci.join('\n\n---\n\n'))
 }
@@ -230,7 +265,12 @@ export async function zlozPolecenie(j: JednostkaNauki, p: Parametry): Promise<st
   const n = await ileOcenialnych(j)
   const jedna = p.krotki && trybCzatu() === 'jedna'
   const techniki = jedna ? [TECHNIKI[(p.technika ?? 0) % TECHNIKI.length]] : TECHNIKI
-  const ile = p.krotki ? Math.max(3, Math.min(6, n)) : Math.max(5, Math.min(12, n + 3))
+  const ile =
+    p.rodzaj === 'zadania'
+      ? wez('zadanIle')
+      : p.krotki
+        ? Math.max(3, Math.min(6, n))
+        : Math.max(5, Math.min(12, n + 3))
   return polecenie(p.rodzaj)
     .replaceAll('{NAZWA}', j.nazwa)
     .replaceAll('{MATERIAL}', material)
@@ -269,4 +309,50 @@ export function czytajWynik(tekst: string): { zaliczone?: boolean; luki: string 
   const i = tekst.search(/LUKI:/i)
   const luki = i >= 0 ? tekst.slice(i + 5).trim() : tekst.trim()
   return { zaliczone: w ? !w[1] : undefined, luki }
+}
+
+/** Tnie odpowiedź czatu na zadania. Znosi to, co czaty robią z formatem:
+ *  pogrubienia, nagłówki Markdown, „Zadanie 1:" zamiast „=== ZADANIE:". */
+export function podzielZadania(tekst: string): NoweZadanie[] {
+  const linie = tekst.replace(/\r\n/g, '\n').split('\n')
+  const czysc = (l: string) => l.replace(/^[\s>#*_=-]+/, '').replace(/[*_]+/g, '').trim()
+  const naglowek = /^(?:zadanie)\b\s*(?:nr\.?\s*)?\d*\s*[:.)-]?\s*(.*)$/i
+  const pole = /^(treść|tresc|rozwiązanie|rozwiazanie|metoda)\s*:?\s*(.*)$/i
+  const out: NoweZadanie[] = []
+  let biez: NoweZadanie | null = null
+  let gdzie: 'tresc' | 'rozwiazanie' | 'metoda' | null = null
+  const dopisz = (t: string) => {
+    if (!biez || !gdzie) return
+    biez[gdzie] = biez[gdzie] === undefined ? t : `${biez[gdzie]}\n${t}`
+  }
+  for (const surowa of linie) {
+    const c = czysc(surowa)
+    const n = naglowek.exec(c)
+    // „Zadanie" jako nagłówek tylko wtedy, gdy linia była wyróżniona albo krótka —
+    // zdanie „Zadanie polega na…" w treści nie zaczyna nowego zadania
+    const wyrozniona = /^[\s>#*_=-]/.test(surowa) || c.length < 60
+    if (n && wyrozniona && !pole.test(c)) {
+      biez = { nazwa: n[1].replace(/^[:.)-]\s*/, '').trim() || undefined }
+      out.push(biez)
+      gdzie = null
+      continue
+    }
+    const p = pole.exec(c)
+    if (p && biez && /^[\s>#*_=-]*\**\s*(treść|tresc|rozwiązanie|rozwiazanie|metoda)/i.test(surowa)) {
+      const k = p[1].toLowerCase()
+      gdzie = k.startsWith('tre') ? 'tresc' : k.startsWith('roz') ? 'rozwiazanie' : 'metoda'
+      if (p[2]) dopisz(p[2])
+      else biez[gdzie] = biez[gdzie] ?? ''
+      continue
+    }
+    dopisz(surowa)
+  }
+  return out
+    .map((z) => ({
+      nazwa: z.nazwa,
+      tresc: z.tresc?.trim(),
+      rozwiazanie: z.rozwiazanie?.trim(),
+      metoda: z.metoda?.trim(),
+    }))
+    .filter((z) => z.tresc || z.rozwiazanie || z.metoda)
 }

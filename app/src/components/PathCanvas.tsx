@@ -85,6 +85,7 @@ import {
 } from './Outline'
 import { KontekstKafelka } from './KontekstKafelka'
 import { PanelNauki, type ZakladkaNauki } from './PanelNauki'
+import { PasekZadan } from './ZadaniaSektora'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki } from '../types'
 import { ConceptPicker } from './ConceptPicker'
@@ -753,6 +754,8 @@ interface Pasmo {
   ostatni: boolean
   doPoprawy: boolean
   nauka: boolean
+  /** Ile zadań ma sektor — pasek „Zadania" stoi w ostatnim segmencie. */
+  zadan: number
   klucz: string
 }
 
@@ -761,6 +764,7 @@ interface RamkaProps {
   i: number
   pasmo?: Pasmo
   onMapaSektora?: (id: string) => void
+  onOtworzKafelek?: (id: string) => void
   pelny: boolean
   zaznaczony: boolean
   kreska: 'before' | 'after' | null
@@ -795,6 +799,7 @@ const RamkaSegmentu = memo(
     pilnuj,
     pasmo,
     onMapaSektora,
+    onOtworzKafelek,
   }: RamkaProps) {
     return (
       <div
@@ -879,7 +884,17 @@ const RamkaSegmentu = memo(
                 uchwytu za łatwo trafiało się przy przeciąganiu */}
           </div>
         )}
-        {pelny && <div className="linear-content">{rysuj()}</div>}
+        {pelny && (
+          <div className="linear-content">
+            {rysuj()}
+            {/* zadania sektora: zwinięty pasek na jego końcu, w środku
+                segmentu — Linia mierzy segmenty, więc nic nie może stać
+                między nimi */}
+            {pasmo?.ostatni && pasmo.zadan > 0 && (
+              <PasekZadan sektorId={pasmo.id} onOtworz={onOtworzKafelek} />
+            )}
+          </div>
+        )}
       </div>
     )
   },
@@ -1348,6 +1363,9 @@ function LinearView({
   const mapaSektoraRef = useRef(onMapaSektora)
   mapaSektoraRef.current = onMapaSektora
   const pokazMapeSektora = useCallback((id: string) => mapaSektoraRef.current?.(id), [])
+  const otworzKafelekRef = useRef(onOpenConcept)
+  otworzKafelekRef.current = onOpenConcept
+  const otworzKafelek = useCallback((id: string) => otworzKafelekRef.current?.(id), [])
   /** Pasma sektorów: który węzeł do którego sektora należy i gdzie pasmo
    *  się zaczyna i kończy (sektor może być rozcięty innymi kafelkami). */
   const pasma = useMemo(() => {
@@ -1372,7 +1390,8 @@ function LinearView({
         ostatni,
         doPoprawy,
         nauka: !!trybNauki,
-        klucz: `${s.id}|${kolor}|${s.nazwa}|${pierwszy}|${ostatni}|${doPoprawy}|${!!trybNauki}`,
+        zadan: s.zadania?.length ?? 0,
+        klucz: `${s.id}|${kolor}|${s.nazwa}|${pierwszy}|${ostatni}|${doPoprawy}|${!!trybNauki}|${s.zadania?.length ?? 0}`,
       })
     })
     return out
@@ -2091,6 +2110,7 @@ function LinearView({
               zaznaczony={zazSeg.has(n.id) || podswietlony === n.id}
               pasmo={pasma.get(n.id)}
               onMapaSektora={pokazMapeSektora}
+              onOtworzKafelek={otworzKafelek}
               kreska={h}
               wysokosc={zmierz(n.id)}
               mozeScalic={
@@ -4406,6 +4426,7 @@ function CanvasInner({
             wybrany={sektorNauki}
             onWybierz={setSektorNauki}
             onStart={onStartNauka}
+            onOtworz={onOpenConcept}
           />
         )}
         </div>

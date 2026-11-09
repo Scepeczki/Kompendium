@@ -217,9 +217,9 @@ w bloku, rozdzielenie).
 | `folders` | `id, kind, parentId, name` | foldery (`concepts` / `pdfs`) |
 | `pdfs` | `id, title, addedAt, folderId` | pliki PDF jako `Blob` |
 | `blockTypes` | `id, order` | typy kafelków |
-| `nauka` | `id, rodzaj, pathId, etap, termin` | jednostki nauki: `sektor` (węzły ścieżki w `wezly`, mapa w `mapa` jako Markdown) albo `fiszka` (`conceptId`, opcjonalnie zakryta strona `zakryjStrone`); `etap`: `nowy` → `mapowanie` → `przerwa` → `powtorki`; `karta` to stan FSRS, `termin` jego kopia do szukania |
+| `nauka` | `id, rodzaj, pathId, etap, termin` | jednostki nauki: `sektor` (węzły ścieżki w `wezly`, mapa w `mapa` jako Markdown) albo `fiszka` (`conceptId`, opcjonalnie zakryta strona `zakryjStrone`); `etap`: `nowy` → `mapowanie` → `przerwa` → `czat` → `zadania` → `powtorki`; `karta` to stan FSRS, `termin` jego kopia do szukania; `zadania` — id kafelków-zadań sektora (typ `zadanie`, z `pathId` ścieżki, strony „Rozwiązanie" i „Metoda"), w kolejności; nie są węzłami ścieżki |
 | `pamiec` | `klucz, termin, slaby` | pamięć kafelka, wspólna dla wszystkich ścieżek: kluczem jest id kafelka (dla grupy `grupa:<ścieżka>:<węzeł>`); `slaby` = ma własne terminy, aż dogoni sektor; `wpadki` liczą upartość |
-| `historia` | `id, kiedy, jednostkaId` | wpisy powtórek — **tylko dopisywane, nigdy zmieniane**: ocena (1–4), zaznaczenia kafelków, odpowiedzi pisane przed odsłonięciem, czas, cel zapamiętania |
+| `historia` | `id, kiedy, jednostkaId` | wpisy powtórek — **tylko dopisywane, nigdy zmieniane**: `typ` (`test`, `powtorka`, `kafelek`, `czat`, `koncowy`, `od-nowa`), ocena (1–4), zaznaczenia kafelków (zadania z kluczem `zadanie:<id>`), odpowiedzi pisane przed odsłonięciem, czas, cel zapamiętania |
 
 Historia schematu: v1 podstawy → v2 foldery i kolejność → v3 wspólna kolejność
 folderów z kafelkami → v4 ścieżki → v5 strony kafelka → v6 powiązania →

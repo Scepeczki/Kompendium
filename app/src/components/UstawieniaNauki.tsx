@@ -6,7 +6,9 @@ import {
   ustaw,
   ustawPytania,
   ustawZasady,
+  ustawZadaniaWZero,
   wez,
+  zadaniaWZero,
   zasadyTekst,
   PYTANIA_DOMYSLNE,
   ZASADY_DOMYSLNE,
@@ -74,13 +76,27 @@ export function UstawieniaNauki() {
       <h3 className="settings-grupa">Powtórka rozszerzona</h3>
       <p className="settings-hint">
         Zwykła powtórka jest krótka: zakryj, napisz, odsłoń, oceń. Co jakiś czas wypada
-        rozszerzona — na razie trudny tryb (zakryte także nazwy kafelków), później też czat
-        i zadania.
+        rozszerzona — na zmianę test czatem, zadania (jeśli sektor je ma) i trudny tryb (zakryte
+        także nazwy kafelków).
       </p>
       {wiersz('rozszOd')}
       {wiersz('rozszCo')}
       {wiersz('rozszDaleko')}
       {wiersz('rozszCoDaleko')}
+
+      <h3 className="settings-grupa">Zadania</h3>
+      <label className="settings-row settings-check">
+        <span className="settings-label">
+          <input type="checkbox" checked={zadaniaWZero()} onChange={(e) => ustawZadaniaWZero(e.target.checked)} />{' '}
+          Zadania w powtórce zero
+        </span>
+        <span className="settings-hint">
+          Po teście (i czacie) sektor czeka na zadania i test końcowy — zawsze można je pominąć jednym
+          kliknięciem. Wyłączone: powtórka zero kończy się na teście czatem.
+        </span>
+      </label>
+      {wiersz('zadanIle')}
+      {wiersz('zadanWPowtorce')}
 
       <h3 className="settings-grupa">Ocena sektora</h3>
       {wiersz('progDobrze')}
@@ -177,6 +193,7 @@ export function UstawieniaNauki() {
           ['test', 'Polecenie: test czatem'],
           ['dogrywka', 'Polecenie: dogrywka z luk'],
           ['sprawdz', 'Polecenie: sprawdź moje odpowiedzi'],
+          ['zadania', 'Polecenie: ułóż zadania'],
         ] as [RodzajPolecenia, string][]
       ).map(([r, n]) => (
         <PoleTekstu

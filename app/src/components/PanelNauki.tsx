@@ -5,6 +5,7 @@ import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
 import { RichEditor } from './RichEditor'
 import { TestCzatem } from './TestCzatem'
+import { ListaZadan } from './ZadaniaSektora'
 import {
   dniDo,
   dolozDoSektora,
@@ -13,6 +14,7 @@ import {
   naukaOdNowa,
   ocenialny,
   opisDni,
+  pominZadania,
   prognoza,
   skonczMapowanie,
   tempo,
@@ -42,6 +44,8 @@ interface Props {
   wybrany: string | null
   onWybierz: (id: string | null) => void
   onStart?: (cel: CelSesji) => void
+  /** Otwiera kafelek (zadanie) w edytorze. */
+  onOtworz?: (conceptId: string) => void
 }
 
 /** Pokazuje węzeł w Linii (przewija do niego). */
@@ -64,6 +68,7 @@ export function PanelNauki({
   wybrany,
   onWybierz,
   onStart,
+  onOtworz,
 }: Props) {
   const dlg = useDialogs()
   const jednostki = useLiveQuery(() => db.nauka.where('pathId').equals(pathId).toArray(), [pathId]) ?? []
@@ -307,6 +312,7 @@ export function PanelNauki({
                 onNazwa={() => zmienNazwe(s.j)}
                 onDoloz={() => dolozDoSektora(s.j.id, zazOcenialne)}
                 onWyjmij={() => wyjmijZSektora(s.j.id, zazOcenialne)}
+                onOtworz={onOtworz}
               />
             ))}
           </ul>
@@ -390,6 +396,7 @@ function KartaSektora({
   onNazwa,
   onDoloz,
   onWyjmij,
+  onOtworz,
 }: {
   s: { j: JednostkaNauki; wezly: PathNode[] }
   aktywny: boolean
@@ -407,6 +414,7 @@ function KartaSektora({
   onNazwa: () => void
   onDoloz: () => void
   onWyjmij: () => void
+  onOtworz?: (conceptId: string) => void
 }) {
   const { j, wezly } = s
   const [menu, setMenu] = useState(false)
@@ -474,6 +482,26 @@ function KartaSektora({
             </span>
           ))}
         {j.etap === 'czat' && <span>{j.luki ? 'Luki z czatu — popraw i dogrywka' : 'Test zaliczony — teraz test czatem'}</span>}
+        {j.etap === 'zadania' && (
+          <>
+            <span>
+              {j.doPoprawy?.length
+                ? `Test końcowy — do poprawy (${j.doPoprawy.length})`
+                : 'Zadania (opcjonalne), potem test końcowy'}
+            </span>
+            <button
+              className="btn btn-primary btn-maly"
+              disabled={!j.zadania?.length}
+              title={j.zadania?.length ? 'Zakryty test całego sektora, już z zadaniami' : 'Najpierw dodaj zadania — albo pomiń je'}
+              onClick={onTest}
+            >
+              Test końcowy
+            </button>
+            <button className="btn btn-link" title="Powtórka zero kończy się bez zadań" onClick={() => pominZadania(j.id)}>
+              Bez zadań — do powtórek
+            </button>
+          </>
+        )}
         {j.etap === 'powtorki' && j.termin && (
           <>
             <span>
@@ -487,6 +515,13 @@ function KartaSektora({
         )}
       </div>
       {j.etap === 'czat' && <TestCzatem j={j} tryb="zero" />}
+      {j.etap === 'zadania' && (
+        <p className="hint karta-sektora-rada">
+          Rozwiąż zadania — z podręcznika albo wygenerowane czatem. Zapisz rozwiązanie i metodę,
+          a metodę przeanalizuj i dopisz do mapy. Potem test końcowy: zakryty, już z zadaniami.
+        </p>
+      )}
+      {(aktywny || j.etap === 'zadania') && <ListaZadan j={j} onOtworz={onOtworz} />}
       {j.etap === 'powtorki' && j.luki && (
         <details className="karta-sektora-uwaga">
           <summary>Luki z ostatniego czatu</summary>
