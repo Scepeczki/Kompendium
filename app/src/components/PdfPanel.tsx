@@ -34,6 +34,41 @@ interface DragState {
 const ZOOM_MIN = 0.25
 const ZOOM_MAX = 4
 
+// ---------------------------------------------------------------------------
+// Pamięć panelu: który PDF był otwarty i — osobno dla każdego PDF-a — gdzie
+// się skończyło czytanie (strona, miejsce na stronie, powiększenie). Panel
+// znika przy zamknięciu, więc bez tego po ponownym otwarciu wszystko
+// zaczynało się od biblioteki.
+
+const KLUCZ_OTWARTY = 'ui.pdfOtwarty'
+const KLUCZ_MIEJSCA = 'ui.pdfMiejsca'
+
+interface Miejsce {
+  strona: number
+  /** Jaka część strony była już przewinięta (0–1). */
+  ulamek: number
+  zoom: 'fit' | number
+}
+
+function czytajMiejsca(): Record<string, Miejsce> {
+  try {
+    return JSON.parse(localStorage.getItem(KLUCZ_MIEJSCA) ?? '{}') as Record<string, Miejsce>
+  } catch {
+    return {}
+  }
+}
+
+function zapiszMiejsce(pdfId: string, m: Miejsce) {
+  const wszystkie = czytajMiejsca()
+  wszystkie[pdfId] = m
+  localStorage.setItem(KLUCZ_MIEJSCA, JSON.stringify(wszystkie))
+}
+
+function zapiszOtwarty(pdfId: string | null) {
+  if (pdfId) localStorage.setItem(KLUCZ_OTWARTY, pdfId)
+  else localStorage.removeItem(KLUCZ_OTWARTY)
+}
+
 /** Widok PDF: wszystkie strony jedna pod drugą, przewijane jak w zwykłej
  *  przeglądarce dokumentów. Strony renderują się, gdy zbliżają się do okna. */
 export function PdfPanel({
@@ -44,14 +79,18 @@ export function PdfPanel({
   onOpenConcept,
 }: Props) {
   const pdfs = useLiveQuery(() => db.pdfs.orderBy('addedAt').toArray(), []) ?? []
-  const [pdfId, setPdfId] = useState<string | null>(null)
+  const [pdfId, setPdfId] = useState<string | null>(() => localStorage.getItem(KLUCZ_OTWARTY))
+  useEffect(() => zapiszOtwarty(pdfId), [pdfId])
   const [libOpen, setLibOpen] = useState(false)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [pageCount, setPageCount] = useState(0)
   /** Rozmiar strony przy skali 1 (z pierwszej strony — reszta zwykle taka sama). */
   const [baseSize, setBaseSize] = useState<{ w: number; h: number } | null>(null)
   /** 'fit' = dopasowanie do szerokości panelu, liczba = px CSS na punkt PDF. */
-  const [zoom, setZoom] = useState<'fit' | number>('fit')
+  const [zoom, setZoom] = useState<'fit' | number>(() => {
+    const id = localStorage.getItem(KLUCZ_OTWARTY)
+    return (id && czytajMiejsca()[id]?.zoom) || 'fit'
+  })
   const [visiblePage, setVisiblePage] = useState(1)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [highlight, setHighlight] = useState<{ page: number; rect: Rect } | null>(null)
@@ -156,7 +195,14 @@ export function PdfPanel({
         return
       }
       const loaded = await loadPdf(pdfId)
-      if (!loaded || cancelled) return
+      if (cancelled) return
+      if (!loaded) {
+        // PDF-a już nie ma — nie próbujemy go otwierać przy każdym starcie
+        setPdfId(null)
+        return
+      }
+      const zapamietane = czytajMiejsca()[pdfId]
+      setZoom(zapamietane?.zoom ?? 'fit')
       const first = await loaded.getPage(1)
       const vp = first.getViewport({ scale: 1 })
       if (cancelled) return
@@ -235,6 +281,67 @@ export function PdfPanel({
     for (const el of pageRefs.current.values()) io.observe(el)
     return () => io.disconnect()
   }, [doc, pageCount, renderPage])
+
+  /** Bieżące miejsce czytania — liczone przy przewijaniu, zapisywane chwilę
+   *  później i jeszcze raz przy zamknięciu panelu. */
+  const miejsceRef = useRef<{ pdfId: string; m: Miejsce } | null>(null)
+  const zapisT = useRef<number | undefined>(undefined)
+  /** Dopóki nie wróciliśmy do zapamiętanego miejsca, przewijanie (np. przy
+   *  układaniu stron) nie może go nadpisać. */
+  const przywrocone = useRef(false)
+  const policzMiejsce = () => {
+    const root = scrollRef.current
+    if (!root || !pdfId || !przywrocone.current) return
+    const top = root.scrollTop
+    let strona = 1
+    let ulamek = 0
+    for (const [num, el] of pageRefs.current) {
+      if (el.offsetTop <= top + 1 && num >= strona) {
+        strona = num
+        ulamek = el.offsetHeight ? Math.min(1, Math.max(0, (top - el.offsetTop) / el.offsetHeight)) : 0
+      }
+    }
+    miejsceRef.current = { pdfId, m: { strona, ulamek, zoom } }
+    window.clearTimeout(zapisT.current)
+    zapisT.current = window.setTimeout(() => {
+      if (miejsceRef.current) zapiszMiejsce(miejsceRef.current.pdfId, miejsceRef.current.m)
+    }, 250)
+  }
+  // zamknięcie panelu: ostatnie miejsce na pewno zapisane
+  useEffect(
+    () => () => {
+      window.clearTimeout(zapisT.current)
+      if (miejsceRef.current) zapiszMiejsce(miejsceRef.current.pdfId, miejsceRef.current.m)
+    },
+    [],
+  )
+  // powiększenie też należy do miejsca
+  useEffect(() => {
+    if (pdfId && miejsceRef.current?.pdfId === pdfId) {
+      miejsceRef.current = { pdfId, m: { ...miejsceRef.current.m, zoom } }
+      zapiszMiejsce(pdfId, miejsceRef.current.m)
+    }
+  }, [zoom, pdfId])
+  // po otwarciu PDF-a wracamy tam, gdzie się skończyło — chyba że to skok do
+  // źródła. Czekamy, aż panel zna szerokość: od niej zależy wielkość stron.
+  useEffect(() => {
+    przywrocone.current = false
+  }, [pdfId])
+  useEffect(() => {
+    if (!doc || !pdfId || !baseSize || !containerW || przywrocone.current) return
+    const m = czytajMiejsca()[pdfId]
+    const raf = requestAnimationFrame(() => {
+      if (m && !highlight) {
+        const el = pageRefs.current.get(m.strona)
+        const root = scrollRef.current
+        if (el && root) root.scrollTop = el.offsetTop + m.ulamek * el.offsetHeight
+        setVisiblePage(m.strona)
+      }
+      przywrocone.current = true
+    })
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, baseSize, containerW])
 
   // Skok do źródła: otwórz PDF, przewiń do strony i podświetl prostokąt.
   useEffect(() => {
@@ -410,7 +517,7 @@ export function PdfPanel({
         </div>
       )}
 
-      <div className="pdf-scroll" ref={scrollRef}>
+      <div className="pdf-scroll" ref={scrollRef} onScroll={policzMiejsce}>
         {!doc && (
           <div className="pdf-empty">
             <p>Wrzuć książkę lub skrypt w PDF,</p>
