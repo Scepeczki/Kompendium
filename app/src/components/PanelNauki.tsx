@@ -14,8 +14,15 @@ import {
   minutyPrzerwy,
   naukaOdNowa,
   ocenialny,
+  douczanieOtwarte,
+  kluczZadania,
+  minutyDouczania,
   opisDni,
   pominZadania,
+  przerwijDouczanie,
+  skonczMapowanieDouczania,
+  zacznijDouczanie,
+  znaneKlucze,
   prognoza,
   skonczMapowanie,
   tempo,
@@ -89,6 +96,7 @@ export function PanelNauki({
   const jednostki = useLiveQuery(() => db.nauka.where('pathId').equals(pathId).toArray(), [pathId]) ?? []
   const kafelki = useLiveQuery(() => db.concepts.toArray(), [])
   const pamiec = useLiveQuery(() => db.pamiec.toArray(), []) ?? []
+  const znane = useLiveQuery(() => znaneKlucze(), []) ?? new Set<string>()
   const kafelek = useMemo(() => new Map((kafelki ?? []).map((c) => [c.id, c])), [kafelki])
   // przerwa odlicza minuty
   const [, setTik] = useState(0)
@@ -260,6 +268,23 @@ export function PanelNauki({
     !!j.ostatnia &&
     wezly.some((n) => n.kind === 'block' && (zmianaTresci.get(n.conceptId) ?? '') > (j.ostatnia ?? ''))
 
+  /** Co w nauczonym sektorze jest nowe: kafelki bez pamięci i zadania,
+   *  których nie było jeszcze w żadnym teście. */
+  const klucze = new Set(pamiec.map((p) => p.klucz))
+  const noweW = (j: JednostkaNauki, wezly: PathNode[]) => {
+    if (j.etap !== 'powtorki') return { wezly: [] as string[], zadania: [] as string[] }
+    return {
+      wezly: wezly
+        .filter(ocenialny)
+        .filter((n) => {
+          const k = kluczWezla(n, pathId)
+          return !!k && !klucze.has(k) && !znane.has(k)
+        })
+        .map((n) => n.id),
+      zadania: (j.zadania ?? []).filter((id) => !klucze.has(kluczZadania(id)) && !znane.has(kluczZadania(id))),
+    }
+  }
+
   const slabeW = (wezly: PathNode[]) =>
     wezly.filter((n) => {
       const k = kluczWezla(n, pathId)
@@ -349,6 +374,13 @@ export function PanelNauki({
                 onZacznij={() => zacznij(s)}
                 onKoniecMapowania={() => koniecMapowania(s.j)}
                 onTest={() => onStart?.({ jednostkaId: s.j.id })}
+                nowe={noweW(s.j, s.wezly)}
+                onDoucz={async () => {
+                  await zacznijDouczanie(s.j.id, noweW(s.j, s.wezly))
+                  onWybierz(s.j.id)
+                  onZakladka('mapa')
+                }}
+                onTestNowych={() => onStart?.({ jednostkaId: s.j.id, douczanie: true })}
                 onOdNowa={() => odNowa(s.j)}
                 onUsun={() => usun(s.j)}
                 onNazwa={() => zmienNazwe(s.j)}
@@ -414,7 +446,20 @@ export function PanelNauki({
       {zakladka === 'mapa' && (
         <div className="panel-nauki-tresc">
           {wybranySektor ? (
-            <MapaSektora key={wybranySektor.j.id} j={wybranySektor.j} sektory={sektory.map((s) => s.j)} onWybierz={onWybierz} />
+            <MapaSektora
+              key={wybranySektor.j.id}
+              j={wybranySektor.j}
+              sektory={sektory.map((s) => s.j)}
+              onWybierz={onWybierz}
+              doDopisania={
+                wybranySektor.j.douczanie?.etap === 'mapowanie'
+                  ? [
+                      ...wybranySektor.wezly.filter((n) => wybranySektor.j.douczanie!.wezly.includes(n.id)).map(nazwaWezla),
+                      ...wybranySektor.j.douczanie.zadania.map((id) => 'zadanie: ' + (kafelek.get(id)?.name ?? '?')),
+                    ]
+                  : undefined
+              }
+            />
           ) : (
             <p className="hint">Najpierw zrób sektor — mapa należy do sektora.</p>
           )}
@@ -455,6 +500,9 @@ function KartaSektora({
   onZacznij,
   onKoniecMapowania,
   onTest,
+  nowe,
+  onDoucz,
+  onTestNowych,
   onOdNowa,
   onUsun,
   onNazwa,
@@ -475,6 +523,9 @@ function KartaSektora({
   onZacznij: () => void
   onKoniecMapowania: () => void
   onTest: () => void
+  nowe: { wezly: string[]; zadania: string[] }
+  onDoucz: () => void
+  onTestNowych: () => void
   onOdNowa: () => void
   onUsun: () => void
   onNazwa: () => void
@@ -485,6 +536,8 @@ function KartaSektora({
   onWybieranie?: () => void
 }) {
   const { j, wezly } = s
+  const ileNowych = nowe.wezly.length + nowe.zadania.length
+  const nowiW = new Set(j.douczanie?.wezly ?? nowe.wezly)
   const [menu, setMenu] = useState(false)
   const kafelkow = wezly.filter(ocenialny)
   const uwaga = uwagaWielkosci(kafelkow.length)
@@ -592,6 +645,7 @@ function KartaSektora({
             <span>
               Powtórka {opisDni(dniDo(j.termin))}
               {slabe > 0 && <span className="znaczek"> słabe: {slabe}</span>}
+              {ileNowych > 0 && <span className="znaczek znaczek-nowe"> nowe: {ileNowych}</span>}
             </span>
             <button className="btn btn-maly" title="Powtórz teraz, przed terminem" onClick={onTest}>
               Powtórz teraz
@@ -599,14 +653,54 @@ function KartaSektora({
           </>
         )}
       </div>
+      {j.etap === 'powtorki' && j.douczanie && (
+        <div className="karta-sektora-etap karta-douczanie">
+          {j.douczanie.etap === 'mapowanie' ? (
+            <>
+              <span>
+                Douczanie: dopisz nowe ({j.douczanie.wezly.length + j.douczanie.zadania.length}) do mapy
+              </span>
+              <button className="btn btn-primary btn-maly" onClick={() => skonczMapowanieDouczania(j.id)}>
+                Skończyłem
+              </button>
+            </>
+          ) : douczanieOtwarte(j) ? (
+            <>
+              <span>Po przerwie — test nowych gotowy</span>
+              <button className="btn btn-primary btn-maly" onClick={onTestNowych}>
+                Test nowych
+              </button>
+            </>
+          ) : (
+            <span className="karta-sektora-przerwa">
+              <Icon name="przerwa" size={0.95} /> Przerwa — test nowych za{' '}
+              {Math.max(0, Math.ceil(wez('przerwa') - minutyDouczania(j)))} min
+            </span>
+          )}
+          <button className="btn btn-link" title="Nowe i tak wrócą w Powtórkach jako nowe" onClick={() => przerwijDouczanie(j.id)}>
+            Przerwij
+          </button>
+        </div>
+      )}
+      {j.etap === 'powtorki' && !j.douczanie && ileNowych > 0 && (
+        <div className="karta-sektora-nowe">
+          <span>
+            Dołożone po nauce: {ileNowych} — mapujesz tylko je, przerwa, test tylko z nich. Termin sektora
+            zostaje.
+          </span>
+          <button className="btn btn-primary btn-maly" onClick={onDoucz}>
+            Doucz nowe ({ileNowych})
+          </button>
+        </div>
+      )}
       {j.etap === 'czat' && <TestCzatem j={j} tryb="zero" />}
       {j.etap === 'zadania' && (
         <p className="hint karta-sektora-rada">
-          Rozwiąż zadania — z podręcznika albo wygenerowane czatem. Zapisz rozwiązanie i metodę,
+          Rozwiąż zadania — z podręcznika albo własne. Zapisz rozwiązanie z tokiem rozumowania,
           a metodę przeanalizuj i dopisz do mapy. Potem test końcowy: zakryty, już z zadaniami.
         </p>
       )}
-      {(aktywny || j.etap === 'zadania') && <ListaZadan j={j} onOtworz={onOtworz} />}
+      {(aktywny || j.etap === 'zadania') && <ListaZadan j={j} onOtworz={onOtworz} nowe={new Set(nowe.zadania)} />}
       {j.etap === 'powtorki' && j.luki && (
         <details className="karta-sektora-uwaga">
           <summary>Luki z ostatniego czatu</summary>
@@ -628,7 +722,9 @@ function KartaSektora({
             .map((n) => (
               <li
                 key={n.id}
-                className={`${n.kind === 'heading' ? 'spis-rozdzial' : ''} ${poprawki.has(n.id) ? 'do-poprawy' : ''}`}
+                className={`${n.kind === 'heading' ? 'spis-rozdzial' : ''} ${poprawki.has(n.id) ? 'do-poprawy' : ''} ${
+                  nowiW.has(n.id) ? 'nowy' : ''
+                }`}
               >
                 <button onClick={() => pokazWLinii(n.id)}>{nazwaWezla(n)}</button>
               </li>
@@ -643,10 +739,13 @@ function MapaSektora({
   j,
   sektory,
   onWybierz,
+  doDopisania,
 }: {
   j: JednostkaNauki
   sektory: JednostkaNauki[]
   onWybierz: (id: string) => void
+  /** Douczanie: nowe elementy, które trzeba dopisać do mapy. */
+  doDopisania?: string[]
 }) {
   // zapis z małym opóźnieniem — pisanie nie może czekać na bazę
   const czas = useRef<number | undefined>(undefined)
@@ -678,6 +777,16 @@ function MapaSektora({
           ))}
         </select>
       </div>
+      {doDopisania && (
+        <div className="mapa-douczanie">
+          <strong>Douczanie</strong> — dopisz do mapy to, co doszło po nauce:
+          <ul>
+            {doDopisania.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {j.luki && (
         <div className="test-czatem-luki">
           <strong>Luki z czatu</strong> — popraw mapowanie tych miejsc:

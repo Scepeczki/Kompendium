@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Icon } from './Icon'
 import {
+  douczanieOtwarte,
+  minutyDouczania,
   minutyPrzerwy,
   planNauki,
   przemapowany,
@@ -197,7 +199,13 @@ function WToku({
       <span className="powtorki-rodzaj rodzaj-sektor">Sektor</span>
       <span className="powtorki-nazwa">{j.nazwa}</span>
       <span className="powtorki-info">
-        {j.etap === 'zadania'
+        {j.etap === 'powtorki' && j.douczanie
+          ? j.douczanie.etap === 'mapowanie'
+            ? `douczanie nowych (${j.douczanie.wezly.length + j.douczanie.zadania.length}) — mapowanie`
+            : douczanieOtwarte(j)
+              ? 'douczanie — test nowych gotowy'
+              : `douczanie — przerwa, test za ${Math.max(0, Math.ceil(wez('przerwa') - minutyDouczania(j)))} min`
+          : j.etap === 'zadania'
           ? j.doPoprawy?.length
             ? `test końcowy — do poprawy (${j.doPoprawy.length})`
             : j.zadania?.length
@@ -215,7 +223,11 @@ function WToku({
             ? 'po przerwie — test gotowy'
             : `przerwa · test za ${zostalo} min`}
       </span>
-      {j.etap === 'zadania' && j.zadania?.length ? (
+      {j.etap === 'powtorki' && j.douczanie && douczanieOtwarte(j) ? (
+        <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id, douczanie: true })}>
+          Test nowych
+        </button>
+      ) : j.etap === 'zadania' && j.zadania?.length ? (
         <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id })}>
           Test końcowy
         </button>

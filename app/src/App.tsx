@@ -13,7 +13,7 @@ import { DialogProvider } from './components/Dialogs'
 import { Icon } from './components/Icon'
 import { Powtorki } from './components/Powtorki'
 import { SesjaNauki, type CelSesji } from './components/SesjaNauki'
-import { minutyPrzerwy, planNauki } from './nauka'
+import { minutyDouczania, minutyPrzerwy, planNauki } from './nauka'
 import { wez } from './naukaUstawienia'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
@@ -104,11 +104,18 @@ function Widok() {
     const juz = new Set<string>()
     const sprawdz = async () => {
       const wPrzerwie = await db.nauka.where('etap').equals('przerwa').toArray()
-      for (const j of wPrzerwie) {
-        const klucz = `${j.id}|${j.etapOd}`
-        if (juz.has(klucz) || minutyPrzerwy(j) < wez('przypomnij')) continue
+      // douczanie nowych ma własną przerwę
+      const douczane = (await db.nauka.where('etap').equals('powtorki').toArray()).filter(
+        (j) => j.douczanie?.etap === 'przerwa',
+      )
+      for (const j of [...wPrzerwie, ...douczane]) {
+        const dz = j.etap === 'powtorki'
+        const klucz = `${j.id}|${dz ? j.douczanie!.od : j.etapOd}`
+        if (juz.has(klucz) || (dz ? minutyDouczania(j) : minutyPrzerwy(j)) < wez('przypomnij')) continue
         juz.add(klucz)
-        const tekst = `Przerwa minęła — czas na test sektora „${j.nazwa}".`
+        const tekst = dz
+          ? `Przerwa minęła — czas na test nowych w sektorze „${j.nazwa}".`
+          : `Przerwa minęła — czas na test sektora „${j.nazwa}".`
         window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: tekst }))
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('Kompendium', { body: tekst })

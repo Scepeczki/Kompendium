@@ -73,6 +73,7 @@
 | **Powtórka rozszerzona** | Co jakiś czas dłuższa powtórka: czat, zadania (gdy sektor je ma) albo trudny tryb, na zmianę. | Nie co dzień i nigdy w pierwszych dwóch powtórkach. |
 | **Trudny tryb** | Zakryte są też nazwy kafelków — przypominasz sobie, co w ogóle stoi w sektorze. | — |
 | **Pojedyncza fiszka** | Kafelek uczony osobno, poza sektorem; można zakryć tylko jedną stronę (np. dowód). | — |
+| **Douczanie nowych** | Mała powtórka zero dla kafelków i zadań dołożonych do nauczonego sektora: mapowanie tylko ich, przerwa, test tylko z nich. | Nie zmienia terminu sektora i nie uczy go od nowa. |
 | **Słaby kafelek** | Kafelek, który nie szedł w powtórce sektora; ma własne, krótsze terminy, aż dogoni sektor. Słabość liczy się we wszystkich ścieżkach. | — |
 | **Uparty kafelek** | Kafelek z wieloma wpadkami — sygnał, że trzeba go przemapować (rozbić, dodać przykład). | — |
 | **Cel zapamiętania** | Szansa, że pamiętasz w chwili powtórki (domyślnie 95%). Między powtórkami pamiętasz więcej. | — |

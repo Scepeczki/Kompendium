@@ -41,15 +41,18 @@ function useUsunZadanie() {
 export function ListaZadan({
   j,
   onOtworz,
+  nowe,
 }: {
   j: JednostkaNauki
   onOtworz?: (conceptId: string) => void
+  /** Zadania dołożone po nauce — jeszcze nieuczone. */
+  nowe?: Set<string>
 }) {
   const zadania = useZadania(j) ?? []
   const poprawki = new Set(j.doPoprawy ?? [])
   const usun = useUsunZadanie()
 
-  const nowe = async () => {
+  const noweZadanie = async () => {
     const [id] = await utworzZadania(j.id, [{}])
     if (id) onOtworz?.(id)
   }
@@ -70,10 +73,11 @@ export function ListaZadan({
       {zadania.length > 0 && (
         <ol className="zadania-lista">
           {zadania.map((c, i) => (
-            <li key={c.id} className={poprawki.has(c.id) ? 'do-poprawy' : ''}>
+            <li key={c.id} className={`${poprawki.has(c.id) ? 'do-poprawy' : ''} ${nowe?.has(c.id) ? 'nowy' : ''}`}>
               <button className="zadania-nazwa" title="Otwórz w edytorze" onClick={() => onOtworz?.(c.id)}>
                 {c.name}
               </button>
+              {nowe?.has(c.id) && <span className="znaczek znaczek-nowe">nowe</span>}
               <span className="zadania-akcje">
                 <button className="folder-action" title="Wyżej" disabled={i === 0} onClick={() => przesunZadanie(j.id, c.id, -1)}>
                   ↑
@@ -102,7 +106,7 @@ export function ListaZadan({
         </ol>
       )}
       <div className="zadania-przyciski">
-        <button className="btn btn-maly" onClick={nowe} title="Nowy kafelek-zadanie; otworzy się w edytorze">
+        <button className="btn btn-maly" onClick={noweZadanie} title="Nowy kafelek-zadanie; otworzy się w edytorze">
           + Nowe zadanie
         </button>
       </div>

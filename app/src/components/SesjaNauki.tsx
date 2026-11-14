@@ -14,7 +14,10 @@ import {
   czyRozszerzona,
   dniDo,
   kluczWezla,
+  czyZadanie,
+  idZadania,
   kluczZadania,
+  znaneKlucze,
   ocenialny,
   opisDni,
   podglad,
@@ -42,6 +45,8 @@ import {
 /** Co powtarzamy: sektor / fiszkę albo jeden kafelek osobno. */
 export interface CelSesji {
   jednostkaId?: string
+  /** „Doucz nowe": test tylko z nowych elementów nauczonego sektora. */
+  douczanie?: boolean
   /** Kafelek osobno (słaby albo nowy w nauczonym sektorze). */
   klucz?: string
   /** Kafelek osobno: jego sektor (dla nowych kafelków jeszcze bez pamięci). */
@@ -109,8 +114,10 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
    *  Liczona raz na otwarcie, żeby nie przeskoczyła w trakcie zapisu. */
   const [rozszerzona, setRozszerzona] = useState<RodzajRozszerzonej | null | undefined>(undefined)
   useEffect(() => {
-    if (rozszerzona === undefined && j) setRozszerzona(czyRozszerzona(j) ? rodzajRozszerzonej(j) : null)
-  }, [j, rozszerzona])
+    if (rozszerzona === undefined && j)
+      setRozszerzona(!cel.douczanie && czyRozszerzona(j) ? rodzajRozszerzonej(j) : null)
+  }, [j, rozszerzona, cel.douczanie])
+  const douczanie = !!cel.douczanie
   const trudny = rozszerzona === 'trudny'
   /** Wynik czatu w powtórce rozszerzonej (albo pominięty dziś). */
   const [czat, setCzat] = useState<{ zaliczone: boolean; luki?: string } | undefined>()
@@ -121,15 +128,26 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const wszystkieZadania = useZadania(sektor)
   /** Zadania w tej sesji: w teście końcowym wszystkie, w powtórce
    *  rozszerzonej z zadaniami kilka (za każdym razem kolejne). */
+  /** Nowe zadania (dołożone do nauczonego sektora, jeszcze nieuczone) —
+   *  wchodzą też do zwykłej powtórki sektora. */
+  const noweZadania =
+    useLiveQuery(async () => {
+      const ids = sektor?.etap === 'powtorki' ? (sektor.zadania ?? []) : []
+      if (!ids.length) return new Set<string>()
+      const [p, znane] = await Promise.all([db.pamiec.bulkGet(ids.map(kluczZadania)), znaneKlucze()])
+      return new Set(ids.filter((id, i) => !p[i] && !znane.has(kluczZadania(id))))
+    }, [sektor?.etap, (sektor?.zadania ?? []).join()]) ?? new Set<string>()
   const zadaniaSesji = useMemo(() => {
     const l = wszystkieZadania ?? []
     if (!sektor) return []
+    if (douczanie) return l.filter((c) => sektor.douczanie?.zadania.includes(c.id))
     if (koncowy) return l
-    if (rozszerzona !== 'zadanie') return []
-    const wybrane = zadaniaDoPowtorki(sektor, l.map((c) => c.id))
-    return wybrane.map((id) => l.find((c) => c.id === id)!).filter(Boolean)
+    const nowe = l.filter((c) => noweZadania.has(c.id))
+    if (rozszerzona !== 'zadanie') return nowe
+    const wybrane = new Set([...zadaniaDoPowtorki(sektor, l.map((c) => c.id)), ...nowe.map((c) => c.id)])
+    return l.filter((c) => wybrane.has(c.id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wszystkieZadania, koncowy, rozszerzona, sektor?.id, sektor?.rozszerzonych])
+  }, [wszystkieZadania, koncowy, rozszerzona, sektor?.id, sektor?.rozszerzonych, douczanie, noweZadania])
   const wezly: PathNode[] = sektor ? wezlySektora(sektor, sciezka) : []
   /** Kafelek rodzaju „Zadanie" stojący w Linii sektora to też zadanie:
    *  w teście widać jego treść, a rozwiązanie jest zakryte. */
@@ -137,6 +155,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const zadanieWLinii = (n: PathNode) => n.kind === 'block' && kafelek.get(n.conceptId)?.type === typZadania
   const idsZadan = [
     ...zadaniaSesji.map((c) => c.id),
+    ...(cel.klucz && czyZadanie(cel.klucz) ? [idZadania(cel.klucz)] : []),
+    ...(cel.klucz && kafelek.get(cel.klucz)?.type === typZadania ? [cel.klucz] : []),
     ...wezly.flatMap((n) => (n.kind === 'block' && zadanieWLinii(n) ? [n.conceptId] : [])),
   ]
   const stronyZadan =
@@ -150,7 +170,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         typ: c.type,
         zadanie: true,
       }))
-      return [...wezly.filter(ocenialny).map((n) => ({
+      const tylkoNowe = douczanie ? new Set(sektor.douczanie?.wezly ?? []) : null
+      return [...wezly.filter(ocenialny).filter((n) => !tylkoNowe || tylkoNowe.has(n.id)).map((n) => ({
         klucz: kluczWezla(n, sciezka.id)!,
         wezel: n,
         conceptId: n.kind === 'block' ? n.conceptId : undefined,
@@ -171,13 +192,14 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     const wezel =
       sciezka?.nodes.find((n) => n.id === nodeId) ??
       sciezka?.nodes.find((n) => sciezka && kluczWezla(n, sciezka.id) === klucz)
-    const conceptId = klucz.startsWith('grupa:') ? undefined : klucz
+    const conceptId = klucz.startsWith('grupa:') ? undefined : czyZadanie(klucz) ? idZadania(klucz) : klucz
     const c = conceptId ? kafelek.get(conceptId) : undefined
     return [
       {
         klucz,
         wezel,
         conceptId,
+        zadanie: czyZadanie(klucz) || c?.type === typZadania || undefined,
         nazwa:
           fiszka?.nazwa ??
           (wezel?.kind === 'block' ? wezel.nazwa : undefined) ??
@@ -188,7 +210,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       },
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId, zadaniaSesji, typZadania])
+  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId, zadaniaSesji, typZadania, douczanie])
 
   // ---- stan sesji ----
   const [odpowiedzi, setOdpowiedzi] = useState<Record<string, string>>({})
@@ -210,7 +232,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   }
 
   const wszystkieOcenione = pozycje.length > 0 && pozycje.every((p) => oceny[p.klucz])
-  const zStruktura = !!sektor
+  const zStruktura = !!sektor && !douczanie
   const czekaNaCzat = rozszerzona === 'czat' && !czat && !czatPominiety
   const gotowe = wszystkieOcenione && (!zStruktura || !!struktura) && !czekaNaCzat
   const zZaznaczen: Ocena | null = gotowe
@@ -252,6 +274,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       rozszerzona: rozszerzona && !(rozszerzona === 'czat' && czatPominiety) ? rozszerzona : undefined,
       czat: rozszerzona === 'czat' ? czat : undefined,
       pathId,
+      douczanie: douczanie || undefined,
     })
     setWynik({ ...po, ocena })
     setZapisuje(false)
@@ -276,7 +299,9 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       : (pozycje[0]?.nazwa ?? 'Kafelek')
   const rodzajSesji = cel.klucz
     ? 'Kafelek osobno'
-    : koncowy
+    : douczanie
+      ? 'Douczanie nowych'
+      : koncowy
       ? 'Test końcowy'
       : pierwszyTest
       ? 'Test po mapowaniu'
@@ -301,7 +326,12 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           </div>
         </header>
         <div className="sesja-wynik">
-          {wynik.koncowy ? (
+          {wynik.douczanie ? (
+            <p className="sesja-wynik-glowny">
+              Nowe zapisane. Każdy ma własny termin i wraca osobno, aż dogoni sektor — termin
+              samego sektora się nie zmienia.
+            </p>
+          ) : wynik.koncowy ? (
             wynik.termin ? (
               <p className="sesja-wynik-glowny">
                 Test końcowy zaliczony — powtórka zero skończona. Następna powtórka{' '}
@@ -440,7 +470,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           przypomniałeś. <strong>Podejrzyj</strong> — gdy nie pamiętasz (liczy się jako „Nie").
         </p>
 
-        {sektor && (
+        {sektor && !douczanie && (
           <div className="sesja-blok sesja-mapa-pamiec">
             <h3>Sens i mapa — z pamięci</h3>
             <ul className="sesja-pytania">
@@ -461,14 +491,14 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         {sektor
           ? wezly.map((n) => {
               if (n.kind === 'heading') {
-                return trudny ? null : (
+                return trudny || douczanie ? null : (
                   <h3 key={n.id} className={`sesja-rozdzial poziom-${n.level}`}>
                     {n.text}
                   </h3>
                 )
               }
               if (n.kind === 'text') {
-                return <NotatkaZakryta key={n.id} tekst={n.text} />
+                return douczanie ? null : <NotatkaZakryta key={n.id} tekst={n.text} />
               }
               const p = pozycje.find((x) => x.wezel?.id === n.id)
               if (!p) return null
@@ -498,7 +528,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                 />
               )
             })
-          : pozycje.map((p) => (
+          : pozycje.map((p) => p.zadanie ? elementZadania(p) : (
               <ElementSesji
                 key={p.klucz}
                 p={p}
@@ -548,7 +578,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           </div>
         )}
 
-        {sektor && (
+        {sektor && !douczanie && (
           <div className="sesja-blok sesja-mapa-porownaj">
             <h3>Porównaj z mapą</h3>
             {!mapaOdkryta ? (
@@ -636,10 +666,16 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
             <p className="hint">
               {czekaNaCzat && wszystkieOcenione
                 ? 'Zostało: wynik testu czatem (albo pomiń go dziś).'
-                : sektor
+                : douczanie
+                  ? 'Sprawdź wszystkie nowe — każdy dostanie własną ocenę.'
+                  : sektor
                   ? 'Sprawdź wszystkie kafelki i porównaj mapę — wtedy podpowiem ocenę.'
                   : 'Sprawdź kafelek — wtedy podpowiem ocenę.'}
             </p>
+          ) : douczanie ? (
+            <button className="btn btn-primary sesja-zapisz" disabled={zapisuje} onClick={() => zapisz(3)}>
+              Zapisz — każdy nowy ma własną ocenę
+            </button>
           ) : koncowy ? (
             <>
               <div className="sesja-oceny sesja-oceny-koncowy">

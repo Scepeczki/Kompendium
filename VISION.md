@@ -252,9 +252,13 @@ z Anki) przy celu **95%**, ustawialnym do 97%.
   ścieżkach.
 - **Uparty kafelek** (wiele wpadek) → „przemapuj go: rozbij, dodaj
   przykład, dopisz do mapy".
-- Zmieniony sektor dostaje znaczek; można go „nauczyć od nowa". Nowy
-  kafelek w nauczonym sektorze uczy się osobno. Usunięcie sektora nigdy nie
-  usuwa kafelków, a historia zostaje.
+- Zmieniony sektor dostaje znaczek; można go „nauczyć od nowa". Usunięcie
+  sektora nigdy nie usuwa kafelków, a historia zostaje.
+- Kafelki i zadania można dokładać do sektora zawsze, także nauczonego
+  (np. zadania na studia między powtórkami). Takie są **nowe**: mają znaczek
+  i pojawiają się w Powtórkach jako nowe, a **„Doucz nowe"** robi małą
+  powtórkę zero tylko z nich (mapowanie nowych → przerwa → test nowych).
+  Termin sektora zostaje; nowe mają własne, krótsze terminy, aż go dogonią.
 - Strona Powtórek pokazuje, **ile dziś i ile jutro łącznie** (bez dziennego
   limitu); czego nie zrobisz, przechodzi dalej. Opuszczone dni nie zerują
   nauki — spóźniona, a zdana powtórka wydłuża odstęp.

@@ -320,6 +320,9 @@ export interface WynikSesji {
   pathId?: string
   /** Kafelek osobno: sektor, który ma dogonić. */
   sektorId?: string
+  /** „Doucz nowe": test tylko z nowych — terminu sektora nie rusza, każdy
+   *  element dostaje własną ocenę i startuje jako słaby. */
+  douczanie?: boolean
 }
 
 export interface PoSesji {
@@ -334,12 +337,44 @@ export interface PoSesji {
   zadania?: boolean
   /** To był test końcowy (zaliczony, jeśli jest termin). */
   koncowy?: boolean
+  /** To było douczanie nowych. */
+  douczanie?: boolean
 }
 
 /** Klucz zadania w sesji. Zadania liczą się do oceny sektora, ale nie mają
  *  własnej pamięci — wracają w powtórkach rozszerzonych, nie osobno. */
 export const kluczZadania = (conceptId: string) => `zadanie:${conceptId}`
 export const czyZadanie = (klucz: string) => klucz.startsWith('zadanie:')
+export const idZadania = (klucz: string) => klucz.slice('zadanie:'.length)
+
+/** Klucze, które kiedykolwiek były ocenione (z historii) — zadanie sprawdzone
+ *  w teście, zanim zadania miały własną pamięć, nie jest „nowe". */
+export async function znaneKlucze(): Promise<Set<string>> {
+  const h = await db.historia.toArray()
+  const out = new Set<string>()
+  for (const w of h) for (const k of Object.keys(w.kafelki ?? {})) out.add(k)
+  return out
+}
+
+/** Co w nauczonym sektorze jest nowe (jeszcze nieuczone): kafelki bez
+ *  pamięci i zadania z paska, których nie było w żadnym teście. */
+export function noweWSektorze(
+  j: JednostkaNauki,
+  sciezka: LearningPath | undefined,
+  pamiec: { has: (k: string) => boolean },
+  znane: Set<string>,
+): { wezly: string[]; zadania: string[] } {
+  if (j.rodzaj !== 'sektor' || j.etap !== 'powtorki' || !sciezka) return { wezly: [], zadania: [] }
+  const wezly = wezlySektora(j, sciezka)
+    .filter(ocenialny)
+    .filter((n) => {
+      const k = kluczWezla(n, sciezka.id)
+      return !!k && !pamiec.has(k) && !znane.has(k)
+    })
+    .map((n) => n.id)
+  const zadania = (j.zadania ?? []).filter((id) => !pamiec.has(kluczZadania(id)) && !znane.has(kluczZadania(id)))
+  return { wezly, zadania }
+}
 
 /** Zapisuje sesję: nowy termin, pamięć kafelków, wpis historii. */
 export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
@@ -354,7 +389,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
     // test końcowy (po zadaniach): karta już jest z pierwszego testu, więc
     // terminu nie rusza — zaliczony kończy powtórkę zero, niezaliczony
     // zostawia sektor przy zadaniach z zaznaczonymi miejscami do poprawy
-    const koncowy = !!j && j.etap === 'zadania'
+    const koncowy = !!j && j.etap === 'zadania' && !w.douczanie
     // test powtórki zero, który nie wyszedł: bez terminu, wracasz do mapowania
     // tych miejsc, które nie szły — pamięci kafelków jeszcze nie ruszamy
     const nieudanyStart = !!j && zero && !j.karta && w.ocena === 1
@@ -365,7 +400,11 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
         .filter(([, p]) => p !== 'tak')
         .map(([k]) => w.wezlyKafelkow[k])
         .filter(Boolean)
-      if (koncowy) {
+      if (w.douczanie) {
+        // sektor zostaje przy swoim terminie; nowe dogonią go osobno
+        await db.nauka.update(j.id, { douczanie: undefined, ostatnia: iso, zmieniono: iso })
+        wynik.douczanie = true
+      } else if (koncowy) {
         const zle = w.ocena === 1
         await db.nauka.update(j.id, {
           etap: zle ? 'zadania' : 'powtorki',
@@ -421,7 +460,6 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
     // pamięć kafelków (test końcowy jej nie rusza — kafelki oceniłeś dziś w pierwszym teście)
     if (!nieudanyStart && !koncowy) {
       for (const [klucz, p] of Object.entries(w.kafelki)) {
-        if (czyZadanie(klucz)) continue
         const stara = await db.pamiec.get(klucz)
         // kafelek powtarzany osobno dostaje ocenę z całej sesji, w sektorze —
         // z własnego zaznaczenia
@@ -430,10 +468,10 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
         const wpadki = (stara?.wpadki ?? 0) + (o === 1 && !zero && stara ? 1 : 0)
         // termin sektora, do którego kafelek ma dogonić
         const sektorId = j?.id ?? w.sektorId ?? stara?.jednostkaId
-        let cel = terminJednostki
+        let cel = terminJednostki ?? (w.douczanie ? j?.termin : undefined)
         if (!cel && w.klucz && sektorId) cel = (await db.nauka.get(sektorId))?.termin
         // nowy kafelek uczony osobno startuje jako słaby: ma dogonić sektor
-        const bylSlaby = stara ? stara.slaby : !!w.klucz
+        const bylSlaby = stara ? stara.slaby : !!w.klucz || !!w.douczanie
         const slaby =
           j?.rodzaj === 'fiszka'
             ? false
@@ -463,7 +501,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
       kiedy: iso,
       jednostkaId: j?.id,
       klucz: w.klucz,
-      typ: w.klucz ? 'kafelek' : koncowy ? 'koncowy' : zero ? 'test' : 'powtorka',
+      typ: w.klucz ? 'kafelek' : w.douczanie ? 'douczanie' : koncowy ? 'koncowy' : zero ? 'test' : 'powtorka',
       trudny: w.trudny || undefined,
       rozszerzona: w.rozszerzona,
       czat: w.czat ? (w.czat.zaliczone ? 'zaliczone' : 'luki') : undefined,
@@ -605,6 +643,30 @@ export async function przesunZadanie(sektorId: string, conceptId: string, o: -1 
   await zmienJednostke(sektorId, { zadania: l })
 }
 
+/** „Doucz nowe": zaczyna mapowanie samych nowych elementów sektora. */
+export async function zacznijDouczanie(id: string, nowe: { wezly: string[]; zadania: string[] }) {
+  await zmienJednostke(id, { douczanie: { ...nowe, etap: 'mapowanie', od: teraz().toISOString() } })
+}
+
+export async function skonczMapowanieDouczania(id: string) {
+  const j = await db.nauka.get(id)
+  if (!j?.douczanie) return
+  await zmienJednostke(id, { douczanie: { ...j.douczanie, etap: 'przerwa', od: teraz().toISOString() } })
+}
+
+export async function przerwijDouczanie(id: string) {
+  await zmienJednostke(id, { douczanie: undefined })
+}
+
+/** Minuty przerwy w douczaniu (od końca mapowania nowych). */
+export function minutyDouczania(j: JednostkaNauki, kiedy = teraz()): number {
+  if (j.douczanie?.etap !== 'przerwa') return 0
+  return (kiedy.getTime() - new Date(j.douczanie.od).getTime()) / 60000
+}
+
+export const douczanieOtwarte = (j: JednostkaNauki, kiedy = teraz()) =>
+  j.douczanie?.etap === 'przerwa' && minutyDouczania(j, kiedy) >= wez('przerwa')
+
 /** Bez zadań tym razem — powtórka zero kończy się bez testu końcowego. */
 export async function pominZadania(id: string) {
   await zmienJednostke(id, { etap: 'powtorki', doPoprawy: undefined })
@@ -717,12 +779,13 @@ export interface Plan {
 }
 
 export async function planNauki(kiedy = teraz()): Promise<Plan> {
-  const [jednostki, pamiecWszystko, sciezki, kafelki, t] = await Promise.all([
+  const [jednostki, pamiecWszystko, sciezki, kafelki, t, znane] = await Promise.all([
     db.nauka.toArray(),
     db.pamiec.toArray(),
     db.paths.toArray(),
     db.concepts.toArray(),
     tempo(),
+    znaneKlucze(),
   ])
   const sciezka = new Map(sciezki.map((p) => [p.id, p]))
   const nazwaKafelka = new Map(kafelki.map((c) => [c.id, c.name]))
@@ -735,6 +798,7 @@ export async function planNauki(kiedy = teraz()): Promise<Plan> {
   })()
 
   const nazwaKlucza = (k: string, p?: LearningPath, nodeId?: string): string => {
+    if (czyZadanie(k)) return nazwaKafelka.get(idZadania(k)) ?? '(usunięte zadanie)'
     if (!k.startsWith('grupa:')) return nazwaKafelka.get(k) ?? '(usunięty kafelek)'
     const n = p?.nodes.find((x) => x.id === nodeId)
     return n?.kind === 'fusion' ? n.name || 'Grupa' : 'Grupa'
@@ -752,6 +816,8 @@ export async function planNauki(kiedy = teraz()): Promise<Plan> {
       wToku.push(j)
       continue
     }
+    // douczanie nowych w toku — sektor ma przy tym swój zwykły termin
+    if (j.douczanie) wToku.push(j)
     const p = j.pathId ? sciezka.get(j.pathId) : undefined
     const wezly = j.rodzaj === 'sektor' ? wezlySektora(j, p).filter(ocenialny) : []
     const n = j.rodzaj === 'sektor' ? wezly.length : 1
@@ -788,7 +854,23 @@ export async function planNauki(kiedy = teraz()): Promise<Plan> {
 
     // kafelki dołożone do nauczonego sektora: uczy się ich osobno — chyba
     // że sektor i tak jest dziś, wtedy wchodzą w jego powtórkę
-    if (j.rodzaj === 'sektor' && p && !sektoryDzis.has(j.id)) {
+    if (j.rodzaj === 'sektor' && p && !sektoryDzis.has(j.id) && !j.douczanie) {
+      const nowe = noweWSektorze(j, p, pamiec, znane)
+      for (const id of nowe.zadania) {
+        const k = kluczZadania(id)
+        dzisL.push({
+          id: `nowy:${k}`,
+          rodzaj: 'kafelek',
+          klucz: k,
+          nazwa: nazwaKlucza(k),
+          gdzie: j.nazwa,
+          minuty: t.pojedynczy,
+          dni: 0,
+          pamiec01: 0,
+          nowy: true,
+          jednostka: j,
+        })
+      }
       for (const w of wezly) {
         const k = kluczWezla(w, p.id)
         if (!k || pamiec.has(k)) continue
@@ -816,7 +898,7 @@ export async function planNauki(kiedy = teraz()): Promise<Plan> {
     // kafelek (albo grupa) już nie istnieje — nie ma czego powtarzać
     if (pk.klucz.startsWith('grupa:')) {
       if (!p?.nodes.some((n) => n.id === pk.nodeId)) continue
-    } else if (!nazwaKafelka.has(pk.klucz)) continue
+    } else if (!nazwaKafelka.has(czyZadanie(pk.klucz) ? idZadania(pk.klucz) : pk.klucz)) continue
     if (pk.wpadki >= progUpartego) uparte.push({ pamiec: pk, nazwa: nazwaKlucza(pk.klucz, p, pk.nodeId) })
     if (!pk.slaby) continue
     const j = pk.jednostkaId ? jednostki.find((x) => x.id === pk.jednostkaId) : undefined

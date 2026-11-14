@@ -565,6 +565,15 @@ export interface JednostkaNauki {
    *  stoją w zwiniętym pasku na końcu sektora. Odpięcie zadania nie usuwa
    *  kafelka. */
   zadania?: string[]
+  /** „Doucz nowe": mała powtórka zero tylko dla kafelków i zadań dołożonych
+   *  do nauczonego sektora — mapowanie ich, przerwa, test tylko z nich.
+   *  Termin sektora zostaje. */
+  douczanie?: {
+    wezly: string[]
+    zadania: string[]
+    etap: 'mapowanie' | 'przerwa'
+    od: string
+  }
   utworzono: string
   zmieniono: string
 }
@@ -598,7 +607,7 @@ export interface WpisNauki {
   /** Kafelek powtarzany osobno (słaby albo nowy w nauczonym sektorze). */
   klucz?: string
   /** `koncowy` — test końcowy powtórki zero, już z zadaniami. */
-  typ: 'test' | 'powtorka' | 'kafelek' | 'od-nowa' | 'czat' | 'koncowy'
+  typ: 'test' | 'powtorka' | 'kafelek' | 'od-nowa' | 'czat' | 'koncowy' | 'douczanie'
   /** Trudny tryb (zakryte także nazwy kafelków). */
   trudny?: boolean
   /** Powtórka rozszerzona: co ją rozszerzało. */

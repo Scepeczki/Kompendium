@@ -10,6 +10,7 @@ import {
   dniDo,
   dolozDoSektora,
   kluczWezla,
+  kluczZadania,
   odepnijZadanie,
   opisDni,
   przelaczWSektorze,
@@ -17,6 +18,7 @@ import {
   utworzSektor,
   wyjmijZSektora,
   znajdzTypZadania,
+  znaneKlucze,
 } from '../nauka'
 import { kluczWlasnej, type Concept, type JednostkaNauki, type PathNode } from '../types'
 
@@ -105,6 +107,11 @@ export function WidokSektorow({
   const kafelek = useMemo(() => new Map((dane?.cs ?? []).map((c) => [c.id, c])), [dane])
   const wersja = useMemo(() => new Map((dane?.vs ?? []).map((v) => [v.id, v])), [dane])
   const slabe = useMemo(() => new Set(pamiec.filter((p) => p.slaby).map((p) => p.klucz)), [pamiec])
+  const znane = useLiveQuery(() => znaneKlucze(), []) ?? new Set<string>()
+  const klucze = useMemo(() => new Set(pamiec.map((p) => p.klucz)), [pamiec])
+  /** Dołożone do nauczonego sektora i jeszcze nieuczone. */
+  const nowyKlucz = (k: string | null, s: JednostkaNauki | undefined) =>
+    !!k && !!s && s.etap === 'powtorki' && !klucze.has(k) && !znane.has(k)
   const typZadania = znajdzTypZadania(typy.all)
 
   // ---- wiersze i sektory (notatki w środku sektora dostają jego pasmo) ----
@@ -287,6 +294,10 @@ export function WidokSektorow({
   }
   const ileKafelkow = (s: JednostkaNauki) =>
     wezly.filter((n) => s.wezly.includes(n.id) && (n.kind === 'block' || n.kind === 'fusion')).length
+  const ileNowych = (s: JednostkaNauki) =>
+    wezly.filter(
+      (n) => s.wezly.includes(n.id) && (n.kind === 'block' || n.kind === 'fusion') && nowyKlucz(kluczWezla(n, pathId), s),
+    ).length + (s.zadania ?? []).filter((id) => nowyKlucz(kluczZadania(id), s)).length
   const opisEtapu = (s: JednostkaNauki) =>
     s.etap === 'powtorki' && s.termin ? `powtórka ${opisDni(dniDo(s.termin))}` : ETAP[s.etap]
 
@@ -334,6 +345,11 @@ export function WidokSektorow({
             const def = typ ? typy.def(typ) : undefined
             const klucz = n && (n.kind === 'block' || n.kind === 'fusion') ? kluczWezla(n, pathId) : null
             const slaby = !!klucz && slabe.has(klucz)
+            const sekt = n ? naprawde.get(n.id) : w.rodzaj === 'zadanie' ? w.s : undefined
+            const nowy = nowyKlucz(w.rodzaj === 'zadanie' ? kluczZadania(w.c.id) : klucz, sekt)
+            const douczany =
+              !!sekt?.douczanie &&
+              (w.rodzaj === 'zadanie' ? sekt.douczanie.zadania.includes(w.c.id) : !!n && sekt.douczanie.wezly.includes(n.id))
             const doPoprawy =
               (!!n && !!s && s.doPoprawy?.includes(n.id)) || (w.rodzaj === 'zadanie' && !!w.s.doPoprawy?.includes(w.c.id))
             const zadanie = w.rodzaj === 'zadanie' || (!!c && c.type === typZadania)
@@ -358,6 +374,7 @@ export function WidokSektorow({
                     <span className="ws-sektor-info">
                       {ileKafelkow(s)} kaf.
                       {s.zadania?.length ? ` · ${s.zadania.length} zad.` : ''} · {opisEtapu(s)}
+                      {ileNowych(s) > 0 && <span className="ws-sektor-nowe"> · nowe: {ileNowych(s)}</span>}
                     </span>
                   </button>
                 )}
@@ -422,6 +439,11 @@ export function WidokSektorow({
                             </span>
                           )}
                           {n?.kind === 'fusion' && <span className="ws-znaczek">grupa · {n.parts.length}</span>}
+                          {douczany ? (
+                            <span className="ws-znaczek ws-nowy">douczanie</span>
+                          ) : (
+                            nowy && <span className="ws-znaczek ws-nowy">nowy</span>
+                          )}
                           {slaby && <span className="ws-znaczek ws-slaby">słaby</span>}
                           {doPoprawy && <span className="ws-znaczek ws-poprawa">do poprawy</span>}
                         </span>
