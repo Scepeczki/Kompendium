@@ -9702,3 +9702,418 @@ body.ciagne-szerokosc * {
   align-items: center;
   gap: 5px;
 }
+
+/* --- widok Sektory: zwarta oś ścieżki w Nauce --- */
+.widok-sektorow {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.widok-sektorow-pusto {
+  margin: 40px auto;
+}
+
+.ws-kolumna {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 18px 28px 90px 20px;
+  box-sizing: border-box;
+  flex: 1;
+}
+
+.ws-wybieranie {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--sektor, var(--accent)) 12%, var(--panel));
+}
+
+.ws-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+.ws-wiersz {
+  position: relative;
+  --y: 20px;
+}
+
+/* szara oś przez całą ścieżkę */
+.ws-wiersz::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--line);
+}
+
+.ws-wiersz:first-child::before {
+  top: var(--y);
+}
+
+.ws-wiersz:last-child::before {
+  bottom: auto;
+  height: var(--y);
+}
+
+.ws-rzad {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: start;
+  padding: 3px 0;
+  border-radius: 10px;
+}
+
+/* barwny, gruby odcinek sektora */
+.ws-wiersz.w-sektorze .ws-rzad::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  width: 8px;
+  top: 0;
+  bottom: 0;
+  background: var(--sektor);
+}
+
+.ws-wiersz.w-sektorze.pierwszy .ws-rzad::before {
+  top: var(--y);
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+
+.ws-wiersz.w-sektorze.ostatni .ws-rzad::before {
+  bottom: auto;
+  height: calc(var(--y) - 0px);
+  top: 0;
+}
+
+.ws-wiersz.w-sektorze.pierwszy.ostatni .ws-rzad::before {
+  display: none;
+}
+
+.ws-wiersz.wypelnienie .ws-rzad::before {
+  opacity: 0.4;
+}
+
+.ws-os {
+  position: relative;
+  z-index: 1;
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  padding-top: calc(var(--y) - 3px - 7px);
+  cursor: pointer;
+}
+
+.ws-kulka {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--muted);
+  box-sizing: border-box;
+  transition: transform 0.1s;
+}
+
+.ws-wiersz.w-sektorze .ws-kulka {
+  background: var(--sektor);
+  border-color: var(--paper);
+  box-shadow: 0 0 0 2px var(--sektor);
+}
+
+.ws-wiersz.zadanie .ws-kulka {
+  border-radius: 3px;
+}
+
+.ws-wiersz.rodzaj-text .ws-kulka {
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
+  margin-top: 3px;
+}
+
+.ws-os:hover .ws-kulka {
+  transform: scale(1.3);
+}
+
+.ws-wiersz.zaznaczony .ws-rzad {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.ws-wiersz.zaznaczony .ws-kulka {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+/* rozdział: poprzeczna kreska i tytuł */
+.ws-wiersz.rodzaj-heading {
+  --y: 24px;
+  margin-top: 10px;
+}
+
+.ws-wiersz.rodzaj-heading .ws-kulka {
+  width: 22px;
+  height: 5px;
+  border: none;
+  border-radius: 3px;
+  background: var(--ink-soft);
+  box-shadow: none;
+  margin-top: 5px;
+}
+
+.ws-wiersz.rodzaj-heading.w-sektorze .ws-kulka {
+  background: var(--sektor);
+}
+
+.ws-rozdzial {
+  padding: 8px 4px 4px;
+  cursor: pointer;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.ws-rozdzial.poziom-1 {
+  font-family: var(--font-serif, inherit);
+  font-size: 1.35em;
+  font-weight: 700;
+}
+
+.ws-rozdzial.poziom-2 {
+  font-size: 1.1em;
+  font-weight: 650;
+}
+
+.ws-rozdzial.poziom-3,
+.ws-rozdzial.poziom-4,
+.ws-rozdzial.poziom-5,
+.ws-rozdzial.poziom-6 {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* karta kafelka */
+.ws-karta {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--block-color, var(--line));
+  border-radius: 10px;
+  padding: 6px 12px 7px;
+  cursor: pointer;
+  transition: box-shadow 0.12s;
+}
+
+.ws-karta:hover {
+  box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.18);
+}
+
+.ws-karta-glowa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.ws-nazwa {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-znaczki {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ws-znaczek {
+  font-size: var(--fs-1);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--muted);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ws-znaczek.ws-slaby {
+  color: #9a6f12;
+  background: color-mix(in srgb, #d4a017 18%, transparent);
+}
+
+.ws-znaczek.ws-poprawa {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.ws-otworz {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0;
+  font: inherit;
+}
+
+.ws-karta:hover .ws-otworz {
+  opacity: 1;
+}
+
+.ws-otworz:hover {
+  color: var(--accent);
+}
+
+.ws-podglad {
+  margin-top: 3px;
+  font-size: var(--fs-2);
+  color: var(--ink-soft);
+  max-height: 3.1em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+.ws-podglad > *,
+.ws-notatka .markdown-body > * {
+  margin-top: 0;
+  margin-bottom: 0.25em;
+}
+
+.ws-karta.rozwinieta .ws-podglad {
+  max-height: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+  font-size: var(--fs-3);
+  color: var(--ink);
+}
+
+.ws-notatka {
+  padding: 4px 4px 4px 2px;
+  font-size: var(--fs-2);
+  font-style: italic;
+  color: var(--muted);
+  max-height: 1.7em;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-mask-image: linear-gradient(to right, #000 80%, transparent);
+  mask-image: linear-gradient(to right, #000 80%, transparent);
+}
+
+.ws-notatka.rozwinieta {
+  max-height: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+  color: var(--ink-soft);
+}
+
+/* nagłówek sektora */
+.ws-sektor {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  width: calc(100% - 36px);
+  margin: 16px 0 4px 36px;
+  padding: 7px 12px;
+  box-sizing: border-box;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--sektor) 11%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--sektor) 42%, transparent);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ws-sektor:hover {
+  background: color-mix(in srgb, var(--sektor) 17%, var(--panel));
+}
+
+.ws-sektor-kropka {
+  align-self: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sektor);
+}
+
+.ws-sektor-nazwa {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--sektor) 72%, var(--ink));
+}
+
+.ws-sektor-info {
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.ws-ciag {
+  margin: 8px 0 2px 40px;
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: color-mix(in srgb, var(--sektor) 75%, var(--ink));
+}
+
+.ws-akcje {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 14px -8px rgba(0, 0, 0, 0.2);
+}
+
+.widok-sektorow.wybieranie .ws-karta {
+  cursor: copy;
+}
+
+.widok-sektorow.wybieranie .ws-wiersz:not(.w-sektorze) .ws-karta {
+  opacity: 0.6;
+}
+
+.widok-nauki-switch {
+  margin-right: 6px;
+}
+
+.ws-podglad.markdown-body,
+.ws-notatka .markdown-body {
+  padding: 0;
+  margin-top: 1px;
+  line-height: 1.45;
+}
+
+.ws-podglad.markdown-body ul,
+.ws-podglad.markdown-body ol {
+  padding-left: 1.2em;
+}
+
+.ws-podglad.markdown-body p,
+.ws-notatka .markdown-body p {
+  margin-block: 0 0.3em;
+}

@@ -33,6 +33,8 @@ page.on('pageerror', (e) => errors.push(String(e)))
 
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
+// ten test sprawdza Nauki na pełnej Linii (domyślny jest widok Sektory)
+await page.evaluate(() => localStorage.setItem('ui.nauka.widok', 'linia'))
 
 const baza = () =>
   page.evaluate(async () => {

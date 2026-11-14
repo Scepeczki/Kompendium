@@ -126,24 +126,9 @@ export function PasekZadan({
   const zadania = useZadania(j) ?? []
   const [otwarty, setOtwarty] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; c: Concept } | null>(null)
-  const usun = useUsunZadanie()
   const ids = zadania.map((c) => c.id)
   const wersje = useLiveQuery(() => db.versions.where('conceptId').anyOf(ids).toArray(), [ids.join()]) ?? []
-  useEffect(() => {
-    if (!menu) return
-    const zamknij = () => setMenu(null)
-    window.addEventListener('mousedown', zamknij)
-    window.addEventListener('scroll', zamknij, true)
-    return () => {
-      window.removeEventListener('mousedown', zamknij)
-      window.removeEventListener('scroll', zamknij, true)
-    }
-  }, [menu])
   if (!zadania.length) return null
-  const dzialaj = (fn: () => void) => () => {
-    setMenu(null)
-    fn()
-  }
   return (
     <div
       className={`zadania-pasek ${otwarty ? 'otwarty' : ''}`}
@@ -188,40 +173,16 @@ export function PasekZadan({
           ))}
         </div>
       )}
-      {menu &&
-        createPortal(
-        <div
-          className="tree-menu linear-menu menu-zadania"
-          style={{ position: 'fixed', left: menu.x, top: menu.y }}
-          onMouseDown={(e) => e.stopPropagation()}
-          ref={(el) => {
-            if (!el) return
-            const r = el.getBoundingClientRect()
-            const dx = Math.min(0, window.innerWidth - 6 - r.right)
-            const dy = Math.min(0, window.innerHeight - 6 - r.bottom)
-            if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
-          }}
-        >
-          <div className="tree-menu-where">Zadanie „{menu.c.name}"</div>
-          {onOtworz && (
-            <button className="tree-menu-item" onClick={dzialaj(() => onOtworz(menu.c.id))}>
-              <Icon name="edycja" size={1} /> Otwórz w edytorze
-            </button>
-          )}
-          {onDoLinii && (
-            <button className="tree-menu-item" onClick={dzialaj(() => onDoLinii(sektorId, menu.c.id))}>
-              <Icon name="przesun" size={1} /> Wstaw do Linii (na koniec sektora)
-            </button>
-          )}
-          <button className="tree-menu-item" onClick={dzialaj(() => void odepnijZadanie(sektorId, menu.c.id))}>
-            ✕ Odepnij od sektora (zostaje w folderze ścieżki)
-          </button>
-          <div className="tree-menu-sep" />
-          <button className="tree-menu-item danger" onClick={dzialaj(() => void usun(sektorId, menu.c))}>
-            <Icon name="usun" size={1} /> Usuń zadanie…
-          </button>
-        </div>,
-        document.body,
+      {menu && (
+        <MenuZadania
+          x={menu.x}
+          y={menu.y}
+          c={menu.c}
+          sektorId={sektorId}
+          onOtworz={onOtworz}
+          onDoLinii={onDoLinii}
+          onZamknij={() => setMenu(null)}
+        />
       )}
     </div>
   )
@@ -253,5 +214,77 @@ function ZadanieWLinii({
         </button>
       }
     />
+  )
+}
+
+/** Menu zadania z paska: otwórz, do Linii, odepnij, usuń (po pytaniu).
+ *  Przez portal — segment Linii obcina wszystko, co z niego wystaje. */
+export function MenuZadania({
+  x,
+  y,
+  c,
+  sektorId,
+  onOtworz,
+  onDoLinii,
+  onZamknij,
+}: {
+  x: number
+  y: number
+  c: Concept
+  sektorId: string
+  onOtworz?: (conceptId: string) => void
+  onDoLinii?: (sektorId: string, conceptId: string) => void
+  onZamknij: () => void
+}) {
+  const usun = useUsunZadanie()
+  useEffect(() => {
+    const zamknij = () => onZamknij()
+    const klawisz = (e: KeyboardEvent) => e.key === 'Escape' && onZamknij()
+    window.addEventListener('mousedown', zamknij)
+    window.addEventListener('scroll', zamknij, true)
+    window.addEventListener('keydown', klawisz)
+    return () => {
+      window.removeEventListener('mousedown', zamknij)
+      window.removeEventListener('scroll', zamknij, true)
+      window.removeEventListener('keydown', klawisz)
+    }
+  }, [onZamknij])
+  const dzialaj = (fn: () => void) => () => {
+    onZamknij()
+    fn()
+  }
+  return createPortal(
+    <div
+      className="tree-menu linear-menu menu-zadania"
+      style={{ position: 'fixed', left: x, top: y }}
+      onMouseDown={(e) => e.stopPropagation()}
+      ref={(el) => {
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        const dx = Math.min(0, window.innerWidth - 6 - r.right)
+        const dy = Math.min(0, window.innerHeight - 6 - r.bottom)
+        if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
+      }}
+    >
+      <div className="tree-menu-where">Zadanie „{c.name}"</div>
+      {onOtworz && (
+        <button className="tree-menu-item" onClick={dzialaj(() => onOtworz(c.id))}>
+          <Icon name="edycja" size={1} /> Otwórz w edytorze
+        </button>
+      )}
+      {onDoLinii && (
+        <button className="tree-menu-item" onClick={dzialaj(() => onDoLinii(sektorId, c.id))}>
+          <Icon name="przesun" size={1} /> Wstaw do Linii (na koniec sektora)
+        </button>
+      )}
+      <button className="tree-menu-item" onClick={dzialaj(() => void odepnijZadanie(sektorId, c.id))}>
+        ✕ Odepnij od sektora (zostaje w folderze ścieżki)
+      </button>
+      <div className="tree-menu-sep" />
+      <button className="tree-menu-item danger" onClick={dzialaj(() => void usun(sektorId, c))}>
+        <Icon name="usun" size={1} /> Usuń zadanie…
+      </button>
+    </div>,
+    document.body,
   )
 }

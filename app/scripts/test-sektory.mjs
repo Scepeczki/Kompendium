@@ -1,4 +1,4 @@
-// Sektory w widoku Nauka: Przegląd (linia z kuleczkami, zaznaczanie
+// Sektory w widoku Nauka: widok Sektory (oś z kartami), Przegląd (linia z kuleczkami, zaznaczanie
 // przeciąganiem i rozdziałem), pasmo przez notatkę w środku sektora, pasek
 // zadań tylko na samym końcu sektora, zadanie z paska do Linii i z powrotem,
 // usuwanie zadania po pytaniu.
@@ -21,6 +21,8 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
+// ten test sprawdza Nauki na pełnej Linii (domyślny jest widok Sektory)
+await page.evaluate(() => localStorage.setItem('ui.nauka.widok', 'linia'))
 
 const baza = () =>
   page.evaluate(async () => {
@@ -139,6 +141,50 @@ await page.waitForTimeout(500)
 d = await baza()
 check('„do sektora" z Przeglądu dokłada kafelek', d.nauka.find((j) => j.id === 's1').wezly.includes('nx1'))
 check('po dołożeniu pasmo już nie jest przerwane', (await page.locator('.linear-seg[data-seg="nx1"].w-sektorze').count()) === 1)
+
+// --- widok Sektory (domyślny środek Nauki) ---
+await page.click('.widok-nauki-switch button:has-text("Sektory")')
+await page.waitForSelector('.widok-sektorow .ws-lista')
+check('Sektory: przełącznik zapamiętuje wybór', (await page.evaluate(() => localStorage.getItem('ui.nauka.widok'))) === 'sektory')
+check('Sektory: Przegląd w panelu znika (byłby powtórzeniem)', (await page.locator('.panel-nauki-zakladki button:has-text("Przegląd")').count()) === 0)
+check('Sektory: nagłówek sektora z liczbą kafelków i etapem', (await page.locator('.ws-sektor:has-text("Logika")').innerText()).includes('kaf.') &&
+  (await page.locator('.ws-sektor:has-text("Logika")').innerText()).includes('nie uczony'))
+check('Sektory: karta z rodzajem, nazwą i podglądem treści', (await page.locator('.ws-wiersz[data-seg="na1"] .ws-karta').innerText()).includes('Zdanie') &&
+  (await page.locator('.ws-wiersz[data-seg="na1"] .ws-podglad').innerText()).includes('Treść: Zdanie'))
+check('Sektory: zadanie z paska na końcu sektora', (await page.locator('.ws-wiersz.rodzaj-zadanie-paska:has-text("Kafelek")').count()) +
+  (await page.locator('.ws-wiersz.rodzaj-zadanie-paska').count()) >= 1)
+check('Sektory: notatka w środku sektora w jego paśmie', (await page.locator('.ws-wiersz[data-seg="tN"].w-sektorze.wypelnienie').count()) === 1)
+await page.click('.ws-wiersz[data-seg="na2"] .ws-karta')
+check('Sektory: klik w kartę rozwija treść', (await page.locator('.ws-wiersz[data-seg="na2"] .ws-karta.rozwinieta').count()) === 1)
+// zaznaczanie przeciąganiem po osi i nowy sektor
+const o1 = await page.locator('.ws-wiersz[data-seg="nb1"] .ws-os').boundingBox()
+const o2 = await page.locator('.ws-wiersz[data-seg="nb2"] .ws-os').boundingBox()
+await page.mouse.move(o1.x + o1.width / 2, o1.y + 12)
+await page.mouse.down()
+await page.mouse.move(o2.x + o2.width / 2, o2.y + 12, { steps: 6 })
+await page.mouse.up()
+check('Sektory: przeciągnięcie po osi zaznacza', (await page.locator('.ws-wiersz.zaznaczony').count()) === 2)
+check('Sektory: zaznaczenie widać w panelu', (await page.locator('.panel-nauki-akcje .btn-primary').innerText()).includes('(2)'))
+await page.click('.ws-akcje button:has-text("Nowy sektor")')
+await podaj(page, 'Dwa zbiory')
+await page.waitForTimeout(500)
+d = await baza()
+check('Sektory: nowy sektor z zaznaczonych', d.nauka.find((j) => j.nazwa === 'Dwa zbiory')?.wezly.join() === 'nb1,nb2')
+// prawy przycisk: menu nauki
+await page.locator('.ws-wiersz[data-seg="hB"] .ws-rozdzial').click({ button: 'right' })
+check('Sektory: prawy przycisk na rozdziale — „Zrób sektor z rozdziału"', (await page.locator('.menu-nauki:has-text("Zrób sektor z rozdziału")').count()) === 1)
+await page.keyboard.press('Escape')
+await page.mouse.click(5, 300)
+// wybieranie klikaniem
+await page.click('.karta-sektora:has-text("Dwa zbiory") button:has-text("Wybierz kafelki")')
+await page.click('.ws-wiersz[data-seg="nb2"] .ws-karta')
+await page.waitForTimeout(400)
+d = await baza()
+check('Sektory: w trybie wybierania klik w kartę wyjmuje z sektora', d.nauka.find((j) => j.nazwa === 'Dwa zbiory')?.wezly.join() === 'nb1')
+await page.click('.ws-wybieranie button:has-text("Gotowe")')
+// z powrotem na pełną Linię
+await page.click('.widok-nauki-switch button:has-text("Pełna linia")')
+check('przełącznik wraca do pełnej Linii', (await page.locator('.nauka-uklad .linear-view').count()) === 1)
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

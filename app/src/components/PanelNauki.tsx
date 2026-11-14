@@ -50,12 +50,16 @@ interface Props {
   /** Sektor, do którego wybiera się kafelki klikaniem w Linii. */
   wybierany?: string | null
   onWybieraj?: (id: string | null) => void
+  /** Na środku stoi widok Sektory — wtedy Przegląd w panelu byłby powtórzeniem. */
+  widokSektorow?: boolean
 }
 
 /** Pokazuje węzeł w Linii (przewija do niego). */
 function pokazWLinii(nodeId: string | undefined) {
   if (!nodeId) return
-  document.querySelector(`.linear-view [data-seg="${nodeId}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  document
+    .querySelector(`.linear-view [data-seg="${nodeId}"], .widok-sektorow [data-seg="${nodeId}"]`)
+    ?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
 
 const godzina = (iso?: string) =>
@@ -75,8 +79,13 @@ export function PanelNauki({
   onOtworz,
   wybierany,
   onWybieraj,
+  widokSektorow,
 }: Props) {
   const dlg = useDialogs()
+  // Przegląd w panelu znika, gdy na środku stoją Sektory — nie zostajemy na pustej zakładce
+  useEffect(() => {
+    if (widokSektorow && zakladka === 'przeglad') onZakladka('sektory')
+  }, [widokSektorow, zakladka, onZakladka])
   const jednostki = useLiveQuery(() => db.nauka.where('pathId').equals(pathId).toArray(), [pathId]) ?? []
   const kafelki = useLiveQuery(() => db.concepts.toArray(), [])
   const pamiec = useLiveQuery(() => db.pamiec.toArray(), []) ?? []
@@ -267,7 +276,9 @@ export function PanelNauki({
             ['mapa', 'Mapa'],
             ['pytania', 'Pytania'],
           ] as [ZakladkaNauki, string][]
-        ).map(([z, n]) => (
+        )
+          .filter(([z]) => !(widokSektorow && z === 'przeglad'))
+          .map(([z, n]) => (
           <button key={z} className={`btn ${zakladka === z ? 'btn-active' : ''}`} onClick={() => onZakladka(z)}>
             {n}
           </button>
@@ -383,7 +394,7 @@ export function PanelNauki({
         </div>
       )}
 
-      {zakladka === 'przeglad' && (
+      {zakladka === 'przeglad' && !widokSektorow && (
         <div className="panel-nauki-tresc panel-przeglad">
           <PrzegladSektorow
             pathId={pathId}

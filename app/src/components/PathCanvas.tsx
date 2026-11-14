@@ -87,6 +87,7 @@ import { KontekstKafelka } from './KontekstKafelka'
 import { PanelNauki, type ZakladkaNauki } from './PanelNauki'
 import { PasekZadan } from './ZadaniaSektora'
 import { MenuNauki } from './MenuNauki'
+import { WidokSektorow } from './WidokSektorow'
 import {
   dolozDoSektora,
   odepnijZadanie,
@@ -2963,6 +2964,14 @@ function CanvasInner({
   const [sektorNauki, setSektorNauki] = useState<string | null>(null)
   /** Sektor, do którego wybiera się kafelki klikaniem w Linii. */
   const [wybieranySektor, setWybieranySektor] = useState<string | null>(null)
+  /** Środek widoku Nauka: zwarta oś sektorów (domyślnie) albo zwykła Linia. */
+  const [widokNauki, setWidokNauki] = useState<'sektory' | 'linia'>(() =>
+    localStorage.getItem('ui.nauka.widok') === 'linia' ? 'linia' : 'sektory',
+  )
+  const zmienWidokNauki = (w: 'sektory' | 'linia') => {
+    setWidokNauki(w)
+    localStorage.setItem('ui.nauka.widok', w)
+  }
   useEffect(() => {
     if (mode !== 'nauka') setWybieranySektor(null)
   }, [mode])
@@ -4277,6 +4286,24 @@ function CanvasInner({
           ✕
         </button>
         <span className="path-odstep" />
+        {mode === 'nauka' && (
+          <div className="view-switch widok-nauki-switch" role="group" aria-label="Środek widoku Nauka">
+            <button
+              className={`btn ${widokNauki === 'sektory' ? 'btn-active' : ''}`}
+              title="Zwarta oś: kafelki jako kulki z kartami, sektory jako barwne odcinki"
+              onClick={() => zmienWidokNauki('sektory')}
+            >
+              Sektory
+            </button>
+            <button
+              className={`btn ${widokNauki === 'linia' ? 'btn-active' : ''}`}
+              title="Pełna Linia, tylko do czytania"
+              onClick={() => zmienWidokNauki('linia')}
+            >
+              Pełna linia
+            </button>
+          </div>
+        )}
         {mode === 'linear' && (
           <button
             className={`btn ${zakryte ? 'btn-active' : ''}`}
@@ -4423,6 +4450,34 @@ function CanvasInner({
       )}
       {(mode === 'linear' || mode === 'nauka') && (
         <div className={mode === 'nauka' ? 'nauka-uklad' : 'linia-uklad'}>
+        {mode === 'nauka' && widokNauki === 'sektory' ? (
+          <WidokSektorow
+            pathId={pathId}
+            ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
+            sektory={sektoryNauki ?? []}
+            wybieranySektor={wybieranySektor}
+            onWybieraj={(id) => {
+              setWybieranySektor(id)
+              if (id) setSektorNauki(id)
+            }}
+            onWybierzSektor={(id) => {
+              setSektorNauki(id)
+              setZakladkaNauki('sektory')
+            }}
+            onZaznaczenie={setZaznaczoneWLinii}
+            onOtworz={onOpenConcept}
+            onWstawKafelek={(conceptId, afterId, beforeId) => {
+              const id = crypto.randomUUID()
+              chainInsert(
+                { id, type: 'block', position: positionBetween(afterId, beforeId), data: { conceptId, versionId: null } },
+                afterId,
+                beforeId,
+              )
+              return id
+            }}
+            onWyjmijZLinii={zszyjBez}
+          />
+        ) : (
         <LinearView
           ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
           celKlocek={celKlocek}
@@ -4561,6 +4616,7 @@ function CanvasInner({
           }}
           onWyjmijZLinii={zszyjBez}
         />
+        )}
         {mode === 'nauka' && (
           <PanelNauki
             pathId={pathId}
@@ -4574,6 +4630,7 @@ function CanvasInner({
             onOtworz={onOpenConcept}
             wybierany={wybieranySektor}
             onWybieraj={setWybieranySektor}
+            widokSektorow={widokNauki === 'sektory'}
           />
         )}
         </div>

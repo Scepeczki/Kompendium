@@ -197,6 +197,8 @@ należy najwyżej do jednego sektora. Kafelki spoza sektorów można uczyć się
 osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
 3–12 kafelków; ostrzeżenie informuje, nie blokuje).
 
+Środek widoku **Nauka** to domyślnie **Sektory**: ścieżka jako jedna oś, kafelek to kulka i zwarta karta (rodzaj, nazwa, dwie linijki treści, znaczki: strony, słaby, do poprawy; klik rozwija), rozdział to kreska z tytułem, sektor to gruby barwny odcinek z nagłówkiem (kafelki, zadania, etap), a zadania z paska stoją na jego końcu. Zaznacza się przeciąganiem po osi. Przełącznik „Sektory / Pełna linia” wraca do zwykłej Linii.
+
 W widoku **Nauka** Linia jest tylko do czytania; pod prawym przyciskiem są
 sprawy sektorów (sektor z rozdziału, dodaj / wyjmij, nowe zadanie). Sektor
 robi się z zaznaczonych, z rozdziału, albo jako pusty i wtedy wybiera się
