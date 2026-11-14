@@ -200,7 +200,7 @@ osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
 Środek widoku **Nauka** to domyślnie **Sektory**: ścieżka jako jedna oś, kafelek to kulka i zwarta karta (rodzaj, nazwa, dwie linijki treści, znaczki: strony, słaby, do poprawy; klik rozwija), rozdział to kreska z tytułem, sektor to gruby barwny odcinek z nagłówkiem (kafelki, zadania, etap), a zadania z paska stoją na jego końcu. Zaznacza się przeciąganiem po osi. Przełącznik „Sektory / Pełna linia” wraca do zwykłej Linii.
 
 W widoku **Nauka** Linia jest tylko do czytania; pod prawym przyciskiem są
-sprawy sektorów (sektor z rozdziału, dodaj / wyjmij, nowe zadanie). Sektor
+sprawy sektorów (sektor z rozdziału, dodaj / wyjmij, nowe zadanie). Mapowanie i przerwę można przerwać: nic nie zostaje zaliczone, mapa zostaje. Pytania nauki są przy mapie (zakładka Mapa), nie w osobnej zakładce. Sektor
 robi się z zaznaczonych, z rozdziału, albo jako pusty i wtedy wybiera się
 kafelki klikaniem. **Przegląd** pokazuje całą Linię jako linię z kuleczkami:
 kafelek to kulka, rozdział to kreska z podpisem, sektor to barwny odcinek;

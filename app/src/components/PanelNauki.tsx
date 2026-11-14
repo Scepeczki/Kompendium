@@ -20,6 +20,7 @@ import {
   opisDni,
   pominZadania,
   przerwijDouczanie,
+  przerwijNauke,
   skonczMapowanieDouczania,
   zacznijDouczanie,
   znaneKlucze,
@@ -39,7 +40,7 @@ import { pytania, wez, zasady } from '../naukaUstawienia'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki, PathNode } from '../types'
 
-export type ZakladkaNauki = 'sektory' | 'przeglad' | 'mapa' | 'pytania'
+export type ZakladkaNauki = 'sektory' | 'przeglad' | 'mapa'
 
 interface Props {
   pathId: string
@@ -239,6 +240,18 @@ export function PanelNauki({
     if (ok) await naukaOdNowa(j.id)
   }
 
+  const przerwij = async (j: JednostkaNauki) => {
+    const ok = await dlg.confirm({
+      title: `Przerwać naukę „${j.nazwa}"?`,
+      message: j.karta
+        ? 'Poprawki mapowania się kończą, sektor wraca do powtórek. Mapa zostaje.'
+        : 'Nic nie zostanie zaliczone — sektor wraca do „jeszcze nie uczony" i możesz zacząć ponownie, kiedy zechcesz. Mapa zostaje.',
+      confirmLabel: 'Przerwij',
+      cancelLabel: 'Uczę się dalej',
+    })
+    if (ok) await przerwijNauke(j.id)
+  }
+
   const usun = async (j: JednostkaNauki) => {
     const ok = await dlg.confirm({
       title: `Usunąć sektor „${j.nazwa}"?`,
@@ -299,7 +312,6 @@ export function PanelNauki({
             ['sektory', 'Sektory'],
             ['przeglad', 'Przegląd'],
             ['mapa', 'Mapa'],
-            ['pytania', 'Pytania'],
           ] as [ZakladkaNauki, string][]
         )
           .filter(([z]) => !(widokSektorow && z === 'przeglad'))
@@ -382,6 +394,7 @@ export function PanelNauki({
                 }}
                 onTestNowych={() => onStart?.({ jednostkaId: s.j.id, douczanie: true })}
                 onOdNowa={() => odNowa(s.j)}
+                onPrzerwij={() => przerwij(s.j)}
                 onUsun={() => usun(s.j)}
                 onNazwa={() => zmienNazwe(s.j)}
                 onDoloz={() => dolozDoSektora(s.j.id, zazOcenialne)}
@@ -466,24 +479,6 @@ export function PanelNauki({
         </div>
       )}
 
-      {zakladka === 'pytania' && (
-        <div className="panel-nauki-tresc">
-          <h3 className="panel-nauki-naglowek">Pytania nauki</h3>
-          <p className="hint">Do wglądu przy mapowaniu — nie formularz. Te same pytania wracają w teście.</p>
-          <ol className="panel-nauki-pytania">
-            {pytania().map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ol>
-          <h3 className="panel-nauki-naglowek">Zasady mapowania</h3>
-          <ul className="panel-nauki-pytania">
-            {zasady().map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-          <p className="hint">Obie listy zmienisz w Ustawieniach → Nauka.</p>
-        </div>
-      )}
     </aside>
   )
 }
@@ -504,6 +499,7 @@ function KartaSektora({
   onDoucz,
   onTestNowych,
   onOdNowa,
+  onPrzerwij,
   onUsun,
   onNazwa,
   onDoloz,
@@ -527,6 +523,7 @@ function KartaSektora({
   onDoucz: () => void
   onTestNowych: () => void
   onOdNowa: () => void
+  onPrzerwij: () => void
   onUsun: () => void
   onNazwa: () => void
   onDoloz: () => void
@@ -693,6 +690,11 @@ function KartaSektora({
           </button>
         </div>
       )}
+      {(j.etap === 'mapowanie' || j.etap === 'przerwa') && (
+        <button className="btn btn-link karta-przerwij" title="Nic nie zostanie zaliczone; mapa zostaje" onClick={onPrzerwij}>
+          Przerwij naukę
+        </button>
+      )}
       {j.etap === 'czat' && <TestCzatem j={j} tryb="zero" />}
       {j.etap === 'zadania' && (
         <p className="hint karta-sektora-rada">
@@ -793,6 +795,16 @@ function MapaSektora({
           <pre>{j.luki}</pre>
         </div>
       )}
+      {/* pytania i zasady są przy mapie, nie w osobnej zakładce — to ściąga do
+          mapowania; w trakcie mapowania pytania są od razu rozwinięte */}
+      <details className="mapa-sektora-zasady mapa-sektora-pytania" open={j.etap === 'mapowanie' || !!j.douczanie}>
+        <summary>Pytania nauki — ściąga, nie formularz</summary>
+        <ol>
+          {pytania().map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ol>
+      </details>
       <details className="mapa-sektora-zasady">
         <summary>Jak mapować</summary>
         <ul>
@@ -800,6 +812,7 @@ function MapaSektora({
             <li key={z}>{z}</li>
           ))}
         </ul>
+        <p className="hint">Obie listy zmienisz w Ustawieniach → Nauka.</p>
       </details>
       <div className="mapa-sektora-pole">
         <RichEditor value={j.mapa ?? ''} editable ruler={false} onChange={zmien} />

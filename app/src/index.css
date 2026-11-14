@@ -10184,3 +10184,15 @@ body.ciagne-szerokosc * {
 :root[data-theme='dark'] .zadania-lista .nowy .zadania-nazwa {
   color: #7fd3a5;
 }
+
+.karta-przerwij {
+  align-self: flex-start;
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+.mapa-sektora-pytania ol {
+  margin: 6px 0 0;
+  padding-left: 1.4em;
+  font-size: var(--fs-3);
+}

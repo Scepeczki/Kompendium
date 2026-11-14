@@ -278,6 +278,19 @@ export async function zacznijMapowanie(id: string) {
   await zmienJednostke(id, { etap: 'mapowanie', etapOd: teraz().toISOString() })
 }
 
+/** „Przerwij naukę": mapowanie albo przerwa się kończy, nic nie jest
+ *  zaliczone. Mapa zostaje. Sektor nigdy nieuczony wraca do „nowy",
+ *  a sektor w powtórkach (poprawki po nieudanej powtórce) — do powtórek. */
+export async function przerwijNauke(id: string) {
+  const j = await db.nauka.get(id)
+  if (!j || (j.etap !== 'mapowanie' && j.etap !== 'przerwa')) return
+  await zmienJednostke(id, {
+    etap: j.karta ? 'powtorki' : 'nowy',
+    etapOd: undefined,
+    doPoprawy: j.karta ? j.doPoprawy : undefined,
+  })
+}
+
 export async function skonczMapowanie(id: string) {
   await zmienJednostke(id, { etap: 'przerwa', etapOd: teraz().toISOString() })
 }
