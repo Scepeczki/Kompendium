@@ -18,6 +18,7 @@ export function MenuNauki({
   onZamknij,
   onOtworz,
   onWybieraj,
+  doPaska,
 }: {
   x: number
   y: number
@@ -32,6 +33,8 @@ export function MenuNauki({
   onZamknij: () => void
   onOtworz?: (conceptId: string) => void
   onWybieraj?: (sektorId: string) => void
+  /** Kafelek „Zadanie" stojący w Linii sektora przechodzi do paska zadań. */
+  doPaska?: (sektorId: string) => Promise<void>
 }) {
   const dlg = useDialogs()
   const tylkoSektory = sektory.filter((s) => s.rodzaj === 'sektor')
@@ -137,6 +140,11 @@ export function MenuNauki({
           <Icon name="kafelek" size={1} /> Nowe zadanie w „{s.nazwa}"
         </button>
       ))}
+      {sektorZadania && doPaska && (
+        <button className="tree-menu-item" onClick={zrob(() => doPaska(sektorZadania.id))}>
+          <Icon name="przesun" size={1} /> Przenieś do paska zadań „{sektorZadania.nazwa}"
+        </button>
+      )}
       {sektorZadania && onWybieraj && (
         <button className="tree-menu-item" onClick={zrob(() => onWybieraj(sektorZadania.id))}>
           <Icon name="edycja" size={1} /> Wybieraj kafelki „{sektorZadania.nazwa}" klikaniem

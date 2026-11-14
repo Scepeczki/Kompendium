@@ -6,6 +6,7 @@ import { Icon } from './Icon'
 import { RichEditor } from './RichEditor'
 import { TestCzatem } from './TestCzatem'
 import { ListaZadan } from './ZadaniaSektora'
+import { PrzegladSektorow } from './PrzegladSektorow'
 import {
   dniDo,
   dolozDoSektora,
@@ -31,7 +32,7 @@ import { pytania, wez, zasady } from '../naukaUstawienia'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki, PathNode } from '../types'
 
-export type ZakladkaNauki = 'sektory' | 'mapa' | 'pytania'
+export type ZakladkaNauki = 'sektory' | 'przeglad' | 'mapa' | 'pytania'
 
 interface Props {
   pathId: string
@@ -262,6 +263,7 @@ export function PanelNauki({
         {(
           [
             ['sektory', 'Sektory'],
+            ['przeglad', 'Przegląd'],
             ['mapa', 'Mapa'],
             ['pytania', 'Pytania'],
           ] as [ZakladkaNauki, string][]
@@ -378,6 +380,23 @@ export function PanelNauki({
               </ul>
             </details>
           )}
+        </div>
+      )}
+
+      {zakladka === 'przeglad' && (
+        <div className="panel-nauki-tresc panel-przeglad">
+          <PrzegladSektorow
+            pathId={pathId}
+            ordered={ordered}
+            sektory={sektory.map((s) => s.j)}
+            kafelek={kafelek}
+            nazwaWezla={nazwaWezla}
+            onPokaz={pokazWLinii}
+            onWybierz={(id) => {
+              onWybierz(id)
+              onZakladka('sektory')
+            }}
+          />
         </div>
       )}
 

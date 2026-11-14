@@ -87,7 +87,14 @@ import { KontekstKafelka } from './KontekstKafelka'
 import { PanelNauki, type ZakladkaNauki } from './PanelNauki'
 import { PasekZadan } from './ZadaniaSektora'
 import { MenuNauki } from './MenuNauki'
-import { przelaczWSektorze } from '../nauka'
+import {
+  dolozDoSektora,
+  odepnijZadanie,
+  przelaczWSektorze,
+  przypnijZadanie,
+  wyjmijZSektora,
+  znajdzTypZadania,
+} from '../nauka'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki } from '../types'
 import { ConceptPicker } from './ConceptPicker'
@@ -604,6 +611,10 @@ interface LinearViewProps {
   /** Sektor, do którego wybiera się kafelki klikaniem (widok Nauka). */
   wybieranySektor?: string | null
   onWybieraj?: (sektorId: string | null) => void
+  /** Wstawia kafelek do Linii i zwraca id nowego węzła (zadanie z paska). */
+  onWstawKafelek?: (conceptId: string, afterId: string | null, beforeId: string | null) => string
+  /** Wyjmuje węzeł z Linii bez ruszania kafelka (zadanie do paska). */
+  onWyjmijZLinii?: (nodeId: string) => void
   onJumpToSource?: (ref: SourceRef) => void
   onOpenConcept?: (id: string) => void
 
@@ -761,6 +772,11 @@ interface Pasmo {
   nauka: boolean
   /** Ile zadań ma sektor — pasek „Zadania" stoi w ostatnim segmencie. */
   zadan: number
+  /** Ostatni kafelek całego sektora (nie tylko kawałka) — tu stoi pasek zadań. */
+  koniec: boolean
+  /** Notatka albo rozdział spoza sektora, ale w jego środku — pasmo idzie
+   *  przez nie, żeby sektor nie wyglądał na pocięty. */
+  wypelnienie: boolean
   klucz: string
 }
 
@@ -770,6 +786,7 @@ interface RamkaProps {
   pasmo?: Pasmo
   onMapaSektora?: (id: string) => void
   onOtworzKafelek?: (id: string) => void
+  onZadanieDoLinii?: (sektorId: string, conceptId: string) => void
   pelny: boolean
   zaznaczony: boolean
   kreska: 'before' | 'after' | null
@@ -805,6 +822,7 @@ const RamkaSegmentu = memo(
     pasmo,
     onMapaSektora,
     onOtworzKafelek,
+    onZadanieDoLinii,
   }: RamkaProps) {
     return (
       <div
@@ -823,7 +841,9 @@ const RamkaSegmentu = memo(
           zaznaczony ? 'zaznaczony' : ''
         } ${kreska === 'before' ? 'drop-before' : kreska === 'after' ? 'drop-after' : ''} ${
           pasmo ? 'w-sektorze' : ''
-        } ${pasmo?.nauka && pasmo.pierwszy ? 'sektor-poczatek' : ''} ${pasmo?.doPoprawy ? 'do-poprawy' : ''}`}
+        } ${pasmo?.nauka && pasmo.pierwszy ? 'sektor-poczatek' : ''} ${pasmo?.doPoprawy ? 'do-poprawy' : ''} ${
+          pasmo?.wypelnienie ? 'sektor-wypelnienie' : ''
+        }`}
         onClick={(e) => api.klik(e, n.id)}
         onDragOver={(e) => api.nadCiagniete(e, i)}
         onDrop={(e) => api.upuszczone(e, i)}
@@ -895,8 +915,8 @@ const RamkaSegmentu = memo(
             {/* zadania sektora: zwinięty pasek na jego końcu, w środku
                 segmentu — Linia mierzy segmenty, więc nic nie może stać
                 między nimi */}
-            {pasmo?.ostatni && pasmo.zadan > 0 && (
-              <PasekZadan sektorId={pasmo.id} onOtworz={onOtworzKafelek} />
+            {pasmo?.koniec && pasmo.zadan > 0 && (
+              <PasekZadan sektorId={pasmo.id} onOtworz={onOtworzKafelek} onDoLinii={onZadanieDoLinii} />
             )}
           </div>
         )}
@@ -1105,6 +1125,8 @@ function LinearView({
   onMapaSektora,
   wybieranySektor,
   onWybieraj,
+  onWstawKafelek,
+  onWyjmijZLinii,
   onJumpToSource,
   onOpenConcept,
   onRenameSegment,
@@ -1373,20 +1395,54 @@ function LinearView({
   const otworzKafelekRef = useRef(onOpenConcept)
   otworzKafelekRef.current = onOpenConcept
   const otworzKafelek = useCallback((id: string) => otworzKafelekRef.current?.(id), [])
+  /** Zadanie z paska staje w Linii na końcu swojego sektora. */
+  const doLiniiRef = useRef<(sektorId: string, conceptId: string) => void>(() => {})
+  doLiniiRef.current = (sektorId, conceptId) => {
+    if (!onWstawKafelek) return
+    const s = sektory?.find((x) => x.id === sektorId)
+    const wSektorze = ordered.filter((n) => s?.wezly.includes(n.id))
+    const ostatni = wSektorze[wSektorze.length - 1] ?? ordered[ordered.length - 1]
+    const i = ostatni ? ordered.indexOf(ostatni) : -1
+    const id = onWstawKafelek(conceptId, ostatni?.id ?? null, ordered[i + 1]?.id ?? null)
+    void (async () => {
+      await dolozDoSektora(sektorId, [id])
+      await odepnijZadanie(sektorId, conceptId)
+    })()
+  }
+  const zadanieDoLinii = useCallback((sektorId: string, conceptId: string) => doLiniiRef.current(sektorId, conceptId), [])
   /** Pasma sektorów: który węzeł do którego sektora należy i gdzie pasmo
    *  się zaczyna i kończy (sektor może być rozcięty innymi kafelkami). */
   const pasma = useMemo(() => {
     const out = new Map<string, Pasmo>()
     if (!sektory?.length) return out
-    const doSektora = new Map<string, JednostkaNauki>()
-    for (const s of sektory) if (s.rodzaj === 'sektor') for (const w of s.wezly) doSektora.set(w, s)
+    const naprawde = new Map<string, JednostkaNauki>()
+    for (const s of sektory) if (s.rodzaj === 'sektor') for (const w of s.wezly) naprawde.set(w, s)
     // komentarze stoją z boku — nie przerywają pasma
     const wLinii = ordered.filter((n) => n.kind !== 'comment')
+    // notatki i rozdziały spoza sektora, które stoją w jego środku, dostają
+    // jego pasmo: sektor ma wyglądać na jedną całość, a nie na pocięty
+    const doSektora = new Map(naprawde)
+    for (let i = 0; i < wLinii.length; i++) {
+      if (naprawde.has(wLinii[i].id)) continue
+      let k = i
+      while (k < wLinii.length && !naprawde.has(wLinii[k].id) && (wLinii[k].kind === 'text' || wLinii[k].kind === 'heading')) k++
+      const przed = naprawde.get(wLinii[i - 1]?.id ?? '')
+      const po = naprawde.get(wLinii[k]?.id ?? '')
+      if (przed && przed === po) for (let m = i; m < k; m++) doSektora.set(wLinii[m].id, przed)
+      i = Math.max(i, k - 1)
+    }
+    const ostatniSektora = new Map<string, string>()
+    for (const n of wLinii) {
+      const s = naprawde.get(n.id)
+      if (s) ostatniSektora.set(s.id, n.id)
+    }
     wLinii.forEach((n, i) => {
       const s = doSektora.get(n.id)
       if (!s) return
       const pierwszy = doSektora.get(wLinii[i - 1]?.id ?? '') !== s
       const ostatni = doSektora.get(wLinii[i + 1]?.id ?? '') !== s
+      const koniec = ostatniSektora.get(s.id) === n.id
+      const wypelnienie = !naprawde.has(n.id)
       const doPoprawy = s.etap === 'mapowanie' && !!s.doPoprawy?.includes(n.id)
       const kolor = s.kolor ?? '#7a869a'
       out.set(n.id, {
@@ -1398,7 +1454,9 @@ function LinearView({
         doPoprawy,
         nauka: !!trybNauki,
         zadan: s.zadania?.length ?? 0,
-        klucz: `${s.id}|${kolor}|${s.nazwa}|${pierwszy}|${ostatni}|${doPoprawy}|${!!trybNauki}|${s.zadania?.length ?? 0}`,
+        koniec,
+        wypelnienie,
+        klucz: `${s.id}|${kolor}|${s.nazwa}|${pierwszy}|${ostatni}|${doPoprawy}|${!!trybNauki}|${s.zadania?.length ?? 0}|${koniec}|${wypelnienie}`,
       })
     })
     return out
@@ -2137,6 +2195,7 @@ function LinearView({
               pasmo={pasma.get(n.id)}
               onMapaSektora={pokazMapeSektora}
               onOtworzKafelek={otworzKafelek}
+              onZadanieDoLinii={onWstawKafelek ? zadanieDoLinii : undefined}
               kreska={h}
               wysokosc={zmierz(n.id)}
               mozeScalic={
@@ -2245,6 +2304,16 @@ function LinearView({
             onZamknij={() => setSegMenu(null)}
             onOtworz={onOpenConcept}
             onWybieraj={onWybieraj}
+            doPaska={
+              onWyjmijZLinii && sasiad?.kind === 'block' && !segMenu.przerwa &&
+              conceptById(sasiad.conceptId)?.type === znajdzTypZadania(typy.all)
+                ? async (sektorId: string) => {
+                    await przypnijZadanie(sektorId, sasiad.conceptId)
+                    await wyjmijZSektora(sektorId, [sasiad.id])
+                    onWyjmijZLinii(sasiad.id)
+                  }
+                : undefined
+            }
           />
         )
       })()}
@@ -4481,6 +4550,16 @@ function CanvasInner({
             setWybieranySektor(id)
             if (id) setSektorNauki(id)
           }}
+          onWstawKafelek={(conceptId, afterId, beforeId) => {
+            const id = crypto.randomUUID()
+            chainInsert(
+              { id, type: 'block', position: positionBetween(afterId, beforeId), data: { conceptId, versionId: null } },
+              afterId,
+              beforeId,
+            )
+            return id
+          }}
+          onWyjmijZLinii={zszyjBez}
         />
         {mode === 'nauka' && (
           <PanelNauki

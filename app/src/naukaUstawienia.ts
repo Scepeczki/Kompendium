@@ -45,7 +45,6 @@ export const NAUKA = {
   rozszCo: u('rozszCo', 'Rozszerzona co', 'Co ile powtórek, póki terminy są bliskie.', 3, 1, 20, 'powtórki'),
   rozszDaleko: u('rozszDaleko', 'Dalekie terminy od', 'Gdy odstęp między powtórkami jest co najmniej taki…', 60, 1, 3650, 'dni'),
   rozszCoDaleko: u('rozszCoDaleko', 'Rozszerzona przy dalekich', '…rozszerzona wypada co tyle powtórek.', 2, 1, 20, 'powtórki'),
-  zadanIle: u('zadanIle', 'Zadań z czatu', 'Ile zadań układa czat za jednym razem.', 3, 1, 10, 'zadań'),
   zadanWPowtorce: u('zadanWPowtorce', 'Zadań w powtórce', 'Ile zadań sektora wchodzi do powtórki rozszerzonej z zadaniami (za każdym razem następne).', 2, 1, 20, 'zadań'),
   uparty: u('uparty', 'Uparty kafelek po', 'Po tylu wpadkach kafelek dostaje radę „przemapuj go".', 4, 2, 30, 'wpadkach'),
   progDobrze: u('progDobrze', '„Dobrze" do', 'Jaki odsetek kafelków może nie pójść (Częściowo albo Nie), a sektor wciąż jest „Dobrze".', 20, 0, 100, '%'),

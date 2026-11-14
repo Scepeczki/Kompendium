@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { BlockShell } from './BlockShell'
+import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
-import { CZATY, adresCzatu, czatWybrany, otworzCzat, podzielZadania, zlozPolecenie } from '../czat'
-import { naprawTypZadan, odepnijZadanie, przesunZadanie, utworzZadania } from '../nauka'
-import { wez } from '../naukaUstawienia'
-import type { Concept, JednostkaNauki } from '../types'
+import { naprawTypZadan, odepnijZadanie, przesunZadanie, usunZadanie, utworzZadania } from '../nauka'
+import type { BlockVersion, Concept, JednostkaNauki } from '../types'
 
 /** Zadania sektora, które wciąż istnieją — kafelek mógł zostać usunięty
  *  w bibliotece, a sektor pamięta tylko jego id. */
@@ -23,9 +23,21 @@ export function useZadania(j: JednostkaNauki | undefined): Concept[] | undefined
   }, [ids.join()])
 }
 
-const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new URL(adresCzatu()).host
+/** Usunięcie zadania na dobre — zawsze po pytaniu. */
+function useUsunZadanie() {
+  const dlg = useDialogs()
+  return async (sektorId: string, c: Concept) => {
+    const ok = await dlg.confirm({
+      title: `Usunąć zadanie „${c.name}" na dobre?`,
+      message: 'Kafelek zniknie razem z treścią i rozwiązaniem. Jeśli chcesz go tylko zdjąć z sektora, wybierz „Odepnij".',
+      confirmLabel: 'Usuń zadanie',
+      danger: true,
+    })
+    if (ok) await usunZadanie(sektorId, c.id)
+  }
+}
 
-/** Zadania sektora w panelu Nauki: lista, nowe zadanie, generowanie czatem. */
+/** Zadania sektora w panelu Nauki: lista i nowe zadanie. */
 export function ListaZadan({
   j,
   onOtworz,
@@ -34,8 +46,8 @@ export function ListaZadan({
   onOtworz?: (conceptId: string) => void
 }) {
   const zadania = useZadania(j) ?? []
-  const [generuj, setGeneruj] = useState(false)
   const poprawki = new Set(j.doPoprawy ?? [])
+  const usun = useUsunZadanie()
 
   const nowe = async () => {
     const [id] = await utworzZadania(j.id, [{}])
@@ -49,9 +61,10 @@ export function ListaZadan({
       </h4>
       {zadania.length === 0 && (
         <p className="hint">
-          Zadanie to kafelek rodzaju „Zadanie" ze stronami Treść i Rozwiązanie. Mieszka w folderze ścieżki, a w Linii
-          stoi w zwiniętym pasku na końcu sektora (nie trafia do Skryptu ani PDF). W teście widać treść,
-          a rozwiązanie odtwarzasz z pamięci — chodzi o pomysł i tok rozumowania, nie o liczenie.
+          Zadanie to kafelek rodzaju „Zadanie" ze stronami Treść i Rozwiązanie. Mieszka w folderze ścieżki,
+          a w Linii stoi w zwiniętym pasku na końcu sektora (nie trafia do Skryptu ani PDF). W teście widać
+          treść, a rozwiązanie odtwarzasz z pamięci. Kafelek „Zadanie" stojący zwyczajnie w Linii sektora
+          też jest zadaniem.
         </p>
       )}
       {zadania.length > 0 && (
@@ -80,6 +93,9 @@ export function ListaZadan({
                 >
                   ✕
                 </button>
+                <button className="folder-action" title="Usuń zadanie na dobre (zapyta)" onClick={() => usun(j.id, c)}>
+                  <Icon name="usun" size={0.9} />
+                </button>
               </span>
             </li>
           ))}
@@ -89,101 +105,54 @@ export function ListaZadan({
         <button className="btn btn-maly" onClick={nowe} title="Nowy kafelek-zadanie; otworzy się w edytorze">
           + Nowe zadanie
         </button>
-        <button className={`btn btn-maly ${generuj ? 'btn-active' : ''}`} onClick={() => setGeneruj((g) => !g)}>
-          Wygeneruj czatem
-        </button>
       </div>
-      {generuj && <GenerujZadania j={j} onGotowe={() => setGeneruj(false)} />}
     </div>
   )
 }
 
-/** Czat układa zadania w stałym formacie, ty wklejasz odpowiedź, a aplikacja
- *  tnie ją na kafelki-zadania. */
-function GenerujZadania({ j, onGotowe }: { j: JednostkaNauki; onGotowe: () => void }) {
-  const [tekst, setTekst] = useState('')
-  const [polecenie, setPolecenie] = useState<string | null>(null)
-  const rozpoznane = useMemo(() => podzielZadania(tekst), [tekst])
-
-  const start = async () => {
-    const t = await zlozPolecenie(j, { rodzaj: 'zadania' })
-    setPolecenie(t)
-    await otworzCzat(t)
-  }
-
-  const utworz = async () => {
-    const ids = await utworzZadania(j.id, rozpoznane)
-    window.dispatchEvent(
-      new CustomEvent('komp:komunikat', { detail: `Dodano zadania: ${ids.length}` }),
-    )
-    setTekst('')
-    onGotowe()
-  }
-
-  return (
-    <div className="zadania-generuj">
-      <button className="btn btn-primary btn-maly" onClick={start}>
-        Kopiuj polecenie ({wez('zadanIle')} zad.) i otwórz {nazwaCzatu()}
-      </button>
-      {polecenie !== null && (
-        <details className="test-czatem-polecenie">
-          <summary>Pokaż polecenie (gdyby schowek nie zadziałał)</summary>
-          <textarea readOnly value={polecenie} rows={6} onFocus={(e) => e.target.select()} />
-        </details>
-      )}
-      <textarea
-        className="sesja-pole"
-        rows={5}
-        placeholder="Wklej tu całą odpowiedź czatu — aplikacja sama podzieli ją na zadania."
-        value={tekst}
-        onChange={(e) => setTekst(e.target.value)}
-      />
-      {tekst.trim() !== '' &&
-        (rozpoznane.length ? (
-          <>
-            <ul className="zadania-podglad">
-              {rozpoznane.map((z, i) => (
-                <li key={i}>
-                  <strong>{z.nazwa || `Zadanie ${i + 1}`}</strong>
-                  {!z.rozwiazanie && <span className="znaczek znaczek-zalegle">bez rozwiązania</span>}
-                </li>
-              ))}
-            </ul>
-            <button className="btn btn-primary btn-maly" onClick={utworz}>
-              Utwórz zadania ({rozpoznane.length})
-            </button>
-          </>
-        ) : (
-          <p className="hint">
-            Nie widzę tu zadań. Czat miał zacząć każde od „=== ZADANIE:" i podać TREŚĆ:, ROZWIĄZANIE:
-            i METODA: — poproś go, żeby trzymał się formatu.
-          </p>
-        ))}
-    </div>
-  )
-}
-
-/** Zwinięty pasek „Zadania (N)" na końcu sektora w Linii. Zadania nie są
- *  węzłami ścieżki, więc Skrypt i PDF ich nie widzą. */
+/** Zwinięty pasek „Zadania (N)" na samym końcu sektora w Linii. Zadania nie
+ *  są węzłami ścieżki, więc Skrypt i PDF ich nie widzą. */
 export function PasekZadan({
   sektorId,
   onOtworz,
+  onDoLinii,
 }: {
   sektorId: string
   onOtworz?: (conceptId: string) => void
+  /** Zadanie wychodzi z paska i staje w Linii jako zwykły kafelek sektora. */
+  onDoLinii?: (sektorId: string, conceptId: string) => void
 }) {
   const j = useLiveQuery(() => db.nauka.get(sektorId), [sektorId])
   const zadania = useZadania(j) ?? []
   const [otwarty, setOtwarty] = useState(false)
+  const [menu, setMenu] = useState<{ x: number; y: number; c: Concept } | null>(null)
+  const usun = useUsunZadanie()
   const ids = zadania.map((c) => c.id)
   const wersje = useLiveQuery(() => db.versions.where('conceptId').anyOf(ids).toArray(), [ids.join()]) ?? []
+  useEffect(() => {
+    if (!menu) return
+    const zamknij = () => setMenu(null)
+    window.addEventListener('mousedown', zamknij)
+    window.addEventListener('scroll', zamknij, true)
+    return () => {
+      window.removeEventListener('mousedown', zamknij)
+      window.removeEventListener('scroll', zamknij, true)
+    }
+  }, [menu])
   if (!zadania.length) return null
+  const dzialaj = (fn: () => void) => () => {
+    setMenu(null)
+    fn()
+  }
   return (
     <div
       className={`zadania-pasek ${otwarty ? 'otwarty' : ''}`}
       // pasek siedzi w segmencie Linii — klik nie może zaznaczać kafelka
       onClick={(e) => e.stopPropagation()}
-      onContextMenu={(e) => e.stopPropagation()}
+      onContextMenu={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+      }}
       // Fokus na przycisku robi z segmentu „bieżący", a ten dostaje pasek
       // narzędzi — układ przesuwa się między wciśnięciem a puszczeniem
       // myszy i kliknięcie trafiało obok. Przyciski paska fokusu nie biorą.
@@ -201,14 +170,58 @@ export function PasekZadan({
       {otwarty && (
         <div className="zadania-pasek-tresc">
           {zadania.map((c) => (
-            <ZadanieWLinii
+            <div
               key={c.id}
-              c={c}
-              wersje={wersje.filter((v) => v.conceptId === c.id)}
-              onOtworz={onOtworz}
-            />
+              className="zadania-pasek-zadanie"
+              data-zadanie={c.id}
+              onContextMenu={(e) => setMenu({ x: e.clientX, y: e.clientY, c })}
+            >
+              <ZadanieWLinii
+                c={c}
+                wersje={wersje.filter((v) => v.conceptId === c.id)}
+                onMenu={(e) => {
+                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  setMenu({ x: r.left, y: r.bottom + 4, c })
+                }}
+              />
+            </div>
           ))}
         </div>
+      )}
+      {menu &&
+        createPortal(
+        <div
+          className="tree-menu linear-menu menu-zadania"
+          style={{ position: 'fixed', left: menu.x, top: menu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          ref={(el) => {
+            if (!el) return
+            const r = el.getBoundingClientRect()
+            const dx = Math.min(0, window.innerWidth - 6 - r.right)
+            const dy = Math.min(0, window.innerHeight - 6 - r.bottom)
+            if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
+          }}
+        >
+          <div className="tree-menu-where">Zadanie „{menu.c.name}"</div>
+          {onOtworz && (
+            <button className="tree-menu-item" onClick={dzialaj(() => onOtworz(menu.c.id))}>
+              <Icon name="edycja" size={1} /> Otwórz w edytorze
+            </button>
+          )}
+          {onDoLinii && (
+            <button className="tree-menu-item" onClick={dzialaj(() => onDoLinii(sektorId, menu.c.id))}>
+              <Icon name="przesun" size={1} /> Wstaw do Linii (na koniec sektora)
+            </button>
+          )}
+          <button className="tree-menu-item" onClick={dzialaj(() => void odepnijZadanie(sektorId, menu.c.id))}>
+            ✕ Odepnij od sektora (zostaje w folderze ścieżki)
+          </button>
+          <div className="tree-menu-sep" />
+          <button className="tree-menu-item danger" onClick={dzialaj(() => void usun(sektorId, menu.c))}>
+            <Icon name="usun" size={1} /> Usuń zadanie…
+          </button>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -217,11 +230,11 @@ export function PasekZadan({
 function ZadanieWLinii({
   c,
   wersje,
-  onOtworz,
+  onMenu,
 }: {
   c: Concept
-  wersje: import('../types').BlockVersion[]
-  onOtworz?: (id: string) => void
+  wersje: BlockVersion[]
+  onMenu: (e: React.MouseEvent) => void
 }) {
   const [strona, setStrona] = useState<string | null>(null)
   return (
@@ -231,9 +244,14 @@ function ZadanieWLinii({
       versionId={null}
       subpageId={strona}
       onSubpageChange={setStrona}
-      onOpenConcept={onOtworz}
-      showOpen={!!onOtworz}
+      showOpen={false}
       bezPaskaWersji
+      pochodzenie
+      dzialanie={
+        <button className="folder-action zadania-menu-btn" title="Co zrobić z tym zadaniem" onClick={onMenu}>
+          ⋯
+        </button>
+      }
     />
   )
 }

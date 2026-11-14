@@ -95,7 +95,6 @@ export function UstawieniaNauki() {
           kliknięciem. Wyłączone: powtórka zero kończy się na teście czatem.
         </span>
       </label>
-      {wiersz('zadanIle')}
       {wiersz('zadanWPowtorce')}
 
       <h3 className="settings-grupa">Ocena sektora</h3>
@@ -193,7 +192,6 @@ export function UstawieniaNauki() {
           ['test', 'Polecenie: test czatem'],
           ['dogrywka', 'Polecenie: dogrywka z luk'],
           ['sprawdz', 'Polecenie: sprawdź moje odpowiedzi'],
-          ['zadania', 'Polecenie: ułóż zadania'],
         ] as [RodzajPolecenia, string][]
       ).map(([r, n]) => (
         <PoleTekstu

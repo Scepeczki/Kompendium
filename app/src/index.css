@@ -9431,3 +9431,274 @@ body.ciagne-szerokosc * {
   background: var(--sektor, var(--muted));
   margin: 0 3px 0 2px;
 }
+
+/* --- pasmo przez notatki i rozdziały w środku sektora --- */
+.linear-seg.sektor-wypelnienie .sektor-pasmo {
+  opacity: 0.35;
+}
+
+.tree-menu-item.danger {
+  color: var(--danger);
+}
+
+.zadania-pasek-zadanie .zadania-menu-btn {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* --- Przegląd: Linia jako linia z kuleczkami --- */
+.panel-przeglad {
+  padding-bottom: 0;
+}
+
+.przeglad {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.przeglad-rada {
+  margin: 0 0 8px;
+  font-size: var(--fs-2);
+}
+
+.przeglad-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 12px;
+  user-select: none;
+  flex: 1;
+}
+
+.przeglad-wiersz {
+  position: relative;
+}
+
+/* szara oś przez całą Linię */
+.przeglad-wiersz::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--line);
+}
+
+.przeglad-wiersz:first-child::before {
+  top: 12px;
+}
+
+.przeglad-wiersz:last-child::before {
+  bottom: calc(100% - 12px);
+}
+
+.przeglad-rzad {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding-right: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.przeglad-rzad:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.przeglad-wiersz.zaznaczony .przeglad-rzad {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.przeglad-tor {
+  position: relative;
+  width: 22px;
+  align-self: stretch;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* barwny odcinek sektora */
+.przeglad-wiersz.w-sektorze .przeglad-tor::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--sektor);
+}
+
+.przeglad-wiersz.w-sektorze.pierwszy .przeglad-tor::after {
+  top: 50%;
+}
+
+.przeglad-wiersz.w-sektorze.ostatni .przeglad-tor::after {
+  bottom: 50%;
+}
+
+.przeglad-wiersz.wypelnienie .przeglad-tor::after {
+  opacity: 0.45;
+}
+
+.przeglad-kulka {
+  position: relative;
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--muted);
+  box-sizing: border-box;
+  transition: transform 0.1s;
+}
+
+.przeglad-kulka.notatka {
+  width: 7px;
+  height: 7px;
+  border-width: 1.5px;
+}
+
+.przeglad-wiersz.w-sektorze .przeglad-kulka {
+  background: var(--sektor);
+  border-color: var(--panel);
+  box-shadow: 0 0 0 1.5px var(--sektor);
+}
+
+.przeglad-rzad:hover .przeglad-kulka,
+.przeglad-wiersz.zaznaczony .przeglad-kulka {
+  transform: scale(1.3);
+}
+
+.przeglad-wiersz.zaznaczony .przeglad-kulka {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* rozdział: kreska w poprzek osi i podpis */
+.przeglad-wiersz.rodzaj-heading .przeglad-kulka {
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+  background: var(--ink-soft);
+  box-shadow: none;
+}
+
+.przeglad-wiersz.rodzaj-heading.w-sektorze .przeglad-kulka {
+  background: var(--sektor);
+}
+
+.przeglad-wiersz.rodzaj-heading {
+  margin-top: 6px;
+}
+
+.przeglad-rozdzial {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.przeglad-rozdzial.poziom-1 {
+  font-weight: 700;
+  font-size: var(--fs-3);
+}
+
+.przeglad-rozdzial.poziom-2 {
+  font-weight: 600;
+  font-size: var(--fs-3);
+}
+
+.przeglad-rozdzial.poziom-3,
+.przeglad-rozdzial.poziom-4,
+.przeglad-rozdzial.poziom-5,
+.przeglad-rozdzial.poziom-6 {
+  font-weight: 600;
+  font-size: var(--fs-2);
+  color: var(--ink-soft);
+}
+
+.przeglad-nazwa {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-2);
+  color: var(--ink-soft);
+}
+
+.przeglad-nazwa em {
+  color: var(--muted);
+}
+
+.przeglad-typ {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-right: 6px;
+}
+
+.przeglad-sektor {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 3px 26px;
+  padding: 1px 9px;
+  font: inherit;
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--sektor);
+  background: color-mix(in srgb, var(--sektor) 11%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--sektor) 45%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.przeglad-sektor-kropka {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sektor, var(--muted));
+}
+
+.przeglad-sektor-ile {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.przeglad-akcje {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 -14px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 12px -8px rgba(0, 0, 0, 0.18);
+}
+
+.przeglad-akcje-ile {
+  font-size: var(--fs-2);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.przeglad-dodaj {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}

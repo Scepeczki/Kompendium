@@ -79,7 +79,7 @@ od razu do użytku:
 2. **Czat:** polecenie w Ustawieniach, schowek + nowa karta, luki
    i dogrywka; eksperyment „czat sprawdza moją odpowiedź".
 3. **Zadania** (zrobione): kafelek-zadanie (Treść / Rozwiązanie),
-   zwinięty pasek „Zadania" na końcu sektora, generowanie czatem, test
+   zwinięty pasek „Zadania" na końcu sektora, Przegląd sektorów, test
    końcowy z zadaniami, zadania w powtórkach rozszerzonych.
 4. **Później:** mapa jako tablica, telefon w obie strony, statystyki.
 

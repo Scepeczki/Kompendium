@@ -7,7 +7,7 @@
  *  odtworzyć, a wpisów nigdy się nie zmienia. */
 
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
-import { createConcept, createSubpage, db } from './db'
+import { createConcept, createSubpage, db, deleteConcept } from './db'
 import { topoOrder } from './topo'
 import { czatWZero, wez, zadaniaWZero } from './naukaUstawienia'
 import type {
@@ -577,6 +577,19 @@ export async function odepnijZadanie(sektorId: string, conceptId: string) {
   const j = await db.nauka.get(sektorId)
   if (!j) return
   await zmienJednostke(sektorId, { zadania: (j.zadania ?? []).filter((x) => x !== conceptId) })
+}
+
+/** Przypina istniejący kafelek jako zadanie sektora (do paska). */
+export async function przypnijZadanie(sektorId: string, conceptId: string) {
+  const j = await db.nauka.get(sektorId)
+  if (!j || j.zadania?.includes(conceptId)) return
+  await zmienJednostke(sektorId, { zadania: [...(j.zadania ?? []), conceptId] })
+}
+
+/** Usuwa zadanie na dobre — wołać tylko po pytaniu. */
+export async function usunZadanie(sektorId: string, conceptId: string) {
+  await odepnijZadanie(sektorId, conceptId)
+  await deleteConcept(conceptId)
 }
 
 /** Zmienia kolejność zadań (o jedno miejsce w górę albo w dół). */

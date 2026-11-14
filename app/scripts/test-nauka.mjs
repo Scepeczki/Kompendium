@@ -207,36 +207,41 @@ check('pamięć kafelków: jeden słaby', d.pamiec.length === 2 && d.pamiec.filt
 check('historia ma wpis testu z odpowiedziami', d.historia.filter((h) => h.typ === 'test').length === 1 && d.historia.find((h) => h.typ === 'test').odpowiedzi?.nc0?.includes('kulę'))
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 
-// --- zadania: wygeneruj czatem ---
+// --- zadania: nowe zadanie (kafelek rodzaju Zadanie w folderze ścieżki) ---
 await page.waitForSelector('.karta-sektora .zadania-sektora')
 check('test końcowy zablokowany bez zadań', await page.locator('.karta-sektora button:has-text("Test końcowy")').isDisabled())
-await page.click('.zadania-sektora button:has-text("Wygeneruj czatem")')
-await page.click('.zadania-generuj .btn-primary')
-await page.waitForTimeout(500)
-const polecenieZadan = await page.evaluate(() => navigator.clipboard.readText())
-check('polecenie zadań: format, tok rozumowania i materiał', polecenieZadan.includes('=== ZADANIE:') && polecenieZadan.includes('tokiem rozumowania') &&
-  polecenieZadan.includes('Ułóż 3 zadań') && polecenieZadan.includes('Metryka → kule'), polecenieZadan.slice(0, 80))
-await page.fill('.zadania-generuj textarea.sesja-pole', `Oto zadania:
-
-**=== ZADANIE: Kula w metryce dyskretnej**
-**TREŚĆ:**
-Opisz kulę $B(x,1)$ w metryce dyskretnej.
-**ROZWIĄZANIE:**
-Kula to sam punkt.
-**METODA:**
-Wypisz definicję kuli i podstaw metrykę.
-
-=== ZADANIE: Otwartość przedziału
-TREŚĆ:
-Czy przedział [0,1) jest otwarty?
-ROZWIĄZANIE:
-Nie — punkt 0.
-METODA:
-Szukaj punktu, którego żadna kula nie mieści się w zbiorze.`)
-check('podgląd rozpoznaje 2 zadania', (await page.locator('.zadania-podglad li').count()) === 2 &&
-  (await page.locator('.zadania-generuj button:has-text("Utwórz zadania (2)")').count()) === 1)
-await page.click('.zadania-generuj button:has-text("Utwórz zadania")')
+check('bez generowania czatem', (await page.locator('.zadania-sektora button:has-text("Wygeneruj")').count()) === 0)
+await page.click('.zadania-sektora button:has-text("Nowe zadanie")')
+await page.waitForTimeout(800)
+// zadanie otwiera się w edytorze; treść wpisujemy prosto do bazy i dokładamy drugie
+await page.evaluate(async (sektorId) => {
+  const req = indexedDB.open('kompendium')
+  await new Promise((r) => (req.onsuccess = r))
+  const db = req.result
+  const T = db.transaction(['concepts', 'versions', 'subpages', 'nauka'], 'readwrite')
+  const get = (st, id) => new Promise((r) => { const q = T.objectStore(st).get(id); q.onsuccess = () => r(q.result) })
+  const all = (st) => new Promise((r) => { const q = T.objectStore(st).getAll(); q.onsuccess = () => r(q.result) })
+  const sek = await get('nauka', sektorId)
+  const c = await get('concepts', sek.zadania[0])
+  T.objectStore('concepts').put({ ...c, name: 'Kula w metryce dyskretnej' })
+  const v = await get('versions', c.currentVersionId)
+  T.objectStore('versions').put({ ...v, content: 'Opisz kulę $B(x,1)$ w metryce dyskretnej.' })
+  const sp = (await all('subpages')).find((x) => x.conceptId === c.id)
+  T.objectStore('subpages').put({ ...sp, content: 'Kula to sam punkt. Wypisz definicję kuli i podstaw metrykę.' })
+  const now = new Date().toISOString()
+  T.objectStore('concepts').put({ ...c, id: 'zad2', name: 'Otwartość przedziału', currentVersionId: 'zadv2', order: 999 })
+  T.objectStore('versions').put({ ...v, id: 'zadv2', conceptId: 'zad2', content: 'Czy przedział [0,1) jest otwarty?' })
+  T.objectStore('subpages').put({ ...sp, id: 'zads2', conceptId: 'zad2', versionId: 'zadv2', content: 'Nie — punkt 0.', createdAt: now })
+  T.objectStore('nauka').put({ ...sek, zadania: [...sek.zadania, 'zad2'] })
+  await new Promise((r) => (T.oncomplete = r))
+  db.close()
+}, sektor.id)
+await page.reload()
+await page.waitForSelector('text=Kompendium')
 await page.waitForTimeout(600)
+await page.click('.path-item:has-text("Topologia")')
+await page.click('.view-switch button:has-text("Nauka")')
+await page.waitForSelector('.panel-nauki')
 const zBazy = await page.evaluate(async () => {
   const req = indexedDB.open('kompendium')
   await new Promise((r) => (req.onsuccess = r))
@@ -251,7 +256,7 @@ const zadK = (sekZ.zadania ?? []).map((id) => zBazy.c.find((c) => c.id === id))
 check('dwa kafelki-zadania w folderze ścieżki, przypięte do sektora', zadK.length === 2 && zadK.every((c) => c?.type === 'zadanie' && c.pathId === 'np') &&
   zadK[0].name === 'Kula w metryce dyskretnej', zadK.map((c) => c?.name).join())
 const stronyK = zBazy.sp.filter((x) => x.conceptId === zadK[0]?.id).sort((a, b) => a.order - b.order).map((x) => x.name).join()
-check('zadanie ma treść i stronę Rozwiązanie (metoda czatu dopisana do niej)', stronyK === 'Rozwiązanie' &&
+check('nowe zadanie ma rodzaj Zadanie, treść i stronę Rozwiązanie', stronyK === 'Rozwiązanie' &&
   zBazy.v.find((v) => v.conceptId === zadK[0]?.id)?.content.includes('Opisz kulę') &&
   zBazy.sp.find((x) => x.conceptId === zadK[0]?.id && x.name === 'Rozwiązanie')?.content.includes('podstaw metrykę'), stronyK)
 check('zadania nie są węzłami ścieżki', !(await page.evaluate(async () => {
@@ -448,9 +453,9 @@ check('Ustawienia: cel zapamiętania domyślnie 95%', (await page.locator('[data
 await page.fill('[data-nauka="cel"] input', '97')
 await page.waitForTimeout(200)
 check('Ustawienia: zmiana celu zapisuje się', (await page.evaluate(() => localStorage.getItem('ui.nauka.cel'))) === '97')
-check('Ustawienia: zadania w powtórce zero i polecenie zadań', (await page.locator('.settings-check:has-text("Zadania w powtórce zero") input').isChecked()) &&
-  (await page.locator('[data-nauka="zadanIle"] input').inputValue()) === '3' &&
-  (await page.locator('textarea[aria-label="Polecenie: ułóż zadania"]').inputValue()).includes('=== ZADANIE:'))
+check('Ustawienia: zadania w powtórce zero, bez polecenia zadań', (await page.locator('.settings-check:has-text("Zadania w powtórce zero") input').isChecked()) &&
+  (await page.locator('[data-nauka="zadanWPowtorce"] input').inputValue()) === '2' &&
+  (await page.locator('textarea[aria-label="Polecenie: ułóż zadania"]').count()) === 0)
 check('Ustawienia: pytania nauki do edycji', (await page.locator('.settings-textarea').first().inputValue()).includes('sens'))
 
 console.log('')

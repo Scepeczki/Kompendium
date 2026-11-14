@@ -197,6 +197,14 @@ należy najwyżej do jednego sektora. Kafelki spoza sektorów można uczyć się
 osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
 3–12 kafelków; ostrzeżenie informuje, nie blokuje).
 
+W widoku **Nauka** Linia jest tylko do czytania; pod prawym przyciskiem są
+sprawy sektorów (sektor z rozdziału, dodaj / wyjmij, nowe zadanie). Sektor
+robi się z zaznaczonych, z rozdziału, albo jako pusty i wtedy wybiera się
+kafelki klikaniem. **Przegląd** pokazuje całą Linię jako linię z kuleczkami:
+kafelek to kulka, rozdział to kreska z podpisem, sektor to barwny odcinek;
+zaznacza się w nim przeciąganiem. Notatki i rozdziały w środku sektora nie
+przerywają jego pasma.
+
 ### Powtórka zero (pierwsza nauka sektora)
 
 1. **Mapowanie**: przedstawia, kluczowe pojęcia, zakres, celowość, sens
@@ -215,13 +223,13 @@ osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
    nie nauczycielem. Wynik źle → luki → poprawka mapowania → dogrywka tylko
    z luk.
 5. **Zadania** (opcjonalne, można je pominąć jednym kliknięciem): z
-   podręcznika albo wygenerowane czatem. Zadanie to kafelek ze stronami
+   podręcznika albo własne. Zadanie to kafelek ze stronami
    Treść / Rozwiązanie (rodzaju „Zadanie"); mieszka w folderze ścieżki i jest przypięte
    do sektora. W Linii stoi w zwiniętym pasku „Zadania" na końcu sektora,
    do Skryptu ani PDF nie trafia. Rozwiązanie (z tokiem rozumowania) wchodzi
    do treści sektora (także tej dla czatu); metodę warto przeanalizować i dopisać do
-   mapy. Czat układa zadania w stałym formacie, a aplikacja tnie wklejoną
-   odpowiedź na kafelki.
+   mapy. Zadanie z paska da się wstawić do Linii, a kafelek „Zadanie" z Linii
+   przenieść do paska.
 6. **Test końcowy**, zakryty, już z zadaniami: treść zadania widać, rozwiązanie
    odtwarzasz z pamięci (chodzi o pomysł i tok rozumowania, nie o liczenie).
    Kafelek rodzaju „Zadanie" stojący w Linii sektora w teście też wygląda jak zadanie.
