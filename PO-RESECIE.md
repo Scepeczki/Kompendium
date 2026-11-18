@@ -48,3 +48,14 @@ i — jeśli ją tu wrzucisz — kopia notatek w folderze `kopie/`).
 - Do sprawdzenia przez Ciebie: „Przerwij naukę", pytania w zakładce Mapa,
   „Doucz nowe", pamięć panelu PDF, test czatem w Gemini, telefon w ciemnym
   motywie.
+
+## Skrót na pulpicie
+
+Skrót „Kompendium” z ikoną aplikacji uruchamia `start/Kompendium.vbs`. Skrypt włącza serwer, jeśli jeszcze nie działa, i otwiera http://localhost:5173.
+Odtworzenie skrótu po resecie (PowerShell):
+
+```powershell
+$ws = New-Object -ComObject WScript.Shell; $l = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Kompendium.lnk")
+$l.TargetPath = "C:\Windows\System32\wscript.exe"; $l.Arguments = '"C:\Projects\Kompendium\start\Kompendium.vbs"'
+$l.IconLocation = "C:\Projects\Kompendium\start\kompendium.ico,0"; $l.Save()
+```
