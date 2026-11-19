@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { db } from './db'
 import { wczytajObrazy } from './obrazy'
+import { pobierzPlik } from './pulpit'
 import type {
   BlockTypeDef,
   BlockVersion,
@@ -152,22 +153,21 @@ export async function wczytajDane(
   }
 }
 
-/** Eksportuje całą bazę (kafelki, wersje, foldery, ścieżki, PDF-y) do jednego
- *  pliku .zip i uruchamia jego pobranie w przeglądarce. */
-export async function exportBackup(): Promise<void> {
+/** Pakuje całą bazę (kafelki, wersje, foldery, ścieżki, PDF-y) do jednego .zip. */
+export async function zrobKopie(): Promise<Blob> {
   const { dane: data, pdfy: pdfs } = await zbierzDane()
   const zip = new JSZip()
   zip.file('dane.json', JSON.stringify(data, null, 1))
   const pdfFolder = zip.folder('pdfy')!
   for (const p of pdfs) pdfFolder.file(`${p.id}.pdf`, p.data)
 
-  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = backupFileName()
-  a.click()
-  URL.revokeObjectURL(url)
+  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+}
+
+/** Eksportuje kopię do pliku (pobranie w przeglądarce, „Zapisz jako" w programie).
+ *  Zwraca false, gdy użytkownik zrezygnował. */
+export async function exportBackup(): Promise<boolean> {
+  return pobierzPlik(backupFileName(), await zrobKopie())
 }
 
 export interface ImportSummary {

@@ -1,0 +1,279 @@
+/** Kompendium jako program na Windows (Tauri) — to, czego strona nie umie.
+ *
+ *  Ten sam kod chodzi i w przeglądarce, i w programie. Wszystko tu sprawdza
+ *  najpierw `naPulpicie`; w przeglądarce zostaje stare zachowanie. Paczki
+ *  Tauri są ładowane dopiero w programie, strona ich nie ściąga. */
+
+export const naPulpicie = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
+const komunikat = (tekst: string) =>
+  window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: tekst }))
+
+/** Powiadomienie systemowe. W programie: dymek Windows (zostaje w centrum
+ *  powiadomień) i miganie ikony na pasku zadań, dopóki nie zajrzysz. */
+export async function powiadom(tekst: string): Promise<void> {
+  if (naPulpicie) {
+    try {
+      const n = await import('@tauri-apps/plugin-notification')
+      let ok = await n.isPermissionGranted()
+      if (!ok) ok = (await n.requestPermission()) === 'granted'
+      if (ok) n.sendNotification({ title: 'Kompendium', body: tekst })
+      const { getCurrentWindow, UserAttentionType } = await import('@tauri-apps/api/window')
+      await getCurrentWindow().requestUserAttention(UserAttentionType.Critical)
+    } catch {
+      // brak powiadomienia nie może zatrzymać programu
+    }
+    return
+  }
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Kompendium', { body: tekst })
+  }
+}
+
+/** Prosi o zgodę na powiadomienia (przeglądarka pyta raz; program nie musi). */
+export function poprosOPowiadomienia(): void {
+  if (naPulpicie) return
+  if ('Notification' in window && Notification.permission === 'default') {
+    void Notification.requestPermission()
+  }
+}
+
+/** Otwiera adres w zwykłej przeglądarce (w programie) albo w nowej karcie. */
+export async function otworzAdres(url: string): Promise<void> {
+  if (naPulpicie) {
+    const { openUrl } = await import('@tauri-apps/plugin-opener')
+    await openUrl(url)
+    return
+  }
+  window.open(url, '_blank', 'noopener')
+}
+
+/** Zapisuje plik na dysku. W programie przez nasze polecenie w Rust;
+ *  `nadpisz` tylko wtedy, gdy plik wskazał sam użytkownik. */
+async function zapiszNaDysku(sciezka: string, blob: Blob, nadpisz: boolean): Promise<string> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  const dane = new Uint8Array(await blob.arrayBuffer())
+  return invoke<string>('zapisz_plik', dane, {
+    headers: { sciezka: encodeURIComponent(sciezka), nadpisz: nadpisz ? '1' : '0' },
+  })
+}
+
+/** „Pobierz plik": w przeglądarce zwykłe pobieranie, w programie okno
+ *  „Zapisz jako". Zwraca false, gdy użytkownik zrezygnował. */
+export async function pobierzPlik(nazwa: string, blob: Blob): Promise<boolean> {
+  if (naPulpicie) {
+    const { save } = await import('@tauri-apps/plugin-dialog')
+    const rozsz = nazwa.split('.').pop() ?? ''
+    const sciezka = await save({
+      defaultPath: nazwa,
+      filters: rozsz ? [{ name: rozsz.toUpperCase(), extensions: [rozsz] }] : [],
+    })
+    if (!sciezka) return false
+    await zapiszNaDysku(sciezka, blob, true)
+    return true
+  }
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nazwa
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return true
+}
+
+// ---------- kopie zapasowe w folderze ----------
+
+const K_WLACZONE = 'pulpit.kopie'
+const K_FOLDER = 'pulpit.folderKopii'
+const K_ILE = 'pulpit.ileKopii'
+const K_OSTATNIA = 'pulpit.ostatniaKopia'
+
+// Klucze bez przedrostka `ui.` — nie jadą z kopią zapasową na inny komputer
+// (tam folder może nie istnieć).
+const czytaj = (k: string): string | null => {
+  try {
+    return localStorage.getItem(k)
+  } catch {
+    return null
+  }
+}
+const zapisz = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v)
+  } catch {
+    // bez pamięci ustawień program działa dalej
+  }
+}
+
+export interface UstawieniaKopii {
+  wlaczone: boolean
+  folder: string
+  /** 0 = trzymaj wszystkie (nic nie jest kasowane). */
+  ile: number
+  ostatnia: string | null
+}
+
+export async function ustawieniaKopii(): Promise<UstawieniaKopii> {
+  let folder = czytaj(K_FOLDER)
+  if (!folder) {
+    const { invoke } = await import('@tauri-apps/api/core')
+    folder = await invoke<string>('domyslny_folder_kopii')
+  }
+  const ile = Number(czytaj(K_ILE) ?? '0')
+  return {
+    wlaczone: czytaj(K_WLACZONE) !== '0',
+    folder,
+    ile: Number.isFinite(ile) && ile >= 0 ? ile : 0,
+    ostatnia: czytaj(K_OSTATNIA),
+  }
+}
+
+export function ustawKopie(z: Partial<Omit<UstawieniaKopii, 'ostatnia'>>): void {
+  if (z.wlaczone !== undefined) zapisz(K_WLACZONE, z.wlaczone ? '1' : '0')
+  if (z.folder !== undefined) zapisz(K_FOLDER, z.folder)
+  if (z.ile !== undefined) zapisz(K_ILE, String(Math.max(0, Math.round(z.ile))))
+}
+
+export async function wybierzFolderKopii(): Promise<string | null> {
+  const { open } = await import('@tauri-apps/plugin-dialog')
+  const f = await open({ directory: true, title: 'Folder na kopie zapasowe' })
+  return typeof f === 'string' ? f : null
+}
+
+export async function otworzFolderKopii(): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('otworz_folder', { folder: (await ustawieniaKopii()).folder })
+}
+
+const dzis = () => {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/** Robi kopię do folderu. Jedna na dzień: kolejna tego samego dnia dostaje
+ *  godzinę w nazwie. Stare kasuje tylko przy ustawionym limicie. */
+export async function zrobKopieDoFolderu(): Promise<string> {
+  const { zrobKopie } = await import('./backup')
+  const { invoke } = await import('@tauri-apps/api/core')
+  const u = await ustawieniaKopii()
+  const blob = await zrobKopie()
+  const sep = u.folder.includes('/') && !u.folder.includes('\\') ? '/' : '\\'
+  const baza = `${u.folder}${u.folder.endsWith(sep) ? '' : sep}kompendium-${dzis()}`
+  let sciezka: string
+  try {
+    sciezka = await zapiszNaDysku(`${baza}.zip`, blob, false)
+  } catch {
+    const d = new Date()
+    const g = `${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`
+    sciezka = await zapiszNaDysku(`${baza}-${g}.zip`, blob, false)
+  }
+  zapisz(K_OSTATNIA, new Date().toISOString())
+  if (u.ile > 0) {
+    const lista = await invoke<{ nazwa: string }[]>('lista_kopii', { folder: u.folder })
+    for (const k of lista.slice(0, Math.max(0, lista.length - u.ile))) {
+      await invoke('usun_kopie', { folder: u.folder, nazwa: k.nazwa }).catch(() => {})
+    }
+  }
+  return sciezka
+}
+
+/** Codzienna kopia: sprawdza przy starcie i co godzinę. */
+function codziennaKopia() {
+  const sprawdz = async () => {
+    try {
+      const u = await ustawieniaKopii()
+      if (!u.wlaczone || u.ostatnia?.slice(0, 10) === new Date().toISOString().slice(0, 10)) return
+      await zrobKopieDoFolderu()
+    } catch (e) {
+      komunikat(`Kopia zapasowa się nie udała: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+  setTimeout(() => void sprawdz(), 60_000)
+  setInterval(() => void sprawdz(), 60 * 60_000)
+}
+
+// ---------- start z Windows ----------
+
+export async function czyAutostart(): Promise<boolean> {
+  const { isEnabled } = await import('@tauri-apps/plugin-autostart')
+  return isEnabled()
+}
+
+export async function ustawAutostart(wl: boolean): Promise<void> {
+  const a = await import('@tauri-apps/plugin-autostart')
+  if (wl) await a.enable()
+  else await a.disable()
+}
+
+// ---------- aktualizacje ----------
+
+export async function wersjaProgramu(): Promise<string> {
+  const { getVersion } = await import('@tauri-apps/api/app')
+  return getVersion()
+}
+
+/** Sprawdza, czy na GitHubie jest nowsza wersja, i proponuje instalację.
+ *  `reczne` — wołane z Ustawień: wtedy mówi też „masz najnowszą". */
+export async function sprawdzAktualizacje(reczne = false): Promise<void> {
+  try {
+    const { check } = await import('@tauri-apps/plugin-updater')
+    const akt = await check()
+    if (!akt) {
+      if (reczne) komunikat('Masz najnowszą wersję')
+      return
+    }
+    const { ask } = await import('@tauri-apps/plugin-dialog')
+    const tak = await ask(
+      `Jest nowa wersja Kompendium (${akt.version}, masz ${akt.currentVersion}).\n\nZainstalować teraz? Program na chwilę się zamknie i wstanie sam.`,
+      { title: 'Aktualizacja', okLabel: 'Zainstaluj', cancelLabel: 'Później' },
+    )
+    if (!tak) return
+    komunikat('Pobieram aktualizację…')
+    await akt.downloadAndInstall()
+    const { relaunch } = await import('@tauri-apps/plugin-process')
+    await relaunch()
+  } catch (e) {
+    if (reczne) komunikat(`Nie udało się sprawdzić aktualizacji: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
+// ---------- start ----------
+
+/** Wołane raz przy starcie programu. W przeglądarce nic nie robi. */
+export function wlaczPulpit(): void {
+  if (!naPulpicie) return
+
+  // Linki do internetu otwierają się w zwykłej przeglądarce — inaczej
+  // klik w link w notatce podmieniłby okno programu na tę stronę.
+  document.addEventListener(
+    'click',
+    (e) => {
+      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!a) return
+      const href = a.getAttribute('href') ?? ''
+      if (/^(https?:|mailto:)/i.test(href) && !href.startsWith(location.origin)) {
+        e.preventDefault()
+        void otworzAdres(href)
+      }
+    },
+    true,
+  )
+  window.open = ((url?: string | URL) => {
+    if (url) void otworzAdres(String(url))
+    return null
+  }) as typeof window.open
+
+  // Dane programu nie mogą wyparować przy braku miejsca na dysku.
+  void navigator.storage?.persist?.().catch(() => {})
+
+  // Start z Windows włączony za pierwszym razem — potem to wybór w Ustawieniach.
+  if (czytaj('pulpit.autostartUstawiony') !== '1') {
+    ustawAutostart(true)
+      .then(() => zapisz('pulpit.autostartUstawiony', '1'))
+      .catch(() => {})
+  }
+
+  codziennaKopia()
+  setTimeout(() => void sprawdzAktualizacje(false), 8000)
+}

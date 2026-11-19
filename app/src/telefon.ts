@@ -24,6 +24,7 @@
 
 import { zbierzDane, wczytajDane, type BackupData } from './backup'
 import { db } from './db'
+import { pobierzPlik } from './pulpit'
 
 /** Gałąź trzymająca migawkę. Osobna od kodu i nadpisywana w całości. */
 const GALAZ = 'dane'
@@ -288,14 +289,9 @@ export async function migawkaDoPliku(): Promise<WynikWyslania> {
   const { dane } = await zbierzDane()
   const tekst = JSON.stringify(dane)
   const blob = new Blob([tekst], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
   const d = new Date()
   const dwa = (n: number) => String(n).padStart(2, '0')
-  a.href = url
-  a.download = `notatki-${d.getFullYear()}-${dwa(d.getMonth() + 1)}-${dwa(d.getDate())}.json`
-  a.click()
-  URL.revokeObjectURL(url)
+  await pobierzPlik(`notatki-${d.getFullYear()}-${dwa(d.getMonth() + 1)}-${dwa(d.getDate())}.json`, blob)
   return {
     kafelki: dane.concepts.length,
     sciezki: dane.paths.length,

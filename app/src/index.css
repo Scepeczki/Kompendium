@@ -11641,3 +11641,8 @@ button.sciaga-punkt:hover {
     display: none;
   }
 }
+
+/* Ustawienia → Program */
+.settings-przelacz { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.settings-przelacz input { width: 16px; height: 16px; accent-color: var(--accent, #3b6); }
+.settings-sciezka code { word-break: break-all; }

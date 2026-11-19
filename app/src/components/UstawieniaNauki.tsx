@@ -73,6 +73,7 @@ export function UstawieniaNauki() {
       <h3 className="settings-grupa">Powtórka zero</h3>
       {wiersz('przerwa')}
       {wiersz('przypomnij')}
+      {wiersz('godzinaPowtorek')}
       {wiersz('sektorOd')}
       {wiersz('sektorDo')}
 

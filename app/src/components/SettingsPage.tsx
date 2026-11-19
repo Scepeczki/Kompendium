@@ -63,6 +63,7 @@ import {
 } from '../uiSettings'
 import { PoleLiczby } from './PoleLiczby'
 import { UstawieniaNauki } from './UstawieniaNauki'
+import { UstawieniaProgramu } from './UstawieniaProgramu'
 import { TypeEditor } from './TypeEditor'
 import { useDialogs } from './Dialogs'
 
@@ -70,7 +71,7 @@ interface Props {
   onClose: () => void
 }
 
-type Section = 'wyglad' | 'tekst' | 'typy' | 'nauka' | 'dane'
+type Section = 'wyglad' | 'tekst' | 'typy' | 'nauka' | 'dane' | 'program'
 
 const SECTIONS: { id: Section; label: string; hint: string }[] = [
   { id: 'wyglad', label: 'Wygląd', hint: 'Motyw, wielkość list, szerokość strony' },
@@ -78,6 +79,7 @@ const SECTIONS: { id: Section; label: string; hint: string }[] = [
   { id: 'typy', label: 'Typy kafelków', hint: 'Nazwy, skróty, barwy, własne typy' },
   { id: 'nauka', label: 'Nauka', hint: 'Cel zapamiętania, przerwa, pytania' },
   { id: 'dane', label: 'Dane', hint: 'Kopia zapasowa i gdzie to wszystko siedzi' },
+  { id: 'program', label: 'Program', hint: 'Aktualizacje, start z Windows, kopie w folderze' },
 ]
 
 /** Ustawienia jako pełna strona w środkowym panelu — jest miejsce na sekcje
@@ -254,8 +256,7 @@ export function SettingsPage({ onClose }: Props) {
     setBusy('export')
     setStatus(null)
     try {
-      await exportBackup()
-      setStatus('Kopia zapasowa pobrana.')
+      if (await exportBackup()) setStatus('Kopia zapasowa zapisana.')
     } catch (e) {
       setStatus(`Błąd eksportu: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
@@ -338,6 +339,7 @@ export function SettingsPage({ onClose }: Props) {
 
         <div className="settings-content">
           {section === 'nauka' && <UstawieniaNauki />}
+          {section === 'program' && <UstawieniaProgramu />}
           {section === 'wyglad' && (
             <>
               <div className="settings-row">

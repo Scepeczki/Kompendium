@@ -41,6 +41,7 @@ export const NAUKA = {
   sektorDo: u('sektorDo', 'Sektor najwięcej', 'Większy sektor dostaje cichą uwagę, że lepiej go podzielić.', 12, 2, 100, 'kafelków'),
   przerwa: u('przerwa', 'Przerwa przed testem', 'Po mapowaniu test odblokowuje się dopiero po tylu minutach — zaraz po nauce wszystko jeszcze „siedzi" w głowie.', 20, 0, 180, 'min'),
   przypomnij: u('przypomnij', 'Przypomnienie o teście', 'Po tylu minutach od końca mapowania przychodzi powiadomienie.', 25, 0, 240, 'min'),
+  godzinaPowtorek: u('godzinaPowtorek', 'Przypomnienie o powtórkach', 'O tej godzinie, jeśli coś czeka na powtórkę, przychodzi powiadomienie (raz dziennie). 0 = bez przypomnienia.', 18, 0, 23, 'godz.'),
   rozszOd: u('rozszOd', 'Powtórka rozszerzona od', 'Od której powtórki może się zdarzyć rozszerzona (czat, zadania albo trudny tryb).', 3, 1, 20, '. powtórki'),
   rozszCo: u('rozszCo', 'Rozszerzona co', 'Co ile powtórek, póki terminy są bliskie.', 3, 1, 20, 'powtórki'),
   rozszDaleko: u('rozszDaleko', 'Dalekie terminy od', 'Gdy odstęp między powtórkami jest co najmniej taki…', 60, 1, 3650, 'dni'),

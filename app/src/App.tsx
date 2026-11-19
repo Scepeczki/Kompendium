@@ -15,6 +15,7 @@ import { Powtorki } from './components/Powtorki'
 import { SesjaNauki, type CelSesji } from './components/SesjaNauki'
 import { minutyDouczania, minutyPrzerwy, planNauki } from './nauka'
 import { wez } from './naukaUstawienia'
+import { powiadom } from './pulpit'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
 
@@ -117,8 +118,29 @@ function Widok() {
           ? `Przerwa minęła — czas na test nowych w sektorze „${j.nazwa}".`
           : `Przerwa minęła — czas na test sektora „${j.nazwa}".`
         window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: tekst }))
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Kompendium', { body: tekst })
+        void powiadom(tekst)
+      }
+
+      // Codzienne przypomnienie o powtórkach — raz dziennie, od ustawionej godziny.
+      const godz = wez('godzinaPowtorek')
+      const t = new Date()
+      if (godz > 0 && t.getHours() >= godz) {
+        let byloDzis = false
+        try {
+          byloDzis = localStorage.getItem('nauka.przypomnianoPowtorki') === t.toDateString()
+        } catch {
+          // bez pamięci przypomni najwyżej drugi raz
+        }
+        if (!byloDzis) {
+          const ile = (await planNauki()).dzis.length
+          if (ile > 0) {
+            try {
+              localStorage.setItem('nauka.przypomnianoPowtorki', t.toDateString())
+            } catch {
+              // jw.
+            }
+            void powiadom(`Na dziś czeka powtórka: ${ile}. Zajrzyj do Powtórek.`)
+          }
         }
       }
     }

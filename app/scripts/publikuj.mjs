@@ -44,7 +44,8 @@ if (!existsSync(resolve(STRONA, '.git'))) {
 // Czyścimy stare pliki strony (ale nie .git!) — inaczej zostawałyby po sobie
 // nieużywane paczki z poprzednich wersji i strona rosłaby bez końca.
 for (const wpis of readdirSync(STRONA)) {
-  if (wpis === '.git') continue
+  // pobierz/ to instalator programu na Windows — wrzuca go scripts/wydaj.mjs
+  if (wpis === '.git' || wpis === 'pobierz') continue
   rmSync(resolve(STRONA, wpis), { recursive: true, force: true })
 }
 cpSync(ZBUDOWANE, STRONA, { recursive: true })

@@ -81,7 +81,14 @@ od razu do użytku:
 3. **Zadania** (zrobione): kafelek-zadanie (Treść / Rozwiązanie),
    zwinięty pasek „Zadania" na końcu sektora, Przegląd sektorów, test
    końcowy z zadaniami, zadania w powtórkach rozszerzonych.
-4. **Później:** mapa jako tablica, telefon w obie strony, statystyki.
+4. **Program na Windows** (zrobione 2026-11-19, Tauri): instalator na
+   https://scepeczki.github.io/Kompendium-web/pobierz/, aktualizacje same,
+   ikona przy zegarku, start z Windows, powiadomienia (test po przerwie,
+   codzienne o powtórkach), codzienne kopie do folderu. Wydanie: `npm run wydaj`.
+5. **Następnie:** spis w Nauce — zwijane sektory i drugi tryb (liniowy:
+   prosty / szczegółowy jak w Linii).
+6. **Później:** połączenie z Focusem, mapa jako tablica, telefon w obie
+   strony, statystyki.
 
 Reszta kolejki, po nauce:
 
@@ -133,6 +140,7 @@ Reszta kolejki, po nauce:
 | Warstwa | Wybór | Stan |
 |---|---|---|
 | Aplikacja | React + TypeScript + Vite (PWA) | działa |
+| Program na Windows | Tauri 2 (WebView2, instalator NSIS, aktualizacje podpisane) | działa od 2026-11-19 |
 | Edytor wizualny | TipTap (ProseMirror) | działa |
 | Edytor kodu | CodeMirror 6 | działa |
 | Wzory | KaTeX | działa |

@@ -13,6 +13,7 @@ import { initUiSettings } from './uiSettings'
 import { seedBlockTypes } from './db'
 import { wlaczKopiowanieZrodla } from './kopiowanie'
 import { wczytajObrazy } from './obrazy'
+import { naPulpicie, wlaczPulpit } from './pulpit'
 
 // motyw: zapamiętany wybór albo preferencja systemowa
 const savedTheme = localStorage.getItem('ui.theme')
@@ -34,13 +35,21 @@ seedBlockTypes()
 // Tryb offline i samoaktualizacja — tylko w wersji zbudowanej. W trybie pracy
 // pracownik serwisowy podawałby zapamiętane pliki zamiast świeżych i zmiany
 // w kodzie przestawałyby być widoczne.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+// Program na Windows ma pliki u siebie i aktualizuje się sam — bez tego.
+if (import.meta.env.PROD && !naPulpicie && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
       // brak trybu offline to nie powód, żeby program nie wstał
     })
   })
 }
+
+// Dane w przeglądarce mogą zostać wyczyszczone przy braku miejsca na dysku —
+// prosimy, żeby były trwałe (Firefox raz zapyta o zgodę).
+void navigator.storage?.persist?.().catch(() => {})
+
+// Kompendium jako program: zasobnik, kopie w folderze, aktualizacje.
+wlaczPulpit()
 
 // Ctrl+C w wyrenderowanym tekście ma dawać źródło (wzory jako $…$),
 // a nie sklejkę trzech kopii wzoru, które KaTeX trzyma w drzewie strony.

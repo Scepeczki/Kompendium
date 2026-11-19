@@ -1,8 +1,8 @@
 # Po resecie komputera — jak wrócić do pracy
 
 Wszystko, czego potrzeba, jest w prywatnym repozytorium
-**https://github.com/Scepeczki/Kompendium** (kod, dokumenty, pamięć Claude'a
-i — jeśli ją tu wrzucisz — kopia notatek w folderze `kopie/`).
+**https://github.com/Scepeczki/Kompendium** (kod, dokumenty, pamięć Claude'a).
+Notatki są tylko u ciebie (przeglądarka / program) i w twoich kopiach zapasowych.
 
 ## Przed resetem (raz)
 
@@ -13,9 +13,15 @@ i — jeśli ją tu wrzucisz — kopia notatek w folderze `kopie/`).
    - Zrób to **w każdym miejscu, w którym pisałeś**: w wersji lokalnej
      (`http://localhost:5173` w Firefoksie) i w wersji z internetu
      (`https://scepeczki.github.io/Kompendium-web/`) — każda ma własne dane.
-2. Wrzuć plik(i) do folderu `C:\Projects\Kompendium\kopie\` i poproś Claude'a
-   o wysłanie na GitHub. Albo zachowaj je na pendrivie / Dysku Google.
-   GitHub przyjmie plik do 100 MB — przy dużych PDF-ach lepiej pendrive.
+   - W **programie Kompendium na Windows** kopie robią się same, codziennie, w
+     `Dokumenty\Kompendium\Kopie` (folder zmienisz w Ustawienia → Program).
+     Wystarczy zabrać najnowszy plik.
+2. **Klucz do aktualizacji programu:** skopiuj folder `C:\Users\<ty>\.tauri\`
+   (pliki `kompendium.key` i `kompendium.key.pub`) na pendrive / Dysk Google.
+   Bez niego nowa wersja się zbuduje, ale zainstalowane programy jej nie
+   przyjmą (trzeba by je odinstalować i zainstalować od nowa).
+3. Zachowaj plik(i) na Dysku Google / pendrivie. Notatek nie wysyłamy na
+   GitHub — tam jest tylko program.
 
 ## Po resecie
 
@@ -35,7 +41,14 @@ i — jeśli ją tu wrzucisz — kopia notatek w folderze `kopie/`).
    `docs/pamiec-claude/` (oprócz `settings.local.json`) do
    `C:\Users\<twoja nazwa>\.claude\projects\c--Projects-Kompendium\memory\`.
    Plik `settings.local.json` skopiuj do `C:\Projects\Kompendium\.claude\`.
-5. Otwórz Claude Code w `C:\Projects\Kompendium` i napisz, że wracamy po
+5. **Wydawanie programu na Windows** (tylko jeśli chcesz wydawać nowe wersje):
+   zainstaluj Rust (`winget install Rustlang.Rustup`) i Microsoft C++ Build
+   Tools (`winget install Microsoft.VisualStudio.2022.BuildTools` z zestawem
+   „Programowanie aplikacji klasycznych w C++”), włóż klucz z powrotem do
+   `C:\Users\<ty>\.tauri\`, a potem `npm run wydaj`.
+   Samo **używanie** programu tego nie wymaga — instalator jest na
+   https://scepeczki.github.io/Kompendium-web/pobierz/
+6. Otwórz Claude Code w `C:\Projects\Kompendium` i napisz, że wracamy po
    resecie — opis projektu jest w `VISION.md`, `ROADMAP.md`, `SLOWNIK.md`,
    a stan nauki w `docs/pamiec-claude/project-system-nauki.md`.
 

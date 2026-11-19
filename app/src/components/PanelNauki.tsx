@@ -36,6 +36,7 @@ import {
   zmienJednostke,
 } from '../nauka'
 import { wez } from '../naukaUstawienia'
+import { poprosOPowiadomienia } from '../pulpit'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki, PathNode } from '../types'
 
@@ -221,9 +222,7 @@ export function PanelNauki({
   const koniecMapowania = async (j: JednostkaNauki) => {
     await skonczMapowanie(j.id)
     // powiadomienie o teście — przeglądarka pyta raz
-    if ('Notification' in window && Notification.permission === 'default') {
-      void Notification.requestPermission()
-    }
+    poprosOPowiadomienia()
   }
 
   const odNowa = async (j: JednostkaNauki) => {

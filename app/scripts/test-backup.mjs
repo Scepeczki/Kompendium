@@ -60,7 +60,7 @@ const backupPath = 'scripts/backup-test.zip'
 await download.saveAs(backupPath)
 const size = readFileSync(backupPath).length
 console.log(`✓ eksport pobrany, rozmiar pliku: ${size} B`)
-await page.waitForSelector('text=Kopia zapasowa pobrana.')
+await page.waitForSelector('text=Kopia zapasowa zapisana.')
 
 // wyczyść bazę i ustawienia (symulacja „świeżej przeglądarki")
 await page.evaluate(() => {

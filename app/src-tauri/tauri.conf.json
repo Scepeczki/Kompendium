@@ -1,0 +1,59 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Kompendium",
+  "mainBinaryName": "Kompendium",
+  "version": "0.1.0",
+  "identifier": "pl.kompendium.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5174",
+    "beforeDevCommand": "npm run dev -- --port 5174 --strictPort",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kompendium",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 640,
+        "minHeight": 480,
+        "center": true,
+        "visible": false,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "publisher": "Scepeczki",
+    "shortDescription": "Kompendium — notatki i nauka",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Polish"],
+        "installerIcon": "icons/icon.ico"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE4NjQwNEU2N0NFODEzNkUKUldSdUUraDg1Z1JrR0dkdXI3d3VtdHE0SGVHL3I1VE5TMHFQd3VYTk1sMUJwMEZ1aGRaWGhMRDQK",
+      "endpoints": ["https://scepeczki.github.io/Kompendium-web/pobierz/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

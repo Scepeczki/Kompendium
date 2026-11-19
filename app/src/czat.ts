@@ -10,6 +10,7 @@
 import { db, mainPageName } from './db'
 import { ocenialny, wezlySektora } from './nauka'
 import { pytania } from './naukaUstawienia'
+import { otworzAdres } from './pulpit'
 export { czatWZero, ustawCzatWZero } from './naukaUstawienia'
 import { kluczWlasnej, type JednostkaNauki, type PathNode } from './types'
 
@@ -261,7 +262,7 @@ export async function otworzCzat(tekst: string): Promise<boolean> {
   } catch {
     // bez dostępu do schowka — tekst i tak pokażemy do ręcznego skopiowania
   }
-  window.open(adresCzatu(), '_blank', 'noopener')
+  void otworzAdres(adresCzatu())
   window.dispatchEvent(
     new CustomEvent('komp:komunikat', {
       detail: skopiowano
