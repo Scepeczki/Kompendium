@@ -11,7 +11,7 @@ const browser = await chromium.launch({
   ...(BRAVE
     ? {
         executablePath:
-          'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+          process.env.KOMP_PRZEGLADARKA ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
       }
     : {}),
   headless: true,

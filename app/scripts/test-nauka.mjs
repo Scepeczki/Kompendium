@@ -14,7 +14,7 @@ const check = (nazwa, ok, szczegol = '') => {
 }
 
 const browser = await chromium.launch({
-  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  executablePath: process.env.KOMP_PRZEGLADARKA ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   headless: true,
 })
 const kontekst = await browser.newContext({ viewport: { width: 1500, height: 950 } })
@@ -135,8 +135,11 @@ check('przed nauką uprzedza o czasie', (await page.locator('.ask-dialog').inner
 await potwierdz(page)
 await page.waitForTimeout(400)
 check('po starcie mapowanie i mapa', (await baza()).nauka.find((j) => j.id === sektor.id)?.etap === 'mapowanie')
-await page.click('.panel-nauki-zakladki button:has-text("Sektory")')
-await page.click('.karta-sektora button:has-text("Skończyłem mapowanie")')
+// start nauki otwiera tryb mapowania na cały ekran
+await page.waitForSelector('.tm')
+check('start nauki otwiera tryb mapowania', await page.locator('.tm-plakietka:has-text("Mapowanie")').isVisible())
+await page.click('.tm-glowa button:has-text("Skończyłem mapowanie")')
+await page.waitForSelector('.tm', { state: 'detached' })
 await page.waitForTimeout(400)
 check('przerwa blokuje test', await page.locator('.karta-sektora-przerwa:has-text("test za")').isVisible())
 // przerwa minęła
@@ -181,7 +184,7 @@ await page.click('.sesja-wynik .test-czatem-krok .btn-primary')
 await page.waitForTimeout(600)
 const polecenieCzatu = await page.evaluate(() => navigator.clipboard.readText())
 check('polecenie czatu w schowku: zasady, pytania i materiał',
-  polecenieCzatu.includes('egzaminatorem') && polecenieCzatu.includes('Jakie są konsekwencje definicji') &&
+  polecenieCzatu.includes('egzaminatorem') && polecenieCzatu.includes('Wyjaśnić konsekwencje definicji') &&
     polecenieCzatu.includes('Zbiór otwarty to taki') && polecenieCzatu.includes('Metryka → kule'),
   polecenieCzatu.slice(0, 60))
 check('otwiera wybrany czat (domyślnie Gemini)', (await page.evaluate(() => window.__otwarte.at(-1))) === 'https://gemini.google.com/app')
@@ -458,7 +461,7 @@ check('Ustawienia: zmiana celu zapisuje się', (await page.evaluate(() => localS
 check('Ustawienia: zadania w powtórce zero, bez polecenia zadań', (await page.locator('.settings-check:has-text("Zadania w powtórce zero") input').isChecked()) &&
   (await page.locator('[data-nauka="zadanWPowtorce"] input').inputValue()) === '2' &&
   (await page.locator('textarea[aria-label="Polecenie: ułóż zadania"]').count()) === 0)
-check('Ustawienia: pytania nauki do edycji', (await page.locator('.settings-textarea').first().inputValue()).includes('sens'))
+check('Ustawienia: cel nauki słowami użytkownika', (await page.locator('.settings-textarea').first().inputValue()).includes('Przywołać Sens Treści'))
 
 console.log('')
 console.log(`BŁĘDY KONSOLI: ${errors.length === 0 ? 'brak' : errors.length}`)

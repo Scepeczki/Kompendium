@@ -7,6 +7,7 @@ import { RichEditor } from './RichEditor'
 import { TestCzatem } from './TestCzatem'
 import { ListaZadan } from './ZadaniaSektora'
 import { PrzegladSektorow } from './PrzegladSektorow'
+import { Sciaga, TrybMapowania } from './TrybMapowania'
 import {
   dniDo,
   dolozDoSektora,
@@ -36,7 +37,7 @@ import {
   zacznijMapowanie,
   zmienJednostke,
 } from '../nauka'
-import { pytania, wez, zasady } from '../naukaUstawienia'
+import { wez } from '../naukaUstawienia'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki, PathNode } from '../types'
 
@@ -95,6 +96,9 @@ export function PanelNauki({
     if (widokSektorow && zakladka === 'przeglad') onZakladka('sektory')
   }, [widokSektorow, zakladka, onZakladka])
   const jednostki = useLiveQuery(() => db.nauka.where('pathId').equals(pathId).toArray(), [pathId]) ?? []
+  /** Sektor otwarty w trybie mapowania (okno na cały ekran). */
+  const [mapowany, setMapowany] = useState<string | null>(null)
+  const mapowanySektor = jednostki.find((x) => x.id === mapowany)
   const kafelki = useLiveQuery(() => db.concepts.toArray(), [])
   const pamiec = useLiveQuery(() => db.pamiec.toArray(), []) ?? []
   const znane = useLiveQuery(() => znaneKlucze(), []) ?? new Set<string>()
@@ -219,7 +223,7 @@ export function PanelNauki({
     if (!ok) return
     await zacznijMapowanie(s.j.id)
     onWybierz(s.j.id)
-    onZakladka('mapa')
+    setMapowany(s.j.id)
   }
 
   const koniecMapowania = async (j: JednostkaNauki) => {
@@ -383,6 +387,10 @@ export function PanelNauki({
                   onWybierz(s.j.id)
                   onZakladka('mapa')
                 }}
+                onMapuj={() => {
+                  onWybierz(s.j.id)
+                  setMapowany(s.j.id)
+                }}
                 onZacznij={() => zacznij(s)}
                 onKoniecMapowania={() => koniecMapowania(s.j)}
                 onTest={() => onStart?.({ jednostkaId: s.j.id })}
@@ -390,7 +398,7 @@ export function PanelNauki({
                 onDoucz={async () => {
                   await zacznijDouczanie(s.j.id, noweW(s.j, s.wezly))
                   onWybierz(s.j.id)
-                  onZakladka('mapa')
+                  setMapowany(s.j.id)
                 }}
                 onTestNowych={() => onStart?.({ jednostkaId: s.j.id, douczanie: true })}
                 onOdNowa={() => odNowa(s.j)}
@@ -464,6 +472,7 @@ export function PanelNauki({
               j={wybranySektor.j}
               sektory={sektory.map((s) => s.j)}
               onWybierz={onWybierz}
+              onMapuj={() => setMapowany(wybranySektor.j.id)}
               doDopisania={
                 wybranySektor.j.douczanie?.etap === 'mapowanie'
                   ? [
@@ -479,6 +488,7 @@ export function PanelNauki({
         </div>
       )}
 
+      {mapowanySektor && <TrybMapowania key={mapowanySektor.id} j={mapowanySektor} onZamknij={() => setMapowany(null)} />}
     </aside>
   )
 }
@@ -492,6 +502,7 @@ function KartaSektora({
   nazwaWezla,
   onWybierz,
   onMapa,
+  onMapuj,
   onZacznij,
   onKoniecMapowania,
   onTest,
@@ -516,6 +527,8 @@ function KartaSektora({
   nazwaWezla: (n: PathNode) => string
   onWybierz: () => void
   onMapa: () => void
+  /** Otwiera tryb mapowania (okno na cały ekran). */
+  onMapuj: () => void
   onZacznij: () => void
   onKoniecMapowania: () => void
   onTest: () => void
@@ -598,7 +611,10 @@ function KartaSektora({
               {j.doPoprawy?.length ? `Popraw mapowanie (${j.doPoprawy.length})` : 'Mapowanie'}
               {j.etapOd && <span className="karta-sektora-czas"> od {godzina(j.etapOd)}</span>}
             </span>
-            <button className="btn btn-primary btn-maly" onClick={onKoniecMapowania}>
+            <button className="btn btn-primary btn-maly" onClick={onMapuj} title="Tryb mapowania: źródło obok mapy, kafelek po kafelku">
+              Mapuj
+            </button>
+            <button className="btn btn-maly" onClick={onKoniecMapowania}>
               Skończyłem mapowanie
             </button>
           </>
@@ -657,7 +673,10 @@ function KartaSektora({
               <span>
                 Douczanie: dopisz nowe ({j.douczanie.wezly.length + j.douczanie.zadania.length}) do mapy
               </span>
-              <button className="btn btn-primary btn-maly" onClick={() => skonczMapowanieDouczania(j.id)}>
+              <button className="btn btn-primary btn-maly" onClick={onMapuj}>
+                Mapuj nowe
+              </button>
+              <button className="btn btn-maly" onClick={() => skonczMapowanieDouczania(j.id)}>
                 Skończyłem
               </button>
             </>
@@ -698,8 +717,7 @@ function KartaSektora({
       {j.etap === 'czat' && <TestCzatem j={j} tryb="zero" />}
       {j.etap === 'zadania' && (
         <p className="hint karta-sektora-rada">
-          Rozwiąż zadania — z podręcznika albo własne. Zapisz rozwiązanie z tokiem rozumowania,
-          a metodę przeanalizuj i dopisz do mapy. Potem test końcowy: zakryty, już z zadaniami.
+          Rozwiąż zadania, potem test końcowy.
         </p>
       )}
       {(aktywny || j.etap === 'zadania') && <ListaZadan j={j} onOtworz={onOtworz} nowe={new Set(nowe.zadania)} />}
@@ -741,11 +759,13 @@ function MapaSektora({
   j,
   sektory,
   onWybierz,
+  onMapuj,
   doDopisania,
 }: {
   j: JednostkaNauki
   sektory: JednostkaNauki[]
   onWybierz: (id: string) => void
+  onMapuj: () => void
   /** Douczanie: nowe elementy, które trzeba dopisać do mapy. */
   doDopisania?: string[]
 }) {
@@ -778,6 +798,10 @@ function MapaSektora({
             </option>
           ))}
         </select>
+        <button className="btn btn-maly" onClick={onMapuj} title="Okno na cały ekran: mapy kafelków i mapa sektora">
+          Tryb mapowania
+        </button>
+        <Sciaga wPanelu />
       </div>
       {doDopisania && (
         <div className="mapa-douczanie">
@@ -795,32 +819,10 @@ function MapaSektora({
           <pre>{j.luki}</pre>
         </div>
       )}
-      {/* pytania i zasady są przy mapie, nie w osobnej zakładce — to ściąga do
-          mapowania; w trakcie mapowania pytania są od razu rozwinięte */}
-      <details className="mapa-sektora-zasady mapa-sektora-pytania" open={j.etap === 'mapowanie' || !!j.douczanie}>
-        <summary>Pytania nauki — ściąga, nie formularz</summary>
-        <ol>
-          {pytania().map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ol>
-      </details>
-      <details className="mapa-sektora-zasady">
-        <summary>Jak mapować</summary>
-        <ul>
-          {zasady().map((z) => (
-            <li key={z}>{z}</li>
-          ))}
-        </ul>
-        <p className="hint">Obie listy zmienisz w Ustawieniach → Nauka.</p>
-      </details>
+      {/* ściąga (cel nauki, punkty mapy, zasady) chowa się pod żarówką obok */}
       <div className="mapa-sektora-pole">
-        <RichEditor value={j.mapa ?? ''} editable ruler={false} onChange={zmien} />
+        <RichEditor value={j.mapa ?? ''} editable ruler={false} luki onChange={zmien} />
       </div>
-      <p className="hint">
-        Najprostsza forma przedstawienia sektora: punkty, wzory, zdjęcie mapy narysowanej na papierze.
-        W teście mapa jest zakryta — odtwarzasz ją z pamięci.
-      </p>
     </div>
   )
 }

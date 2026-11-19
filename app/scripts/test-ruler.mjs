@@ -4,7 +4,7 @@ import { chromium } from 'playwright'
 
 const errors = []
 const browser = await chromium.launch({
-  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  executablePath: process.env.KOMP_PRZEGLADARKA ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   headless: true,
 })
 // szeroki viewport: kolumna edytora musi być szersza niż domyślne 800px,

@@ -12,7 +12,7 @@ const check = (nazwa, ok, szczegol = '') => {
 }
 
 const browser = await chromium.launch({
-  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  executablePath: process.env.KOMP_PRZEGLADARKA ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   headless: true,
 })
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
@@ -79,6 +79,8 @@ await page.click('.powtorki .btn:has-text("Wróć")')
 await page.click('.path-item:has-text("Topologia")')
 await page.click('.view-switch button:has-text("Nauka")')
 await page.waitForSelector('.widok-sektorow .ws-lista')
+// pamięć i historia dochodzą osobnymi zapytaniami — czekamy na znaczek
+await page.waitForSelector('.ws-sektor:has-text("nowe: 2")', { timeout: 8000 }).catch(() => {})
 check('Sektory: nagłówek sektora mówi „nowe: 2"', (await page.locator('.ws-sektor').innerText()).includes('nowe: 2'))
 check('Sektory: znaczek „nowy" na nowym kafelku i zadaniu', (await page.locator('.ws-wiersz[data-seg="nc3"] .ws-nowy').count()) === 1 &&
   (await page.locator('.ws-wiersz[data-zadanie="z1"] .ws-nowy').count()) === 1 && (await page.locator('.ws-wiersz[data-zadanie="z0"] .ws-nowy').count()) === 0)
@@ -86,11 +88,14 @@ check('Panel: „Doucz nowe (2)"', (await page.locator('.karta-sektora-nowe butt
 
 // --- douczanie ---
 await page.click('.karta-sektora-nowe button:has-text("Doucz nowe")')
-await page.waitForSelector('.mapa-douczanie')
-const lista = await page.locator('.mapa-douczanie').innerText()
-check('Mapa: lista nowych do dopisania', lista.includes('Zbiór domknięty') && lista.includes('zadanie: Nowe zadanie'))
-await page.click('.panel-nauki-zakladki button:has-text("Sektory")')
-await page.click('.karta-douczanie button:has-text("Skończyłem")')
+// douczanie otwiera tryb mapowania z samymi nowymi
+await page.waitForSelector('.tm')
+await page.waitForSelector('.tm-lista-poz:has-text("Nowe zadanie")')
+const lista = await page.locator('.tm-lista').innerText()
+check('Tryb mapowania douczania: tylko nowe (kafelek i zadanie)', lista.includes('Zbiór domknięty') && lista.includes('Nowe zadanie') &&
+  !lista.includes('Stare zadanie') && (await page.locator('.tm-plakietka:has-text("Douczanie")').isVisible()))
+await page.click('.tm-glowa button:has-text("Skończyłem mapowanie")')
+await page.waitForSelector('.tm', { state: 'detached' })
 await page.waitForSelector('.karta-douczanie button:has-text("Test nowych")')
 await page.click('.karta-douczanie button:has-text("Test nowych")')
 await page.waitForSelector('.sesja-element')

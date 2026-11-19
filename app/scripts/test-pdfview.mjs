@@ -46,7 +46,7 @@ writeFileSync('scripts/test-multi.pdf', makePdf(6))
 
 const errors = []
 const browser = await chromium.launch({
-  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  executablePath: process.env.KOMP_PRZEGLADARKA ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   headless: true,
 })
 const page = await browser.newPage({ viewport: { width: 1600, height: 950 } })

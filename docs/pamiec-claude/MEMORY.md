@@ -6,5 +6,5 @@
 - [Ścieżka nie rusza klocka](project-sciezka-nie-rusza-klocka.md) — pisanie w ścieżce zostaje w ścieżce; biblioteka nietykalna (decyzja 2026-08-09)
 - [Lista testów dla użytkownika](feedback-lista-testow.md) — po każdej nowości piszę, co ma przetestować, i powtarzam, dopóki nie potwierdzi
 - [Lepiej ustawienie niż stała](feedback-ustawienia.md) — wartości mają być ustawialne, a edycja działać na każdym elemencie osobno
-- [System nauki — ustalenia](project-system-nauki.md) — stan 2026-11-15: etapy nauki gotowe, czeka przebudowa mapowania wg grafika
+- [System nauki — ustalenia](project-system-nauki.md) — stan 2026-11-19: tryb mapowania gotowy (runda 2), dalej tablica/telefon/statystyki
 - [Krótkie testy](feedback-krotkie-testy.md) — po zmianie tylko testy związane z nią; pełny zestaw (ok. 70) rzadko, bo długo trwa

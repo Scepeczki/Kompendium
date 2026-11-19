@@ -18,6 +18,9 @@ mkdirSync(logi, { recursive: true })
 const pliki = readdirSync(dir)
   .filter((f) => f.startsWith('test-') && f.endsWith('.mjs'))
   .sort()
+  // test-pdf-pamiec robi plik test-multi.pdf, którego potrzebują inne testy
+  // (po świeżym sklonowaniu repozytorium go nie ma) — idzie pierwszy
+  .sort((a, b) => Number(b === 'test-pdf-pamiec.mjs') - Number(a === 'test-pdf-pamiec.mjs'))
 
 const tylko = process.argv.slice(2)
 const doUruchomienia = tylko.length

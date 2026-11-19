@@ -68,7 +68,19 @@ export function ustaw(k: KluczNauki, v: number): void {
   window.dispatchEvent(new Event('komp:ui'))
 }
 
+/** Cel nauki — co potrafi ten, kto się nauczył. Słowa użytkownika.
+ *  Służy testowi (polecenia) i czatowi, a przy mapowaniu jest w ściądze. */
 export const PYTANIA_DOMYSLNE = [
+  'Przywołać Sens Treści',
+  'Przywołać Strukturę Relacji w ramach Treści',
+  'Przywołać Metodykę a także jej Konsekwencje Optymalizacji Treści',
+  'Wyjaśnić konsekwencje definicji',
+  'Podać przykłady implementacji albo ekstrapolacji treści',
+  'Podać strukturalne uzasadnienie treści (o ile takie jest znane)',
+].join('\n')
+
+/** Poprzednia domyślna lista — kto jej nie zmieniał, dostaje nową. */
+const PYTANIA_STARE = [
   'Co przedstawia ta treść? Jaki jest jej sens?',
   'Jakie są kluczowe pojęcia i jak się ze sobą wiążą (struktura relacji)?',
   'Jaki jest zakres zastosowania i gdzie są granice?',
@@ -78,6 +90,15 @@ export const PYTANIA_DOMYSLNE = [
   'Jakie są konsekwencje definicji?',
   'Przykład i kontrprzykład; zastosowanie albo uogólnienie.',
   'Z czym to się łączy i gdzie leży w całości?',
+].join('\n')
+
+/** Ściąga do mapowania — punkty, które mapa ma objąć. Klik w punkt
+ *  wstawia go do mapy jako nagłówek. */
+export const SCIAGA_DOMYSLNA = [
+  'Celowość Treści (co rozwiązuje) i Sensowność Struktury (dlaczego taka struktura), Granice',
+  'Połączenia i Mapa (z czym się łączy, gdzie w ogólnym ujęciu się znajduje)',
+  'Konkretne Punkty (Przykład i Kontrprzykład)',
+  'Mapa (Najprostsza możliwa forma reprezentacji)',
 ].join('\n')
 
 export const ZASADY_DOMYSLNE = [
@@ -90,6 +111,12 @@ export const ZASADY_DOMYSLNE = [
 
 const KLUCZ_PYTANIA = 'ui.nauka.pytania'
 const KLUCZ_ZASADY = 'ui.nauka.zasady'
+const KLUCZ_SCIAGA = 'ui.nauka.sciaga'
+try {
+  if (localStorage.getItem(KLUCZ_PYTANIA) === PYTANIA_STARE) localStorage.removeItem(KLUCZ_PYTANIA)
+} catch {
+  // bez dostępu do pamięci przeglądarki — zostają domyślne
+}
 
 const linie = (t: string) =>
   t
@@ -99,7 +126,14 @@ const linie = (t: string) =>
 
 export const pytaniaTekst = () => localStorage.getItem(KLUCZ_PYTANIA) ?? PYTANIA_DOMYSLNE
 export const zasadyTekst = () => localStorage.getItem(KLUCZ_ZASADY) ?? ZASADY_DOMYSLNE
+export const sciagaTekst = () => localStorage.getItem(KLUCZ_SCIAGA) ?? SCIAGA_DOMYSLNA
 export const pytania = () => linie(pytaniaTekst())
+export const sciaga = () => linie(sciagaTekst())
+
+export function ustawSciage(t: string) {
+  localStorage.setItem(KLUCZ_SCIAGA, t)
+  window.dispatchEvent(new Event('komp:ui'))
+}
 export const zasady = () => linie(zasadyTekst())
 
 export function ustawPytania(t: string) {

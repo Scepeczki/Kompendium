@@ -291,6 +291,21 @@ export async function przerwijNauke(id: string) {
   })
 }
 
+/** Zapis mapy jednego kafelka sektora (pozostałe mapy zostają). */
+export async function zapiszMapeKafelka(id: string, klucz: string, md: string) {
+  await db.transaction('rw', db.nauka, async () => {
+    const j = await db.nauka.get(id)
+    if (!j) return
+    const mapy = { ...(j.mapyKafelkow ?? {}) }
+    if (md.trim()) mapy[klucz] = md
+    else delete mapy[klucz]
+    await db.nauka.update(id, { mapyKafelkow: mapy, zmieniono: teraz().toISOString() })
+  })
+}
+
+/** Ile luk („??") zostało w mapie. */
+export const ileLuk = (md: string | undefined) => (md?.match(/\?\?/g) ?? []).length
+
 export async function skonczMapowanie(id: string) {
   await zmienJednostke(id, { etap: 'przerwa', etapOd: teraz().toISOString() })
 }

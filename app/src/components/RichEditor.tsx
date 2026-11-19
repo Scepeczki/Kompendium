@@ -56,6 +56,38 @@ function zapamietanyWzor(tex: string, display: boolean, surowy: string): string 
   return html
 }
 
+/** Luka w mapie: „??" świeci na żółto — miejsce, którego jeszcze nie wiesz. */
+const LukaRender = Extension.create({
+  name: 'lukaRender',
+  addProseMirrorPlugins() {
+    const build = (doc: import('@tiptap/pm/model').Node) => {
+      const decos: Decoration[] = []
+      doc.descendants((node, pos) => {
+        if (!node.isText) return
+        const re = /\?\?/g
+        let m: RegExpExecArray | null
+        while ((m = re.exec(node.text ?? ''))) {
+          decos.push(Decoration.inline(pos + m.index, pos + m.index + 2, { class: 'luka-znak' }))
+        }
+      })
+      return DecorationSet.create(doc, decos)
+    }
+    return [
+      new Plugin({
+        state: {
+          init: (_, { doc }) => build(doc),
+          apply: (tr, old) => (tr.docChanged ? build(tr.doc) : old),
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state)
+          },
+        },
+      }),
+    ]
+  },
+})
+
 const MathRender = Extension.create({
   name: 'mathRender',
   addProseMirrorPlugins() {
@@ -339,7 +371,7 @@ const BlankParagraph = Paragraph.extend({
  *  widać rozmiar podstawowy odczytany z pola, więc liczba zawsze coś znaczy.
  *  Lista podpowiada rozmiary co jeden punkt. A wpisać można dowolną liczbę,
  *  bo żadna lista nie zgadnie wszystkiego. */
-function PoleRozmiaru({ editor }: { editor: Editor }) {
+export function PoleRozmiaru({ editor }: { editor: Editor }) {
   const teraz = sizeAtSelection(editor)
   const [bazowy, setBazowy] = useState<number | null>(null)
   useEffect(() => {
@@ -479,11 +511,11 @@ const Zdjecie = Node.create({
   },
 })
 
-const obrazyZ = (pliki?: FileList | null) =>
+export const obrazyZ = (pliki?: FileList | null) =>
   [...(pliki ?? [])].filter((p) => p.type.startsWith('image/'))
 
 /** `pos`: miejsce upuszczenia. Bez niego zdjęcie staje tam, gdzie kursor. */
-async function wstawObrazy(editor: Editor, pliki: File[], pos?: number) {
+export async function wstawObrazy(editor: Editor, pliki: File[], pos?: number) {
   try {
     for (const plik of pliki) {
       const src = await dodajObraz(plik)
@@ -651,6 +683,10 @@ interface Props {
   onReady?: (editor: Editor | null) => void
   /** Wołane po wejściu kursora w to pole — wspólny pasek przełącza się na nie. */
   onFocus?: () => void
+  /** Mapa nauki: „??" świeci jako luka. */
+  luki?: boolean
+  /** Tekst pustego pola. */
+  placeholder?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -768,6 +804,10 @@ const przywrocBackslashe = (md: string) =>
       .replace(/\\\\/g, '\\')
       .replace(/^(\s*)\\([-*+#>])/gm, '$1$2')
       .replace(/^(\s*\d+)\\\./gm, '$1.')
+      // odnośnik do kafelka [[nazwa]] — zapis Markdownu ucieka nawiasy,
+      // a z ukośnikami odnośnik przestaje działać
+      .replace(/\\\[\\\[/g, '[[')
+      .replace(/\\\]\\\]/g, ']]')
   )
 
 /** Markdown JEDNEGO KAWAŁKA dokumentu — od pozycji do pozycji.
@@ -798,6 +838,8 @@ export function RichEditor({
   bezPaska = false,
   onReady,
   onFocus,
+  luki = false,
+  placeholder,
 }: Props) {
   const edRef = useRef<Editor | null>(null)
   const editor = useEditor({
@@ -822,6 +864,7 @@ export function RichEditor({
       IndentRender,
       SizeRender,
       ZamrozoneZaznaczenie,
+      ...(luki ? [LukaRender] : []),
             // Wklejony tekst czytamy JAK MARKDOWN.
       //
       // Bez tego wklejka ladowala jako goly tekst: myslnik na poczatku linii
@@ -949,7 +992,11 @@ MarkdownBezWciec.configure({
     <div className="rich-editor">
       {editable && !bezPaska && <RichToolbar editor={editor} />}
       {editable && ruler && <PageRuler editor={editor} />}
-      <EditorContent editor={editor} className="rich-content markdown-body" />
+      <EditorContent
+        editor={editor}
+        className={`rich-content markdown-body ${placeholder && editor.isEmpty ? 'rich-pusty' : ''}`}
+        data-placeholder={placeholder}
+      />
       {editable && <PasekZdjecia editor={editor} />}
     </div>
   )

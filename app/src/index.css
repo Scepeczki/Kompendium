@@ -10196,3 +10196,1119 @@ body.ciagne-szerokosc * {
   padding-left: 1.4em;
   font-size: var(--fs-3);
 }
+
+/* =====================================================================
+   Tryb mapowania — okno na cały ekran (projekt „runda 2")
+   ===================================================================== */
+.tm {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+.tm-glowa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 3px solid var(--sektor);
+}
+.tm-plakietka {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sektor) 16%, var(--panel));
+  font-size: 13px;
+  font-weight: 700;
+}
+.tm-kropka {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sektor);
+}
+.tm-sciezka,
+.tm-czas,
+.tm-szary {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.tm-strony {
+  flex: 1 1 320px;
+  display: flex;
+  justify-content: center;
+}
+.tm-zakladki {
+  display: inline-flex;
+  background: var(--panel-alt);
+  border-radius: 999px;
+  padding: 3px;
+}
+.tm-zakladka {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  border: none;
+  border-radius: 999px;
+  padding: 0 14px;
+  min-height: 34px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tm-zakladka.wl {
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(43, 38, 32, 0.18);
+}
+.tm-zakladki-male .tm-zakladka {
+  min-height: 28px;
+  font-size: 12.5px;
+  padding: 0 12px;
+}
+.tm-btn {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0 16px;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tm-btn:hover:not(:disabled) {
+  border-color: var(--ink-soft);
+}
+.tm-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.tm-btn-glowny {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.tm-btn-glowny:hover:not(:disabled) {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+}
+.tm-btn-maly {
+  min-height: 30px;
+  font-size: 12.5px;
+  padding: 0 12px;
+}
+.tm-btn-maly.wl {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.tm-ikona {
+  font: inherit;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+}
+.tm-ikona.wl {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.tm-ikona-mala {
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+}
+.tm-etykieta {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tm-etykieta-akcent {
+  color: color-mix(in srgb, var(--sektor) 70%, var(--ink));
+}
+
+/* ściąga pod żarówką */
+.sciaga {
+  position: relative;
+}
+.sciaga-okno {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -40px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  z-index: 5;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(43, 38, 32, 0.2);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.sciaga-w-panelu .sciaga-okno {
+  right: 0;
+}
+.sciaga-punkty {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sciaga-punkt {
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+button.sciaga-punkt {
+  cursor: pointer;
+}
+button.sciaga-punkt:hover {
+  background: var(--panel-alt);
+}
+.sciaga-cel {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.sciaga-zasady {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.sciaga-zasady summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.sciaga-zasady ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.sciaga-stopka {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ciało: szyna, szuflada, lista, źródło, mapa */
+.tm-cialo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.tm-szyna {
+  width: 66px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel-alt);
+}
+.tm-szyna-btn {
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  width: 54px;
+  height: 54px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.tm-szyna-btn:hover,
+.tm-szyna-btn.wl {
+  background: var(--line);
+  color: var(--ink);
+}
+.tm-szyna-pusto {
+  flex: 1;
+}
+.tm-szyna-opis {
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.3;
+}
+.tm-szuflada {
+  width: min(420px, 40vw);
+  flex: none;
+  border-right: 1px solid var(--line);
+  background: var(--panel-alt);
+  box-shadow: 8px 0 24px rgba(43, 38, 32, 0.08);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.tm-pp {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.tm-pp-glowa {
+  padding: 12px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.tm-pp-wiersz {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tm-pp-wybor {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+}
+.tm-szukaj {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 0 10px;
+  height: 36px;
+  color: var(--muted);
+}
+.tm-szukaj input {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  color: var(--ink);
+}
+.tm-pp-tresc {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tm-pp-rozdzial {
+  font-family: var(--font-read);
+  font-weight: 600;
+  font-size: 16px;
+  margin: 10px 0 0;
+}
+.tm-pp-rozdzial.poziom-2,
+.tm-pp-rozdzial.poziom-3 {
+  font-size: 14.5px;
+  color: var(--ink-soft);
+}
+.tm-pp-notatka {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.tm-pp-blok {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+.tm-pp-sektor {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--sektor) 75%, var(--ink));
+  border-bottom: 2px solid var(--sektor);
+  padding-bottom: 2px;
+}
+.tm-pp-karta {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tm-pp-karta[data-w-sektorze] {
+  border-left: 4px solid var(--sektor);
+}
+.tm-pp-karta.tu {
+  border: 2px solid var(--ink);
+}
+.tm-pp-karta-glowa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  min-width: 0;
+}
+.tm-pp-karta-glowa > b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-pp-nazwa {
+  font: inherit;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-pp-karta-tresc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  overflow: hidden;
+}
+.tm-pp-karta-tresc p {
+  margin: 0.2em 0;
+}
+.tm-pp-nauka .tm-pp-karta-tresc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.tm-tu {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--paper);
+  background: var(--ink);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.tm-do-mapy {
+  margin-left: auto;
+  font-size: 12px !important;
+  color: var(--accent) !important;
+  white-space: nowrap;
+}
+
+.tm-lista {
+  width: 230px;
+  flex: none;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-right: 1px solid var(--line);
+  overflow: auto;
+}
+.tm-lista > .tm-etykieta {
+  padding: 0 10px 8px;
+}
+.tm-lista-poz {
+  font: inherit;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.tm-lista-poz:hover {
+  background: var(--panel-alt);
+}
+.tm-lista-poz.wl {
+  background: var(--panel);
+  border-color: var(--sektor);
+  font-weight: 700;
+}
+.tm-lista-nazwa {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+  min-width: 0;
+}
+.tm-kolko {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  box-sizing: border-box;
+  font-size: 11.5px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.tm-kolko.gotowe {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.tm-kolko.biezace {
+  background: var(--sektor);
+  border-color: var(--sektor);
+  color: #fff;
+}
+.tm-kwadrat {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid var(--sektor);
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  flex: none;
+}
+.tm-lista-kreska {
+  height: 1px;
+  background: var(--line);
+  margin: 10px;
+}
+.tm-lista-calosc {
+  font-weight: 600;
+}
+.tm-mini {
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: var(--panel-alt);
+  color: var(--ink-soft);
+}
+.tm-mini-poprawa {
+  background: color-mix(in srgb, var(--danger) 15%, var(--panel));
+  color: var(--danger);
+}
+.tm-mini-luka,
+.luka-znak,
+.tm-luka-btn {
+  background: #f6ecd2;
+  color: #6b4f0c;
+  font-weight: 700;
+  border-radius: 5px;
+}
+.luka-znak {
+  padding: 0 3px;
+}
+
+.tm-zrodlo {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+}
+.tm-zrodlo-glowa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tm-zrodlo-strony {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tm-zrodlo-karta {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+.tm-zrodlo-tytul {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tm-zrodlo-tytul h2 {
+  margin: 0;
+  font-family: var(--font-read);
+  font-size: 22px;
+  font-weight: 600;
+}
+.tm-zrodlo-tytul .tm-szary {
+  margin-left: auto;
+}
+.tm-zrodlo-zakryte {
+  border: 2px dashed var(--line-strong);
+  border-radius: 14px;
+  padding: 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.tm-mapa-kolumna {
+  flex: 1.3 1 0;
+  min-width: 0;
+  padding: 14px 20px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.tm-mapa-szeroka {
+  flex: 2 1 0;
+  padding-left: 20px;
+}
+.tm-pasek {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  box-shadow: 0 1px 2px rgba(43, 38, 32, 0.06);
+  min-height: 42px;
+  box-sizing: border-box;
+}
+.tm-pasek-pusty {
+  opacity: 0.5;
+}
+.tm-tb {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  position: relative;
+}
+.tm-tb:hover {
+  background: var(--panel-alt);
+}
+.tm-tb.wl {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.tm-tb-ramka {
+  border: 1px solid var(--line-strong);
+}
+.tm-tb-luka {
+  color: #6b4f0c;
+}
+.tm-i {
+  font-family: var(--font-read);
+  font-style: italic;
+}
+.tm-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--line);
+  margin: 0 3px;
+  flex: none;
+}
+.tm-styl {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 0 6px;
+}
+.tm-sekcje {
+  position: relative;
+}
+.tm-sekcje-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  min-width: 260px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(43, 38, 32, 0.18);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.tm-sekcje-menu button {
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.tm-sekcje-menu button:hover {
+  background: var(--panel-alt);
+}
+.tm-kartka {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(43, 38, 32, 0.08);
+}
+.tm-kartka-glowa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: color-mix(in srgb, var(--sektor) 12%, var(--panel));
+  border-bottom: 1px solid color-mix(in srgb, var(--sektor) 25%, var(--line));
+  font-size: 14.5px;
+}
+.tm-zapis {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.tm-kartka-tresc {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 28px 28px;
+  cursor: text;
+}
+.tm-kartka-tresc .ProseMirror {
+  outline: none;
+  font-size: 16px;
+  line-height: 1.65;
+  min-height: 260px;
+}
+.tm-kartka-tresc .ProseMirror h2,
+.tm-kartka-tresc .ProseMirror h3 {
+  font-family: var(--font-read);
+  margin: 0.9em 0 0.3em;
+}
+.tm-kartka-tresc .ProseMirror h3 {
+  font-size: 1.05em;
+  color: color-mix(in srgb, var(--sektor) 55%, var(--ink));
+}
+/* tekst pustej mapy */
+.rich-pusty {
+  position: relative;
+}
+.rich-pusty::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.tm-nawigacja {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tm-mapy-kafelkow {
+  width: 300px;
+  flex: none;
+  padding: 16px 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-right: 1px solid var(--line);
+  overflow: auto;
+}
+.tm-mk {
+  font: inherit;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--ink);
+}
+.tm-mk:hover {
+  border-color: var(--sektor);
+}
+.tm-mk-glowa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.tm-mk-stan {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tm-mk-stan.gotowa {
+  color: var(--accent);
+}
+.tm-mk-stan.luki {
+  background: #f6ecd2;
+  color: #6b4f0c;
+  border-radius: 5px;
+  padding: 0 5px;
+}
+.tm-mk-stan.pusta,
+.tm-mk-pusta {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.tm-mk-tresc {
+  font-size: 13px;
+  line-height: 1.5;
+  max-height: 7.5em;
+  overflow: hidden;
+}
+.tm-mk-tresc p {
+  margin: 0.2em 0;
+}
+.tm-uwaga {
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.tm-uwaga summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.tm-uwaga pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  margin: 6px 0 0;
+}
+
+.tm-przeglad {
+  flex: 1;
+  min-width: 0;
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: auto;
+}
+.tm-tabela {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  flex: none;
+}
+.tm-tabela-w {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 130px;
+  border-bottom: 1px solid var(--line);
+}
+.tm-tabela-w:last-child {
+  border-bottom: none;
+}
+.tm-tabela-w > span {
+  padding: 10px 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  min-width: 0;
+}
+.tm-tabela-w > span + span {
+  border-left: 1px solid var(--line);
+}
+.tm-tabela-glowa {
+  background: var(--panel-alt);
+}
+.tm-tabela-glowa > span {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tm-tabela-nazwa {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.tm-tabela-mapa .markdown-body {
+  max-height: 6em;
+  overflow: hidden;
+  display: block;
+}
+.tm-tabela-mapa p {
+  margin: 0.15em 0;
+}
+.tm-tabela-pusto {
+  padding: 12px 16px;
+}
+.tm-gotowa {
+  font-weight: 600;
+  color: var(--accent);
+}
+.tm-luka-btn {
+  font: inherit;
+  font-size: 12.5px;
+  border: none;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.tm-link {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.tm-przeglad-dol {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.tm-mapa-sektora-podglad {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 26px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.tm-zakladka-mapy {
+  position: absolute;
+  top: 0;
+  left: 22px;
+  background: var(--sektor);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 0 0 6px 6px;
+}
+.tm-mapa-sektora-podglad h2 {
+  margin: 0;
+  font-family: var(--font-read);
+  font-size: 22px;
+  font-weight: 600;
+}
+.tm-otworz-mape {
+  align-self: flex-start;
+}
+.tm-czy {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tm-czy > .tm-etykieta {
+  margin-bottom: 6px;
+}
+.tm-czy-punkt {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.tm-czy-punkt input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex: none;
+  margin-top: 1px;
+}
+.tm-czy-koniec {
+  margin-top: 10px;
+  justify-content: center;
+  min-height: 44px;
+}
+
+/* wąski ekran: kolumny jedna pod drugą, przewija się całe ciało */
+@media (max-width: 900px) {
+  .tm-cialo {
+    flex-wrap: wrap;
+    overflow: auto;
+    align-content: flex-start;
+  }
+  .tm-szyna {
+    width: 100%;
+    flex-direction: row;
+    padding: 4px 8px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .tm-szyna-pusto,
+  .tm-szyna-opis {
+    display: none;
+  }
+  .tm-szuflada,
+  .tm-lista,
+  .tm-mapy-kafelkow {
+    width: 100%;
+    max-height: 50vh;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .tm-zrodlo,
+  .tm-mapa-kolumna {
+    flex: 1 1 100%;
+    padding: 12px 16px;
+  }
+  .tm-kartka {
+    min-height: 60vh;
+  }
+  .tm-przeglad-dol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tm-tabela-w {
+    grid-template-columns: minmax(0, 1fr) 100px;
+  }
+  .tm-tabela-mapa {
+    display: none;
+  }
+}
+
+/* panel Nauki: przyciski obok wyboru sektora w zakładce Mapa */
+.mapa-sektora-glowa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mapa-sektora-glowa .mapa-sektora-wybor {
+  flex: 1;
+  min-width: 0;
+}
+
+/* kartka mapy sama jest stroną — bez wyglądu strony A4 z edytora kafelków */
+.tm-kartka-tresc .rich-content {
+  background: transparent;
+  padding-top: 0;
+  overflow: visible;
+}
+.tm-kartka-tresc .rich-content .tiptap {
+  max-width: none;
+  padding: 0 0 40px;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  font-size: 16px;
+}
+.tm-kartka-tresc .tiptap p.is-editor-empty:first-child::before {
+  content: none;
+}
+.tm-pasek {
+  border-radius: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tm-tb-luka {
+    color: #e3c477;
+  }
+}
+:root[data-theme='dark'] .tm-tb-luka {
+  color: #e3c477;
+}

@@ -13,7 +13,7 @@ const check = (nazwa, ok, szczegol = '') => {
 }
 
 const browser = await chromium.launch({
-  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  executablePath: process.env.KOMP_PRZEGLADARKA ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   headless: true,
 })
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
@@ -201,9 +201,13 @@ await page.click('.view-switch button:has-text("Nauka")')
 await page.waitForSelector('.panel-nauki')
 await page.locator('.karta-sektora[data-sektor="s1"] button:has-text("Zacznij naukę")').click()
 await potwierdz(page)
-await page.waitForSelector('.mapa-sektora')
-check('pytania nauki w zakładce Mapa, rozwinięte przy mapowaniu', (await page.locator('.mapa-sektora-pytania[open] li').count()) > 3 &&
+// start otwiera tryb mapowania; ściąga schowana pod żarówką
+await page.waitForSelector('.tm')
+check('start otwiera tryb mapowania, ściąga schowana', (await page.locator('.tm .sciaga .tm-ikona').isVisible()) &&
+  (await page.locator('.sciaga-okno').count()) === 0 &&
   (await page.locator('.panel-nauki-zakladki button:has-text("Pytania")').count()) === 0)
+await page.click('.tm-glowa button[aria-label="Schowaj tryb mapowania"]')
+await page.waitForSelector('.tm', { state: 'detached' })
 await page.click('.panel-nauki-zakladki button:has-text("Sektory")')
 await page.click('.karta-sektora[data-sektor="s1"] .karta-przerwij')
 await potwierdz(page)

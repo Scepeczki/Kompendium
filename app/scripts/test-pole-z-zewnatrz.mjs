@@ -4,7 +4,7 @@ import { chromium } from 'playwright'
 import { nowaSciezka } from './lib.mjs'
 const errors = []
 const b = await chromium.launch({
-  executablePath: 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  executablePath: process.env.KOMP_PRZEGLADARKA ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   headless: true,
 })
 const ctx = await b.newContext({ viewport: { width: 1400, height: 850 } })

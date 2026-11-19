@@ -3,6 +3,9 @@ import { PoleLiczby } from './PoleLiczby'
 import {
   NAUKA,
   pytaniaTekst,
+  sciagaTekst,
+  ustawSciage,
+  SCIAGA_DOMYSLNA,
   ustaw,
   ustawPytania,
   ustawZasady,
@@ -102,17 +105,24 @@ export function UstawieniaNauki() {
       {wiersz('progNie')}
       {wiersz('uparty')}
 
-      <h3 className="settings-grupa">Pytania i zasady</h3>
+      <h3 className="settings-grupa">Cel nauki i ściąga</h3>
       <PoleTekstu
-        nazwa="Pytania nauki"
-        opis="Jedna lista na wszystko: w mapowaniu do wglądu (nie jako formularz), w teście jako polecenia, później w poleceniu dla czatu. Jedno pytanie w wierszu."
+        nazwa="Kto się nauczył, potrafi"
+        opis="Cel nauki: polecenia w teście, polecenie dla czatu i ściąga przy mapowaniu. Jeden punkt w wierszu."
         wartosc={pytaniaTekst()}
         domyslna={PYTANIA_DOMYSLNE}
         onZapisz={ustawPytania}
       />
       <PoleTekstu
-        nazwa="Zasady mapowania"
-        opis="Pokazują się przy mapowaniu jako przypomnienie."
+        nazwa="Ściąga do mapowania"
+        opis="Co mapa ma objąć. Schowana pod ikoną żarówki; klik w punkt wstawia go do mapy jako nagłówek."
+        wartosc={sciagaTekst()}
+        domyslna={SCIAGA_DOMYSLNA}
+        onZapisz={ustawSciage}
+      />
+      <PoleTekstu
+        nazwa="Jak mapować"
+        opis="Krótkie zasady, też w ściądze."
         wartosc={zasadyTekst()}
         domyslna={ZASADY_DOMYSLNE}
         onZapisz={ustawZasady}

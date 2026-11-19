@@ -62,14 +62,6 @@ export function ListaZadan({
       <h4 className="zadania-sektora-glowa">
         Zadania{zadania.length ? ` (${zadania.length})` : ''}
       </h4>
-      {zadania.length === 0 && (
-        <p className="hint">
-          Zadanie to kafelek rodzaju „Zadanie" ze stronami Treść i Rozwiązanie. Mieszka w folderze ścieżki,
-          a w Linii stoi w zwiniętym pasku na końcu sektora (nie trafia do Skryptu ani PDF). W teście widać
-          treść, a rozwiązanie odtwarzasz z pamięci. Kafelek „Zadanie" stojący zwyczajnie w Linii sektora
-          też jest zadaniem.
-        </p>
-      )}
       {zadania.length > 0 && (
         <ol className="zadania-lista">
           {zadania.map((c, i) => (

@@ -836,12 +836,12 @@ const RamkaSegmentu = memo(
           ...(pelny
             ? stylTekstu(n.kind === 'heading' ? undefined : n.rozmiarTekstu)
             : { height: wysokosc, boxSizing: 'border-box' }),
-          ...(pasmo ? ({ '--sektor': pasmo.kolor } as React.CSSProperties) : {}),
+          ...(pasmo?.nauka ? ({ '--sektor': pasmo.kolor } as React.CSSProperties) : {}),
         }}
         className={`linear-seg ${n.kind === 'comment' ? 'linear-seg-sidenote' : ''} ${
           zaznaczony ? 'zaznaczony' : ''
         } ${kreska === 'before' ? 'drop-before' : kreska === 'after' ? 'drop-after' : ''} ${
-          pasmo ? 'w-sektorze' : ''
+          pasmo?.nauka ? 'w-sektorze' : ''
         } ${pasmo?.nauka && pasmo.pierwszy ? 'sektor-poczatek' : ''} ${pasmo?.doPoprawy ? 'do-poprawy' : ''} ${
           pasmo?.wypelnienie ? 'sektor-wypelnienie' : ''
         }`}
@@ -850,7 +850,9 @@ const RamkaSegmentu = memo(
         onDrop={(e) => api.upuszczone(e, i)}
         onContextMenu={(e) => api.menu(e, i)}
       >
-        {pasmo && n.kind !== 'comment' && (
+        {/* zwykła Linia nie pokazuje sektorów — barwne paski z boku tylko
+            mylą; sektory widać w widoku Nauka */}
+        {pasmo?.nauka && n.kind !== 'comment' && (
           <span
             className={`sektor-pasmo ${pasmo.pierwszy ? 'pierwszy' : ''} ${pasmo.ostatni ? 'ostatni' : ''} ${
               pasmo.nauka ? 'szerokie' : ''

@@ -181,13 +181,23 @@ i utrwalanie to system powtórek w duchu Anki, ale dla wiedzy strukturalnej.
 
 ### Co ma umieć ten, kto się nauczył
 
-Przywołać sens treści, strukturę relacji w niej i metodykę (z jej
-konsekwencjami), wyjaśnić konsekwencje definicji, podać przykłady zastosowań
-albo uogólnień i podać strukturalne uzasadnienie treści, jeśli jest znane.
-Ta lista (połączona z pytaniami mapowania) jest **jedna**, stoi
-w Ustawieniach i służy trzem rzeczom: wsparciu przy mapowaniu (do wglądu,
-nie jako szablon do wypełniania — mapowanie zawsze jest bez schematu),
-poleceniom w teście i poleceniu dla czatu.
+Słowami użytkownika:
+
+- Przywołać Sens Treści,
+- Przywołać Strukturę Relacji w ramach Treści,
+- Przywołać Metodykę a także jej Konsekwencje Optymalizacji Treści,
+- Wyjaśnić konsekwencje definicji,
+- Podać przykłady implementacji albo ekstrapolacji treści,
+- Podać strukturalne uzasadnienie treści (o ile takie jest znane).
+
+To **cel nauki** (Ustawienia → Nauka): polecenia w teście, polecenie dla
+czatu i ściąga przy mapowaniu. Osobna, krótsza lista to **ściąga do
+mapowania** — co mapa ma objąć: celowość treści (co rozwiązuje)
+i sensowność struktury (dlaczego taka), granice; połączenia i mapa (z czym
+się łączy, gdzie w ogólnym ujęciu się znajduje); konkretne punkty (przykład
+i kontrprzykład); mapa (najprostsza możliwa forma reprezentacji). Obie są
+do wglądu, nie szablonem — mapowanie zawsze jest bez schematu — i normalnie
+ich nie widać: rozwijają się spod ikony żarówki.
 
 ### Sektor zamiast pojedynczej fiszki
 
@@ -199,7 +209,8 @@ osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
 
 Środek widoku **Nauka** to domyślnie **Sektory**: ścieżka jako jedna oś, kafelek to kulka i zwarta karta (rodzaj, nazwa, dwie linijki treści, znaczki: strony, słaby, do poprawy; klik rozwija), rozdział to kreska z tytułem, sektor to gruby barwny odcinek z nagłówkiem (kafelki, zadania, etap), a zadania z paska stoją na jego końcu. Zaznacza się przeciąganiem po osi. Przełącznik „Sektory / Pełna linia” wraca do zwykłej Linii.
 
-W widoku **Nauka** Linia jest tylko do czytania; pod prawym przyciskiem są
+Zwykła Linia (poza widokiem Nauka) nie pokazuje sektorów — barwne
+pasma mylą przy czytaniu i pisaniu. W widoku **Nauka** Linia jest tylko do czytania; pod prawym przyciskiem są
 sprawy sektorów (sektor z rozdziału, dodaj / wyjmij, nowe zadanie). Mapowanie i przerwę można przerwać: nic nie zostaje zaliczone, mapa zostaje. Pytania nauki są przy mapie (zakładka Mapa), nie w osobnej zakładce. Sektor
 robi się z zaznaczonych, z rozdziału, albo jako pusty i wtedy wybiera się
 kafelki klikaniem. **Przegląd** pokazuje całą Linię jako linię z kuleczkami:
@@ -209,10 +220,24 @@ przerywają jego pasma.
 
 ### Powtórka zero (pierwsza nauka sektora)
 
-1. **Mapowanie**: przedstawia, kluczowe pojęcia, zakres, celowość, sens
-   struktury, granice, połączenia, przykład i kontrprzykład, mapa
-   (najprostsza forma). Mapę najlepiej robić z dystansu od źródła. Przed
-   startem aplikacja uprzedza, ile czasu trzeba na całość.
+1. **Mapowanie**: celowość treści i sensowność struktury, granice;
+   połączenia i miejsce w całości; konkretne punkty (przykład
+   i kontrprzykład); mapa (najprostsza forma). Mapę najlepiej robić
+   z dystansu od źródła. Przed startem aplikacja uprzedza, ile czasu trzeba
+   na całość. Mapuje się w **trybie mapowania** — oknie na cały ekran:
+   - **Kafelki**: kafelek po kafelku, źródło (do czytania, można je zakryć
+     i pisać z pamięci) obok **mapy kafelka**;
+   - **Całość sektora**: **mapa sektora**, z mapami kafelków z boku;
+   - **Przegląd**: mapy kafelków ze stanem (pusta / luki „??" / gotowa),
+     mapa sektora i „Czy potrafię…" z celem nauki.
+
+   Z lewej szuflady tylko do podglądu: dowolna ścieżka (Linia albo Nauka)
+   i biblioteka, bo spójna mapa potrzebuje wcześniejszej wiedzy; „↗ do mapy"
+   wstawia odnośnik. Edytor mapy ma pasek jak edytor dokumentów (styl,
+   rozmiar, listy, wzory, zdjęcia, luka „??", odnośnik, „Wstaw sekcję").
+   **Ściąga** (punkty mapowania, cel nauki, zasady) chowa się pod żarówką;
+   klik w punkt wstawia go jako nagłówek. Tryb można schować i wrócić
+   („Mapuj"), a mapowanie przerwać — mapy zostają.
 2. **Przerwa 20–30 min**: test odblokowuje się po 20 min, w 25. przychodzi
    powiadomienie. Zaraz po nauce wszystko „siedzi" w głowie i test mierzyłby
    to, a nie pamięć (efekt opóźnionej oceny).

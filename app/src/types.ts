@@ -538,6 +538,9 @@ export interface JednostkaNauki {
   zakryjStrone?: string | null
   /** Mapa sektora: Markdown (tekst, wzory, zdjęcia). */
   mapa?: string
+  /** Mapy kafelków sektora (Markdown) — klucz to id węzła ścieżki, a dla
+   *  zadania z paska `zadanie:<id kafelka>`. Mapa sektora zbiera je w całość. */
+  mapyKafelkow?: Record<string, string>
   /** Barwa pasma w Linii (#rrggbb). */
   kolor?: string
   etap: EtapNauki
