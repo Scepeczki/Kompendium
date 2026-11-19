@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Editor } from '@tiptap/react'
 import { TextSelection } from '@tiptap/pm/state'
-import { db } from '../db'
+import { db, mainPageName } from '../db'
 import { useBlockTypes } from '../blockTypes'
 import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
@@ -333,6 +333,8 @@ interface Element {
   typ?: string
   conceptId?: string
   versionId?: string | null
+  /** Strona pokazywana bazowo w ścieżce. */
+  subpageId?: string | null
   wlasne?: Record<string, string>
   /** Treść grupy (bez osobnego kafelka). */
   tresc?: string
@@ -355,6 +357,7 @@ function elementy(j: JednostkaNauki, sciezka: LearningPath | undefined, kafelek:
           typ: c?.type,
           conceptId: n.conceptId,
           versionId: n.versionId,
+          subpageId: n.subpageId ?? null,
           wlasne: n.wlasneTresci,
         })
       } else if (n.kind === 'fusion') {
@@ -374,6 +377,59 @@ function stanMapy(md: string | undefined): { rodzaj: 'pusta' | 'luki' | 'gotowa'
   if (!md?.trim()) return { rodzaj: 'pusta', luk: 0 }
   const luk = ileLuk(md)
   return luk ? { rodzaj: 'luki', luk } : { rodzaj: 'gotowa', luk: 0 }
+}
+
+/** Ustawienie trzymane w przeglądarce — bez niego wszystko działa dalej. */
+function czytaj(klucz: string): string | null {
+  try {
+    return localStorage.getItem(klucz)
+  } catch {
+    return null
+  }
+}
+function zapisz(klucz: string, wartosc: string) {
+  try {
+    localStorage.setItem(klucz, wartosc)
+  } catch {
+    // prywatne okno — ustawienie nie przetrwa, ale nic się nie psuje
+  }
+}
+
+const KLUCZ_ZAKRYTE = 'ui.nauka.zakryte'
+const KLUCZ_ZWINIETE = 'ui.nauka.zwinieteMapy'
+
+/** Mapy zwinięte w Przeglądzie — wybór zostaje, dopóki go nie zmienisz. */
+function useZwiniete() {
+  const [zw, setZw] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(czytaj(KLUCZ_ZWINIETE) ?? '[]') as string[])
+    } catch {
+      return new Set()
+    }
+  })
+  const ustaw = (klucze: string[], zwin: boolean) =>
+    setZw((s) => {
+      const n = new Set(s)
+      for (const k of klucze) {
+        if (zwin) n.add(k)
+        else n.delete(k)
+      }
+      zapisz(KLUCZ_ZWINIETE, JSON.stringify([...n]))
+      return n
+    })
+  return { zw, ustaw }
+}
+
+/** Zwinięta mapa: pierwsze linijki tekstu, zdjęcie jako słowo. */
+function skrot(md: string): string {
+  const linie = md
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '[zdjęcie]')
+    .replace(/[#>*_`]/g, '')
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  const t = linie.slice(0, 2).join(' · ')
+  return t.length > 140 ? t.slice(0, 140) + '…' : t
 }
 
 const opisLuk = (n: number) => `?? ${n} ${n === 1 ? 'luka' : n < 5 ? 'luki' : 'luk'}`
@@ -419,6 +475,15 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
   const [nr, setNr] = useState(0)
   const [szuflada, setSzuflada] = useState<Szuflada>(null)
   const [edytor, setEdytor] = useState<Editor | null>(null)
+  const [zakryte, setZakryte] = useState(() => czytaj(KLUCZ_ZAKRYTE) === '1')
+  const zmienZakryte = (z: boolean) => {
+    setZakryte(z)
+    zapisz(KLUCZ_ZAKRYTE, z ? '1' : '0')
+  }
+  const { zw, ustaw: ustawZwiniete } = useZwiniete()
+  const kluczZw = (k: string) => `${j.id}:${k}`
+  const kluczeKafelkow = lista.map((e) => kluczZw(e.klucz))
+  const wszystkieZwiniete = kluczeKafelkow.length > 0 && kluczeKafelkow.every((k) => zw.has(k))
   const [, setTik] = useState(0)
   useEffect(() => {
     const t = window.setInterval(() => setTik((x) => x + 1), 30000)
@@ -595,6 +660,8 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
               wersje={dane?.vs ?? []}
               strony={dane?.sp ?? []}
               kafelek={kafelek}
+              zakryte={zakryte}
+              onZakryte={zmienZakryte}
             />
 
             <section className="tm-mapa-kolumna">
@@ -699,21 +766,45 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
             <div className="tm-tabela" role="table" aria-label="Mapy kafelków">
               <div className="tm-tabela-w tm-tabela-glowa" role="row">
                 <span role="columnheader">Kafelek</span>
-                <span role="columnheader">Mapa kafelka</span>
+                <span role="columnheader" className="tm-tabela-glowa-mapa">
+                  Mapa kafelka
+                  {lista.length > 0 && (
+                    <button className="tm-link" onClick={() => ustawZwiniete(kluczeKafelkow, !wszystkieZwiniete)}>
+                      {wszystkieZwiniete ? 'Rozwiń wszystkie' : 'Zwiń wszystkie'}
+                    </button>
+                  )}
+                </span>
                 <span role="columnheader">Stan</span>
               </div>
               {lista.map((e, i) => {
                 const md = j.mapyKafelkow?.[e.klucz]
                 const st = stanMapy(md)
+                const zwinieta = zw.has(kluczZw(e.klucz))
                 return (
                   <div key={e.klucz} className="tm-tabela-w" role="row">
                     <span role="cell" className="tm-tabela-nazwa">
                       {typMini(e.typ)}
                       <b>{e.nazwa}</b>
                     </span>
-                    <span role="cell" className="tm-tabela-mapa">
+                    <span role="cell" className={`tm-tabela-mapa ${zwinieta ? 'zwinieta' : ''}`}>
                       {md?.trim() ? (
-                        <span className="markdown-body" dangerouslySetInnerHTML={{ __html: html(md) }} />
+                        <>
+                          <button
+                            className="tm-zwin"
+                            aria-expanded={!zwinieta}
+                            title={zwinieta ? 'Rozwiń mapę' : 'Zwiń mapę'}
+                            onClick={() => ustawZwiniete([kluczZw(e.klucz)], !zwinieta)}
+                          >
+                            {zwinieta ? '▸' : '▾'}
+                          </button>
+                          {zwinieta ? (
+                            <span className="tm-skrot" onClick={() => ustawZwiniete([kluczZw(e.klucz)], false)}>
+                              {skrot(md)}
+                            </span>
+                          ) : (
+                            <span className="markdown-body" dangerouslySetInnerHTML={{ __html: html(md) }} />
+                          )}
+                        </>
                       ) : (
                         <span className="tm-szary">pusta</span>
                       )}
@@ -751,9 +842,27 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
             <div className="tm-przeglad-dol">
               <section className="tm-mapa-sektora-podglad" aria-label="Mapa sektora">
                 <span className="tm-zakladka-mapy">MAPA SEKTORA</span>
-                <h2>{j.nazwa}</h2>
+                <h2>
+                  {j.mapa?.trim() && (
+                    <button
+                      className="tm-zwin"
+                      aria-expanded={!zw.has(kluczZw('sektor'))}
+                      title={zw.has(kluczZw('sektor')) ? 'Rozwiń mapę' : 'Zwiń mapę'}
+                      onClick={() => ustawZwiniete([kluczZw('sektor')], !zw.has(kluczZw('sektor')))}
+                    >
+                      {zw.has(kluczZw('sektor')) ? '▸' : '▾'}
+                    </button>
+                  )}
+                  {j.nazwa}
+                </h2>
                 {j.mapa?.trim() ? (
-                  <div className="markdown-body" dangerouslySetInnerHTML={{ __html: html(j.mapa) }} />
+                  zw.has(kluczZw('sektor')) ? (
+                    <p className="tm-skrot" onClick={() => ustawZwiniete([kluczZw('sektor')], false)}>
+                      {skrot(j.mapa)}
+                    </p>
+                  ) : (
+                    <div className="markdown-body" dangerouslySetInnerHTML={{ __html: html(j.mapa) }} />
+                  )
                 ) : (
                   <p className="tm-szary">Jeszcze pusta.</p>
                 )}
@@ -813,15 +922,19 @@ function Zrodlo({
   wersje,
   strony,
   kafelek,
+  zakryte,
+  onZakryte,
 }: {
   e: Element
   typMini: React.ReactNode
   wersje: BlockVersion[]
   strony: Subpage[]
   kafelek: Map<string, Concept>
+  /** Zakrycie jest wspólne dla wszystkich kafelków — włącza się raz. */
+  zakryte: boolean
+  onZakryte: (z: boolean) => void
 }) {
-  const [zakryte, setZakryte] = useState(false)
-  const [strona, setStrona] = useState<string | null>(null)
+  const [strona, setStrona] = useState<string | null>(e.subpageId ?? null)
   const c = e.conceptId ? kafelek.get(e.conceptId) : undefined
   const v = c ? (wersje.find((x) => x.id === e.versionId && x.conceptId === c.id) ?? wersje.find((x) => x.id === c.currentVersionId)) : undefined
   const mojeStrony = v ? strony.filter((s) => s.conceptId === c?.id && s.versionId === v.id).sort((a, b) => a.order - b.order) : []
@@ -835,19 +948,23 @@ function Zrodlo({
     <section className="tm-zrodlo" aria-label="Źródło">
       <div className="tm-zrodlo-glowa">
         <span className="tm-etykieta">Źródło</span>
-        <span className="tm-zakladki tm-zakladki-male">
-          <button className={`tm-zakladka ${!zakryte ? 'wl' : ''}`} onClick={() => setZakryte(false)}>
-            Widoczne
-          </button>
-          <button className={`tm-zakladka ${zakryte ? 'wl' : ''}`} onClick={() => setZakryte(true)}>
-            Zakryj, piszę z pamięci
-          </button>
-        </span>
+        <button
+          className={`tm-przelacznik ${zakryte ? 'wl' : ''}`}
+          role="switch"
+          aria-checked={zakryte}
+          title="Zostaje włączone na kolejnych kafelkach, dopóki nie wyłączysz"
+          onClick={() => onZakryte(!zakryte)}
+        >
+          <span className="tm-przelacznik-tor">
+            <span className="tm-przelacznik-galka" />
+          </span>
+          Zakryte — piszę z pamięci
+        </button>
       </div>
       {mojeStrony.length > 0 && (
         <div className="tm-zrodlo-strony">
           <button className={`tm-btn tm-btn-maly ${strona === null ? 'wl' : ''}`} onClick={() => setStrona(null)}>
-            Treść
+            {c ? mainPageName(c) : 'Treść'}
           </button>
           {mojeStrony.map((s) => (
             <button key={s.id} className={`tm-btn tm-btn-maly ${strona === s.id ? 'wl' : ''}`} onClick={() => setStrona(s.id)}>
@@ -860,7 +977,7 @@ function Zrodlo({
         <div className="tm-zrodlo-zakryte">
           <Icon name="zakryj" size={1.6} />
           <p>Źródło zakryte — napisz mapę z pamięci, potem odsłoń i popraw.</p>
-          <button className="tm-btn" onClick={() => setZakryte(false)}>
+          <button className="tm-btn" onClick={() => onZakryte(false)}>
             Odsłoń
           </button>
         </div>
@@ -917,12 +1034,15 @@ function PodgladSciezki({
     return [...s].sort()
   }, [wezly])
   const dane = useLiveQuery(async () => {
-    const [cs, vs] = await Promise.all([
+    const [cs, vs, sp] = await Promise.all([
       db.concepts.where('id').anyOf(ids).toArray(),
       db.versions.where('conceptId').anyOf(ids).toArray(),
+      db.subpages.where('conceptId').anyOf(ids).toArray(),
     ])
-    return { cs, vs }
+    return { cs, vs, sp }
   }, [ids.join()])
+  /** Wybrana strona kafelka (jak w Linii); bez wyboru — ta z ścieżki. */
+  const [wybraneStrony, setWybraneStrony] = useState<Record<string, string | null>>({})
   const sektory = useLiveQuery(
     () => (sciezka ? db.nauka.where('pathId').equals(sciezka.id).toArray() : []),
     [sciezka?.id],
@@ -935,14 +1055,29 @@ function PodgladSciezki({
     return m
   }, [sektory])
 
-  const tresc = (n: PathNode) =>
-    n.kind === 'block'
+  const stronyWezla = (n: PathNode) => {
+    if (n.kind !== 'block') return { v: undefined, lista: [] as Subpage[] }
+    const c = kafelek.get(n.conceptId)
+    const v = c ? (wersja.get(n.versionId ?? '') ?? wersja.get(c.currentVersionId)) : undefined
+    const lista = v ? (dane?.sp ?? []).filter((s) => s.conceptId === c?.id && s.versionId === v.id).sort((a, b) => a.order - b.order) : []
+    return { v, lista }
+  }
+  const wybranaStrona = (n: PathNode) =>
+    n.id in wybraneStrony ? wybraneStrony[n.id] : n.kind === 'block' ? (n.subpageId ?? null) : null
+  const tresc = (n: PathNode) => {
+    if (n.kind === 'block') {
+      const { v, lista } = stronyWezla(n)
+      const sp = lista.find((s) => s.id === wybranaStrona(n))
+      if (v && sp) return n.wlasneTresci?.[kluczWlasnej(v.id, sp.id)] ?? sp.content
+    }
+    return n.kind === 'block'
       ? trescWezla(kafelek.get(n.conceptId), wersja, n.versionId, n.wlasneTresci)
       : n.kind === 'fusion'
         ? (n.content ?? n.parts.map((p) => trescWezla(kafelek.get(p.conceptId), wersja, p.versionId, p.wlasneTresci)).join('\n\n'))
         : n.kind === 'text'
           ? n.text
           : ''
+  }
   const nazwa = (n: PathNode) =>
     n.kind === 'block' ? (n.nazwa ?? kafelek.get(n.conceptId)?.name ?? 'kafelek') : n.kind === 'fusion' ? n.name || 'grupa' : ''
 
@@ -1026,6 +1161,24 @@ function PodgladSciezki({
                     )
                   )}
                 </div>
+                {(() => {
+                  const { lista } = stronyWezla(n)
+                  if (!lista.length || !c) return null
+                  const akt = wybranaStrona(n)
+                  return (
+                    <div className="page-chips tm-pp-strony">
+                      {[{ id: null as string | null, name: mainPageName(c) }, ...lista].map((s) => (
+                        <button
+                          key={s.id ?? 'glowna'}
+                          className={`page-chip ${(akt ?? null) === s.id || (s.id === null && !lista.some((x) => x.id === akt)) ? 'active' : ''}`}
+                          onClick={() => setWybraneStrony((w) => ({ ...w, [n.id]: s.id }))}
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
                 <div className="tm-pp-karta-tresc markdown-body" dangerouslySetInnerHTML={{ __html: html(tresc(n)) }} />
               </div>
             </div>

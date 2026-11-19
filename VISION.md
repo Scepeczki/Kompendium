@@ -207,15 +207,17 @@ należy najwyżej do jednego sektora. Kafelki spoza sektorów można uczyć się
 osobno jako **pojedyncze fiszki**. Sektor ma rozsądną wielkość (podpowiedź
 3–12 kafelków; ostrzeżenie informuje, nie blokuje).
 
-Środek widoku **Nauka** to domyślnie **Sektory**: ścieżka jako jedna oś, kafelek to kulka i zwarta karta (rodzaj, nazwa, dwie linijki treści, znaczki: strony, słaby, do poprawy; klik rozwija), rozdział to kreska z tytułem, sektor to gruby barwny odcinek z nagłówkiem (kafelki, zadania, etap), a zadania z paska stoją na jego końcu. Zaznacza się przeciąganiem po osi. Przełącznik „Sektory / Pełna linia” wraca do zwykłej Linii.
+Widok **Nauka** ma trzy części:
+
+- z lewej **spis** (jak spis treści w Linii): rozdziały i kafelki pogrupowane w sektory — barwna kreska pokazuje przynależność, nagłówek sektora jego etap; klik przewija środek, bieżące miejsce się podświetla; spis można schować;
+- w środku **Sektory**: ścieżka jako jedna oś, kafelek to kulka i zwarta karta (rodzaj, nazwa, dwie linijki treści, znaczki: strony, słaby, do poprawy; klik rozwija i pokazuje zakładki stron kafelka, jak w Linii), rozdział to kreska z tytułem, sektor to gruby barwny odcinek z nagłówkiem (kafelki, zadania, etap), a zadania z paska stoją na jego końcu. Zaznacza się przeciąganiem po osi;
+- z prawej **same sektory** (karty z etapem i działaniami), bez zakładek. Mapę sektora otwiera się z jego karty („Mapa" / „Mapuj") — w trybie mapowania.
 
 Zwykła Linia (poza widokiem Nauka) nie pokazuje sektorów — barwne
-pasma mylą przy czytaniu i pisaniu. W widoku **Nauka** Linia jest tylko do czytania; pod prawym przyciskiem są
-sprawy sektorów (sektor z rozdziału, dodaj / wyjmij, nowe zadanie). Mapowanie i przerwę można przerwać: nic nie zostaje zaliczone, mapa zostaje. Pytania nauki są przy mapie (zakładka Mapa), nie w osobnej zakładce. Sektor
+pasma mylą przy czytaniu i pisaniu. W widoku **Nauka** oś jest tylko do czytania; pod prawym przyciskiem są
+sprawy sektorów (sektor z rozdziału, dodaj / wyjmij, nowe zadanie). Mapowanie i przerwę można przerwać: nic nie zostaje zaliczone, mapa zostaje. Sektor
 robi się z zaznaczonych, z rozdziału, albo jako pusty i wtedy wybiera się
-kafelki klikaniem. **Przegląd** pokazuje całą Linię jako linię z kuleczkami:
-kafelek to kulka, rozdział to kreska z podpisem, sektor to barwny odcinek;
-zaznacza się w nim przeciąganiem. Notatki i rozdziały w środku sektora nie
+kafelki klikaniem. Notatki i rozdziały w środku sektora nie
 przerywają jego pasma.
 
 ### Powtórka zero (pierwsza nauka sektora)
@@ -225,14 +227,16 @@ przerywają jego pasma.
    i kontrprzykład); mapa (najprostsza forma). Mapę najlepiej robić
    z dystansu od źródła. Przed startem aplikacja uprzedza, ile czasu trzeba
    na całość. Mapuje się w **trybie mapowania** — oknie na cały ekran:
-   - **Kafelki**: kafelek po kafelku, źródło (do czytania, można je zakryć
-     i pisać z pamięci) obok **mapy kafelka**;
+   - **Kafelki**: kafelek po kafelku, źródło (do czytania, ze stronami
+     kafelka) obok **mapy kafelka**; przełącznik „Zakryte" chowa źródło
+     i zostaje włączony na kolejnych kafelkach, dopóki się go nie wyłączy;
    - **Całość sektora**: **mapa sektora**, z mapami kafelków z boku;
    - **Przegląd**: mapy kafelków ze stanem (pusta / luki „??" / gotowa),
-     mapa sektora i „Czy potrafię…" z celem nauki.
+     mapa sektora i „Czy potrafię…" z celem nauki. Mapy są w całości
+     (ze zdjęciami); każdą można zwinąć do jednej linijki, a wybór zostaje.
 
-   Z lewej szuflady tylko do podglądu: dowolna ścieżka (Linia albo Nauka)
-   i biblioteka, bo spójna mapa potrzebuje wcześniejszej wiedzy; „↗ do mapy"
+   Z lewej szuflady tylko do podglądu: dowolna ścieżka (Linia albo Nauka,
+   z zakładkami stron kafelków) i biblioteka, bo spójna mapa potrzebuje wcześniejszej wiedzy; „↗ do mapy"
    wstawia odnośnik. Edytor mapy ma pasek jak edytor dokumentów (styl,
    rozmiar, listy, wzory, zdjęcia, luka „??", odnośnik, „Wstaw sekcję").
    **Ściąga** (punkty mapowania, cel nauki, zasady) chowa się pod żarówką;

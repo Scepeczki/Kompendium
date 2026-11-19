@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
-import { RichEditor } from './RichEditor'
 import { TestCzatem } from './TestCzatem'
 import { ListaZadan } from './ZadaniaSektora'
-import { PrzegladSektorow } from './PrzegladSektorow'
-import { Sciaga, TrybMapowania } from './TrybMapowania'
+import { TrybMapowania } from './TrybMapowania'
 import {
   dniDo,
   dolozDoSektora,
@@ -41,16 +39,12 @@ import { wez } from '../naukaUstawienia'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki, PathNode } from '../types'
 
-export type ZakladkaNauki = 'sektory' | 'przeglad' | 'mapa'
-
 interface Props {
   pathId: string
   /** Węzły ścieżki w kolejności Linii. */
   ordered: PathNode[]
   /** Zaznaczone w Linii (Ctrl+klik). */
   zaznaczone: string[]
-  zakladka: ZakladkaNauki
-  onZakladka: (z: ZakladkaNauki) => void
   wybrany: string | null
   onWybierz: (id: string | null) => void
   onStart?: (cel: CelSesji) => void
@@ -59,8 +53,9 @@ interface Props {
   /** Sektor, do którego wybiera się kafelki klikaniem w Linii. */
   wybierany?: string | null
   onWybieraj?: (id: string | null) => void
-  /** Na środku stoi widok Sektory — wtedy Przegląd w panelu byłby powtórzeniem. */
-  widokSektorow?: boolean
+  /** Sektor otwarty w trybie mapowania (okno na cały ekran). */
+  mapowany: string | null
+  onMapuj: (id: string | null) => void
 }
 
 /** Pokazuje węzeł w Linii (przewija do niego). */
@@ -80,24 +75,21 @@ export function PanelNauki({
   pathId,
   ordered,
   zaznaczone,
-  zakladka,
-  onZakladka,
   wybrany,
   onWybierz,
   onStart,
   onOtworz,
   wybierany,
   onWybieraj,
-  widokSektorow,
+  mapowany,
+  onMapuj: setMapowany,
 }: Props) {
   const dlg = useDialogs()
-  // Przegląd w panelu znika, gdy na środku stoją Sektory — nie zostajemy na pustej zakładce
-  useEffect(() => {
-    if (widokSektorow && zakladka === 'przeglad') onZakladka('sektory')
-  }, [widokSektorow, zakladka, onZakladka])
   const jednostki = useLiveQuery(() => db.nauka.where('pathId').equals(pathId).toArray(), [pathId]) ?? []
-  /** Sektor otwarty w trybie mapowania (okno na cały ekran). */
-  const [mapowany, setMapowany] = useState<string | null>(null)
+  // sektor wybrany w środku albo w spisie — jego karta wjeżdża w pole widzenia
+  useEffect(() => {
+    if (wybrany) document.querySelector(`.panel-nauki [data-sektor="${wybrany}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [wybrany])
   const mapowanySektor = jednostki.find((x) => x.id === mapowany)
   const kafelki = useLiveQuery(() => db.concepts.toArray(), [])
   const pamiec = useLiveQuery(() => db.pamiec.toArray(), []) ?? []
@@ -310,34 +302,21 @@ export function PanelNauki({
 
   return (
     <aside className="panel-nauki">
-      <nav className="panel-nauki-zakladki">
-        {(
-          [
-            ['sektory', 'Sektory'],
-            ['przeglad', 'Przegląd'],
-            ['mapa', 'Mapa'],
-          ] as [ZakladkaNauki, string][]
-        )
-          .filter(([z]) => !(widokSektorow && z === 'przeglad'))
-          .map(([z, n]) => (
-          <button key={z} className={`btn ${zakladka === z ? 'btn-active' : ''}`} onClick={() => onZakladka(z)}>
-            {n}
-          </button>
-        ))}
-      </nav>
-
-      {zakladka === 'sektory' && (
-        <div className="panel-nauki-tresc">
+      <div className="panel-nauki-glowa">
+        <span className="panel-nauki-tytul">Sektory</span>
+        <span className="panel-nauki-ile">{sektory.length}</span>
+      </div>
+      <div className="panel-nauki-tresc">
           <div className="panel-nauki-akcje">
             <button
               className="btn btn-primary"
               disabled={!zazOcenialne.length}
-              title={zazOcenialne.length ? '' : 'Zaznacz kafelki w Linii (Ctrl+klik, Shift+klik)'}
+              title={zazOcenialne.length ? '' : 'Zaznacz kafelki na osi: klik, przeciąganie, Ctrl+klik'}
               onClick={zZaznaczonych}
             >
               Sektor z zaznaczonych{zazOcenialne.length ? ` (${zazOcenialne.length})` : ''}
             </button>
-            <button className="btn" title="Pusty sektor — kafelki wybierzesz klikaniem w Linii" onClick={pusty}>
+            <button className="btn" title="Pusty sektor — kafelki wybierzesz klikaniem kart" onClick={pusty}>
               Nowy pusty sektor
             </button>
             {poziomy.length > 0 && (
@@ -351,22 +330,11 @@ export function PanelNauki({
               </span>
             )}
           </div>
-          {wybierany && sektory.some((s) => s.j.id === wybierany) && (
-            <div className="wybieranie-pasek" style={{ '--sektor': sektory.find((s) => s.j.id === wybierany)?.j.kolor } as React.CSSProperties}>
-              <span>
-                Wybierasz kafelki do <strong>„{sektory.find((s) => s.j.id === wybierany)?.j.nazwa}"</strong> — klikaj
-                w Linii, aby dodać albo wyjąć.
-              </span>
-              <button className="btn btn-primary btn-maly" onClick={() => onWybieraj?.(null)}>
-                Gotowe
-              </button>
-            </div>
-          )}
           {!sektory.length && (
             <p className="hint">
               Sektor to porcja nauki: kilka kafelków (rozsądnie {wez('sektorOd')}–{wez('sektorDo')}), które
-              mapujesz i powtarzasz razem. Zaznacz je w Linii Ctrl+klikiem, zrób pusty sektor i wybierz kafelki
-              klikaniem albo kliknij prawym rozdział (w Linii lub w spisie treści) → „Zrób sektor z rozdziału".
+              mapujesz i powtarzasz razem. Zaznacz je na osi (klik, przeciąganie), zrób pusty sektor i wybierz
+              kafelki klikaniem albo kliknij prawym rozdział → „Zrób sektor z rozdziału".
             </p>
           )}
           <ul className="sektory-lista">
@@ -378,14 +346,9 @@ export function PanelNauki({
                 zaznaczone={zazOcenialne}
                 slabe={slabeW(s.wezly)}
                 zmieniony={zmieniony(s.j, s.wezly)}
-                nazwaWezla={nazwaWezla}
                 onWybierz={() => {
                   onWybierz(s.j.id)
                   pokazWLinii(s.wezly[0]?.id)
-                }}
-                onMapa={() => {
-                  onWybierz(s.j.id)
-                  onZakladka('mapa')
                 }}
                 onMapuj={() => {
                   onWybierz(s.j.id)
@@ -444,49 +407,7 @@ export function PanelNauki({
               </ul>
             </details>
           )}
-        </div>
-      )}
-
-      {zakladka === 'przeglad' && !widokSektorow && (
-        <div className="panel-nauki-tresc panel-przeglad">
-          <PrzegladSektorow
-            pathId={pathId}
-            ordered={ordered}
-            sektory={sektory.map((s) => s.j)}
-            kafelek={kafelek}
-            nazwaWezla={nazwaWezla}
-            onPokaz={pokazWLinii}
-            onWybierz={(id) => {
-              onWybierz(id)
-              onZakladka('sektory')
-            }}
-          />
-        </div>
-      )}
-
-      {zakladka === 'mapa' && (
-        <div className="panel-nauki-tresc">
-          {wybranySektor ? (
-            <MapaSektora
-              key={wybranySektor.j.id}
-              j={wybranySektor.j}
-              sektory={sektory.map((s) => s.j)}
-              onWybierz={onWybierz}
-              onMapuj={() => setMapowany(wybranySektor.j.id)}
-              doDopisania={
-                wybranySektor.j.douczanie?.etap === 'mapowanie'
-                  ? [
-                      ...wybranySektor.wezly.filter((n) => wybranySektor.j.douczanie!.wezly.includes(n.id)).map(nazwaWezla),
-                      ...wybranySektor.j.douczanie.zadania.map((id) => 'zadanie: ' + (kafelek.get(id)?.name ?? '?')),
-                    ]
-                  : undefined
-              }
-            />
-          ) : (
-            <p className="hint">Najpierw zrób sektor — mapa należy do sektora.</p>
-          )}
-        </div>
-      )}
+      </div>
 
       {mapowanySektor && <TrybMapowania key={mapowanySektor.id} j={mapowanySektor} onZamknij={() => setMapowany(null)} />}
     </aside>
@@ -499,9 +420,7 @@ function KartaSektora({
   zaznaczone,
   slabe,
   zmieniony,
-  nazwaWezla,
   onWybierz,
-  onMapa,
   onMapuj,
   onZacznij,
   onKoniecMapowania,
@@ -524,10 +443,8 @@ function KartaSektora({
   zaznaczone: string[]
   slabe: number
   zmieniony: boolean
-  nazwaWezla: (n: PathNode) => string
   onWybierz: () => void
-  onMapa: () => void
-  /** Otwiera tryb mapowania (okno na cały ekran). */
+  /** Otwiera tryb mapowania (okno na cały ekran) — tam jest mapa sektora. */
   onMapuj: () => void
   onZacznij: () => void
   onKoniecMapowania: () => void
@@ -547,11 +464,9 @@ function KartaSektora({
 }) {
   const { j, wezly } = s
   const ileNowych = nowe.wezly.length + nowe.zadania.length
-  const nowiW = new Set(j.douczanie?.wezly ?? nowe.wezly)
   const [menu, setMenu] = useState(false)
   const kafelkow = wezly.filter(ocenialny)
   const uwaga = uwagaWielkosci(kafelkow.length)
-  const poprawki = new Set(j.doPoprawy ?? [])
   const zostalo = Math.max(0, Math.ceil(wez('przerwa') - minutyPrzerwy(j)))
   const wTym = zaznaczone.filter((id) => j.wezly.includes(id)).length
   const spoza = zaznaczone.length - wTym
@@ -587,11 +502,15 @@ function KartaSektora({
             Wyjmij zaznaczone ({wTym})
           </button>
         )}
+        {j.etap !== 'mapowanie' && !(j.douczanie?.etap === 'mapowanie') && (
+          <button className="btn btn-maly karta-sektora-mapa" title="Mapy kafelków i mapa sektora" onClick={onMapuj}>
+            <Icon name="graf" size={0.95} /> Mapa
+          </button>
+        )}
       </div>
       {menu && (
         <div className="karta-sektora-menu" onClick={() => setMenu(false)}>
           <button className="btn btn-maly" onClick={onNazwa}>Zmień nazwę</button>
-          <button className="btn btn-maly" onClick={onMapa}>Mapa</button>
           {j.etap !== 'nowy' && <button className="btn btn-maly" onClick={onOdNowa}>Naucz od nowa</button>}
           <button className="btn btn-maly btn-danger" onClick={onUsun}>Usuń sektor</button>
         </div>
@@ -735,95 +654,6 @@ function KartaSektora({
           </button>
         </p>
       )}
-      {aktywny && (
-        <ol className="karta-sektora-spis">
-          {wezly
-            .filter((n) => n.kind !== 'comment')
-            .map((n) => (
-              <li
-                key={n.id}
-                className={`${n.kind === 'heading' ? 'spis-rozdzial' : ''} ${poprawki.has(n.id) ? 'do-poprawy' : ''} ${
-                  nowiW.has(n.id) ? 'nowy' : ''
-                }`}
-              >
-                <button onClick={() => pokazWLinii(n.id)}>{nazwaWezla(n)}</button>
-              </li>
-            ))}
-        </ol>
-      )}
     </li>
   )
 }
-
-function MapaSektora({
-  j,
-  sektory,
-  onWybierz,
-  onMapuj,
-  doDopisania,
-}: {
-  j: JednostkaNauki
-  sektory: JednostkaNauki[]
-  onWybierz: (id: string) => void
-  onMapuj: () => void
-  /** Douczanie: nowe elementy, które trzeba dopisać do mapy. */
-  doDopisania?: string[]
-}) {
-  // zapis z małym opóźnieniem — pisanie nie może czekać na bazę
-  const czas = useRef<number | undefined>(undefined)
-  const ostatni = useRef(j.mapa ?? '')
-  useEffect(
-    () => () => {
-      window.clearTimeout(czas.current)
-    },
-    [],
-  )
-  const zmien = (md: string) => {
-    ostatni.current = md
-    window.clearTimeout(czas.current)
-    czas.current = window.setTimeout(() => void zmienJednostke(j.id, { mapa: ostatni.current }), 400)
-  }
-  return (
-    <div className="mapa-sektora">
-      <div className="mapa-sektora-glowa">
-        <select
-          className="mapa-sektora-wybor"
-          value={j.id}
-          aria-label="Sektor"
-          onChange={(e) => onWybierz(e.target.value)}
-        >
-          {sektory.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.nazwa}
-            </option>
-          ))}
-        </select>
-        <button className="btn btn-maly" onClick={onMapuj} title="Okno na cały ekran: mapy kafelków i mapa sektora">
-          Tryb mapowania
-        </button>
-        <Sciaga wPanelu />
-      </div>
-      {doDopisania && (
-        <div className="mapa-douczanie">
-          <strong>Douczanie</strong> — dopisz do mapy to, co doszło po nauce:
-          <ul>
-            {doDopisania.map((n, i) => (
-              <li key={i}>{n}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {j.luki && (
-        <div className="test-czatem-luki">
-          <strong>Luki z czatu</strong> — popraw mapowanie tych miejsc:
-          <pre>{j.luki}</pre>
-        </div>
-      )}
-      {/* ściąga (cel nauki, punkty mapy, zasady) chowa się pod żarówką obok */}
-      <div className="mapa-sektora-pole">
-        <RichEditor value={j.mapa ?? ''} editable ruler={false} luki onChange={zmien} />
-      </div>
-    </div>
-  )
-}
-

@@ -11312,3 +11312,332 @@ button.sciaga-punkt:hover {
 :root[data-theme='dark'] .tm-tb-luka {
   color: #e3c477;
 }
+
+/* ===== Nauka, runda 3: przełącznik zakrycia, zwijane mapy, spis, panel ===== */
+
+/* przełącznik „Zakryte" — zostaje włączony na kolejnych kafelkach */
+.tm-przelacznik {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-soft);
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  cursor: pointer;
+}
+.tm-przelacznik-tor {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background 0.15s;
+  flex: none;
+}
+.tm-przelacznik-galka {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  transition: transform 0.15s;
+}
+.tm-przelacznik.wl {
+  color: var(--ink);
+  font-weight: 600;
+}
+.tm-przelacznik.wl .tm-przelacznik-tor {
+  background: var(--sektor, var(--accent));
+}
+.tm-przelacznik.wl .tm-przelacznik-galka {
+  transform: translateX(14px);
+}
+.tm-przelacznik:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* przegląd: mapy w całości, z możliwością zwinięcia */
+.tm-tabela-mapa {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.tm-tabela-mapa .markdown-body {
+  max-height: none;
+  overflow: visible;
+  flex: 1;
+  min-width: 0;
+}
+.tm-tabela-mapa img,
+.tm-mapa-sektora-podglad img {
+  max-width: 100%;
+  height: auto;
+}
+.tm-zwin {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 16px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tm-zwin:hover {
+  color: var(--ink);
+  border-color: var(--line);
+  background: var(--panel-alt);
+}
+.tm-skrot {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  margin: 0;
+  line-height: 22px;
+}
+.tm-tabela-glowa > .tm-tabela-glowa-mapa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tm-tabela-glowa-mapa .tm-link {
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 600;
+}
+.tm-mapa-sektora-podglad h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* zakładki stron kafelka w podglądzie ścieżki i na osi sektorów */
+.tm-pp-strony {
+  margin: 2px 0 6px;
+}
+.ws-strony {
+  margin: 6px 0 2px;
+}
+
+/* panel nauki: same sektory */
+.panel-nauki-glowa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-nauki-tytul {
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.panel-nauki-ile {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 7px;
+}
+.karta-sektora-mapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* spis po lewej w widoku Nauka */
+.spis-nauki {
+  width: 250px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  padding: 12px 8px 0 12px;
+  box-sizing: border-box;
+}
+.spis-nauki-glowa {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-right: 4px;
+}
+.spis-nauki-pusto {
+  color: var(--muted);
+  font-size: 13px;
+}
+.spis-nauki-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0 4px 40px 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.sn-sektor-w {
+  margin: 10px 0 2px;
+}
+.sn-sektor-w:first-child {
+  margin-top: 0;
+}
+.sn-sektor {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 7px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--sektor) 35%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sektor) 10%, var(--panel));
+  color: var(--ink);
+  cursor: pointer;
+}
+.sn-sektor:hover,
+.sn-sektor.wybrany {
+  background: color-mix(in srgb, var(--sektor) 20%, var(--panel));
+}
+.sn-sektor.wybrany {
+  border-color: var(--sektor);
+}
+.sn-kropka {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--sektor);
+}
+.sn-sektor-nazwa {
+  font-size: var(--fs-3);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sn-etap {
+  grid-column: 2;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.sn-w {
+  position: relative;
+}
+.sn-w.w-sektorze::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--sektor);
+  opacity: 0.85;
+}
+.sn-poz {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  font: inherit;
+  font-size: var(--fs-2);
+  text-align: left;
+  padding: 3px 6px 3px 16px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.sn-poz:hover {
+  color: var(--ink);
+  background: var(--panel-alt);
+}
+.sn-poz.biezaca {
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-weight: 600;
+}
+.sn-rozdzial {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: var(--fs-3);
+  padding-top: 6px;
+}
+.sn-rozdzial.poziom-2 {
+  font-weight: 600;
+  padding-left: 22px;
+}
+.sn-rozdzial.poziom-3 {
+  font-weight: 600;
+  font-style: italic;
+  padding-left: 28px;
+}
+.sn-kafelek {
+  padding-left: 22px;
+}
+.sn-typ {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.sn-tekst {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sn-mini {
+  font-size: 10.5px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 5px;
+  flex: none;
+}
+.spis-nauki-otworz {
+  margin: 12px 0 0 8px;
+}
+
+@media (max-width: 760px) {
+  .spis-nauki,
+  .spis-nauki-otworz {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .tm-tabela-mapa {
+    display: none;
+  }
+}

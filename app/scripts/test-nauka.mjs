@@ -33,8 +33,6 @@ page.on('pageerror', (e) => errors.push(String(e)))
 
 await page.goto('http://localhost:5173')
 await page.waitForSelector('text=Kompendium')
-// ten test sprawdza Nauki na pełnej Linii (domyślny jest widok Sektory)
-await page.evaluate(() => localStorage.setItem('ui.nauka.widok', 'linia'))
 
 const baza = () =>
   page.evaluate(async () => {
@@ -92,11 +90,12 @@ await page.waitForTimeout(600)
 await page.click('.path-item:has-text("Topologia")')
 await page.click('.view-switch button:has-text("Nauka")')
 await page.waitForSelector('.panel-nauki')
-check('widok Nauka ma panel obok Linii', await page.locator('.nauka-uklad .linear-view').isVisible())
+check('widok Nauka: spis, oś sektorów i panel', await page.locator('.nauka-uklad .widok-sektorow').isVisible() &&
+  (await page.locator('.nauka-uklad .spis-nauki').isVisible()) && (await page.locator('.nauka-uklad .linear-view').count()) === 0)
 
 // --- sektor z zaznaczonych ---
-await page.locator('.linear-seg[data-seg="nn0"]').click({ position: { x: 240, y: 8 }, modifiers: ['Control'] })
-await page.locator('.linear-seg[data-seg="nn1"]').click({ position: { x: 240, y: 8 }, modifiers: ['Control'] })
+await page.locator('.ws-wiersz[data-seg="nn0"] .ws-karta').click({ modifiers: ['Control'] })
+await page.locator('.ws-wiersz[data-seg="nn1"] .ws-karta').click({ modifiers: ['Control'] })
 await page.waitForTimeout(200)
 check('przycisk liczy zaznaczone', (await page.locator('.panel-nauki-akcje .btn-primary').innerText()).includes('(2)'))
 await page.click('.panel-nauki-akcje .btn-primary')
@@ -105,8 +104,8 @@ await page.waitForTimeout(500)
 let d = await baza()
 const sektor = d.nauka.find((j) => j.rodzaj === 'sektor')
 check('sektor powstaje z zaznaczonych węzłów', sektor?.nazwa === 'Podstawy' && sektor.wezly.join() === 'nn0,nn1', JSON.stringify(sektor?.wezly))
-check('pasmo sektora w Linii', (await page.locator('.linear-seg[data-sektor]').count()) === 2)
-check('nazwa sektora nad pierwszym kafelkiem', await page.locator('.linear-seg.sektor-poczatek .sektor-etykieta-nazwa:has-text("Podstawy")').isVisible())
+check('pasmo sektora na osi', (await page.locator('.ws-wiersz.w-sektorze:not(.wypelnienie)').count()) === 2)
+check('nazwa sektora nad pierwszym kafelkiem', await page.locator('.ws-wiersz[data-seg="nn0"] .ws-sektor:has-text("Podstawy")').isVisible())
 check('mały sektor dostaje cichą uwagę', await page.locator('.karta-sektora-uwaga:has-text("Mały sektor")').isVisible())
 
 // --- poza sektorami → fiszka ---
@@ -118,17 +117,21 @@ await page.waitForTimeout(400)
 d = await baza()
 check('„Ucz się osobno" robi fiszkę', d.nauka.some((j) => j.rodzaj === 'fiszka' && j.conceptId === 'nc2'))
 
-// --- mapa ---
-await page.click('.panel-nauki-zakladki button:has-text("Mapa")')
-await page.waitForSelector('.mapa-sektora .tiptap')
-await page.click('.mapa-sektora .tiptap')
+// --- mapa: przez kartę sektora, w trybie mapowania ---
+check('panel bez zakładek, same sektory', (await page.locator('.panel-nauki-zakladki').count()) === 0 &&
+  (await page.locator('.panel-nauki-glowa:has-text("Sektory")').isVisible()))
+await page.click('.karta-sektora[data-sektor="' + sektor.id + '"] .karta-sektora-mapa')
+await page.waitForSelector('.tm')
+await page.click('.tm-zakladka:has-text("Całość sektora")')
+await page.click('.tm-kartka .tiptap')
 await page.keyboard.type('Metryka → kule → zbiory otwarte')
 await page.waitForTimeout(900)
 d = await baza()
 check('mapa zapisuje się w sektorze', (d.nauka.find((j) => j.id === sektor.id)?.mapa ?? '').includes('kule'))
+await page.click('.tm-glowa button[aria-label="Schowaj tryb mapowania"]')
+await page.waitForSelector('.tm', { state: 'detached' })
 
 // --- powtórka zero ---
-await page.click('.panel-nauki-zakladki button:has-text("Sektory")')
 await page.click('.karta-sektora button:has-text("Zacznij naukę")')
 await page.waitForSelector('.ask-dialog')
 check('przed nauką uprzedza o czasie', (await page.locator('.ask-dialog').innerText()).includes('przerwę'))
@@ -272,6 +275,8 @@ check('zadania nie są węzłami ścieżki', !(await page.evaluate(async () => {
 })).includes('Kula'))
 
 // --- pasek „Zadania" w Linii, nie w Skrypcie ---
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-view')
 const pasek = page.locator('.linear-seg[data-seg="nn1"] .zadania-pasek')
 check('pasek „Zadania (2)" na końcu sektora, zwinięty', (await pasek.count()) === 1 && (await pasek.innerText()).includes('Zadania (2)') &&
   (await pasek.locator('.script-block').count()) === 0)
@@ -286,10 +291,10 @@ check('Skrypt bez zadań', (await page.locator('.zadania-pasek').count()) === 0 
 await page.click('.view-switch button:has-text("Nauka")')
 await page.waitForSelector('.panel-nauki')
 
-// --- Nauka: Linia tylko do czytania, sektor z prawego przycisku i klikaniem ---
+// --- Nauka: oś tylko do czytania, sektor z prawego przycisku i klikaniem ---
 check('w Nauce nie ma pisania ani „Dołóż"', (await page.locator('.nauka-uklad .linear-seg .inline-title').count()) === 0 &&
-  !(await page.locator('.nauka-uklad .linear-append').isVisible()))
-await page.locator('.linear-seg[data-seg="nn2"] .linear-content').click({ button: 'right' })
+  (await page.locator('.nauka-uklad .linear-append').count()) === 0)
+await page.locator('.ws-wiersz[data-seg="nn2"] .ws-karta').click({ button: 'right' })
 await page.waitForSelector('.menu-nauki')
 check('prawy przycisk: menu nauki zamiast wstawiania', (await page.locator('.menu-nauki').innerText()).includes('Dodaj do „Podstawy"') &&
   (await page.locator('.linear-menu:has-text("Notatka")').count()) === 0)
@@ -297,22 +302,22 @@ await page.click(".menu-nauki button:has-text('Dodaj do „Podstawy')")
 await page.waitForTimeout(400)
 d = await baza()
 check('„Dodaj do sektora" z prawego przycisku', d.nauka.find((j) => j.id === sektor.id).wezly.join() === 'nn0,nn1,nn2')
-await page.locator('.linear-seg[data-seg="nn2"] .linear-content').click({ button: 'right' })
+await page.locator('.ws-wiersz[data-seg="nn2"] .ws-karta').click({ button: 'right' })
 await page.click(".menu-nauki button:has-text('Wyjmij z „Podstawy')")
 await page.waitForTimeout(400)
 d = await baza()
 check('„Wyjmij z sektora" z prawego przycisku', d.nauka.find((j) => j.id === sektor.id).wezly.join() === 'nn0,nn1')
 await page.click('.karta-sektora[data-sektor="' + sektor.id + '"] button:has-text("Wybierz kafelki")')
-await page.locator('.linear-seg[data-seg="nn2"] .linear-content').click()
+await page.locator('.ws-wiersz[data-seg="nn2"] .ws-karta').click()
 await page.waitForTimeout(400)
 d = await baza()
 check('wybieranie: klik dokłada kafelek', d.nauka.find((j) => j.id === sektor.id).wezly.includes('nn2'))
-await page.locator('.linear-seg[data-seg="nn2"] .linear-content').click()
+await page.locator('.ws-wiersz[data-seg="nn2"] .ws-karta').click()
 await page.waitForTimeout(400)
 d = await baza()
 check('wybieranie: drugi klik wyjmuje', d.nauka.find((j) => j.id === sektor.id).wezly.join() === 'nn0,nn1')
 await page.click('.wybieranie-pasek button:has-text("Gotowe")')
-check('po „Gotowe" klik już nic nie zmienia', (await page.locator('.linear-view.wybieranie-sektora').count()) === 0)
+check('po „Gotowe" klik już nic nie zmienia', (await page.locator('.widok-sektorow.wybieranie').count()) === 0)
 await page.click('.panel-nauki-akcje button:has-text("Nowy pusty sektor")')
 await podaj(page, 'Pusty')
 await page.waitForTimeout(400)

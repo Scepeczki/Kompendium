@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, mainPageName } from '../db'
 import { useBlockTypes } from '../blockTypes'
 import { renderMarkdown } from '../markdown'
 import { useDialogs } from './Dialogs'
@@ -27,7 +27,7 @@ type Wiersz =
   | { rodzaj: 'wezel'; klucz: string; n: PathNode }
   | { rodzaj: 'zadanie'; klucz: string; c: Concept; s: JednostkaNauki }
 
-const ETAP: Record<JednostkaNauki['etap'], string> = {
+export const ETAP_SEKTORA: Record<JednostkaNauki['etap'], string> = {
   nowy: 'jeszcze nie uczony',
   mapowanie: 'mapowanie',
   przerwa: 'przerwa przed testem',
@@ -199,6 +199,8 @@ export function WidokSektorow({
 
   // ---- karta: klik rozwija (albo w trybie wybierania dokłada / wyjmuje) ----
   const [rozwiniete, setRozwiniete] = useState<Set<string>>(new Set())
+  /** Strona wybrana na rozwiniętej karcie (jak zakładki w Linii). */
+  const [wybraneStrony, setWybraneStrony] = useState<Record<string, string | null>>({})
   const klikKarty = (e: React.MouseEvent, w: Wiersz) => {
     if ((e.target as Element).closest('button, a')) return
     if (w.rodzaj === 'wezel' && (e.ctrlKey || e.metaKey || e.shiftKey)) return naOsi(e, w.n.id)
@@ -275,6 +277,20 @@ export function WidokSektorow({
     const vid = wersja.get(versionId ?? '')?.id ?? c.currentVersionId
     return (dane?.sp ?? []).filter((x) => x.conceptId === c.id && x.versionId === vid).sort((a, b) => a.order - b.order)
   }
+  /** Wybrana strona wiersza; bez wyboru — strona ustawiona w ścieżce. */
+  const stronaWiersza = (w: Wiersz): string | null => {
+    const domyslna = w.rodzaj === 'wezel' && w.n.kind === 'block' ? (w.n.subpageId ?? null) : null
+    return w.klucz in wybraneStrony ? wybraneStrony[w.klucz] : domyslna
+  }
+  /** Treść wiersza z wybraną stroną kafelka. */
+  const trescStrony = (w: Wiersz): string => {
+    const c = w.rodzaj === 'zadanie' ? w.c : w.n.kind === 'block' ? kafelek.get(w.n.conceptId) : undefined
+    const versionId = w.rodzaj === 'wezel' && w.n.kind === 'block' ? w.n.versionId : null
+    const sp = strony(c, versionId).find((x) => x.id === stronaWiersza(w))
+    if (!c || !sp) return tresc(w)
+    const wlasne = w.rodzaj === 'wezel' && w.n.kind === 'block' ? w.n.wlasneTresci : undefined
+    return wlasne?.[kluczWlasnej(sp.versionId, sp.id)] ?? sp.content
+  }
 
   // ---- działania na zaznaczonych ----
   const zaznaczone = wezly.filter((n) => zaz.has(n.id)).map((n) => n.id)
@@ -299,7 +315,7 @@ export function WidokSektorow({
       (n) => s.wezly.includes(n.id) && (n.kind === 'block' || n.kind === 'fusion') && nowyKlucz(kluczWezla(n, pathId), s),
     ).length + (s.zadania ?? []).filter((id) => nowyKlucz(kluczZadania(id), s)).length
   const opisEtapu = (s: JednostkaNauki) =>
-    s.etap === 'powtorki' && s.termin ? `powtórka ${opisDni(dniDo(s.termin))}` : ETAP[s.etap]
+    s.etap === 'powtorki' && s.termin ? `powtórka ${opisDni(dniDo(s.termin))}` : ETAP_SEKTORA[s.etap]
 
   if (!wezly.length) {
     return (
@@ -453,8 +469,24 @@ export function WidokSektorow({
                           </button>
                         )}
                       </div>
-                      {tresc(w).trim() && (
-                        <div className="ws-podglad markdown-body" dangerouslySetInnerHTML={{ __html: podglad(tresc(w)) }} />
+                      {rozw && c && str.length > 0 && (
+                        <div className="page-chips ws-strony">
+                          {[{ id: null as string | null, name: mainPageName(c) }, ...str].map((x) => {
+                            const akt = str.some((y) => y.id === stronaWiersza(w)) ? stronaWiersza(w) : null
+                            return (
+                              <button
+                                key={x.id ?? 'glowna'}
+                                className={`page-chip ${akt === x.id ? 'active' : ''}`}
+                                onClick={() => setWybraneStrony((m) => ({ ...m, [w.klucz]: x.id }))}
+                              >
+                                {x.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {trescStrony(w).trim() && (
+                        <div className="ws-podglad markdown-body" dangerouslySetInnerHTML={{ __html: podglad(trescStrony(w)) }} />
                       )}
                     </div>
                   )}

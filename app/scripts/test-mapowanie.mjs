@@ -106,10 +106,10 @@ j = (await baza()).find((x) => x.id === 'ms')
 check('punkt ściągi wstawia nagłówek do mapy', /### Konkretne Punkty/.test(j.mapyKafelkow?.mn0 ?? ''), (j.mapyKafelkow?.mn0 ?? '').slice(-80))
 await page.keyboard.press('Escape')
 
-// zakrycie źródła
-await page.click('.tm-zrodlo button:has-text("Zakryj, piszę z pamięci")')
-check('zakrycie chowa źródło', (await page.locator('.tm-zrodlo-karta').count()) === 0 && (await page.locator('.tm-zrodlo-zakryte').isVisible()))
-await page.click('.tm-zrodlo-zakryte button:has-text("Odsłoń")')
+// zakrycie źródła — przełącznik, który zostaje włączony
+await page.click('.tm-zrodlo .tm-przelacznik')
+check('zakrycie chowa źródło', (await page.locator('.tm-zrodlo-karta').count()) === 0 && (await page.locator('.tm-zrodlo-zakryte').isVisible()) &&
+  (await page.locator('.tm-przelacznik[aria-checked="true"]').count()) === 1)
 
 // pasek: wstaw sekcję
 await page.click('.tm-kartka .tiptap')
@@ -123,6 +123,10 @@ check('„Wstaw sekcję" dodaje podtytuł', /### Połączenia i Mapa/.test(j.map
 // następny kafelek
 await page.click('.tm-nawigacja button:has-text("Dalej: Liczba pierwsza")')
 check('przejście do drugiego kafelka', await page.locator('.tm-kartka-glowa:has-text("Liczba pierwsza")').isVisible())
+check('zakrycie zostaje włączone na następnym kafelku', await page.locator('.tm-zrodlo-zakryte').isVisible())
+await page.click('.tm-zrodlo .tm-przelacznik')
+check('przełącznik wyłącza zakrycie', (await page.locator('.tm-zrodlo-karta:has-text("dokładnie dwa")').isVisible()) &&
+  (await page.evaluate(() => localStorage.getItem('ui.nauka.zakryte'))) === '0')
 check('druga mapa pusta (z podpowiedzią)', (await page.locator('.tm-kartka .rich-pusty').count()) === 1)
 
 // podgląd ścieżki
@@ -130,6 +134,8 @@ await page.click('.tm-szyna-btn:has-text("Ścieżka")')
 await page.waitForSelector('.tm-szuflada')
 check('podgląd ścieżki: kafelki sektora „tu mapujesz"', (await page.locator('.tm-pp-karta.tu').count()) === 2)
 check('podgląd ścieżki: kafelek spoza sektora', await page.locator('.tm-pp-karta:has-text("NWD")').isVisible())
+await page.click('.tm-pp-karta:has-text("Podzielność") .page-chip:has-text("Dowód")')
+check('podgląd ścieżki: zakładki stron kafelka', await page.locator('.tm-pp-karta:has-text("Podzielność") .tm-pp-karta-tresc:has-text("z definicji iloczynu")').isVisible())
 await page.click('.tm-kartka .tiptap')
 await page.locator('.tm-pp-karta:has-text("NWD") .tm-do-mapy').click()
 await page.waitForTimeout(900)
@@ -164,6 +170,21 @@ await page.click('.tm-zakladka:has-text("Przegląd")')
 check('przegląd: tabela z lukami i stanem', (await page.locator('.tm-tabela-w').count()) === 3 && (await page.locator('.tm-luka-btn').count()) === 1)
 check('przegląd: „Czy potrafię" ze słowami użytkownika', (await page.locator('.tm-czy-punkt').count()) === 6 && (await page.locator('.tm-czy:has-text("Wyjaśnić konsekwencje definicji")').isVisible()))
 await page.screenshot({ path: `${zrzuty}/mapowanie-4-przeglad.png` })
+// zwijanie map: wybór zostaje
+await page.locator('.tm-tabela-w:has-text("Podzielność") .tm-zwin').click()
+check('przegląd: mapa kafelka się zwija', (await page.locator('.tm-tabela-mapa.zwinieta').count()) === 1 &&
+  (await page.locator('.tm-tabela-w:has-text("Podzielność") .tm-skrot').innerText()).includes('kawałków'))
+await page.click('.tm-zakladka:has-text("Całość sektora")')
+await page.click('.tm-zakladka:has-text("Przegląd")')
+check('przegląd: zwinięcie zapamiętane', (await page.locator('.tm-tabela-mapa.zwinieta').count()) === 1)
+await page.click('.tm-tabela-glowa-mapa button:has-text("Zwiń wszystkie")')
+check('przegląd: „Zwiń wszystkie"', (await page.locator('.tm-tabela-mapa.zwinieta').count()) === 2)
+await page.click('.tm-tabela-glowa-mapa button:has-text("Rozwiń wszystkie")')
+check('przegląd: „Rozwiń wszystkie"', (await page.locator('.tm-tabela-mapa.zwinieta').count()) === 0)
+await page.click('.tm-mapa-sektora-podglad .tm-zwin')
+check('przegląd: mapa sektora się zwija', await page.locator('.tm-mapa-sektora-podglad .tm-skrot:has-text("liczby pierwsze")').isVisible())
+await page.click('.tm-mapa-sektora-podglad .tm-zwin')
+check('przegląd: mapa sektora się rozwija', (await page.locator('.tm-mapa-sektora-podglad .tm-skrot').count()) === 0)
 
 // schowanie i powrót
 await page.click('.tm-glowa button[aria-label="Schowaj tryb mapowania"]')
@@ -186,14 +207,16 @@ await page.waitForSelector('.tm', { state: 'detached' })
 j = (await baza()).find((x) => x.id === 'ms')
 check('Przerwij: sektor wraca do „nowy", mapy zostają', j.etap === 'nowy' && (j.mapyKafelkow?.mn0 ?? '').includes('kawałków') && (j.mapa ?? '').includes('NWD'))
 
-// zakładka Mapa w panelu: ściąga pod ikoną, przycisk trybu
-await page.click('.panel-nauki-zakladki button:has-text("Mapa")')
-check('zakładka Mapa: bez rozwiniętych list', (await page.locator('.mapa-sektora-pytania').count()) === 0 && (await page.locator('.mapa-sektora .sciaga .tm-ikona').isVisible()))
-check('zakładka Mapa: przycisk trybu mapowania', await page.locator('.mapa-sektora button:has-text("Tryb mapowania")').isVisible())
+// mapa sektora wchodzi się przez kartę sektora
+await page.locator('.ws-wiersz[data-seg="mn0"] .ws-karta').click()
+await page.waitForTimeout(300)
+await page.screenshot({ path: `${zrzuty}/nauka-uklad.png` })
+check('panel: same sektory, „Mapa" na karcie', (await page.locator('.panel-nauki-zakladki').count()) === 0 &&
+  (await page.locator('.karta-sektora[data-sektor="ms"] .karta-sektora-mapa').isVisible()))
 
 // wąski ekran (telefon)
 await page.setViewportSize({ width: 400, height: 800 })
-await page.click('.mapa-sektora button:has-text("Tryb mapowania")').catch(() => {})
+await page.click('.karta-sektora[data-sektor="ms"] .karta-sektora-mapa').catch(() => {})
 await page.waitForTimeout(400)
 if (await page.locator('.tm').count()) {
   const szer = await page.evaluate(() => document.querySelector('.tm').scrollWidth)

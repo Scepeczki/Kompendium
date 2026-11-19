@@ -84,7 +84,8 @@ import {
   stylTekstu,
 } from './Outline'
 import { KontekstKafelka } from './KontekstKafelka'
-import { PanelNauki, type ZakladkaNauki } from './PanelNauki'
+import { PanelNauki } from './PanelNauki'
+import { SpisNauki } from './SpisNauki'
 import { PasekZadan } from './ZadaniaSektora'
 import { MenuNauki } from './MenuNauki'
 import { WidokSektorow } from './WidokSektorow'
@@ -2962,18 +2963,11 @@ function CanvasInner({
     [pathId],
   )
   const [zaznaczoneWLinii, setZaznaczoneWLinii] = useState<string[]>([])
-  const [zakladkaNauki, setZakladkaNauki] = useState<ZakladkaNauki>('sektory')
+  /** Sektor otwarty w trybie mapowania (okno na cały ekran). */
+  const [mapowanySektor, setMapowanySektor] = useState<string | null>(null)
   const [sektorNauki, setSektorNauki] = useState<string | null>(null)
   /** Sektor, do którego wybiera się kafelki klikaniem w Linii. */
   const [wybieranySektor, setWybieranySektor] = useState<string | null>(null)
-  /** Środek widoku Nauka: zwarta oś sektorów (domyślnie) albo zwykła Linia. */
-  const [widokNauki, setWidokNauki] = useState<'sektory' | 'linia'>(() =>
-    localStorage.getItem('ui.nauka.widok') === 'linia' ? 'linia' : 'sektory',
-  )
-  const zmienWidokNauki = (w: 'sektory' | 'linia') => {
-    setWidokNauki(w)
-    localStorage.setItem('ui.nauka.widok', w)
-  }
   useEffect(() => {
     if (mode !== 'nauka') setWybieranySektor(null)
   }, [mode])
@@ -2985,8 +2979,8 @@ function CanvasInner({
   }, [mode])
   const pokazMapeSektora = (id: string) => {
     setSektorNauki(id)
-    setZakladkaNauki('mapa')
     setMode('nauka')
+    setMapowanySektor(id)
   }
   useEffect(() => {
     localStorage.setItem('ui.pathMode', mode)
@@ -4288,24 +4282,6 @@ function CanvasInner({
           ✕
         </button>
         <span className="path-odstep" />
-        {mode === 'nauka' && (
-          <div className="view-switch widok-nauki-switch" role="group" aria-label="Środek widoku Nauka">
-            <button
-              className={`btn ${widokNauki === 'sektory' ? 'btn-active' : ''}`}
-              title="Zwarta oś: kafelki jako kulki z kartami, sektory jako barwne odcinki"
-              onClick={() => zmienWidokNauki('sektory')}
-            >
-              Sektory
-            </button>
-            <button
-              className={`btn ${widokNauki === 'linia' ? 'btn-active' : ''}`}
-              title="Pełna Linia, tylko do czytania"
-              onClick={() => zmienWidokNauki('linia')}
-            >
-              Pełna linia
-            </button>
-          </div>
-        )}
         {mode === 'linear' && (
           <button
             className={`btn ${zakryte ? 'btn-active' : ''}`}
@@ -4452,7 +4428,15 @@ function CanvasInner({
       )}
       {(mode === 'linear' || mode === 'nauka') && (
         <div className={mode === 'nauka' ? 'nauka-uklad' : 'linia-uklad'}>
-        {mode === 'nauka' && widokNauki === 'sektory' ? (
+        {mode === 'nauka' && (
+          <SpisNauki
+            ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
+            sektory={sektoryNauki ?? []}
+            wybrany={sektorNauki}
+            onWybierzSektor={setSektorNauki}
+          />
+        )}
+        {mode === 'nauka' ? (
           <WidokSektorow
             pathId={pathId}
             ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
@@ -4462,10 +4446,7 @@ function CanvasInner({
               setWybieranySektor(id)
               if (id) setSektorNauki(id)
             }}
-            onWybierzSektor={(id) => {
-              setSektorNauki(id)
-              setZakladkaNauki('sektory')
-            }}
+            onWybierzSektor={setSektorNauki}
             onZaznaczenie={setZaznaczoneWLinii}
             onOtworz={onOpenConcept}
             onWstawKafelek={(conceptId, afterId, beforeId) => {
@@ -4521,7 +4502,7 @@ function CanvasInner({
             if (n.kind === 'block') onOpenConcept(n.conceptId)
             else if (n.kind === 'fusion') setKomponowany(n.id)
           }}
-          onRenameSegment={mode === 'nauka' ? undefined : (nodeId, nazwa) => {
+          onRenameSegment={(nodeId, nazwa) => {
             api.updateData(nodeId, { nazwa })
             // w folderze ścieżki nazwa jest jedna: po chwili ciszy idzie do
             // kafelka, a ścieżka przestaje trzymać swoją
@@ -4543,20 +4524,20 @@ function CanvasInner({
           /* Tekst pisany w ścieżce zostaje w ścieżce. Kafelek w bibliotece
              zachowuje swoją treść — poprawiona tutaj definicja nie zmienia
              tamtej i nie rozjeżdża innych ścieżek. */
-          onEditBlock={mode === 'nauka' ? undefined : (nodeId, versionId, subpageId, md) =>
+          onEditBlock={(nodeId, versionId, subpageId, md) =>
             zapiszTresc(nodeId, versionId, subpageId, md)
           }
           onWyslijDoBiblioteki={wyslijTekst}
           onWrocDoKlocka={(nodeId, versionId, subpageId) =>
             wrocDoKlocka(nodeId, kluczWlasnej(versionId, subpageId))
           }
-          onEditNote={mode === 'nauka' ? undefined : (id, md) => api.updateData(id, { text: md })}
-          onEditHeading={mode === 'nauka' ? undefined : (id, text) => api.updateData(id, { text })}
-          onPoziomRozdzialu={mode === 'nauka' ? undefined : (id, level) => api.updateData(id, { level })}
-          onRozmiarRozdzialu={mode === 'nauka' ? undefined : (id, rozmiar) => api.updateData(id, { rozmiar })}
-          onRozmiarTekstu={mode === 'nauka' ? undefined : (id, rozmiarTekstu) => api.updateData(id, { rozmiarTekstu })}
-          onRenameFusion={mode === 'nauka' ? undefined : (id, name) => api.updateData(id, { name })}
-          onEditFusion={mode === 'nauka' ? undefined : (id, md, stronaId) => zapiszTrescBloku(id, md, stronaId)}
+          onEditNote={(id, md) => api.updateData(id, { text: md })}
+          onEditHeading={(id, text) => api.updateData(id, { text })}
+          onPoziomRozdzialu={(id, level) => api.updateData(id, { level })}
+          onRozmiarRozdzialu={(id, rozmiar) => api.updateData(id, { rozmiar })}
+          onRozmiarTekstu={(id, rozmiarTekstu) => api.updateData(id, { rozmiarTekstu })}
+          onRenameFusion={(id, name) => api.updateData(id, { name })}
+          onEditFusion={(id, md, stronaId) => zapiszTrescBloku(id, md, stronaId)}
           onUnfuse={(id) => api.unfuse(id)}
           onToggleSide={(id) => {
             const n = rfNodes.find((x) => x.id === id)
@@ -4599,10 +4580,10 @@ function CanvasInner({
           onJumpToSource={onJumpToSource}
           onOpenConcept={onOpenConcept}
           sektory={sektoryNauki}
-          trybNauki={mode === 'nauka'}
+          trybNauki={false}
           onZaznaczenie={setZaznaczoneWLinii}
           onMapaSektora={pokazMapeSektora}
-          wybieranySektor={mode === 'nauka' ? wybieranySektor : null}
+          wybieranySektor={null}
           onWybieraj={(id) => {
             setWybieranySektor(id)
             if (id) setSektorNauki(id)
@@ -4624,15 +4605,14 @@ function CanvasInner({
             pathId={pathId}
             ordered={topoOrder(rfNodes.map(fromRfNode), rfEdges.map(fromRfEdge))}
             zaznaczone={zaznaczoneWLinii}
-            zakladka={zakladkaNauki}
-            onZakladka={setZakladkaNauki}
             wybrany={sektorNauki}
             onWybierz={setSektorNauki}
             onStart={onStartNauka}
             onOtworz={onOpenConcept}
             wybierany={wybieranySektor}
             onWybieraj={setWybieranySektor}
-            widokSektorow={widokNauki === 'sektory'}
+            mapowany={mapowanySektor}
+            onMapuj={setMapowanySektor}
           />
         )}
         </div>
