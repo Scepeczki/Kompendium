@@ -30,7 +30,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "createUpdaterArtifacts": true,
     "publisher": "Scepeczki",
     "shortDescription": "Kompendium — notatki i nauka",
@@ -44,7 +46,9 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["Polish"],
+        "languages": [
+          "Polish"
+        ],
         "installerIcon": "icons/icon.ico"
       }
     }
@@ -52,8 +56,12 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE4NjQwNEU2N0NFODEzNkUKUldSdUUraDg1Z1JrR0dkdXI3d3VtdHE0SGVHL3I1VE5TMHFQd3VYTk1sMUJwMEZ1aGRaWGhMRDQK",
-      "endpoints": ["https://scepeczki.github.io/Kompendium-web/pobierz/latest.json"],
-      "windows": { "installMode": "passive" }
+      "endpoints": [
+        "https://scepeczki.github.io/Kompendium-web/pobierz/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }
