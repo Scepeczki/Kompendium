@@ -52,6 +52,15 @@ cpSync(ZBUDOWANE, STRONA, { recursive: true })
 writeFileSync(resolve(STRONA, '.nojekyll'), '')
 
 krok('Zapisuję i wysyłam')
+// Po resecie komputera katalog strony powstaje od nowa, bez historii
+// z GitHuba — wtedy GitHub odrzuca wysyłkę. Dociągamy jego historię i nowa
+// wersja staje na jej końcu (pliki strony i tak są w całości podmieniane).
+try {
+  git(['fetch', '-q', 'origin', 'main'])
+  git(['reset', '-q', '--soft', 'origin/main'])
+} catch {
+  // pierwsza wysyłka w ogóle — na GitHubie jeszcze nic nie ma
+}
 git(['add', '-A'])
 try {
   git(['commit', '-q', '-m', `Kompendium ${new Date().toISOString().slice(0, 16)}`])
