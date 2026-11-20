@@ -11,6 +11,8 @@ interface Props {
   /** Tylko w powtórce rozszerzonej: wynik oddany do sesji. */
   onWynik?: (zaliczone: boolean, luki?: string) => void
   wynik?: { zaliczone: boolean; luki?: string }
+  /** Próba: wynik idzie tutaj zamiast do bazy. */
+  proba?: (zaliczone: boolean, luki?: string) => void
 }
 
 const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new URL(adresCzatu()).host
@@ -18,7 +20,7 @@ const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new
 /** Test czatem: skopiuj polecenie z materiałem, porozmawiaj z czatem
  *  w drugiej karcie, wróć i zapisz wynik. Czat kończy listą luk — można
  *  wkleić całą jego końcówkę, wynik i luki wyczytamy sami. */
-export function TestCzatem({ j, tryb, onWynik, wynik }: Props) {
+export function TestCzatem({ j, tryb, onWynik, wynik, proba }: Props) {
   const dogrywka = tryb === 'zero' && !!j.luki
   const [tekst, setTekst] = useState<string | null>(null)
   const [luki, setLuki] = useState('')
@@ -39,6 +41,7 @@ export function TestCzatem({ j, tryb, onWynik, wynik }: Props) {
     const wyczytane = czytajWynik(luki)
     const listaLuk = zaliczone ? undefined : wyczytane.luki
     if (tryb === 'rozszerzona') onWynik?.(zaliczone, listaLuk)
+    else if (proba) proba(zaliczone, listaLuk)
     else await wynikCzatu(j.id, zaliczone, listaLuk)
     setSaLuki(false)
     setLuki('')
@@ -78,7 +81,7 @@ export function TestCzatem({ j, tryb, onWynik, wynik }: Props) {
         >
           Są luki
         </button>
-        {tryb === 'zero' && !dogrywka && (
+        {tryb === 'zero' && !dogrywka && !proba && (
           <button className="btn btn-link" title="Np. bez internetu — zapisze się, że pominięty" onClick={() => pominCzat(j.id)}>
             Pomiń czat tym razem
           </button>

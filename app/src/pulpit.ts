@@ -238,13 +238,17 @@ export async function szukajAktualizacji(): Promise<string | null> {
 }
 
 /** Ściąga i instaluje znalezioną wersję; program zamyka się i wstaje sam. */
-export async function zainstalujAktualizacje(): Promise<void> {
+export async function zainstalujAktualizacje(): Promise<boolean> {
   if (!znaleziona) await szukajAktualizacji()
-  if (!znaleziona) return
+  if (!znaleziona) {
+    komunikat('Masz najnowszą wersję')
+    return false
+  }
   komunikat('Pobieram aktualizację…')
   await znaleziona.downloadAndInstall()
   const { relaunch } = await import('@tauri-apps/plugin-process')
   await relaunch()
+  return true
 }
 
 /** Przycisk w Ustawieniach: mówi też „masz najnowszą" albo co poszło nie tak. */

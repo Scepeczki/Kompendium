@@ -702,6 +702,25 @@ export async function pominZadania(id: string) {
 
 /** Wynik testu czatem w powtórce zero. Zaliczony kończy powtórkę zero; luki
  *  zostają przy sektorze — poprawiasz mapowanie tych miejsc i robisz dogrywkę. */
+/** Tryb próbny: zapis dzieje się naprawdę, ale w transakcji, którą na końcu
+ *  wycofujemy. Wynik (ocena, termin, co do poprawy) jest prawdziwy, a w bazie
+ *  — sektorach, pamięci, historii — nie zmienia się nic. */
+class Proba extends Error {}
+export async function naProbe<T>(f: () => Promise<T>): Promise<T> {
+  let wynik: T | undefined
+  let doszlo = false
+  try {
+    await db.transaction('rw', db.nauka, db.pamiec, db.historia, async () => {
+      wynik = await f()
+      doszlo = true
+      throw new Proba('próba — wycofane')
+    })
+  } catch (e) {
+    if (!doszlo) throw e
+  }
+  return wynik as T
+}
+
 export async function wynikCzatu(id: string, zaliczone: boolean, luki?: string) {
   const iso = teraz().toISOString()
   await db.transaction('rw', db.nauka, db.historia, async () => {

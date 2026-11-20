@@ -64,6 +64,7 @@ import {
 import { PoleLiczby } from './PoleLiczby'
 import { UstawieniaNauki } from './UstawieniaNauki'
 import { UstawieniaProgramu } from './UstawieniaProgramu'
+import { ProbaNauki } from './ProbaNauki'
 import { TypeEditor } from './TypeEditor'
 import { useDialogs } from './Dialogs'
 
@@ -71,13 +72,14 @@ interface Props {
   onClose: () => void
 }
 
-type Section = 'wyglad' | 'tekst' | 'typy' | 'nauka' | 'dane' | 'program'
+type Section = 'wyglad' | 'tekst' | 'typy' | 'nauka' | 'proba' | 'dane' | 'program'
 
 const SECTIONS: { id: Section; label: string; hint: string }[] = [
   { id: 'wyglad', label: 'Wygląd', hint: 'Motyw, wielkość list, szerokość strony' },
   { id: 'tekst', label: 'Tekst', hint: 'Odstępy, wzory, linijka' },
   { id: 'typy', label: 'Typy kafelków', hint: 'Nazwy, skróty, barwy, własne typy' },
   { id: 'nauka', label: 'Nauka', hint: 'Cel zapamiętania, przerwa, pytania' },
+  { id: 'proba', label: 'Próba', hint: 'Powiadomienia i testy bez zapisu' },
   { id: 'dane', label: 'Dane', hint: 'Kopia zapasowa i gdzie to wszystko siedzi' },
   { id: 'program', label: 'Program', hint: 'Aktualizacje, start z Windows, kopie w folderze' },
 ]
@@ -340,6 +342,7 @@ export function SettingsPage({ onClose }: Props) {
         <div className="settings-content">
           {section === 'nauka' && <UstawieniaNauki />}
           {section === 'program' && <UstawieniaProgramu />}
+          {section === 'proba' && <ProbaNauki />}
           {section === 'wyglad' && (
             <>
               <div className="settings-row">

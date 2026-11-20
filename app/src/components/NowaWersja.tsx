@@ -71,7 +71,11 @@ function NowaWersjaProgramu() {
       onClick={async () => {
         setTrwa(true)
         try {
-          await zainstalujAktualizacje()
+          // false = nie było czego instalować (np. pasek z próby) — pasek znika
+          if (!(await zainstalujAktualizacje())) {
+            setWersja(null)
+            setTrwa(false)
+          }
         } catch (e) {
           window.dispatchEvent(
             new CustomEvent('komp:komunikat', {

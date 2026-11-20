@@ -99,6 +99,16 @@ function Widok() {
   const planDzis = useLiveQuery(() => planNauki(), [])
   const doPowtorki = planDzis?.dzis.length ?? 0
 
+  // Sesja otwierana zdarzeniem (np. próba z Ustawień).
+  useEffect(() => {
+    const h = (e: Event) => {
+      setShowSettings(false)
+      setSesja((e as CustomEvent<CelSesji>).detail)
+    }
+    window.addEventListener('komp:sesja', h)
+    return () => window.removeEventListener('komp:sesja', h)
+  }, [])
+
   // Po przerwie (powtórka zero) — przypomnienie o teście. Raz na przerwę;
   // systemowe powiadomienie tylko, jeśli przeglądarka na nie pozwoliła.
   useEffect(() => {

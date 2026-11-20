@@ -26,6 +26,7 @@ import {
   wezlySektora,
   zadaniaDoPowtorki,
   zapiszSesje,
+  naProbe,
   znajdzTypZadania,
   type Ocena,
   type PoSesji,
@@ -35,6 +36,7 @@ import {
   kluczWlasnej,
   type BlockVersion,
   type Concept,
+  type JednostkaNauki,
   type PathNode,
   type Przypomnienie,
   type RodzajRozszerzonej,
@@ -51,6 +53,9 @@ export interface CelSesji {
   klucz?: string
   /** Kafelek osobno: jego sektor (dla nowych kafelków jeszcze bez pamięci). */
   sektorId?: string
+  /** Próba (Ustawienia → Próba): sektor z podmienionymi polami (np. etap),
+   *  a zapis wyniku jest wycofywany — w bazie nic się nie zmienia. */
+  proba?: Partial<JednostkaNauki>
 }
 
 interface Props {
@@ -83,9 +88,13 @@ const NAPISY: Record<Przypomnienie, string> = { tak: 'Tak', czesciowo: 'Części
 export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const typy = useBlockTypes()
   const start = useRef(Date.now())
-  const j = useLiveQuery(
+  const jBaza = useLiveQuery(
     async () => (cel.jednostkaId ? await db.nauka.get(cel.jednostkaId) : undefined),
     [cel.jednostkaId],
+  )
+  const j = useMemo(
+    () => (jBaza && cel.proba ? ({ ...jBaza, ...cel.proba } as JednostkaNauki) : jBaza),
+    [jBaza, cel.proba],
   )
   const pamiecK = useLiveQuery(
     async () => (cel.klucz ? await db.pamiec.get(cel.klucz) : undefined),
@@ -260,7 +269,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       // zadanie nie jest węzłem — do poprawy zaznacza się sam kafelek
       else if (p.zadanie && p.conceptId) wezlyKafelkow[p.klucz] = p.conceptId
     }
-    const po = await zapiszSesje({
+    const dane: Parameters<typeof zapiszSesje>[0] = {
       jednostkaId: j?.id,
       klucz: cel.klucz,
       sektorId: cel.klucz ? (cel.sektorId ?? pamiecK?.jednostkaId) : undefined,
@@ -275,7 +284,14 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       czat: rozszerzona === 'czat' ? czat : undefined,
       pathId,
       douczanie: douczanie || undefined,
-    })
+    }
+    const po = cel.proba
+      ? await naProbe(async () => {
+          // próba: sektor w stanie z próby, zapis i tak zostanie wycofany
+          if (j) await db.nauka.put(j)
+          return zapiszSesje(dane)
+        })
+      : await zapiszSesje(dane)
     setWynik({ ...po, ocena })
     setZapisuje(false)
   }
@@ -322,6 +338,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         <header className="sesja-glowa">
           <div>
             <span className="sesja-rodzaj">{rodzajSesji}</span>
+            {cel.proba && <span className="sesja-proba">Próba — nic się nie zapisuje</span>}
             <h2>{tytul}</h2>
           </div>
         </header>
@@ -362,7 +379,11 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                   <strong>test czatem</strong>. Możesz go zrobić teraz albo później — czeka przy sektorze
                   w widoku Nauka.
                 </p>
-                <TestCzatem j={j} tryb="zero" />
+                {cel.proba ? (
+                  <p className="hint">Test czatem wypróbujesz w Ustawienia → Próba.</p>
+                ) : (
+                  <TestCzatem j={j} tryb="zero" />
+                )}
               </>
             ) : (
               <p className="sesja-wynik-glowny">
@@ -456,6 +477,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       <header className="sesja-glowa">
         <div>
           <span className="sesja-rodzaj">{rodzajSesji}</span>
+          {cel.proba && <span className="sesja-proba">Próba — nic się nie zapisuje</span>}
           <h2>{tytul}</h2>
           {sciezka && <span className="sesja-gdzie">{sciezka.name}</span>}
         </div>
