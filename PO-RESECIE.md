@@ -60,13 +60,8 @@ Notatki są tylko u ciebie (przeglądarka / program) i w twoich kopiach zapasowy
   „Doucz nowe", pamięć panelu PDF, test czatem w Gemini, telefon w ciemnym
   motywie.
 
-## Skrót na pulpicie
+## Program na Windows
 
-Skrót „Kompendium” z ikoną aplikacji uruchamia `start/Kompendium.vbs`. Skrypt włącza serwer, jeśli jeszcze nie działa, i otwiera http://localhost:5173.
-Odtworzenie skrótu po resecie (PowerShell):
-
-```powershell
-$ws = New-Object -ComObject WScript.Shell; $l = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Kompendium.lnk")
-$l.TargetPath = "C:\Windows\System32\wscript.exe"; $l.Arguments = '"C:\Projects\Kompendium\start\Kompendium.vbs"'
-$l.IconLocation = "C:\Projects\Kompendium\start\kompendium.ico,0"; $l.Save()
-```
+Kompendium to program: instalator na https://github.com/Scepeczki/Kompendium/releases/latest,
+skrót na pulpicie i w menu Start zakłada instalator. Notatki przenosisz kopią
+zapasową (Ustawienia → Dane), kopie robią się same w `Dokumenty\Kompendium\Kopie`.

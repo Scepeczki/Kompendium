@@ -83,7 +83,15 @@ try {
   const wersja = await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('plugin:app|version'))
   check('wersja programu', /^\d+\.\d+\.\d+$/.test(wersja), wersja)
 
-  const domyslny = await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('domyslny_folder_kopii'))
+  const stopka = await page.locator('.wersja-budowy').innerText()
+  check('na dole numer wersji programu, nie data', stopka.trim() === `wersja ${wersja}`, stopka)
+  const ramka = await page.evaluate(() => {
+    const s = getComputedStyle(document.querySelector('.app'))
+    return `${s.marginTop} ${s.borderTopLeftRadius}`
+  })
+  check('bez ramki wokół okna', ramka === '0px 0px', ramka)
+
+  const domyslny =await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('domyslny_folder_kopii'))
   check('domyślny folder kopii w Dokumentach', /Kompendium[\\/]Kopie$/.test(domyslny), domyslny)
 
   // kopia do folderu (próbnego, z polskimi literami w nazwie)
@@ -128,6 +136,9 @@ try {
   await page.evaluate(() => window.open('https://example.com/'))
   await czekaj(800)
   check('window.open nie podmienia okna', page.url() === adresPrzed)
+
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('komp:aktualizacja', { detail: '9.9.9' })))
+  check('pasek aktualizacji w oknie', (await page.locator('.nowa-wersja:has-text("9.9.9")').count()) === 1)
 
   // krzyżyk chowa do zasobnika, program działa dalej
   await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('plugin:window|close', { label: 'main' }))

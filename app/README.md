@@ -6,8 +6,8 @@ format danych: [../docs/DATA-FORMAT.md](../docs/DATA-FORMAT.md).
 
 ## Uruchamianie
 
-Na co dzień: **skrót „Kompendium" na pulpicie** — buduje aplikację, podaje ją
-w tle i otwiera w Firefoksie (`start-kompendium.vbs`).
+Na co dzień: **program Kompendium** (instalator w zakładce Releases na GitHubie).
+Nowa wersja programu: `npm run wydaj`.
 
 Ręcznie:
 
