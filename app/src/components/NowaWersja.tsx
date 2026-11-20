@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { naPulpicie, zainstalujAktualizacje } from '../pulpit'
 
 const CO_ILE_MS = 5 * 60 * 1000
 
@@ -15,8 +16,15 @@ async function jestNowsza(): Promise<boolean> {
   return strona.includes('assets/index-') && !strona.includes(biezacy)
 }
 
-/** Odświeżenie zostawiamy użytkownikowi: sam wybiera chwilę, gdy nie pisze. */
+/** Pasek „jest nowa wersja". W przeglądarce: odświeżenie strony. W programie
+ *  na Windows: instalacja aktualizacji (szuka jej pulpit.ts). Moment wybiera
+ *  użytkownik — sam wie, kiedy nie pisze. */
 export function NowaWersja() {
+  if (naPulpicie) return <NowaWersjaProgramu />
+  return <NowaWersjaStrony />
+}
+
+function NowaWersjaStrony() {
   const [jest, setJest] = useState(false)
 
   useEffect(() => {
@@ -41,6 +49,40 @@ export function NowaWersja() {
   return (
     <button className="nowa-wersja" onClick={() => window.location.reload()}>
       Jest nowa wersja programu. Kliknij, aby odświeżyć.
+    </button>
+  )
+}
+
+function NowaWersjaProgramu() {
+  const [wersja, setWersja] = useState<string | null>(null)
+  const [trwa, setTrwa] = useState(false)
+
+  useEffect(() => {
+    const h = (e: Event) => setWersja((e as CustomEvent<string>).detail)
+    window.addEventListener('komp:aktualizacja', h)
+    return () => window.removeEventListener('komp:aktualizacja', h)
+  }, [])
+
+  if (!wersja) return null
+  return (
+    <button
+      className="nowa-wersja"
+      disabled={trwa}
+      onClick={async () => {
+        setTrwa(true)
+        try {
+          await zainstalujAktualizacje()
+        } catch (e) {
+          window.dispatchEvent(
+            new CustomEvent('komp:komunikat', {
+              detail: `Aktualizacja się nie udała: ${e instanceof Error ? e.message : String(e)}`,
+            }),
+          )
+          setTrwa(false)
+        }
+      }}
+    >
+      {trwa ? 'Pobieram i instaluję…' : `Jest nowa wersja Kompendium (${wersja}). Kliknij, aby zainstalować.`}
     </button>
   )
 }

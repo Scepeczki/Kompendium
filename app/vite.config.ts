@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { cpSync, existsSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -37,5 +37,10 @@ const wersja = new Date()
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  define: { __WERSJA__: JSON.stringify(wersja) },
+  define: {
+    __WERSJA__: JSON.stringify(wersja),
+    __WERSJA_PROGRAMU__: JSON.stringify(
+      JSON.parse(readFileSync(resolve(here, 'src-tauri/tauri.conf.json'), 'utf8')).version,
+    ),
+  },
 })

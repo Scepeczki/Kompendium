@@ -11646,3 +11646,10 @@ button.sciaga-punkt:hover {
 .settings-przelacz { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .settings-przelacz input { width: 16px; height: 16px; accent-color: var(--accent, #3b6); }
 .settings-sciezka code { word-break: break-all; }
+
+/* W programie okno systemu jest ramką — bez dodatkowego marginesu wokół. */
+html.na-pulpicie .app {
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
+}

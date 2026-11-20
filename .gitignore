@@ -3,3 +3,4 @@
 
 # Logi z run-all.mjs (tylko lokalne)
 app/.test-logs/
+docs/pamiec-claude/settings.local.json

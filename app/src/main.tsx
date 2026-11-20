@@ -49,6 +49,7 @@ if (import.meta.env.PROD && !naPulpicie && 'serviceWorker' in navigator) {
 void navigator.storage?.persist?.().catch(() => {})
 
 // Kompendium jako program: zasobnik, kopie w folderze, aktualizacje.
+if (naPulpicie) document.documentElement.classList.add('na-pulpicie')
 wlaczPulpit()
 
 // Ctrl+C w wyrenderowanym tekście ma dawać źródło (wzory jako $…$),

@@ -4,3 +4,5 @@
  *  stwierdzić, czy urządzenie ma nową wersję programu, czy trzyma starą
  *  kopię — bez tego „nie działa" jest nie do odróżnienia od „nie doszło". */
 declare const __WERSJA__: string
+/** Numer wersji programu na Windows (src-tauri/tauri.conf.json). */
+declare const __WERSJA_PROGRAMU__: string

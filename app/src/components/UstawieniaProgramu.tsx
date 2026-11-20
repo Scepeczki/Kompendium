@@ -15,7 +15,7 @@ import {
 } from '../pulpit'
 
 /** Adres strony z instalatorem programu na Windows. */
-export const ADRES_POBIERANIA = 'https://scepeczki.github.io/Kompendium-web/pobierz/'
+export const ADRES_POBIERANIA = 'https://github.com/Scepeczki/Kompendium/releases/latest'
 
 /** Ustawienia → Program. W przeglądarce tylko odnośnik do instalatora. */
 export function UstawieniaProgramu() {
@@ -58,7 +58,7 @@ function Program() {
           Wersja <span className="settings-value">{wersja}</span>
         </span>
         <div className="settings-backup-actions">
-          <button className="btn" onClick={() => void sprawdzAktualizacje(true)}>
+          <button className="btn" onClick={() => void sprawdzAktualizacje()}>
             Sprawdź aktualizacje
           </button>
         </div>

@@ -47,7 +47,9 @@ function zbierzUstawienia(): Record<string, string> {
   const out: Record<string, string> = {}
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i)
-    if (k?.startsWith('ui.')) out[k] = localStorage.getItem(k) ?? ''
+    // klucz dostępu do GitHuba to hasło, nie ustawienie — nie jedzie z kopią
+    // (kopie lądują w chmurze i w migawkach notatek)
+    if (k?.startsWith('ui.') && k !== 'ui.telefonToken') out[k] = localStorage.getItem(k) ?? ''
   }
   return out
 }

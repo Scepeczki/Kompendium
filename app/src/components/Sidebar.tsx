@@ -36,6 +36,7 @@ import { Icon, isIconName, type IconName } from './Icon'
 import { useBlockTypes } from '../blockTypes'
 import { NameDialog } from './NameDialog'
 import { useDialogs } from './Dialogs'
+import { naPulpicie } from '../pulpit'
 
 interface Props {
   selectedId: string | null
@@ -1305,8 +1306,11 @@ export function Sidebar({
         {/* Data zbudowania paczki. Wygląda na drobiazg, ale bez niej każda
             rozmowa o „nie działa" zaczyna się od zgadywania, czy urządzenie
             ma nową wersję, czy trzyma starą kopię. */}
-        <span className="wersja-budowy" title="Wersja programu (data zbudowania)">
-          wersja {__WERSJA__}
+        <span
+          className="wersja-budowy"
+          title={naPulpicie ? `Zbudowano ${__WERSJA__}` : 'Wersja programu (data zbudowania)'}
+        >
+          wersja {naPulpicie ? __WERSJA_PROGRAMU__ : __WERSJA__}
         </span>
         {onOpenPowtorki && (
           <button

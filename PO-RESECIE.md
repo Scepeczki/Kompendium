@@ -10,9 +10,6 @@ Notatki są tylko u ciebie (przeglądarka / program) i w twoich kopiach zapasowy
    W Kompendium: **Ustawienia → Dane → „⬇ Eksportuj kopię"**. Powstaje plik
    `kompendium-RRRR-MM-DD.zip` (kafelki, ścieżki, PDF-y, nauka i powtórki,
    ustawienia).
-   - Zrób to **w każdym miejscu, w którym pisałeś**: w wersji lokalnej
-     (`http://localhost:5173` w Firefoksie) i w wersji z internetu
-     (`https://scepeczki.github.io/Kompendium-web/`) — każda ma własne dane.
    - W **programie Kompendium na Windows** kopie robią się same, codziennie, w
      `Dokumenty\Kompendium\Kopie` (folder zmienisz w Ustawienia → Program).
      Wystarczy zabrać najnowszy plik.
@@ -38,16 +35,17 @@ Notatki są tylko u ciebie (przeglądarka / program) i w twoich kopiach zapasowy
    Aplikacja: `http://localhost:5173`.
 3. **Notatki z powrotem:** Ustawienia → Dane → „⬆ Wczytaj kopię" i wybierz plik zip.
 4. **Pamięć Claude'a** (co ustaliliśmy, jak pracujemy): skopiuj pliki z
-   `docs/pamiec-claude/` (oprócz `settings.local.json`) do
+   `docs/pamiec-claude/` do
    `C:\Users\<twoja nazwa>\.claude\projects\c--Projects-Kompendium\memory\`.
-   Plik `settings.local.json` skopiuj do `C:\Projects\Kompendium\.claude\`.
+   Ustawienia uprawnień Claude'a (`.claude\settings.local.json`) nie są w
+   repozytorium (jest publiczne) — po resecie Claude zapyta o zgody od nowa.
 5. **Wydawanie programu na Windows** (tylko jeśli chcesz wydawać nowe wersje):
    zainstaluj Rust (`winget install Rustlang.Rustup`) i Microsoft C++ Build
    Tools (`winget install Microsoft.VisualStudio.2022.BuildTools` z zestawem
    „Programowanie aplikacji klasycznych w C++”), włóż klucz z powrotem do
    `C:\Users\<ty>\.tauri\`, a potem `npm run wydaj`.
    Samo **używanie** programu tego nie wymaga — instalator jest na
-   https://scepeczki.github.io/Kompendium-web/pobierz/
+   https://github.com/Scepeczki/Kompendium/releases/latest
 6. Otwórz Claude Code w `C:\Projects\Kompendium` i napisz, że wracamy po
    resecie — opis projektu jest w `VISION.md`, `ROADMAP.md`, `SLOWNIK.md`,
    a stan nauki w `docs/pamiec-claude/project-system-nauki.md`.

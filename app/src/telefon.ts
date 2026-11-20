@@ -156,12 +156,16 @@ export async function wyslijNotatki(): Promise<WynikWyslania> {
   // Zanim wyślemy kilka megabajtów, sprawdzamy jednym pytaniem, czy klucz
   // w ogóle widzi repozytorium. Bez tego pierwszy błąd przychodzi w połowie
   // wysyłki i nie wiadomo, czy problem jest w kluczu, czy w danych.
-  await api(`/repos/${repo}`, { token }).catch(() => {
+  const info = (await api(`/repos/${repo}`, { token }).catch(() => {
     throw new Error(
       `Klucz nie widzi repozytorium „${repo}". Sprawdź nazwę oraz to, czy ` +
         'klucz ma do niego dostęp i uprawnienie Contents: Read and write.',
     )
-  })
+  })) as { private?: boolean }
+  // Notatki nigdy nie idą do repozytorium, które każdy może przeczytać.
+  if (info.private !== true) {
+    throw new Error(`Repozytorium „${repo}" jest publiczne — notatek tam nie wysyłam. Wpisz prywatne.`)
+  }
 
   const blob = (await api(`/repos/${repo}/git/blobs`, {
     token,

@@ -21,6 +21,7 @@ const check = (nazwa, ok, szczegol = '') => {
 let migawka = null
 /** Czy udawany klucz widzi repozytorium — do sprawdzania komunikatów błędów. */
 let widacRepo = true
+let publiczne = false
 
 /** Udawany GitHub. Odpowiada dokładnie tak, jak potrzebuje src/telefon.ts. */
 async function podstawGitHuba(context) {
@@ -44,7 +45,7 @@ async function podstawGitHuba(context) {
     // samo repozytorium — po tym program rozpoznaje, czy klucz w ogóle widzi
     // to miejsce, czy tylko nie ma jeszcze migawki
     if (/^\/repos\/[^/]+\/[^/]+$/.test(url.pathname)) {
-      return widacRepo ? json({ full_name: 'Scepeczki/Kompendium' }) : json({ message: 'Not Found' }, 404)
+      return widacRepo ? json({ full_name: 'Scepeczki/Kompendium', private: !publiczne }) : json({ message: 'Not Found' }, 404)
     }
     return json({ message: `nieobsługiwane w teście: ${req.method()} ${url.pathname}` }, 500)
   })
@@ -91,8 +92,14 @@ await pc.dragAndDrop('.concept-item:has-text("Zbiór")', '.linear-append')
 await pc.waitForTimeout(500)
 
 await ustawTelefon(pc)
+// do publicznego repozytorium notatki nie idą
+publiczne = true
 await pc.click('.btn:has-text("Wyślij notatki")')
-await pc.waitForSelector('.settings-status', { timeout: 20000 })
+await pc.waitForSelector('.settings-status:has-text("publiczne")', { timeout: 20000 })
+check('do publicznego repozytorium nic nie idzie', migawka === null || migawka === undefined, typeof migawka)
+publiczne = false
+await pc.click('.btn:has-text("Wyślij notatki")')
+await pc.waitForSelector('.settings-status:has-text("Wysłane")', { timeout: 20000 })
 const wynik = await pc.textContent('.settings-status')
 check('komputer wysyła notatki', wynik.includes('Wysłane'), wynik)
 check('i wie, ile ich wysłał', /2 kafelków/.test(wynik), wynik)

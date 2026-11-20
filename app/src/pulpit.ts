@@ -217,28 +217,43 @@ export async function wersjaProgramu(): Promise<string> {
   return getVersion()
 }
 
-/** Sprawdza, czy na GitHubie jest nowsza wersja, i proponuje instalację.
- *  `reczne` — wołane z Ustawień: wtedy mówi też „masz najnowszą". */
-export async function sprawdzAktualizacje(reczne = false): Promise<void> {
-  try {
-    const { check } = await import('@tauri-apps/plugin-updater')
-    const akt = await check()
-    if (!akt) {
-      if (reczne) komunikat('Masz najnowszą wersję')
-      return
+type Aktualizacja = Awaited<ReturnType<typeof import('@tauri-apps/plugin-updater').check>>
+let znaleziona: Aktualizacja = null
+
+/** Pyta GitHuba o nowszą wersję. Zwraca jej numer albo null.
+ *  Gdy jest, ogłasza to zdarzeniem `komp:aktualizacja` (pasek w oknie)
+ *  i raz na wersję powiadomieniem systemowym. */
+export async function szukajAktualizacji(): Promise<string | null> {
+  const { check } = await import('@tauri-apps/plugin-updater')
+  znaleziona = await check()
+  const v = znaleziona?.version ?? null
+  if (v) {
+    window.dispatchEvent(new CustomEvent('komp:aktualizacja', { detail: v }))
+    if (czytaj('pulpit.powiadomionoO') !== v) {
+      zapisz('pulpit.powiadomionoO', v)
+      void powiadom(`Jest nowa wersja Kompendium (${v}). Otwórz program i kliknij „Zainstaluj".`)
     }
-    const { ask } = await import('@tauri-apps/plugin-dialog')
-    const tak = await ask(
-      `Jest nowa wersja Kompendium (${akt.version}, masz ${akt.currentVersion}).\n\nZainstalować teraz? Program na chwilę się zamknie i wstanie sam.`,
-      { title: 'Aktualizacja', okLabel: 'Zainstaluj', cancelLabel: 'Później' },
-    )
-    if (!tak) return
-    komunikat('Pobieram aktualizację…')
-    await akt.downloadAndInstall()
-    const { relaunch } = await import('@tauri-apps/plugin-process')
-    await relaunch()
+  }
+  return v
+}
+
+/** Ściąga i instaluje znalezioną wersję; program zamyka się i wstaje sam. */
+export async function zainstalujAktualizacje(): Promise<void> {
+  if (!znaleziona) await szukajAktualizacji()
+  if (!znaleziona) return
+  komunikat('Pobieram aktualizację…')
+  await znaleziona.downloadAndInstall()
+  const { relaunch } = await import('@tauri-apps/plugin-process')
+  await relaunch()
+}
+
+/** Przycisk w Ustawieniach: mówi też „masz najnowszą" albo co poszło nie tak. */
+export async function sprawdzAktualizacje(): Promise<void> {
+  try {
+    const v = await szukajAktualizacji()
+    komunikat(v ? `Jest wersja ${v} — pasek u góry okna` : 'Masz najnowszą wersję')
   } catch (e) {
-    if (reczne) komunikat(`Nie udało się sprawdzić aktualizacji: ${e instanceof Error ? e.message : String(e)}`)
+    komunikat(`Nie udało się sprawdzić aktualizacji: ${e instanceof Error ? e.message : String(e)}`)
   }
 }
 
@@ -279,5 +294,10 @@ export function wlaczPulpit(): void {
   }
 
   codziennaKopia()
-  setTimeout(() => void sprawdzAktualizacje(false), 8000)
+  // Aktualizacje: przy starcie i co 6 godzin (program może chodzić tygodniami
+  // w tle). Pasek w oknie + powiadomienie — bez okienek, które przy schowanym
+  // oknie nikt by nie zobaczył.
+  const szukaj = () => void szukajAktualizacji().catch(() => {})
+  setTimeout(szukaj, 8000)
+  setInterval(szukaj, 6 * 60 * 60_000)
 }

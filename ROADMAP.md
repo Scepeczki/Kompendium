@@ -82,7 +82,7 @@ od razu do użytku:
    zwinięty pasek „Zadania" na końcu sektora, Przegląd sektorów, test
    końcowy z zadaniami, zadania w powtórkach rozszerzonych.
 4. **Program na Windows** (zrobione 2026-11-19, Tauri): instalator na
-   https://scepeczki.github.io/Kompendium-web/pobierz/, aktualizacje same,
+   https://github.com/Scepeczki/Kompendium/releases/latest, aktualizacje same,
    ikona przy zegarku, start z Windows, powiadomienia (test po przerwie,
    codzienne o powtórkach), codzienne kopie do folderu. Wydanie: `npm run wydaj`.
 5. **Następnie:** spis w Nauce — zwijane sektory i drugi tryb (liniowy:
