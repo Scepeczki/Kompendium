@@ -1,6 +1,6 @@
 [package]
 name = "kompendium"
-version = "1.0.0"
+version = "1.0.1"
 description = "Kompendium — notatki i nauka"
 authors = ["Scepeczki"]
 edition = "2021"
