@@ -31,9 +31,20 @@ const robocze = mkdtempSync(join(tmpdir(), 'komp-program-'))
 const dane = join(robocze, 'webview')
 const kopie = join(robocze, 'kopie ąę')
 const PORT = 9333
+// Wpis startu z Windows należy do ZAINSTALOWANEGO programu. Egzemplarz próbny
+// przy pierwszym starcie go nadpisze — zapamiętujemy go i na końcu oddajemy.
+const RUN = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
+let wpisAutostartu = null
+try {
+  const w = execFileSync('reg', ['query', RUN, '/v', 'Kompendium'], { encoding: 'utf8' })
+  wpisAutostartu = w.match(/Kompendium\s+REG_SZ\s+(.+)/)?.[1].trim() ?? null
+} catch {
+  // nie było wpisu
+}
 const proc = spawn(EXE, [], {
   env: {
     ...process.env,
+    KOMPENDIUM_PROBA: '1',
     WEBVIEW2_USER_DATA_FOLDER: dane,
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`,
   },
@@ -60,7 +71,11 @@ try {
     page = przegladarka.contexts().flatMap((c) => c.pages())[0]
     if (!page) await czekaj(300)
   }
+  const bledy = []
+  page.on('console', (m) => m.type() === 'error' && bledy.push(m.text()))
+  page.on('pageerror', (e) => bledy.push(String(e)))
   await page.waitForSelector('.sidebar, .app', { timeout: 20000 })
+  process.on('exit', () => console.log(`BŁĘDY KONSOLI: ${bledy.length ? bledy.join(' | ') : 'brak'}`))
   check('dane próbne w osobnym folderze', existsSync(dane) && readdirSync(dane).length > 0)
   check('program widzi most do Windows', await page.evaluate(() => '__TAURI_INTERNALS__' in window))
   check('bez pracownika serwisowego', await page.evaluate(async () => (await navigator.serviceWorker?.getRegistrations?.())?.length ?? 0) === 0)
@@ -91,6 +106,23 @@ try {
     check('otwarcie Ustawień', false)
   }
 
+  // schowek (czat kopiuje polecenie) i bezpieczny kontekst
+  check('bezpieczny kontekst (schowek, kryptografia)', await page.evaluate(() => window.isSecureContext))
+  const schowek = await page.evaluate(() => navigator.clipboard.writeText('próba').then(() => true, (e) => String(e)))
+  check('schowek działa', schowek === true, String(schowek))
+  // WebView2 sam decyduje o trwałości (zwykle odmawia) — tylko informacja;
+  // przed utratą danych chronią codzienne kopie w folderze.
+  console.log(`  (trwałe przechowywanie: ${await page.evaluate(() => navigator.storage.persisted())})`)
+
+  // PDF: wczytanie i narysowanie strony (pdf.js, jego wątek i WASM)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
+  await page.click('.sidebar-create-btn[title="Nowy kafelek"]')
+  await page.fill('.editor-name', 'Próba PDF')
+  await page.setInputFiles('input[type=file][accept*="pdf"]', resolve(APP, 'scripts/test.pdf'))
+  const pdfOk = await page.waitForSelector('.pdf-page-wrap canvas', { timeout: 15000 }).then(() => true, () => false)
+  check('PDF się otwiera i rysuje', pdfOk)
+
   // link na zewnątrz nie podmienia okna programu
   const adresPrzed = page.url()
   await page.evaluate(() => window.open('https://example.com/'))
@@ -109,12 +141,15 @@ try {
   await przegladarka.close().catch(() => {})
   proc.kill()
   await czekaj(800)
-  // Program przy pierwszym starcie dopisuje się do autostartu — tu to był
-  // egzemplarz próbny, więc wpis zdejmujemy (prawdziwy zrobi to sam po instalacji).
+  // Wpis startu z Windows wraca do stanu sprzed sprawdzenia.
   try {
-    execFileSync('reg', ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'Kompendium', '/f'], { stdio: 'ignore' })
+    if (wpisAutostartu) {
+      execFileSync('reg', ['add', RUN, '/v', 'Kompendium', '/t', 'REG_SZ', '/d', wpisAutostartu, '/f'], { stdio: 'ignore' })
+    } else {
+      execFileSync('reg', ['delete', RUN, '/v', 'Kompendium', '/f'], { stdio: 'ignore' })
+    }
   } catch {
-    // nie było wpisu
+    // nic do zrobienia
   }
   rmSync(robocze, { recursive: true, force: true })
 }

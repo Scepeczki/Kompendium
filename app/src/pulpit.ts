@@ -164,9 +164,11 @@ export async function zrobKopieDoFolderu(): Promise<string> {
   try {
     sciezka = await zapiszNaDysku(`${baza}.zip`, blob, false)
   } catch {
+    // dzisiejsza już jest — kolejna dostaje godzinę (z sekundami, żeby dwie
+    // kopie w tej samej minucie się nie zderzyły)
     const d = new Date()
-    const g = `${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`
-    sciezka = await zapiszNaDysku(`${baza}-${g}.zip`, blob, false)
+    const p = (n: number) => String(n).padStart(2, '0')
+    sciezka = await zapiszNaDysku(`${baza}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.zip`, blob, false)
   }
   zapisz(K_OSTATNIA, new Date().toISOString())
   if (u.ile > 0) {
@@ -183,7 +185,9 @@ function codziennaKopia() {
   const sprawdz = async () => {
     try {
       const u = await ustawieniaKopii()
-      if (!u.wlaczone || u.ostatnia?.slice(0, 10) === new Date().toISOString().slice(0, 10)) return
+      // porównanie po dniu lokalnym (jak nazwa pliku), nie po dniu w UTC
+      const ostatniDzien = u.ostatnia ? new Date(u.ostatnia).toDateString() : null
+      if (!u.wlaczone || ostatniDzien === new Date().toDateString()) return
       await zrobKopieDoFolderu()
     } catch (e) {
       komunikat(`Kopia zapasowa się nie udała: ${e instanceof Error ? e.message : String(e)}`)

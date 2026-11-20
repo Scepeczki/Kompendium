@@ -74,6 +74,8 @@ writeFileSync(resolve(STRONA, '.nojekyll'), '')
       '',
       wersja ? 'Strona z instrukcją: https://scepeczki.github.io/Kompendium-web/pobierz/' : '',
       '',
+      'Wszystkie wersje: https://github.com/Scepeczki/Kompendium-web/releases',
+      '',
       'Wersja w przeglądarce (także na telefon): https://scepeczki.github.io/Kompendium-web/',
       '',
       'Tu jest tylko program. Notatek w tym repozytorium nie ma.',

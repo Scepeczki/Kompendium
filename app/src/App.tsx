@@ -103,6 +103,7 @@ function Widok() {
   // systemowe powiadomienie tylko, jeśli przeglądarka na nie pozwoliła.
   useEffect(() => {
     const juz = new Set<string>()
+    let ostatniPlan = 0
     const sprawdz = async () => {
       const wPrzerwie = await db.nauka.where('etap').equals('przerwa').toArray()
       // douczanie nowych ma własną przerwę
@@ -131,7 +132,9 @@ function Widok() {
         } catch {
           // bez pamięci przypomni najwyżej drugi raz
         }
-        if (!byloDzis) {
+        // plan liczy się z całej bazy — gdy nic nie czeka, pytamy co 10 min, nie co 30 s
+        if (!byloDzis && Date.now() - ostatniPlan >= 10 * 60_000) {
+          ostatniPlan = Date.now()
           const ile = (await planNauki()).dzis.length
           if (ile > 0) {
             try {

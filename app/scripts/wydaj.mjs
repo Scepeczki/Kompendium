@@ -133,4 +133,24 @@ writeFileSync(
 krok('Wysyłam stronę z instalatorem')
 execFileSync('node', [resolve(tu, 'publikuj.mjs')], { cwd: APP, stdio: 'inherit' })
 console.log(`\n✓ Wersja ${wersja} wydana: ${ADRES}/`)
+
+// --- 5. wydanie w zakładce „Releases" na GitHubie (potrzebny zalogowany `gh`) ---
+krok('Zakładam wydanie w zakładce Releases')
+const GH = existsSync('C:\\Program Files\\GitHub CLI\\gh.exe') ? 'C:\\Program Files\\GitHub CLI\\gh.exe' : 'gh'
+const opis = resolve(TAURI, 'target', 'opis-wydania.md')
+writeFileSync(
+  opis,
+  `Kompendium na Windows. Pobierz plik **${exe}** poniżej i uruchom.\n\n` +
+    'Gdy Windows pokaże „System Windows ochronił ten komputer”: Więcej informacji → Uruchom mimo to.\n\n' +
+    'Kolejne wersje program pobiera sam. Notatek tu nie ma — tylko program.\n',
+)
+try {
+  execFileSync(
+    GH,
+    ['release', 'create', `v${wersja}`, resolve(NSIS, exe), '-R', 'Scepeczki/Kompendium-web', '--title', `Kompendium ${wersja}`, '--notes-file', opis],
+    { stdio: 'inherit' },
+  )
+} catch {
+  console.error('Wydanie w Releases się nie udało (czy `gh auth login` zrobione?). Instalator i tak jest na stronie pobierania.')
+}
 console.log('Pamiętaj zapisać zmianę numeru wersji w repozytorium (git commit).')

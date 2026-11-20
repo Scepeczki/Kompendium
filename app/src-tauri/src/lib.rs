@@ -118,11 +118,15 @@ pub fn run() {
 
     #[cfg(desktop)]
     {
-        // musi być pierwsza: drugie uruchomienie tylko pokazuje okno
-        builder = builder
-            .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        // musi być pierwsza: drugie uruchomienie tylko pokazuje okno.
+        // Wyjątek: egzemplarz próbny (scripts/sprawdz-program.mjs) chodzi
+        // obok zainstalowanego programu, na własnych danych.
+        if std::env::var_os("KOMPENDIUM_PROBA").is_none() {
+            builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
                 pokaz_okno(app);
-            }))
+            }));
+        }
+        builder = builder
             .plugin(tauri_plugin_autostart::init(
                 tauri_plugin_autostart::MacosLauncher::LaunchAgent,
                 Some(vec![W_TLE]),
