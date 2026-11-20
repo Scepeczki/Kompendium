@@ -10,7 +10,7 @@
 // Za pierwszym razem trzeba raz zalogować gita do GitHuba — skrypt powie, co
 // zrobić, jeśli logowania brakuje.
 import { execFileSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -51,6 +51,36 @@ for (const wpis of readdirSync(STRONA)) {
 cpSync(ZBUDOWANE, STRONA, { recursive: true })
 // GitHub Pages inaczej pomija katalogi zaczynające się od podkreślenia
 writeFileSync(resolve(STRONA, '.nojekyll'), '')
+
+// Opis repozytorium na GitHubie — od razu widać, skąd pobrać program.
+{
+  let wersja = ''
+  let plik = ''
+  try {
+    const l = JSON.parse(readFileSync(resolve(STRONA, 'pobierz/latest.json'), 'utf8'))
+    wersja = l.version
+    plik = l.platforms['windows-x86_64'].url
+  } catch {
+    // programu jeszcze nie wydano
+  }
+  writeFileSync(
+    resolve(STRONA, 'README.md'),
+    [
+      '# Kompendium',
+      '',
+      wersja
+        ? `## ⬇ [Pobierz Kompendium ${wersja} na Windows](${plik})`
+        : '',
+      '',
+      wersja ? 'Strona z instrukcją: https://scepeczki.github.io/Kompendium-web/pobierz/' : '',
+      '',
+      'Wersja w przeglądarce (także na telefon): https://scepeczki.github.io/Kompendium-web/',
+      '',
+      'Tu jest tylko program. Notatek w tym repozytorium nie ma.',
+      '',
+    ].join('\n'),
+  )
+}
 
 krok('Zapisuję i wysyłam')
 // Po resecie komputera katalog strony powstaje od nowa, bez historii
