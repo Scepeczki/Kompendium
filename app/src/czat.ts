@@ -73,6 +73,32 @@ export const TECHNIKI = [
   'Kompresja — każ mi ująć sedno w jednym zdaniu, potem w jednym akapicie, a potem wróć do szczegółów.',
 ]
 
+/** Jak czat ma podsumować test — wzór, zasady i przykład. Program odczytuje
+ *  to podsumowanie sam (czytajWynik), więc postać musi być ściśle ustalona. */
+const ZASADY_PODSUMOWANIA = `Zasady podsumowania:
+- Całe podsumowanie podaj w JEDNYM bloku kodu (trzy znaki \` na początku i na końcu), bez żadnego innego tekstu w środku.
+- Sekcje zawsze w tej kolejności i z tymi nazwami: WYNIK, KAFELKI, LUKI, KLUCZ — każda nazwa w osobnej linii, zakończona dwukropkiem.
+- WYNIK: jedno słowo — ZALICZONE albo NIEZALICZONE. ZALICZONE tylko wtedy, gdy żaden kafelek nie ma oceny NIE.
+- KAFELKI: jedna linia na kafelek, w kolejności z materiału: „- Nazwa: OCENA — jedno zdanie". Nazwę przepisz dokładnie z nagłówka „###", ale bez rodzaju przed dwukropkiem (z „### Definicja: Kula" piszesz „Kula"). OCENA wielkimi literami: TAK, CZĘŚCIOWO albo NIE.
+- LUKI: każdy konkretny brak albo błąd w osobnej linii zaczętej od „- ". Gdy luk nie ma, napisz „- brak".
+- KLUCZ: tylko kafelki z oceną CZĘŚCIOWO albo NIE: „- Nazwa: wzorcowa odpowiedź w 2–4 zdaniach", wyłącznie na podstawie materiału. Gdy takich kafelków nie ma, napisz „- brak".
+- Bez pogrubień, numeracji i dodatkowych sekcji.`
+
+const PRZYKLAD_PODSUMOWANIA = `Przykład (sektor z trzema kafelkami: „### Definicja: Kula", „### Definicja: Otoczenie", „### Definicja: Zbiór domknięty"):
+\`\`\`
+WYNIK: NIEZALICZONE
+KAFELKI:
+- Kula: TAK — poprawna definicja i dobry przykład.
+- Otoczenie: CZĘŚCIOWO — definicja dobra, ale bez przykładu.
+- Zbiór domknięty: NIE — pomylony ze zbiorem otwartym.
+LUKI:
+- brak przykładu otoczenia punktu
+- zbiór domknięty opisany jak otwarty
+KLUCZ:
+- Otoczenie: Otoczenie punktu x to każdy zbiór zawierający kulę o środku w x. Na przykład przedział (0, 2) jest otoczeniem punktu 1.
+- Zbiór domknięty: Zbiór jest domknięty, gdy jego dopełnienie jest otwarte. Równoważnie: zawiera wszystkie swoje punkty skupienia.
+\`\`\``
+
 export const POLECENIE_TEST = `Jesteś egzaminatorem. Sprawdzasz, czy naprawdę rozumiem i pamiętam materiał podany na końcu. Materiał jest jedynym źródłem prawdy — nie poprawiaj go wiedzą spoza niego; jeśli coś w nim wydaje ci się błędne, napisz o tym osobno na samym końcu.
 
 Zasady:
@@ -89,14 +115,20 @@ Sprawdź przede wszystkim, czy umiem odpowiedzieć na te pytania:
 
 Zadaj około {ILE} pytań i zakończ.
 
-Na końcu oceń KAŻDY kafelek z materiału (nagłówki „###") i wypisz dokładnie w tej postaci:
+Po ostatnim pytaniu oceń KAŻDY kafelek z materiału (każdy nagłówek „###", zadania też) i napisz podsumowanie według wzoru:
+\`\`\`
 WYNIK: ZALICZONE albo NIEZALICZONE
 KAFELKI:
-- nazwa kafelka dokładnie jak w nagłówku: TAK albo CZĘŚCIOWO albo NIE — jednym zdaniem, czego brakowało
+- Nazwa kafelka: TAK albo CZĘŚCIOWO albo NIE — jedno zdanie, co było dobrze albo czego brakowało
 LUKI:
-- każdy konkretny brak albo błąd w osobnej linii
+- jeden konkretny brak albo błąd
 KLUCZ:
-- nazwa kafelka: wzorcowa odpowiedź w 2–4 zdaniach — tylko dla kafelków ocenionych CZĘŚCIOWO albo NIE, tylko z materiału
+- Nazwa kafelka: wzorcowa odpowiedź w 2–4 zdaniach
+\`\`\`
+
+${ZASADY_PODSUMOWANIA}
+
+${PRZYKLAD_PODSUMOWANIA}
 
 Materiał — sektor „{NAZWA}":
 
@@ -113,14 +145,20 @@ Zasady:
 Luki do sprawdzenia:
 {LUKI}
 
-Na końcu wypisz dokładnie w tej postaci:
+Po ostatnim pytaniu oceń kafelki, których dotyczyły luki (tylko je), i napisz podsumowanie według wzoru:
+\`\`\`
 WYNIK: ZALICZONE albo NIEZALICZONE
 KAFELKI:
-- nazwa kafelka, którego dotyczyła luka: TAK albo CZĘŚCIOWO albo NIE — jednym zdaniem dlaczego
+- Nazwa kafelka: TAK albo CZĘŚCIOWO albo NIE — jedno zdanie, co już siedzi albo czego nadal brakuje
 LUKI:
-- to, co nadal nie siedzi (każde w osobnej linii)
+- to, co nadal nie siedzi
 KLUCZ:
-- nazwa kafelka: wzorcowa odpowiedź w 2–4 zdaniach — tylko tam, gdzie nadal CZĘŚCIOWO albo NIE
+- Nazwa kafelka: wzorcowa odpowiedź w 2–4 zdaniach
+\`\`\`
+
+${ZASADY_PODSUMOWANIA}
+
+${PRZYKLAD_PODSUMOWANIA}
 
 Materiał — sektor „{NAZWA}":
 
@@ -324,14 +362,19 @@ export interface WynikCzatu {
 
 /** Wyciąga z odpowiedzi czatu wynik, ocenę kafelków, luki i klucz odpowiedzi
  *  (jeśli wklejono całość). Bez żadnej sekcji cały tekst to luki. */
-export function czytajWynik(tekst: string): WynikCzatu {
-  const w = /WYNIK:\s*\**\s*(NIE)?ZALICZONE/i.exec(tekst)
-  const luki = sekcja(tekst, 'LUKI') ?? (/(KAFELKI|KLUCZ):/i.test(tekst) ? '' : tekst.trim())
+export function czytajWynik(wklejone: string): WynikCzatu {
+  // czat podaje podsumowanie w bloku kodu — znaczniki ``` nie są treścią
+  const tekst = wklejone.replace(/^[ \t]*```.*$/gm, '')
+  const pusta = (s: string | undefined) => (s && !/^[-•*\s]*brak\.?\s*$/i.test(s) ? s : undefined)
+  const w =/WYNIK:\s*\**\s*(NIE)?ZALICZONE/i.exec(tekst)
+  const sekcjaLuk = sekcja(tekst, 'LUKI')
+  const luki =
+    sekcjaLuk !== undefined ? (pusta(sekcjaLuk) ?? '') : /(KAFELKI|KLUCZ):/i.test(tekst) ? '' : tekst.trim()
   const kafelki: WynikCzatu['kafelki'] = []
   for (const linia of (sekcja(tekst, 'KAFELKI') ?? '').split('\n')) {
     const m = /^\s*[-*•]\s*\**(.+?)\**\s*[:–—]\s*\**(TAK|CZĘŚCIOWO|CZESCIOWO|NIE)\b\**\s*[—–:-]?\s*(.*)$/i.exec(linia)
     if (m) kafelki.push({ nazwa: m[1].trim(), ocena: OCENA_CZATU[m[2].toLowerCase()], uwaga: m[3].trim() || undefined })
   }
-  return { zaliczone: w ? !w[1] : undefined, luki, kafelki, klucz: sekcja(tekst, 'KLUCZ') || undefined }
+  return { zaliczone: w ? !w[1] : undefined, luki, kafelki, klucz: pusta(sekcja(tekst, 'KLUCZ')) }
 }
 

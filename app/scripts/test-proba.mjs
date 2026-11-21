@@ -124,7 +124,14 @@ await karta?.close()
 const polecenie = await page.evaluate(() => navigator.clipboard.readText())
 check('test czatem: polecenie w schowku', polecenie.includes('Kula'), polecenie.slice(0, 60))
 check('próba: bez „Pomiń czat"', (await page.locator('[data-proba="czat"] button:has-text("Pomiń")').count()) === 0)
+check('polecenie: wzór, zasady i przykład podsumowania', polecenie.includes('Zasady podsumowania') && polecenie.includes('Przykład (sektor z trzema kafelkami') &&
+  polecenie.includes('bloku kodu'))
 await page.click('[data-proba="czat"] button:has-text("Są luki")')
+// tak, jak poda to czat: blok kodu, nazwy z rodzajem, pusty klucz
+await page.fill('[data-proba="czat"] .test-czatem-wklej textarea',
+  'Dzięki za rozmowę.\n```\nWYNIK: NIEZALICZONE\nKAFELKI:\n- Definicja: Kula: TAK — dobrze.\n- Otoczenie: CZĘŚCIOWO — bez przykładu.\n- Zbiór domknięty: NIE — pomylony.\nLUKI:\n- brak przykładu\nKLUCZ:\n- brak\n```')
+check('odczyt bloku kodu: 3 kafelki, „- brak" w kluczu = brak klucza', (await page.locator('[data-proba="czat"] .test-czatem-odczyt li').count()) === 3 &&
+  (await page.locator('[data-proba="czat"] .test-czatem-odczyt:has-text("klucz odpowiedzi")').count()) === 0)
 await page.fill('[data-proba="czat"] .test-czatem-wklej textarea',
   'Super.\n**WYNIK: NIEZALICZONE**\nKAFELKI:\n- Kula: TAK — dobrze\n- Otoczenie: CZĘŚCIOWO — bez przykładu\n- Zbiór domknięty: NIE — myli z otwartym\nLUKI:\n- definicja otoczenia\nKLUCZ:\n- Otoczenie: zbiór zawierający kulę wokół punktu.')
 check('odczyt odpowiedzi czatu: oceny kafelków', (await page.locator('[data-proba="czat"] .test-czatem-odczyt li').count()) === 3 &&
