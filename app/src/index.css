@@ -12084,3 +12084,132 @@ html.okno-powiadomienia #root {
 .sesja-odkryta > :first-child {
   margin-top: 0;
 }
+
+/* test czatem: kroki 1–2, werdykt, sprzeciw, skutki zapisu */
+.test-czatem .test-czatem-wklej {
+  flex-direction: row;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.test-czatem-nr {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+}
+.test-czatem-wklej-pole {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.test-czatem-przyklady {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.test-czatem-odczyt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.test-czatem-odczyt > .btn-primary {
+  align-self: flex-start;
+}
+.test-czatem-werdykt {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.test-czatem-werdykt.zaznacz-tak { color: var(--ocena-tak, #2f8f5b); }
+.test-czatem-werdykt.zaznacz-nie { color: var(--danger); }
+.test-czatem-kafelki li {
+  flex-wrap: wrap;
+}
+.test-czatem-kafelki .zaznacz-niesprawdzony .test-czatem-ocena { background: var(--muted); }
+.test-czatem-kafelki .test-czatem-uchylona .test-czatem-ocena {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--muted);
+  text-decoration: line-through;
+}
+.test-czatem-luki-kafelka {
+  flex-basis: 100%;
+  margin: 0 0 0 82px;
+  padding-left: 16px;
+  color: var(--ink-soft);
+}
+.test-czatem-sprzeciw,
+.test-czatem-sprzeciw-pole {
+  flex-basis: 100%;
+  margin-left: 82px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: var(--ink-soft);
+}
+.test-czatem-sprzeciw-pole input {
+  flex: 1;
+  min-width: 200px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+.test-czatem-nie-zgadzam {
+  font-size: 12px;
+  margin-left: auto;
+}
+.test-czatem-skutki {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel-alt);
+}
+.test-czatem-skutki[data-skutki='zaliczone'] { border-left-color: var(--ocena-tak, #2f8f5b); }
+.test-czatem-skutki[data-skutki='luki'] { border-left-color: var(--danger); }
+.test-czatem-tabela {
+  border-collapse: collapse;
+  font-size: var(--fs-4);
+}
+.test-czatem-tabela th,
+.test-czatem-tabela td {
+  text-align: left;
+  padding: 3px 10px 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+.test-czatem-tabela th { color: var(--muted); font-weight: 600; }
+.test-czatem-tabela .zaznacz-tak { color: var(--ocena-tak, #2f8f5b); }
+.test-czatem-tabela .zaznacz-czesciowo { color: #c7881d; }
+.test-czatem-tabela .zaznacz-nie { color: var(--danger); }
+.test-czatem-tabela .zaznacz-niesprawdzony { color: var(--muted); }
+.test-czatem-pomin {
+  align-self: flex-start;
+  font-size: 12px;
+}
+.test-czatem-wymagania-proba ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.sesja-wymagania-czat {
+  margin: 2px 0 0;
+  padding-left: 16px;
+  white-space: normal;
+}
+.sesja-wymagania-zrodlo {
+  font-weight: 600;
+  color: var(--danger);
+}

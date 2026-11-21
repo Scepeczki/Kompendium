@@ -124,29 +124,36 @@ await karta?.close()
 const polecenie = await page.evaluate(() => navigator.clipboard.readText())
 check('test czatem: polecenie w schowku', polecenie.includes('Kula'), polecenie.slice(0, 60))
 check('próba: bez „Pomiń czat"', (await page.locator('[data-proba="czat"] button:has-text("Pomiń")').count()) === 0)
-check('polecenie: wzór, zasady i przykład podsumowania', polecenie.includes('Zasady podsumowania') && polecenie.includes('Przykład (sektor z trzema kafelkami') &&
+check('polecenie: wzór, zasady i przykład podsumowania', polecenie.includes('Zasady podsumowania') && polecenie.includes('Przykład (sektor z czterema kafelkami') && polecenie.includes('NIESPRAWDZONY') &&
   polecenie.includes('bloku kodu'))
-await page.click('[data-proba="czat"] button:has-text("Są luki")')
+check('próba: gotowe podsumowania do kliknięcia', (await page.locator('[data-proba="czat"] .test-czatem-przyklady button').count()) >= 4)
 // tak, jak poda to czat: blok kodu, nazwy z rodzajem, pusty klucz
 await page.fill('[data-proba="czat"] .test-czatem-wklej textarea',
   'Dzięki za rozmowę.\n```\nWYNIK: NIEZALICZONE\nKAFELKI:\n- Definicja: Kula: TAK — dobrze.\n- Otoczenie: CZĘŚCIOWO — bez przykładu.\n- Zbiór domknięty: NIE — pomylony.\nLUKI:\n- brak przykładu\nKLUCZ:\n- brak\n```')
+await page.waitForTimeout(400)
 check('odczyt bloku kodu: 3 kafelki, „- brak" w kluczu = brak klucza', (await page.locator('[data-proba="czat"] .test-czatem-odczyt li').count()) === 3 &&
   (await page.locator('[data-proba="czat"] .test-czatem-odczyt:has-text("klucz odpowiedzi")').count()) === 0)
 await page.fill('[data-proba="czat"] .test-czatem-wklej textarea',
   'Super.\n**WYNIK: NIEZALICZONE**\nKAFELKI:\n- Kula: TAK — dobrze\n- Otoczenie: CZĘŚCIOWO — bez przykładu\n- Zbiór domknięty: NIE — myli z otwartym\nLUKI:\n- definicja otoczenia\nKLUCZ:\n- Otoczenie: zbiór zawierający kulę wokół punktu.')
+await page.waitForTimeout(400)
 check('odczyt odpowiedzi czatu: oceny kafelków', (await page.locator('[data-proba="czat"] .test-czatem-odczyt li').count()) === 3 &&
   (await page.locator('[data-proba="czat"] .test-czatem-odczyt li.zaznacz-nie').innerText()).includes('Zbiór domknięty'))
-await page.click('[data-proba="czat"] button:has-text("Zapisz luki")')
-await page.waitForSelector('[data-proba="czat"] .test-czatem-luki')
+await page.click('[data-proba="czat"] [data-zapisz-czat]')
+await page.waitForSelector('[data-proba="czat"] .test-czatem-luki', { timeout: 5000 }).catch(() => console.log('BŁĘDY:', errors.join(' | ')))
 const luki = await page.locator('[data-proba="czat"] .test-czatem-luki pre').innerText()
 check('dogrywka: same luki (bez ocen i klucza w środku)', luki.includes('definicja otoczenia') && !luki.includes('KLUCZ') && !luki.includes('Kula'), luki)
 check('dogrywka: oceny kafelków i klucz odpowiedzi', (await page.locator('[data-proba="czat"] .test-czatem-luki .test-czatem-kafelki li').count()) === 3 &&
   (await page.locator('[data-proba="czat"] .test-czatem-klucz').count()) === 1)
 check('„Tylko kopiuj" jest osobno', (await page.locator('[data-proba="czat"] button:has-text("Tylko kopiuj")').count()) === 1)
 check('po lukach: dogrywka z lukami', (await page.locator('[data-proba="czat"] .test-czatem-luki').innerText()).includes('otoczenia') &&
-  (await page.locator('[data-proba="czat"] button:has-text("Dogrywka")').count()) === 1)
-await page.click('[data-proba="czat"] button:has-text("Zaliczone")')
-check('dogrywka zaliczona: komunikat, co byłoby dalej', (await page.locator('[data-proba="czat"] .settings-status').innerText()).includes('Zaliczone'))
+  (await page.locator('[data-proba="czat"] .test-czatem-krok button:has-text("Dogrywka")').count()) === 1)
+check('próba: skutki — ocena łączna (Tak + NIE = Nie)', (await page.locator('[data-proba="czat"] .test-czatem-tabela').innerText()).includes('słaby, do poprawy'))
+check('próba: luki trafiły do wymagań następnego testu', (await page.locator('[data-proba="czat"] .test-czatem-wymagania-proba').count()) === 1)
+await page.click('[data-proba="czat"] .test-czatem-przyklady button:has-text("Dogrywka zaliczona")')
+await page.click('[data-proba="czat"] [data-zapisz-czat]')
+await page.waitForSelector('[data-proba="czat"] .settings-status')
+check('dogrywka zaliczona: komunikat, co byłoby dalej', (await page.locator('[data-proba="czat"] .test-czatem-skutki').innerText()).includes('Zaliczone') &&
+  (await page.locator('[data-proba="czat"] .settings-status').innerText()).includes('poszedłby dalej'))
 check('po czacie na próbę baza bez zmian', (await baza()) === przed)
 
 console.log(`BŁĘDY KONSOLI: ${errors.length ? errors.join(' | ') : 'brak'}`)

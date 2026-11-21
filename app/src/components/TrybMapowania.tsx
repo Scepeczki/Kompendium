@@ -700,6 +700,18 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
                 wartosc={j.wymagania?.[biezacy.klucz] ?? ''}
                 onZmiana={(t) => void zapiszWymagania(j.id, biezacy.klucz, t)}
               />
+              {!!j.lukiKafelkow?.[biezacy.klucz]?.length && (
+                <div className="sesja-wymagania tm-wymagania-czat">
+                  <span className="sesja-etykieta">Do wymagań dopisał czat (znikną po „Tak" w teście)</span>
+                  <ul className="sesja-wymagania-czat">
+                    {j.lukiKafelkow[biezacy.klucz].map((l, i) => (
+                      <li key={i}>
+                        <span className="sesja-wymagania-zrodlo">z czatu:</span> {l}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <PasekMapy editor={edytor} />
               <KartkaMapy
                 klucz={`${j.id}:${biezacy.klucz}`}

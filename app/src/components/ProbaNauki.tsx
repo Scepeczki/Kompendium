@@ -4,7 +4,7 @@ import { db } from '../db'
 import { naPulpicie, powiadom } from '../pulpit'
 import { CzatNaProbe } from './TestCzatem'
 import type { CelSesji } from './SesjaNauki'
-import type { JednostkaNauki } from '../types'
+import type { JednostkaNauki, Przypomnienie } from '../types'
 
 const komunikat = (tekst: string) =>
   window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: tekst }))
@@ -24,6 +24,7 @@ export function ProbaNauki() {
   const [wybrany, setWybrany] = useState('')
   const sektor = sektory.find((s) => s.id === wybrany) ?? sektory[0]
   const [czatJ, setCzatJ] = useState<JednostkaNauki | null>(null)
+  const [zakryte, setZakryte] = useState<Przypomnienie>('tak')
 
   return (
     <>
@@ -110,9 +111,46 @@ export function ProbaNauki() {
                   >
                     Test po mapowaniu (pierwszy)
                   </button>
+                  <button
+                    className="btn"
+                    data-proba-rozszerzona
+                    onClick={() =>
+                      otworzSesje({
+                        jednostkaId: sektor.id,
+                        proba: { etap: 'powtorki', czatNastepnym: true, douczanie: undefined, luki: undefined, przemapowanie: undefined },
+                      })
+                    }
+                  >
+                    Powtórka rozszerzona z czatem
+                  </button>
+                  <button
+                    className="btn"
+                    data-proba-krotki
+                    onClick={() =>
+                      otworzSesje({
+                        jednostkaId: sektor.id,
+                        przemapowanie: true,
+                        proba: {
+                          etap: 'czat',
+                          luki: '- (próba) luki z dogrywek',
+                          przemapowanie: {
+                            wezly: sektor.wezly.slice(0, 2),
+                            zadania: [],
+                            etap: 'przerwa',
+                            od: new Date(0).toISOString(),
+                          },
+                        },
+                      })
+                    }
+                  >
+                    Krótki test po limicie dogrywek
+                  </button>
                 </div>
                 <p className="settings-hint">
-                  Piszesz z pamięci, odsłaniasz, oceniasz każdy kafelek: Tak / Częściowo / Nie.
+                  Piszesz z pamięci, odsłaniasz, oceniasz każdy kafelek: Tak / Częściowo / Nie. Po
+                  pierwszym teście od razu test czatem — z gotowymi podsumowaniami do kliknięcia.
+                  „Powtórka rozszerzona" pokazuje łączenie ocen w zwykłej powtórce, a „Krótki test"
+                  — test samych kafelków z NIE po limicie dogrywek.
                 </p>
               </div>
 
@@ -120,16 +158,24 @@ export function ProbaNauki() {
                 <span className="settings-label">Test czatem i dogrywka</span>
                 {!czatJ ? (
                   <div className="settings-backup-actions">
+                    <label className="settings-pole">
+                      <span>Test zakryty przed czatem</span>
+                      <select className="input" value={zakryte} onChange={(e) => setZakryte(e.target.value as Przypomnienie)}>
+                        <option value="tak">wszystko Tak</option>
+                        <option value="czesciowo">wszystko Częściowo</option>
+                      </select>
+                    </label>
                     <button className="btn btn-primary" onClick={() => setCzatJ(sektor)}>
                       Zacznij test czatem
                     </button>
                   </div>
                 ) : (
-                  <CzatNaProbe key={czatJ.id} j={czatJ} onKoniec={() => setCzatJ(null)} />
+                  <CzatNaProbe key={czatJ.id} j={czatJ} zakryte={() => zakryte} />
                 )}
                 <p className="settings-hint">
-                  Polecenie naprawdę trafia do schowka i otwiera się czat. „Są luki" → wklejasz luki
-                  i wtedy pojawia się dogrywka tylko z nich.
+                  Nie musisz rozmawiać z czatem: kliknij gotowe podsumowanie (wszystko TAK, z CZĘŚCIOWO,
+                  z NIE i NIESPRAWDZONY, same luki) i zobacz, co program z nim zrobi — ocena łączna,
+                  luki w wymaganiach, dogrywka, limit dogrywek. Możesz też wkleić prawdziwe podsumowanie.
                 </p>
               </div>
             </>

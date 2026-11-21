@@ -6,7 +6,7 @@ import { useBlockTypes } from '../blockTypes'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Icon } from './Icon'
-import { CzatNaProbe, TestCzatem } from './TestCzatem'
+import { CzatNaProbe, TestCzatem, przykladyPodsumowan, type CzatWSesji } from './TestCzatem'
 import { useZadania } from './ZadaniaSektora'
 import { eksperyment, otworzCzat, zlozPolecenie } from '../czat'
 import {
@@ -17,6 +17,7 @@ import {
   czyZadanie,
   idZadania,
   kluczZadania,
+  laczna,
   znaneKlucze,
   ocenialny,
   opisDni,
@@ -48,6 +49,8 @@ export interface CelSesji {
   jednostkaId?: string
   /** „Doucz nowe": test tylko z nowych elementów nauczonego sektora. */
   douczanie?: boolean
+  /** Krótki test po przemapowaniu kafelków z NIE (po limicie dogrywek). */
+  przemapowanie?: boolean
   /** Kafelek osobno (słaby albo nowy w nauczonym sektorze). */
   klucz?: string
   /** Kafelek osobno: jego sektor (dla nowych kafelków jeszcze bez pamięci). */
@@ -175,6 +178,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const kafelek = useMemo(() => new Map((kafelki ?? []).map((c) => [c.id, c])), [kafelki])
 
   // ---- co jest w sesji ----
+  /** Sektor, z którego są wymagania kafelków (też dla kafelka osobno). */
+  const wymSektora = j?.rodzaj === 'sektor' ? j : sektorK
   const sektor = j?.rodzaj === 'sektor' ? j : undefined
   const fiszka = j?.rodzaj === 'fiszka' ? j : undefined
   /** Powtórka rozszerzona — czat, zadania albo trudny tryb (zakryte też nazwy).
@@ -182,12 +187,15 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const [rozszerzona, setRozszerzona] = useState<RodzajRozszerzonej | null | undefined>(undefined)
   useEffect(() => {
     if (rozszerzona === undefined && j)
-      setRozszerzona(!cel.douczanie && czyRozszerzona(j) ? rodzajRozszerzonej(j) : null)
+      setRozszerzona(!cel.douczanie && !cel.przemapowanie && czyRozszerzona(j) ? rodzajRozszerzonej(j) : null)
   }, [j, rozszerzona, cel.douczanie])
   const douczanie = !!cel.douczanie
+  const przemapowanie = !!cel.przemapowanie
+  /** Douczanie albo krótki test po przemapowaniu: w teście tylko te elementy. */
+  const czesc = douczanie ? sektor?.douczanie : przemapowanie ? sektor?.przemapowanie : undefined
   const trudny = rozszerzona === 'trudny'
   /** Wynik czatu w powtórce rozszerzonej (albo pominięty dziś). */
-  const [czat, setCzat] = useState<{ zaliczone: boolean; luki?: string } | undefined>()
+  const [czat, setCzat] = useState<CzatWSesji | undefined>()
   const [czatPominiety, setCzatPominiety] = useState(false)
 
   /** Test końcowy powtórki zero — już z zadaniami. */
@@ -207,14 +215,14 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const zadaniaSesji = useMemo(() => {
     const l = wszystkieZadania ?? []
     if (!sektor) return []
-    if (douczanie) return l.filter((c) => sektor.douczanie?.zadania.includes(c.id))
+    if (czesc) return l.filter((c) => czesc.zadania.includes(c.id))
     if (koncowy) return l
     const nowe = l.filter((c) => noweZadania.has(c.id))
     if (rozszerzona !== 'zadanie') return nowe
     const wybrane = new Set([...zadaniaDoPowtorki(sektor, l.map((c) => c.id)), ...nowe.map((c) => c.id)])
     return l.filter((c) => wybrane.has(c.id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wszystkieZadania, koncowy, rozszerzona, sektor?.id, sektor?.rozszerzonych, douczanie, noweZadania])
+  }, [wszystkieZadania, koncowy, rozszerzona, sektor?.id, sektor?.rozszerzonych, czesc, noweZadania])
   const wezly: PathNode[] = sektor ? wezlySektora(sektor, sciezka) : []
   /** Kafelek rodzaju „Zadanie" stojący w Linii sektora to też zadanie:
    *  w teście widać jego treść, a rozwiązanie jest zakryte. */
@@ -237,7 +245,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         typ: c.type,
         zadanie: true,
       }))
-      const tylkoNowe = douczanie ? new Set(sektor.douczanie?.wezly ?? []) : null
+      const tylkoNowe = czesc ? new Set(czesc.wezly) : null
       return [...wezly.filter(ocenialny).filter((n) => !tylkoNowe || tylkoNowe.has(n.id)).map((n) => ({
         klucz: kluczWezla(n, sciezka.id)!,
         wezel: n,
@@ -277,7 +285,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       },
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId, zadaniaSesji, typZadania, douczanie])
+  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId, zadaniaSesji, typZadania, czesc])
 
   // ---- stan sesji ----
   const [odpowiedzi, setOdpowiedzi] = useState<Record<string, string>>({})
@@ -291,6 +299,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   /** Próba: sektor w stanie, w jakim byłby po zapisie (zapis jest wycofany). */
   const [jPoProbie, setJPoProbie] = useState<JednostkaNauki | undefined>()
   const [zapisuje, setZapisuje] = useState(false)
+  /** Próba: dane testu zakrytego — czat na próbę odtwarza je przed sobą. */
+  const daneProby = useRef<Parameters<typeof zapiszSesje>[0] | null>(null)
 
   const odslon = (klucz: string, podejrzyj: boolean) => {
     setOdkryte((s) => new Set(s).add(klucz))
@@ -302,14 +312,28 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
 
   const wszystkieOcenione = pozycje.length > 0 && pozycje.every((p) => oceny[p.klucz])
   // porównanie z mapą tylko wtedy, gdy sektor ma mapę
-  const zStruktura = !!sektor && !douczanie && !!sektor.mapa?.trim()
+  const zStruktura = !!sektor && !czesc && !!sektor.mapa?.trim()
   const czekaNaCzat = rozszerzona === 'czat' && !czat && !czatPominiety
   const gotowe = wszystkieOcenione && (!zStruktura || !!struktura) && !czekaNaCzat
+  /** Ocena łączna w powtórce rozszerzonej z czatem: gorsza z zakrytego
+   *  i czatu (NIESPRAWDZONY i sprzeciw nic nie zmieniają). */
+  const { ocenyRazem, slabeZCzatu } = useMemo(() => {
+    const razem = { ...oceny }
+    const slabe: string[] = []
+    for (const k of czat?.kafelki ?? []) {
+      if (!k.klucz || k.sprzeciw || k.ocena === 'niesprawdzony') continue
+      const p = pozycje.find((x) => x.wezel?.id === k.klucz || x.klucz === k.klucz)
+      if (!p || !oceny[p.klucz]) continue
+      razem[p.klucz] = laczna(oceny[p.klucz], k.ocena)
+      if (razem[p.klucz] !== 'tak') slabe.push(p.klucz)
+    }
+    return { ocenyRazem: razem, slabeZCzatu: slabe }
+  }, [oceny, czat, pozycje])
   const zZaznaczen: Ocena | null = gotowe
     ? cel.klucz || fiszka
-      ? ({ tak: 3, czesciowo: 2, nie: 1 } as const)[oceny[pozycje[0].klucz]]
+      ? ({ tak: 3, czesciowo: 2, nie: 1 } as const)[ocenyRazem[pozycje[0].klucz]]
       : podpowiedz(
-          pozycje.map((p) => oceny[p.klucz]),
+          pozycje.map((p) => ocenyRazem[p.klucz]),
           struktura,
         )
     : null
@@ -335,18 +359,21 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       klucz: cel.klucz,
       sektorId: cel.klucz ? (cel.sektorId ?? pamiecK?.jednostkaId) : undefined,
       ocena,
-      kafelki: oceny,
+      kafelki: ocenyRazem,
       wezlyKafelkow,
       struktura,
       odpowiedzi,
       czasMs: Date.now() - start.current,
       trudny,
       rozszerzona: rozszerzona && !(rozszerzona === 'czat' && czatPominiety) ? rozszerzona : undefined,
-      czat: rozszerzona === 'czat' ? czat : undefined,
+      czat: rozszerzona === 'czat' && czat ? { ...czat, zakryte: oceny } : undefined,
+      slabeZCzatu: slabeZCzatu.length ? slabeZCzatu : undefined,
       pathId,
       douczanie: douczanie || undefined,
+      przemapowanie: przemapowanie || undefined,
     }
     let po: PoSesji
+    daneProby.current = dane
     if (cel.proba) {
       const r = await naProbe(async () => {
         // próba: sektor w stanie z próby, zapis i tak zostanie wycofany
@@ -380,6 +407,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       : (pozycje[0]?.nazwa ?? 'Kafelek')
   const rodzajSesji = cel.klucz
     ? 'Kafelek osobno'
+    : przemapowanie
+      ? 'Krótki test po przemapowaniu'
     : douczanie
       ? 'Douczanie nowych'
       : koncowy
@@ -420,7 +449,13 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               </span>
             )}
           </div>
-          {wynik.douczanie ? (
+          {wynik.przemapowanie ? (
+            <p className="sesja-wynik-glowny">
+              Krótki test zapisany — terminy się nie zmieniły. Kafelki na Tak mają już zamknięte luki
+              z czatu. Teraz <strong>znowu dogrywka</strong> (przy sektorze w widoku Nauka); licznik
+              dogrywek liczy od zera.
+            </p>
+          ) : wynik.douczanie ? (
             <p className="sesja-wynik-glowny">
               Nowe zapisane. Każdy ma własny termin i wraca osobno, aż dogoni sektor — termin
               samego sektora się nie zmienia.
@@ -456,7 +491,20 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                   <strong>test czatem</strong>. Możesz go zrobić teraz albo później — czeka przy sektorze
                   w widoku Nauka.
                 </p>
-                {cel.proba ? <CzatNaProbe j={jw} /> : <TestCzatem j={jw} tryb="zero" />}
+                {cel.proba ? (
+                  <CzatNaProbe
+                    j={jw}
+                    przedCzatem={async () => {
+                      // ten sam test zakryty jeszcze raz — w tej samej, wycofywanej transakcji
+                      if (j && daneProby.current) {
+                        await db.nauka.put(j)
+                        await zapiszSesje(daneProby.current)
+                      }
+                    }}
+                  />
+                ) : (
+                  <TestCzatem j={jw} tryb="zero" />
+                )}
               </>
             ) : (
               <p className="sesja-wynik-glowny">
@@ -488,7 +536,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           )}
           <WynikKafelkow
             pozycje={pozycje}
-            oceny={oceny}
+            oceny={ocenyRazem}
             podejrzane={podejrzane}
             struktura={zStruktura ? struktura : undefined}
           />
@@ -534,7 +582,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         p={p}
         trudny={false}
         zadanie
-        wymagania={j?.wymagania?.[p.wezel?.id ?? p.klucz]}
+        wymagania={wymSektora?.wymagania?.[p.wezel?.id ?? p.klucz]}
+        zCzatu={wymSektora?.lukiKafelkow?.[p.wezel?.id ?? p.klucz]}
         odpowiedz={odpowiedzi[p.klucz] ?? ''}
         onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
         odkryty={odkryte.has(p.klucz)}
@@ -636,7 +685,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                   p={p}
                   trudny={trudny}
                   odpowiedz={odpowiedzi[p.klucz] ?? ''}
-                  wymagania={j?.wymagania?.[n.id]}
+                  wymagania={wymSektora?.wymagania?.[n.id]}
+                  zCzatu={wymSektora?.lukiKafelkow?.[n.id]}
                   onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
                   odkryty={odkryte.has(p.klucz)}
                   podejrzany={podejrzane.has(p.klucz)}
@@ -661,6 +711,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                 key={p.klucz}
                 p={p}
                 trudny={false}
+                wymagania={p.wezel ? wymSektora?.wymagania?.[p.wezel.id] : undefined}
+                zCzatu={p.wezel ? wymSektora?.lukiKafelkow?.[p.wezel.id] : undefined}
                 odpowiedz={odpowiedzi[p.klucz] ?? ''}
                 onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
                 odkryty={odkryte.has(p.klucz)}
@@ -722,7 +774,19 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                   Ta powtórka jest rozszerzona: po zakrywaniu krótki test czatem. Czat jest egzaminatorem —
                   pyta po jednym, nie podpowiada, na końcu wypisuje luki.
                 </p>
-                <TestCzatem j={j} tryb="rozszerzona" wynik={czat} onWynik={(z, l) => setCzat({ zaliczone: z, luki: l })} />
+                <TestCzatem
+                  j={j}
+                  tryb="rozszerzona"
+                  wynik={czat}
+                  onWynik={setCzat}
+                  przyklady={cel.proba ? przykladyPodsumowan(pozycje.map((p) => p.nazwa), false) : undefined}
+                />
+                {czat && slabeZCzatu.length > 0 && (
+                  <p className="hint">
+                    Czat obniżył ocenę: {pozycje.filter((p) => slabeZCzatu.includes(p.klucz) && ocenyRazem[p.klucz] !== oceny[p.klucz]).map((p) => p.nazwa).join(', ') || '—'}.
+                    Liczy się gorsza ocena; te kafelki będą słabe.
+                  </p>
+                )}
                 {!czat && (
                   <button className="btn btn-link" onClick={() => setCzatPominiety(true)}>
                     Pomiń czat dziś
@@ -768,6 +832,10 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                     : 'Sprawdź wszystkie kafelki — wtedy podpowiem ocenę.'
                   : 'Sprawdź kafelek — wtedy podpowiem ocenę.'}
             </p>
+          ) : przemapowanie ? (
+            <button className="btn btn-primary sesja-zapisz" disabled={zapisuje} onClick={() => zapisz(3)}>
+              Zapisz — terminy bez zmian, potem dogrywka
+            </button>
           ) : douczanie ? (
             <button className="btn btn-primary sesja-zapisz" disabled={zapisuje} onClick={() => zapisz(3)}>
               Zapisz — każdy nowy ma własną ocenę
@@ -891,6 +959,7 @@ function ElementSesji({
   typy,
   zadanie,
   wymagania,
+  zCzatu,
 }: {
   p: Pozycja
   trudny: boolean
@@ -906,6 +975,8 @@ function ElementSesji({
   tresc: () => React.ReactNode
   /** Wymagania z mapowania — pod nazwą, nad polem na odpowiedź. */
   wymagania?: string
+  /** Luki z czatu dopisane do wymagań („z czatu: …"). */
+  zCzatu?: string[]
   /** Fiszka z zakrytą jedną stroną: to, co widać od początku. */
   widoczne?: () => React.ReactNode
   typy: ReturnType<typeof useBlockTypes>
@@ -950,11 +1021,20 @@ function ElementSesji({
           )}
         </div>
         <div className="sesja-prawa">
-          {!trudny && wymagania?.trim() && (
-            <p className="sesja-wymagania">
+          {!trudny && (wymagania?.trim() || !!zCzatu?.length) && (
+            <div className="sesja-wymagania">
               <span className="sesja-etykieta">Wymagania</span>
-              {wymagania}
-            </p>
+              {wymagania?.trim() && <span>{wymagania}</span>}
+              {!!zCzatu?.length && (
+                <ul className="sesja-wymagania-czat">
+                  {zCzatu.map((l, i) => (
+                    <li key={i}>
+                      <span className="sesja-wymagania-zrodlo">z czatu:</span> {l}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
           {!odkryty ? (
             <textarea

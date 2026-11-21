@@ -13,7 +13,7 @@ import { DialogProvider } from './components/Dialogs'
 import { Icon } from './components/Icon'
 import { Powtorki } from './components/Powtorki'
 import { SesjaNauki, type CelSesji } from './components/SesjaNauki'
-import { minutyDouczania, minutyPrzerwy, planNauki } from './nauka'
+import { minutyDouczania, minutyPrzemapowania, minutyPrzerwy, planNauki } from './nauka'
 import { wez } from './naukaUstawienia'
 import { powiadom } from './pulpit'
 
@@ -110,7 +110,13 @@ function Widok() {
       } else if (a.startsWith('test:')) {
         const [, id, rodzaj] = a.split(':')
         setShowSettings(false)
-        setSesja(rodzaj === 'douczanie' ? { jednostkaId: id, douczanie: true } : { jednostkaId: id })
+        setSesja(
+          rodzaj === 'douczanie'
+            ? { jednostkaId: id, douczanie: true }
+            : rodzaj === 'przemapowanie'
+              ? { jednostkaId: id, przemapowanie: true }
+              : { jednostkaId: id },
+        )
       }
       // 'aktualizacja' — pasek „Jest nowa wersja" już jest na dole okna
     }
@@ -139,6 +145,18 @@ function Widok() {
       const douczane = (await db.nauka.where('etap').equals('powtorki').toArray()).filter(
         (j) => j.douczanie?.etap === 'przerwa',
       )
+      // krótki test po przemapowaniu (limit dogrywek) też ma przerwę
+      const przemapowane = (await db.nauka.where('etap').equals('czat').toArray()).filter(
+        (j) => j.przemapowanie?.etap === 'przerwa',
+      )
+      for (const j of przemapowane) {
+        const klucz = `${j.id}|p|${j.przemapowanie!.od}`
+        if (juz.has(klucz) || minutyPrzemapowania(j) < wez('przypomnij')) continue
+        juz.add(klucz)
+        const tekst = `Przerwa minęła — czas na krótki test w sektorze „${j.nazwa}".`
+        window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: tekst }))
+        void powiadom(tekst, { akcja: `test:${j.id}:przemapowanie`, przycisk: 'Zacznij test' })
+      }
       for (const j of [...wPrzerwie, ...douczane]) {
         const dz = j.etap === 'powtorki'
         const klucz = `${j.id}|${dz ? j.douczanie!.od : j.etapOd}`

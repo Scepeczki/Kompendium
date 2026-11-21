@@ -568,6 +568,25 @@ export interface JednostkaNauki {
   czatKafelki?: OcenaCzatu[]
   /** Klucz odpowiedzi od czatu: wzorcowe odpowiedzi do słabszych kafelków. */
   kluczCzatu?: string
+  /** Luki z czatu przypisane do kafelków (klucz jak w wymaganiach). W teście
+   *  stoją w wymaganiach jako „z czatu: …"; znikają, gdy kafelek pójdzie na Tak
+   *  w teście zakrytym albo gdy nie zgodzisz się z oceną czatu. */
+  lukiKafelkow?: Record<string, string[]>
+  /** Nieudane dogrywki z rzędu (powtórka zero). Po limicie: przemapowanie
+   *  kafelków z NIE, przerwa, krótki test — i licznik od zera. */
+  dogrywek?: number
+  /** Ile dogrywek było w tej powtórce zero (do historii). */
+  dogrywekRazem?: number
+  /** Po limicie dogrywek: mapowanie samych kafelków z NIE → przerwa →
+   *  krótki test z nich (bez zmiany terminów) → znowu dogrywka. */
+  przemapowanie?: {
+    wezly: string[]
+    zadania: string[]
+    etap: 'mapowanie' | 'przerwa'
+    od: string
+  }
+  /** Czat pominięty — najbliższa powtórka sektora będzie rozszerzona z czatem. */
+  czatNastepnym?: boolean
   /** Ile było powtórek rozszerzonych (wybiera, co tym razem: czat, zadania
    *  czy trudny tryb). */
   rozszerzonych?: number
@@ -592,8 +611,13 @@ export interface JednostkaNauki {
 /** Jak czat ocenił jeden kafelek. */
 export interface OcenaCzatu {
   nazwa: string
-  ocena: 'tak' | 'czesciowo' | 'nie'
+  /** `niesprawdzony` — czat o ten kafelek nie pytał; liczy się jak brak oceny. */
+  ocena: 'tak' | 'czesciowo' | 'nie' | 'niesprawdzony'
   uwaga?: string
+  /** Luki czatu przypisane do tego kafelka. */
+  luki?: string[]
+  /** „Nie zgadzam się z oceną" — uzasadnienie. Uchyla ocenę czatu. */
+  sprzeciw?: string
   /** Węzeł ścieżki (albo zadanie:id), jeśli nazwa pasuje do kafelka sektora. */
   klucz?: string
 }
@@ -610,6 +634,9 @@ export interface PamiecKafelka {
   termin: string
   /** Wpadki w powtórkach — wiele znaczy „uparty kafelek, przemapuj go". */
   wpadki: number
+  /** Stan sprzed ostatniej oceny i sama ocena — żeby czat mógł ją jeszcze
+   *  obniżyć (ocena łączna zapisuje się do karty raz, jako ocena z tamtego dnia). */
+  przed?: { karta?: KartaFsrs; slaby: boolean; ocena: 1 | 2 | 3 | 4; kiedy: string }
   /** Gdzie był ostatnio powtarzany — żeby osobno pokazać go tak jak tam. */
   jednostkaId?: string
   pathId?: string
@@ -635,6 +662,18 @@ export interface WpisNauki {
   /** Test czatem: wynik (albo pominięty) i luki, które wypisał czat. */
   czat?: 'zaliczone' | 'luki' | 'pominiety'
   luki?: string
+  /** Test czatem: jak czat ocenił kafelki (z NIESPRAWDZONY i sprzeciwami). */
+  czatKafelki?: OcenaCzatu[]
+  /** Ocena z testu zakrytego (klucz pamięci) — przy wpisie czatu. */
+  zakryte?: Record<string, Przypomnienie>
+  /** Ocena łączna: gorsza z testu zakrytego i czatu (klucz pamięci). */
+  lacznie?: Record<string, Przypomnienie>
+  /** „Nie zgadzam się z oceną" — z uzasadnieniem. */
+  sprzeciwy?: { nazwa: string; ocena: string; powod: string }[]
+  /** Numer dogrywki (0 = pierwszy test czatem). */
+  dogrywka?: number
+  /** Krótki test po przemapowaniu kafelków z NIE (bez zmiany terminów). */
+  przemapowanie?: boolean
   /** 1 Nie pamiętam, 2 Trudno, 3 Dobrze, 4 Łatwo. */
   ocena?: 1 | 2 | 3 | 4
   kafelki?: Record<string, Przypomnienie>

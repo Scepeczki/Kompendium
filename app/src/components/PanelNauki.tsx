@@ -14,6 +14,9 @@ import {
   naukaOdNowa,
   ocenialny,
   douczanieOtwarte,
+  minutyPrzemapowania,
+  przemapowanieOtwarte,
+  skonczPrzemapowanie,
   kluczZadania,
   minutyDouczania,
   opisDni,
@@ -363,6 +366,7 @@ export function PanelNauki({
                   setMapowany(s.j.id)
                 }}
                 onTestNowych={() => onStart?.({ jednostkaId: s.j.id, douczanie: true })}
+                onTestPrzemapowania={() => onStart?.({ jednostkaId: s.j.id, przemapowanie: true })}
                 onOdNowa={() => odNowa(s.j)}
                 onPrzerwij={() => przerwij(s.j)}
                 onUsun={() => usun(s.j)}
@@ -427,6 +431,7 @@ function KartaSektora({
   nowe,
   onDoucz,
   onTestNowych,
+  onTestPrzemapowania,
   onOdNowa,
   onPrzerwij,
   onUsun,
@@ -451,6 +456,7 @@ function KartaSektora({
   nowe: { wezly: string[]; zadania: string[] }
   onDoucz: () => void
   onTestNowych: () => void
+  onTestPrzemapowania: () => void
   onOdNowa: () => void
   onPrzerwij: () => void
   onUsun: () => void
@@ -550,7 +556,38 @@ function KartaSektora({
               <Icon name="przerwa" size={0.95} /> Przerwa — test za {zostalo} min. Odejdź od tego na chwilę.
             </span>
           ))}
-        {j.etap === 'czat' && <span>{j.luki ? 'Luki z czatu — popraw i dogrywka' : 'Test zaliczony — teraz test czatem'}</span>}
+        {j.etap === 'czat' && !j.przemapowanie && (
+          <span>{j.luki ? 'Luki z czatu — popraw mapy i dogrywka' : 'Test zaliczony — teraz test czatem'}</span>
+        )}
+        {j.etap === 'czat' && j.przemapowanie && (
+          <>
+            {j.przemapowanie.etap === 'mapowanie' ? (
+              <>
+                <span>
+                  Limit dogrywek — przemapuj kafelki z NIE ({j.przemapowanie.wezly.length + j.przemapowanie.zadania.length})
+                </span>
+                <button className="btn btn-primary btn-maly" onClick={onMapuj}>
+                  Mapuj
+                </button>
+                <button className="btn btn-maly" onClick={() => skonczPrzemapowanie(j.id)}>
+                  Skończyłem
+                </button>
+              </>
+            ) : przemapowanieOtwarte(j) ? (
+              <>
+                <span>Po przerwie — krótki test gotowy</span>
+                <button className="btn btn-primary btn-maly" onClick={onTestPrzemapowania}>
+                  Krótki test
+                </button>
+              </>
+            ) : (
+              <span className="karta-sektora-przerwa">
+                <Icon name="przerwa" size={0.95} /> Przerwa — krótki test za{' '}
+                {Math.max(0, Math.ceil(wez('przerwa') - minutyPrzemapowania(j)))} min
+              </span>
+            )}
+          </>
+        )}
         {j.etap === 'zadania' && (
           <>
             <span>
@@ -632,7 +669,7 @@ function KartaSektora({
           Przerwij naukę
         </button>
       )}
-      {j.etap === 'czat' && <TestCzatem j={j} tryb="zero" />}
+      {j.etap === 'czat' && !j.przemapowanie && <TestCzatem j={j} tryb="zero" />}
       {j.etap === 'zadania' && (
         <p className="hint karta-sektora-rada">
           Rozwiąż zadania, potem test końcowy.
@@ -641,8 +678,8 @@ function KartaSektora({
       {(aktywny || j.etap === 'zadania') && <ListaZadan j={j} onOtworz={onOtworz} nowe={new Set(nowe.zadania)} />}
       {j.etap === 'powtorki' && j.luki && (
         <details className="karta-sektora-uwaga">
-          <summary>Luki z ostatniego czatu</summary>
-          <pre className="test-czatem-zapisane">{j.luki}</pre>
+          <summary>Luki z ostatniego czatu — dogrywka (dobrowolna)</summary>
+          <TestCzatem j={j} tryb="zero" />
         </details>
       )}
       {zmieniony && j.etap === 'powtorki' && (

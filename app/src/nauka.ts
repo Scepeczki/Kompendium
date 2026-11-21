@@ -141,6 +141,8 @@ const ocenaKafelka = (p: Przypomnienie): Ocena => (p === 'tak' ? 3 : p === 'czes
  *  samym początku, a gdy terminy się oddalą — częściej. */
 export function czyRozszerzona(j: JednostkaNauki): boolean {
   if (j.rodzaj !== 'sektor' || j.etap !== 'powtorki') return false
+  // czat pominięty w powtórce zero — najbliższa powtórka jest z czatem
+  if (j.czatNastepnym) return true
   const n = j.powtorek + 1
   if (n < wez('rozszOd')) return false
   const daleko = (j.karta?.scheduled_days ?? 0) >= wez('rozszDaleko')
@@ -355,8 +357,14 @@ export interface WynikSesji {
   trudny?: boolean
   /** Powtórka rozszerzona: czym (czat, zadania albo trudny tryb). */
   rozszerzona?: RodzajRozszerzonej
-  /** Wynik testu czatem w powtórce rozszerzonej. */
-  czat?: { zaliczone: boolean; luki?: string }
+  /** Wynik testu czatem w powtórce rozszerzonej. `kafelki` — ocena czatu;
+   *  `kafelki` w sesji są już łączne (gorsza z zakrytego i czatu). */
+  czat?: { zaliczone: boolean; luki?: string; kafelki?: OcenaCzatu[]; zakryte?: Record<string, Przypomnienie> }
+  /** Kafelki (klucz pamięci), które czat obniżył do Częściowo/Nie — zawsze słabe. */
+  slabeZCzatu?: string[]
+  /** Krótki test po przemapowaniu kafelków z NIE (po limicie dogrywek):
+   *  terminów nie rusza, zamyka cykl i zeruje licznik dogrywek. */
+  przemapowanie?: boolean
   /** Ścieżka sesji (do zapamiętania, gdzie kafelek był powtarzany). */
   pathId?: string
   /** Kafelek osobno: sektor, który ma dogonić. */
@@ -380,7 +388,65 @@ export interface PoSesji {
   koncowy?: boolean
   /** To było douczanie nowych. */
   douczanie?: boolean
+  /** To był krótki test po przemapowaniu — następna jest dogrywka. */
+  przemapowanie?: boolean
 }
+
+const RANGA: Record<Przypomnienie, Ocena> = { tak: 3, czesciowo: 2, nie: 1 }
+const Z_RANGI: Record<number, Przypomnienie> = { 1: 'nie', 2: 'czesciowo', 3: 'tak', 4: 'tak' }
+
+/** Ocena łączna: gorsza z testu zakrytego i czatu. NIESPRAWDZONY i brak
+ *  oceny czatu nie zmieniają niczego — czat może tylko obniżyć. */
+export function laczna(zakryta: Przypomnienie, czat?: OcenaCzatu['ocena']): Przypomnienie {
+  if (!czat || czat === 'niesprawdzony') return zakryta
+  return RANGA[czat] < RANGA[zakryta] ? czat : zakryta
+}
+
+/** Ocena czatu, która się liczy (bez sprzeciwu, nie NIESPRAWDZONY). */
+const liczySie = (k: OcenaCzatu) => !!k.klucz && !k.sprzeciw && k.ocena !== 'niesprawdzony'
+
+/** Klucz czatu (węzeł albo zadanie:id) → klucz pamięci. */
+async function kluczePamieci(j: JednostkaNauki): Promise<Map<string, string>> {
+  const sciezka = j.pathId ? await db.paths.get(j.pathId) : undefined
+  const out = new Map<string, string>()
+  for (const n of wezlySektora(j, sciezka).filter(ocenialny)) {
+    const k = kluczWezla(n, sciezka?.id ?? '')
+    if (k) out.set(n.id, k)
+  }
+  for (const id of j.zadania ?? []) out.set(kluczZadania(id), kluczZadania(id))
+  return out
+}
+
+/** Luki czatu dopisane do wymagań kafelków (z oceną Częściowo/Nie);
+ *  sprzeciw usuwa luki kafelka. Zwraca nową mapę (albo undefined, gdy pusta). */
+function dopiszLuki(
+  stare: Record<string, string[]> | undefined,
+  kafelki: OcenaCzatu[],
+): Record<string, string[]> | undefined {
+  const m: Record<string, string[]> = { ...(stare ?? {}) }
+  for (const k of kafelki) {
+    if (!k.klucz) continue
+    if (k.sprzeciw) {
+      delete m[k.klucz]
+      continue
+    }
+    if (k.ocena !== 'czesciowo' && k.ocena !== 'nie') continue
+    const nowe = k.luki?.length ? k.luki : k.uwaga ? [k.uwaga] : []
+    const l = [...(m[k.klucz] ?? [])]
+    for (const x of nowe) if (!l.includes(x)) l.push(x)
+    if (l.length) m[k.klucz] = l
+  }
+  return Object.keys(m).length ? m : undefined
+}
+
+/** Sprzeciwy z oceny czatu — do historii. */
+const sprzeciwy = (kafelki?: OcenaCzatu[]) => {
+  const l = (kafelki ?? []).filter((k) => k.sprzeciw).map((k) => ({ nazwa: k.nazwa, ocena: k.ocena, powod: k.sprzeciw! }))
+  return l.length ? l : undefined
+}
+
+/** Klucz pamięci → klucz luk/wymagań (węzeł albo zadanie:id). */
+const kluczLuk = (k: string, wezly: Record<string, string>) => (czyZadanie(k) ? k : wezly[k])
 
 /** Klucz zadania w sesji. Zadania liczą się do oceny sektora, ale nie mają
  *  własnej pamięci — wracają w powtórkach rozszerzonych, nie osobno. */
@@ -441,7 +507,12 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
         .filter(([, p]) => p !== 'tak')
         .map(([k]) => w.wezlyKafelkow[k])
         .filter(Boolean)
-      if (w.douczanie) {
+      if (w.przemapowanie) {
+        // krótki test po przemapowaniu kafelków z NIE: terminów nie rusza,
+        // zamyka cykl — licznik dogrywek od zera, następna jest dogrywka
+        await db.nauka.update(j.id, { przemapowanie: undefined, dogrywek: 0, ostatnia: iso, zmieniono: iso })
+        wynik.przemapowanie = true
+      } else if (w.douczanie) {
         // sektor zostaje przy swoim terminie; nowe dogonią go osobno
         await db.nauka.update(j.id, { douczanie: undefined, ostatnia: iso, zmieniono: iso })
         wynik.douczanie = true
@@ -488,6 +559,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
           ostatniaRozszerzona: rozsz ? powtorek : j.ostatniaRozszerzona,
           rozszerzonych: rozsz ? (j.rozszerzonych ?? 0) + 1 : j.rozszerzonych,
           luki: w.czat ? (w.czat.zaliczone ? undefined : w.czat.luki || j.luki) : j.luki,
+          czatNastepnym: w.rozszerzona === 'czat' && w.czat ? undefined : j.czatNastepnym,
           ostatnia: iso,
           zmieniono: iso,
         })
@@ -499,7 +571,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
     }
 
     // pamięć kafelków (test końcowy jej nie rusza — kafelki oceniłeś dziś w pierwszym teście)
-    if (!nieudanyStart && !koncowy) {
+    if (!nieudanyStart && !koncowy && !w.przemapowanie) {
       for (const [klucz, p] of Object.entries(w.kafelki)) {
         const stara = await db.pamiec.get(klucz)
         // kafelek powtarzany osobno dostaje ocenę z całej sesji, w sektorze —
@@ -516,7 +588,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
         const slaby =
           j?.rodzaj === 'fiszka'
             ? false
-            : o === 1
+            : o === 1 || !!w.slabeZCzatu?.includes(klucz)
               ? true
               : !cel
                 ? o < 3
@@ -527,6 +599,8 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
           termin: karta.due,
           slaby,
           wpadki,
+          // żeby czat mógł tę ocenę jeszcze obniżyć (ocena łączna z tego dnia)
+          przed: { karta: stara?.karta, slaby: stara?.slaby ?? false, ocena: o, kiedy: iso },
           jednostkaId: sektorId,
           pathId: w.pathId ?? stara?.pathId,
           nodeId: w.wezlyKafelkow[klucz] ?? stara?.nodeId,
@@ -537,10 +611,29 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
       }
     }
 
+    // luki z czatu w wymaganiach: Tak w teście zakrytym je zamyka,
+    // a czat w powtórce rozszerzonej dopisuje nowe
+    const sektorLuk = j?.rodzaj === 'sektor' ? j.id : w.sektorId
+    const s = sektorLuk ? await db.nauka.get(sektorLuk) : undefined
+    if (s && (s.lukiKafelkow || w.czat?.kafelki?.length)) {
+      let m: Record<string, string[]> | undefined = { ...(s.lukiKafelkow ?? {}) }
+      for (const [k, p] of Object.entries(w.kafelki)) {
+        const kl = kluczLuk(k, w.wezlyKafelkow)
+        if (p === 'tak' && kl) delete m[kl]
+      }
+      if (w.czat?.kafelki?.length) m = dopiszLuki(m, w.czat.kafelki)
+      await db.nauka.update(s.id, { lukiKafelkow: m && Object.keys(m).length ? m : undefined })
+    }
+
     const wpis: WpisNauki = {
       id: uid(),
       kiedy: iso,
       jednostkaId: j?.id,
+      czatKafelki: w.czat?.kafelki?.length ? w.czat.kafelki : undefined,
+      zakryte: w.czat?.kafelki?.length ? w.czat.zakryte : undefined,
+      lacznie: w.czat?.kafelki?.length ? w.kafelki : undefined,
+      sprzeciwy: sprzeciwy(w.czat?.kafelki),
+      przemapowanie: w.przemapowanie || undefined,
       klucz: w.klucz,
       typ: w.klucz ? 'kafelek' : w.douczanie ? 'douczanie' : koncowy ? 'koncowy' : zero ? 'test' : 'powtorka',
       trudny: w.trudny || undefined,
@@ -562,6 +655,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
 /** Co rozszerza tę powtórkę: na zmianę czat, zadania (jeśli sektor je ma)
  *  i trudny tryb. Zaczyna czat — on sprawdza najwięcej. */
 export function rodzajRozszerzonej(j: JednostkaNauki, ileZadan = j.zadania?.length ?? 0): RodzajRozszerzonej {
+  if (j.czatNastepnym) return 'czat'
   const kolej: RodzajRozszerzonej[] = ileZadan > 0 ? ['czat', 'zadanie', 'trudny'] : ['czat', 'trudny']
   return kolej[(j.rozszerzonych ?? 0) % kolej.length]
 }
@@ -713,8 +807,6 @@ export async function pominZadania(id: string) {
   await zmienJednostke(id, { etap: 'powtorki', doPoprawy: undefined })
 }
 
-/** Wynik testu czatem w powtórce zero. Zaliczony kończy powtórkę zero; luki
- *  zostają przy sektorze — poprawiasz mapowanie tych miejsc i robisz dogrywkę. */
 /** Tryb próbny: zapis dzieje się naprawdę, ale w transakcji, którą na końcu
  *  wycofujemy. Wynik (ocena, termin, co do poprawy) jest prawdziwy, a w bazie
  *  — sektorach, pamięci, historii — nie zmienia się nic. */
@@ -723,7 +815,8 @@ export async function naProbe<T>(f: () => Promise<T>): Promise<T> {
   let wynik: T | undefined
   let doszlo = false
   try {
-    await db.transaction('rw', db.nauka, db.pamiec, db.historia, async () => {
+    // ścieżki i kafelki tylko do odczytu (dopasowanie kafelków czatu), ale muszą być w tej transakcji
+    await db.transaction('rw', [db.nauka, db.pamiec, db.historia, db.paths, db.concepts], async () => {
       wynik = await f()
       doszlo = true
       throw new Proba('próba — wycofane')
@@ -738,8 +831,21 @@ export async function naProbe<T>(f: () => Promise<T>): Promise<T> {
  *  (najpierw dokładnie, potem „jedna nazwa zawiera drugą"). */
 export async function dopasujKafelkiCzatu(
   j: JednostkaNauki,
-  kafelki: { nazwa: string; ocena: 'tak' | 'czesciowo' | 'nie'; uwaga?: string }[],
+  kafelki: Omit<OcenaCzatu, 'klucz'>[],
 ): Promise<OcenaCzatu[]> {
+  const kandydaci = await nazwyKafelkowSektora(j)
+  const norm = (s: string) => s.toLowerCase().replace(/[„”"'«»*_`]/g, '').replace(/\s+/g, ' ').trim()
+  return kafelki.map((k) => {
+    const n = norm(k.nazwa)
+    const trafiony =
+      kandydaci.find((c) => norm(c.nazwa) === n) ??
+      kandydaci.find((c) => norm(c.nazwa) && (n.includes(norm(c.nazwa)) || norm(c.nazwa).includes(n)))
+    return { ...k, klucz: trafiony?.klucz }
+  })
+}
+
+/** Kafelki sektora z nazwami, tak jak widzi je czat (klucz: węzeł albo zadanie:id). */
+export async function nazwyKafelkowSektora(j: JednostkaNauki): Promise<{ klucz: string; nazwa: string }[]> {
   const sciezka = j.pathId ? await db.paths.get(j.pathId) : undefined
   const kandydaci: { klucz: string; nazwa: string }[] = []
   for (const n of wezlySektora(j, sciezka).filter(ocenialny)) {
@@ -752,55 +858,234 @@ export async function dopasujKafelkiCzatu(
     const c = await db.concepts.get(id)
     if (c) kandydaci.push({ klucz: kluczZadania(id), nazwa: c.name })
   }
-  const norm = (s: string) => s.toLowerCase().replace(/[„”"'«»*_`]/g, '').replace(/\s+/g, ' ').trim()
-  return kafelki.map((k) => {
-    const n = norm(k.nazwa)
-    const trafiony =
-      kandydaci.find((c) => norm(c.nazwa) === n) ??
-      kandydaci.find((c) => norm(c.nazwa) && (n.includes(norm(c.nazwa)) || norm(c.nazwa).includes(n)))
-    return { ...k, klucz: trafiony?.klucz }
+  return kandydaci
+}
+
+/** Próba: test zakryty „na niby" przed czatem — sektor jak tuż po mapowaniu,
+ *  każdy kafelek z podaną oceną (domyślnie Tak). Tylko wewnątrz `naProbe`. */
+export async function symulujTestZakryty(j: JednostkaNauki, oceny: (klucz: string) => Przypomnienie = () => 'tak') {
+  const klucze = await kluczePamieci(j)
+  const kafelki: Record<string, Przypomnienie> = {}
+  const wezlyKafelkow: Record<string, string> = {}
+  for (const [kc, kp] of klucze) {
+    kafelki[kp] = oceny(kc)
+    wezlyKafelkow[kp] = czyZadanie(kp) ? idZadania(kp) : kc
+  }
+  await db.nauka.put({ ...j, etap: 'przerwa', karta: undefined, termin: undefined, douczanie: undefined })
+  const ocena = podpowiedz(Object.values(kafelki))
+  await zapiszSesje({
+    jednostkaId: j.id,
+    ocena: ocena === 1 ? 2 : ocena,
+    kafelki,
+    wezlyKafelkow,
+    czasMs: 0,
+    pathId: j.pathId,
   })
 }
 
+/** Co zmienił wynik czatu — do pokazania zaraz po zapisie. */
+export interface PoCzacie {
+  zaliczone: boolean
+  /** To była dogrywka (były luki z poprzedniego czatu). */
+  dogrywka: boolean
+  /** Etap sektora po zapisie. */
+  etap: JednostkaNauki['etap']
+  /** Kafelki z oceną łączną (gorsza z zakrytego i czatu) — tylko te, które czat ocenił. */
+  kafelki: { nazwa: string; zakryta?: Przypomnienie; czat: OcenaCzatu['ocena']; lacznie?: Przypomnienie; sprzeciw?: string }[]
+  /** Ile kafelków czat obniżył (zmieniła się karta FSRS). */
+  obnizone: number
+  /** Nieudane dogrywki z rzędu po zapisie i limit. */
+  dogrywek: number
+  limit: number
+  /** Limit przekroczony: przemapowanie tych kafelków (nazwy). */
+  przemapowanie?: string[]
+}
+
+/** Wynik testu czatem (powtórka zero albo dobrowolna dogrywka po powtórce
+ *  rozszerzonej).
+ *
+ *  1. Ocena łączna (tylko pierwszy test czatem powtórki zero): dla każdego
+ *     kafelka gorsza z testu zakrytego i czatu — karta FSRS liczona raz, jako
+ *     ocena z dnia testu. Częściowo/Nie → słaby; Nie → „do poprawy".
+ *  2. Luki przypisane do kafelków → ich wymagania („z czatu: …").
+ *  3. Bramka (powtórka zero): dalej dopiero przy ZALICZONE. Dogrywki nie
+ *     zmieniają terminów. Po limicie nieudanych dogrywek: przemapowanie
+ *     kafelków z NIE → przerwa → krótki test → znowu dogrywka.
+ *  Sprzeciw („Nie zgadzam się") uchyla ocenę czatu kafelka i usuwa jego luki. */
 export async function wynikCzatu(
   id: string,
   zaliczone: boolean,
   luki?: string,
   zCzatu?: { kafelki?: OcenaCzatu[]; klucz?: string },
-) {
-  const iso = teraz().toISOString()
-  await db.transaction('rw', db.nauka, db.historia, async () => {
+): Promise<PoCzacie | undefined> {
+  const kiedy = teraz()
+  const iso = kiedy.toISOString()
+  const kafelki = zCzatu?.kafelki ?? []
+  const limit = wez('limitDogrywek')
+  let wynik: PoCzacie | undefined
+  const jPrzed = await db.nauka.get(id)
+  if (!jPrzed) return undefined
+  const klucze = await kluczePamieci(jPrzed)
+  await db.transaction('rw', db.nauka, db.pamiec, db.historia, async () => {
     const j = await db.nauka.get(id)
     if (!j) return
-    // kafelki, które czat ocenił CZĘŚCIOWO albo NIE, trafiają do poprawy
-    const slabe = (zCzatu?.kafelki ?? []).filter((k) => k.ocena !== 'tak' && k.klucz).map((k) => k.klucz!)
-    await db.nauka.update(id, {
-      etap: zaliczone && j.etap === 'czat' ? (zadaniaWZero() ? 'zadania' : 'powtorki') : j.etap,
-      luki: zaliczone ? undefined : luki?.trim() || j.luki,
-      czatKafelki: zaliczone ? undefined : zCzatu?.kafelki?.length ? zCzatu.kafelki : j.czatKafelki,
-      kluczCzatu: zaliczone ? undefined : zCzatu?.klucz?.trim() || j.kluczCzatu,
-      doPoprawy: zaliczone ? j.doPoprawy : slabe.length ? slabe : j.doPoprawy,
-      zmieniono: iso,
-    })
+    const zero = j.etap === 'czat'
+    const dogrywka = !!j.luki
+    const nazwa = new Map(kafelki.filter((k) => k.klucz).map((k) => [k.klucz!, k.nazwa]))
+
+    // 1. ocena łączna — tylko pierwszy test czatem powtórki zero
+    const zakryte: Record<string, Przypomnienie> = {}
+    const lacznie: Record<string, Przypomnienie> = {}
+    const opis: PoCzacie['kafelki'] = []
+    let obnizone = 0
+    for (const k of kafelki) {
+      const pk = k.klucz ? klucze.get(k.klucz) : undefined
+      const p = pk ? await db.pamiec.get(pk) : undefined
+      const zak = p?.przed ? Z_RANGI[p.przed.ocena] : undefined
+      const lacz = zak && liczySie(k) ? laczna(zak, k.ocena) : zak
+      opis.push({ nazwa: k.nazwa, zakryta: zak, czat: k.ocena, lacznie: lacz, sprzeciw: k.sprzeciw })
+      if (!zero || dogrywka || !p || !pk || !zak || !lacz) continue
+      zakryte[pk] = zak
+      lacznie[pk] = lacz
+      if (!liczySie(k)) continue
+      const o = RANGA[lacz]
+      let zmiana: Partial<PamiecKafelka> = {}
+      // obniżenie: karta jeszcze raz z oceną łączną, jak gdyby tamtego dnia
+      if (o < p.przed!.ocena && p.karta.last_review === p.przed!.kiedy) {
+        const karta = nastepna(p.przed!.karta, o, new Date(p.przed!.kiedy))
+        zmiana = { karta, termin: karta.due, przed: { ...p.przed!, ocena: o } }
+        obnizone++
+      }
+      if (lacz !== 'tak') zmiana.slaby = true
+      if (Object.keys(zmiana).length) await db.pamiec.update(pk, { ...zmiana, zmieniono: iso })
+    }
+
+    // 2. luki → wymagania kafelków (sprzeciw usuwa luki kafelka)
+    const lukiKafelkow = dopiszLuki(j.lukiKafelkow, kafelki)
+
+    // „do poprawy": kafelki z NIE (bez sprzeciwu)
+    const nie = kafelki.filter((k) => liczySie(k) && k.ocena === 'nie').map((k) => k.klucz!)
+    // luki do dogrywki: z podsumowania, a gdy ich nie ma — ze słabszych kafelków
+    const lukiTekst =
+      luki?.trim() ||
+      kafelki
+        .filter((k) => liczySie(k) && k.ocena !== 'tak')
+        .map((k) => `- ${k.nazwa}: ${k.luki?.join('; ') || k.uwaga || 'do poprawy'}`)
+        .join('\n') ||
+      j.luki ||
+      '- (czat nie wypisał luk)'
+
+    const zmiany: Partial<JednostkaNauki> = { lukiKafelkow, zmieniono: iso }
+    let dogrywek = j.dogrywek ?? 0
+    if (zaliczone) {
+      zmiany.luki = undefined
+      zmiany.czatKafelki = undefined
+      zmiany.kluczCzatu = undefined
+      if (zero) {
+        zmiany.etap = zadaniaWZero() ? 'zadania' : 'powtorki'
+        zmiany.etapOd = iso
+        zmiany.doPoprawy = undefined
+        zmiany.dogrywek = undefined
+        zmiany.dogrywekRazem = undefined
+        zmiany.przemapowanie = undefined
+        dogrywek = 0
+      }
+    } else {
+      // kolejne podsumowanie zastępuje listę luk
+      zmiany.luki = lukiTekst
+      zmiany.czatKafelki = kafelki.length ? kafelki : j.czatKafelki
+      zmiany.kluczCzatu = zCzatu?.klucz?.trim() || j.kluczCzatu
+      if (zero) {
+        zmiany.doPoprawy = nie.length ? nie : j.doPoprawy
+        if (dogrywka) {
+          dogrywek++
+          zmiany.dogrywek = dogrywek
+          zmiany.dogrywekRazem = (j.dogrywekRazem ?? 0) + 1
+        }
+      }
+    }
+    // limit nieudanych dogrywek: przemapowanie kafelków z NIE
+    let przem: string[] | undefined
+    if (zero && !zaliczone && dogrywek >= limit) {
+      const doMapy = nie.length ? nie : (zmiany.doPoprawy ?? j.doPoprawy ?? [])
+      if (doMapy.length) {
+        zmiany.przemapowanie = {
+          wezly: doMapy.filter((k) => !czyZadanie(k)),
+          zadania: doMapy.filter(czyZadanie).map(idZadania),
+          etap: 'mapowanie',
+          od: iso,
+        }
+        przem = doMapy.map((k) => nazwa.get(k) ?? k)
+      } else {
+        // nie ma czego przemapować — licznik od zera
+        zmiany.dogrywek = 0
+        dogrywek = 0
+      }
+    }
+    await db.nauka.update(id, zmiany)
     await db.historia.add({
       id: uid(),
       kiedy: iso,
       jednostkaId: id,
       typ: 'czat',
       czat: zaliczone ? 'zaliczone' : 'luki',
-      luki: zaliczone ? undefined : luki?.trim() || undefined,
+      luki: zaliczone ? undefined : lukiTekst,
+      czatKafelki: kafelki.length ? kafelki : undefined,
+      zakryte: Object.keys(zakryte).length ? zakryte : undefined,
+      lacznie: Object.keys(lacznie).length ? lacznie : undefined,
+      sprzeciwy: sprzeciwy(kafelki),
+      dogrywka: dogrywka ? (j.dogrywekRazem ?? 0) + 1 : 0,
     })
+    wynik = {
+      zaliczone,
+      dogrywka,
+      etap: zmiany.etap ?? j.etap,
+      kafelki: opis,
+      obnizone,
+      dogrywek,
+      limit,
+      przemapowanie: przem,
+    }
   })
+  return wynik
 }
 
-/** Bez czatu tym razem (np. bez internetu) — zapisane, że pominięty. */
+/** Bez czatu tym razem (np. bez internetu) — pominięcie nie jest darmowe:
+ *  zostaje w historii, a najbliższa powtórka sektora będzie z czatem. */
 export async function pominCzat(id: string) {
   const iso = teraz().toISOString()
   await db.transaction('rw', db.nauka, db.historia, async () => {
-    await db.nauka.update(id, { etap: zadaniaWZero() ? 'zadania' : 'powtorki', luki: undefined, zmieniono: iso })
+    await db.nauka.update(id, {
+      etap: zadaniaWZero() ? 'zadania' : 'powtorki',
+      etapOd: iso,
+      luki: undefined,
+      czatKafelki: undefined,
+      kluczCzatu: undefined,
+      doPoprawy: undefined,
+      dogrywek: undefined,
+      dogrywekRazem: undefined,
+      przemapowanie: undefined,
+      czatNastepnym: true,
+      zmieniono: iso,
+    })
     await db.historia.add({ id: uid(), kiedy: iso, jednostkaId: id, typ: 'czat', czat: 'pominiety' })
   })
 }
+
+/** Przemapowanie po limicie dogrywek: koniec mapowania → przerwa. */
+export async function skonczPrzemapowanie(id: string) {
+  const j = await db.nauka.get(id)
+  if (!j?.przemapowanie) return
+  await zmienJednostke(id, { przemapowanie: { ...j.przemapowanie, etap: 'przerwa', od: teraz().toISOString() } })
+}
+
+export function minutyPrzemapowania(j: JednostkaNauki, kiedy = teraz()): number {
+  if (j.przemapowanie?.etap !== 'przerwa') return 0
+  return (kiedy.getTime() - new Date(j.przemapowanie.od).getTime()) / 60000
+}
+
+export const przemapowanieOtwarte = (j: JednostkaNauki, kiedy = teraz()) =>
+  j.przemapowanie?.etap === 'przerwa' && minutyPrzemapowania(j, kiedy) >= wez('przerwa')
 
 /** „Przemapowałem" — uparty kafelek zaczyna liczyć wpadki od nowa. */
 export async function przemapowany(klucz: string) {

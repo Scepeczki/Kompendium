@@ -3,6 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Icon } from './Icon'
 import {
   douczanieOtwarte,
+  minutyPrzemapowania,
+  przemapowanieOtwarte,
   minutyDouczania,
   minutyPrzerwy,
   planNauki,
@@ -212,9 +214,15 @@ function WToku({
               ? `zadania (${j.zadania.length}) — potem test końcowy`
               : 'zadania (opcjonalne) — potem test końcowy'
           : j.etap === 'czat'
-          ? j.luki
-            ? 'luki z czatu — poprawki i dogrywka'
-            : 'czeka na test czatem'
+          ? j.przemapowanie
+            ? j.przemapowanie.etap === 'mapowanie'
+              ? 'limit dogrywek — przemapuj kafelki z NIE (' + (j.przemapowanie.wezly.length + j.przemapowanie.zadania.length) + ')'
+              : przemapowanieOtwarte(j)
+                ? 'krótki test gotowy'
+                : 'przerwa, krótki test za ' + Math.max(0, Math.ceil(wez('przerwa') - minutyPrzemapowania(j))) + ' min'
+            : j.luki
+              ? 'luki z czatu — poprawki i dogrywka'
+              : 'czeka na test czatem'
           : j.etap === 'mapowanie'
           ? j.doPoprawy?.length
             ? `poprawki mapowania (${j.doPoprawy.length})`
@@ -223,7 +231,11 @@ function WToku({
             ? 'po przerwie — test gotowy'
             : `przerwa · test za ${zostalo} min`}
       </span>
-      {j.etap === 'powtorki' && j.douczanie && douczanieOtwarte(j) ? (
+      {j.etap === 'czat' && przemapowanieOtwarte(j) ? (
+        <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id, przemapowanie: true })}>
+          Krótki test
+        </button>
+      ) : j.etap === 'powtorki' && j.douczanie && douczanieOtwarte(j) ? (
         <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id, douczanie: true })}>
           Test nowych
         </button>

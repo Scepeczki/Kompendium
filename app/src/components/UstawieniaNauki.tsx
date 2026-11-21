@@ -105,6 +105,7 @@ export function UstawieniaNauki() {
       {wiersz('progDobrze')}
       {wiersz('progNie')}
       {wiersz('uparty')}
+      {wiersz('limitDogrywek')}
 
       <h3 className="settings-grupa">Cel nauki i ściąga</h3>
       <PoleTekstu

@@ -49,6 +49,7 @@ export const NAUKA = {
   zadanWPowtorce: u('zadanWPowtorce', 'Zadań w powtórce', 'Ile zadań sektora wchodzi do powtórki rozszerzonej z zadaniami (za każdym razem następne).', 2, 1, 20, 'zadań'),
   uparty: u('uparty', 'Uparty kafelek po', 'Po tylu wpadkach kafelek dostaje radę „przemapuj go".', 4, 2, 30, 'wpadkach'),
   progDobrze: u('progDobrze', '„Dobrze" do', 'Jaki odsetek kafelków może nie pójść (Częściowo albo Nie), a sektor wciąż jest „Dobrze".', 20, 0, 100, '%'),
+  limitDogrywek: u('limitDogrywek', 'Dogrywek najwięcej', 'Po tylu nieudanych dogrywkach z rzędu: mapowanie samych kafelków z NIE, przerwa, krótki test z nich i znowu dogrywka.', 2, 1, 10, 'nieudanych'),
   progNie: u('progNie', '„Nie pamiętam" od', 'Powyżej takiego odsetka sektor jest „Nie pamiętam" i wraca do mapowania tych miejsc.', 50, 0, 100, '%'),
 } as const
 
@@ -72,6 +73,16 @@ export function ustaw(k: KluczNauki, v: number): void {
 /** Cel nauki — co potrafi ten, kto się nauczył. Słowa użytkownika.
  *  Służy testowi (polecenia) i czatowi, a przy mapowaniu jest w ściądze. */
 export const PYTANIA_DOMYSLNE = [
+  'Przywołać Sens Treści',
+  'Przywołać Strukturę Relacji w ramach Treści',
+  'Przywołać metodę (dowodu lub rozwiązania) i powód, dla którego działa',
+  'Wyjaśnić konsekwencje definicji',
+  'Podać przykłady implementacji albo ekstrapolacji treści',
+  'Podać strukturalne uzasadnienie treści (o ile takie jest znane)',
+].join('\n')
+
+/** Lista sprzed zmiany punktu o metodzie — kto jej nie ruszał, dostaje nową. */
+const PYTANIA_POPRZEDNIE = [
   'Przywołać Sens Treści',
   'Przywołać Strukturę Relacji w ramach Treści',
   'Przywołać Metodykę a także jej Konsekwencje Optymalizacji Treści',
@@ -114,7 +125,8 @@ const KLUCZ_PYTANIA = 'ui.nauka.pytania'
 const KLUCZ_ZASADY = 'ui.nauka.zasady'
 const KLUCZ_SCIAGA = 'ui.nauka.sciaga'
 try {
-  if (localStorage.getItem(KLUCZ_PYTANIA) === PYTANIA_STARE) localStorage.removeItem(KLUCZ_PYTANIA)
+  const p = localStorage.getItem(KLUCZ_PYTANIA)
+  if (p === PYTANIA_STARE || p === PYTANIA_POPRZEDNIE) localStorage.removeItem(KLUCZ_PYTANIA)
 } catch {
   // bez dostępu do pamięci przeglądarki — zostają domyślne
 }

@@ -79,21 +79,23 @@ const ZASADY_PODSUMOWANIA = `Zasady podsumowania:
 - Całe podsumowanie podaj w JEDNYM bloku kodu (trzy znaki \` na początku i na końcu), bez żadnego innego tekstu w środku.
 - Sekcje zawsze w tej kolejności i z tymi nazwami: WYNIK, KAFELKI, LUKI, KLUCZ — każda nazwa w osobnej linii, zakończona dwukropkiem.
 - WYNIK: jedno słowo — ZALICZONE albo NIEZALICZONE. ZALICZONE tylko wtedy, gdy żaden kafelek nie ma oceny NIE.
-- KAFELKI: jedna linia na kafelek, w kolejności z materiału: „- Nazwa: OCENA — jedno zdanie". Nazwę przepisz dokładnie z nagłówka „###", ale bez rodzaju przed dwukropkiem (z „### Definicja: Kula" piszesz „Kula"). OCENA wielkimi literami: TAK, CZĘŚCIOWO albo NIE.
-- LUKI: każdy konkretny brak albo błąd w osobnej linii zaczętej od „- ". Gdy luk nie ma, napisz „- brak".
+- KAFELKI: jedna linia na kafelek, w kolejności z materiału: „- Nazwa: OCENA — jedno zdanie". Nazwę przepisz dokładnie z nagłówka „###", ale bez rodzaju przed dwukropkiem (z „### Definicja: Kula" piszesz „Kula"). OCENA wielkimi literami: TAK, CZĘŚCIOWO, NIE albo NIESPRAWDZONY.
+- NIESPRAWDZONY: kafelek, o który nie padło żadne pytanie. Nie zgaduj oceny — wpisz NIESPRAWDZONY i jako zdanie „nie było pytania".
+- LUKI: każdy konkretny brak albo błąd w osobnej linii: „- Nazwa kafelka: brak albo błąd". Luka zawsze należy do kafelka z oceną CZĘŚCIOWO albo NIE (nazwa jak w KAFELKI). Gdy luk nie ma, napisz „- brak".
 - KLUCZ: tylko kafelki z oceną CZĘŚCIOWO albo NIE: „- Nazwa: wzorcowa odpowiedź w 2–4 zdaniach", wyłącznie na podstawie materiału. Gdy takich kafelków nie ma, napisz „- brak".
 - Bez pogrubień, numeracji i dodatkowych sekcji.`
 
-const PRZYKLAD_PODSUMOWANIA = `Przykład (sektor z trzema kafelkami: „### Definicja: Kula", „### Definicja: Otoczenie", „### Definicja: Zbiór domknięty"):
+const PRZYKLAD_PODSUMOWANIA = `Przykład (sektor z czterema kafelkami: „### Definicja: Kula", „### Definicja: Otoczenie", „### Definicja: Zbiór domknięty", „### Twierdzenie: Lemat o kulach"):
 \`\`\`
 WYNIK: NIEZALICZONE
 KAFELKI:
 - Kula: TAK — poprawna definicja i dobry przykład.
 - Otoczenie: CZĘŚCIOWO — definicja dobra, ale bez przykładu.
 - Zbiór domknięty: NIE — pomylony ze zbiorem otwartym.
+- Lemat o kulach: NIESPRAWDZONY — nie było pytania.
 LUKI:
-- brak przykładu otoczenia punktu
-- zbiór domknięty opisany jak otwarty
+- Otoczenie: brak przykładu otoczenia punktu
+- Zbiór domknięty: opisany jak zbiór otwarty
 KLUCZ:
 - Otoczenie: Otoczenie punktu x to każdy zbiór zawierający kulę o środku w x. Na przykład przedział (0, 2) jest otoczeniem punktu 1.
 - Zbiór domknięty: Zbiór jest domknięty, gdy jego dopełnienie jest otwarte. Równoważnie: zawiera wszystkie swoje punkty skupienia.
@@ -115,13 +117,13 @@ Sprawdź przede wszystkim, czy umiem odpowiedzieć na te pytania:
 
 Zadaj około {ILE} pytań i zakończ.
 
-Po ostatnim pytaniu oceń KAŻDY kafelek z materiału (każdy nagłówek „###", zadania też) i napisz podsumowanie według wzoru:
+Po ostatnim pytaniu wypisz KAŻDY kafelek z materiału (każdy nagłówek „###", zadania też). Oceń tylko te, o które padło pytanie; pozostałe oznacz NIESPRAWDZONY. Napisz podsumowanie według wzoru:
 \`\`\`
 WYNIK: ZALICZONE albo NIEZALICZONE
 KAFELKI:
-- Nazwa kafelka: TAK albo CZĘŚCIOWO albo NIE — jedno zdanie, co było dobrze albo czego brakowało
+- Nazwa kafelka: TAK albo CZĘŚCIOWO albo NIE albo NIESPRAWDZONY — jedno zdanie, co było dobrze albo czego brakowało
 LUKI:
-- jeden konkretny brak albo błąd
+- Nazwa kafelka: jeden konkretny brak albo błąd
 KLUCZ:
 - Nazwa kafelka: wzorcowa odpowiedź w 2–4 zdaniach
 \`\`\`
@@ -151,7 +153,7 @@ WYNIK: ZALICZONE albo NIEZALICZONE
 KAFELKI:
 - Nazwa kafelka: TAK albo CZĘŚCIOWO albo NIE — jedno zdanie, co już siedzi albo czego nadal brakuje
 LUKI:
-- to, co nadal nie siedzi
+- Nazwa kafelka: to, co nadal nie siedzi
 KLUCZ:
 - Nazwa kafelka: wzorcowa odpowiedź w 2–4 zdaniach
 \`\`\`
@@ -231,7 +233,10 @@ export async function materialSektora(j: JednostkaNauki): Promise<string> {
     }
     if (strony.length) t = t.replace(/^(### [^\n]+\n\n)/, `$1(${mainPageName(c)})\n\n`)
     // wymagania z mapowania: co ma być w odpowiedzi o tym kafelku
-    const wym = j.wymagania?.[n ? n.id : `zadanie:${conceptId}`]?.trim()
+    const kl = n ? n.id : `zadanie:${conceptId}`
+    const wym = [j.wymagania?.[kl]?.trim(), ...(j.lukiKafelkow?.[kl] ?? []).map((l) => `z czatu: ${l}`)]
+      .filter(Boolean)
+      .join('; ')
     if (wym) t = t.replace(/^(### [^\n]+\n\n)/, `$1(Wymagania w teście: ${wym})\n\n`)
     czesci.push(t)
   }
@@ -345,19 +350,35 @@ function sekcja(tekst: string, nazwa: string): string | undefined {
   return (kolejna ? reszta.slice(0, kolejna.index) : reszta).trim()
 }
 
-export type OcenaKafelkaCzatu = 'tak' | 'czesciowo' | 'nie'
+export type OcenaKafelkaCzatu = 'tak' | 'czesciowo' | 'nie' | 'niesprawdzony'
 const OCENA_CZATU: Record<string, OcenaKafelkaCzatu> = {
   tak: 'tak',
   częściowo: 'czesciowo',
   czesciowo: 'czesciowo',
   nie: 'nie',
+  niesprawdzony: 'niesprawdzony',
+  niesprawdzone: 'niesprawdzony',
 }
 
 export interface WynikCzatu {
   zaliczone?: boolean
   luki: string
-  kafelki: { nazwa: string; ocena: OcenaKafelkaCzatu; uwaga?: string }[]
+  kafelki: { nazwa: string; ocena: OcenaKafelkaCzatu; uwaga?: string; luki?: string[] }[]
   klucz?: string
+}
+
+const normNazwy = (s: string) =>
+  s.toLowerCase().replace(/[„”"'«»*_`]/g, '').replace(/\s+/g, ' ').trim()
+
+/** Czy podsumowanie przechodzi: bez kafelków — według WYNIK; z kafelkami —
+ *  gdy żaden nie ma NIE (sprzeciw uchyla ocenę czatu). Bez WYNIK i bez
+ *  kafelków (wklejone same luki) — nie przechodzi. */
+export function czyZaliczone(w: {
+  zaliczone?: boolean
+  kafelki: { ocena: OcenaKafelkaCzatu; sprzeciw?: string }[]
+}): boolean {
+  if (w.kafelki.length) return !w.kafelki.some((k) => k.ocena === 'nie' && !k.sprzeciw)
+  return w.zaliczone === true
 }
 
 /** Wyciąga z odpowiedzi czatu wynik, ocenę kafelków, luki i klucz odpowiedzi
@@ -372,8 +393,19 @@ export function czytajWynik(wklejone: string): WynikCzatu {
     sekcjaLuk !== undefined ? (pusta(sekcjaLuk) ?? '') : /(KAFELKI|KLUCZ):/i.test(tekst) ? '' : tekst.trim()
   const kafelki: WynikCzatu['kafelki'] = []
   for (const linia of (sekcja(tekst, 'KAFELKI') ?? '').split('\n')) {
-    const m = /^\s*[-*•]\s*\**(.+?)\**\s*[:–—]\s*\**(TAK|CZĘŚCIOWO|CZESCIOWO|NIE)\b\**\s*[—–:-]?\s*(.*)$/i.exec(linia)
+    const m =
+      /^\s*[-*•]\s*\**(.+?)\**\s*[:–—]\s*\**(TAK|CZĘŚCIOWO|CZESCIOWO|NIESPRAWDZONY|NIESPRAWDZONE|NIE)\b\**\s*[—–:-]?\s*(.*)$/i.exec(
+        linia,
+      )
     if (m) kafelki.push({ nazwa: m[1].trim(), ocena: OCENA_CZATU[m[2].toLowerCase()], uwaga: m[3].trim() || undefined })
+  }
+  // luki „- Nazwa kafelka: brak" — przypisane do kafelka o tej nazwie
+  for (const linia of luki.split('\n')) {
+    const m = /^\s*[-*•]\s*\**(.+?)\**\s*:\s*(.+)$/.exec(linia)
+    if (!m) continue
+    const n = normNazwy(m[1])
+    const k = kafelki.find((x) => normNazwy(x.nazwa) === n)
+    if (k) (k.luki ??= []).push(m[2].trim())
   }
   return { zaliczone: w ? !w[1] : undefined, luki, kafelki, klucz: pusta(sekcja(tekst, 'KLUCZ')) }
 }
