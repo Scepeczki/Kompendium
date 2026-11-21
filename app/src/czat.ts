@@ -89,10 +89,14 @@ Sprawdź przede wszystkim, czy umiem odpowiedzieć na te pytania:
 
 Zadaj około {ILE} pytań i zakończ.
 
-Na końcu wypisz dokładnie w tej postaci:
+Na końcu oceń KAŻDY kafelek z materiału (nagłówki „###") i wypisz dokładnie w tej postaci:
 WYNIK: ZALICZONE albo NIEZALICZONE
+KAFELKI:
+- nazwa kafelka dokładnie jak w nagłówku: TAK albo CZĘŚCIOWO albo NIE — jednym zdaniem, czego brakowało
 LUKI:
 - każdy konkretny brak albo błąd w osobnej linii
+KLUCZ:
+- nazwa kafelka: wzorcowa odpowiedź w 2–4 zdaniach — tylko dla kafelków ocenionych CZĘŚCIOWO albo NIE, tylko z materiału
 
 Materiał — sektor „{NAZWA}":
 
@@ -111,8 +115,12 @@ Luki do sprawdzenia:
 
 Na końcu wypisz dokładnie w tej postaci:
 WYNIK: ZALICZONE albo NIEZALICZONE
+KAFELKI:
+- nazwa kafelka, którego dotyczyła luka: TAK albo CZĘŚCIOWO albo NIE — jednym zdaniem dlaczego
 LUKI:
 - to, co nadal nie siedzi (każde w osobnej linii)
+KLUCZ:
+- nazwa kafelka: wzorcowa odpowiedź w 2–4 zdaniach — tylko tam, gdzie nadal CZĘŚCIOWO albo NIE
 
 Materiał — sektor „{NAZWA}":
 
@@ -184,6 +192,9 @@ export async function materialSektora(j: JednostkaNauki): Promise<string> {
       t += `\n\n#### ${s.name}\n\n${wlasne?.[kluczWlasnej(v.id, s.id)] ?? s.content}`
     }
     if (strony.length) t = t.replace(/^(### [^\n]+\n\n)/, `$1(${mainPageName(c)})\n\n`)
+    // wymagania z mapowania: co ma być w odpowiedzi o tym kafelku
+    const wym = j.wymagania?.[n ? n.id : `zadanie:${conceptId}`]?.trim()
+    if (wym) t = t.replace(/^(### [^\n]+\n\n)/, `$1(Wymagania w teście: ${wym})\n\n`)
     czesci.push(t)
   }
 
@@ -251,6 +262,20 @@ export async function zlozPolecenie(j: JednostkaNauki, p: Parametry): Promise<st
     .replaceAll('{ODPOWIEDZI}', p.odpowiedzi?.trim() || '(nic nie napisałem)')
 }
 
+/** Kopiuje polecenie do schowka (bez otwierania czatu). */
+export async function kopiujPolecenie(tekst: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(tekst)
+    window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: 'Polecenie w schowku' }))
+    return true
+  } catch {
+    window.dispatchEvent(
+      new CustomEvent('komp:komunikat', { detail: 'Nie udało się skopiować — skopiuj polecenie ręcznie z okienka' }),
+    )
+    return false
+  }
+}
+
 /** Kopiuje polecenie i otwiera czat w nowej karcie. Wypełnianie czatu przez
  *  sam adres działa niepewnie (i długi tekst się w nim nie mieści), więc
  *  idziemy przez schowek. */
@@ -273,11 +298,40 @@ export async function otworzCzat(tekst: string): Promise<boolean> {
   return skopiowano
 }
 
-/** Wyciąga z odpowiedzi czatu wynik i luki (jeśli wklejono całość). */
-export function czytajWynik(tekst: string): { zaliczone?: boolean; luki: string } {
-  const w = /WYNIK:\s*(NIE)?ZALICZONE/i.exec(tekst)
-  const i = tekst.search(/LUKI:/i)
-  const luki = i >= 0 ? tekst.slice(i + 5).trim() : tekst.trim()
-  return { zaliczone: w ? !w[1] : undefined, luki }
+/** Sekcja odpowiedzi czatu: od „NAZWA:" do następnej sekcji albo końca. */
+function sekcja(tekst: string, nazwa: string): string | undefined {
+  const m = new RegExp(`^[ \\t>#*]*${nazwa}\\**:[ \\t]*`, 'im').exec(tekst)
+  if (!m) return undefined
+  const reszta = tekst.slice(m.index + m[0].length)
+  const kolejna = /^[ \t>#*]*(WYNIK|KAFELKI|LUKI|KLUCZ)\**:/im.exec(reszta)
+  return (kolejna ? reszta.slice(0, kolejna.index) : reszta).trim()
+}
+
+export type OcenaKafelkaCzatu = 'tak' | 'czesciowo' | 'nie'
+const OCENA_CZATU: Record<string, OcenaKafelkaCzatu> = {
+  tak: 'tak',
+  częściowo: 'czesciowo',
+  czesciowo: 'czesciowo',
+  nie: 'nie',
+}
+
+export interface WynikCzatu {
+  zaliczone?: boolean
+  luki: string
+  kafelki: { nazwa: string; ocena: OcenaKafelkaCzatu; uwaga?: string }[]
+  klucz?: string
+}
+
+/** Wyciąga z odpowiedzi czatu wynik, ocenę kafelków, luki i klucz odpowiedzi
+ *  (jeśli wklejono całość). Bez żadnej sekcji cały tekst to luki. */
+export function czytajWynik(tekst: string): WynikCzatu {
+  const w = /WYNIK:\s*\**\s*(NIE)?ZALICZONE/i.exec(tekst)
+  const luki = sekcja(tekst, 'LUKI') ?? (/(KAFELKI|KLUCZ):/i.test(tekst) ? '' : tekst.trim())
+  const kafelki: WynikCzatu['kafelki'] = []
+  for (const linia of (sekcja(tekst, 'KAFELKI') ?? '').split('\n')) {
+    const m = /^\s*[-*•]\s*\**(.+?)\**\s*[:–—]\s*\**(TAK|CZĘŚCIOWO|CZESCIOWO|NIE)\b\**\s*[—–:-]?\s*(.*)$/i.exec(linia)
+    if (m) kafelki.push({ nazwa: m[1].trim(), ocena: OCENA_CZATU[m[2].toLowerCase()], uwaga: m[3].trim() || undefined })
+  }
+  return { zaliczone: w ? !w[1] : undefined, luki, kafelki, klucz: sekcja(tekst, 'KLUCZ') || undefined }
 }
 

@@ -11,13 +11,43 @@ const komunikat = (tekst: string) =>
 
 /** Powiadomienie systemowe. W programie: dymek Windows (zostaje w centrum
  *  powiadomień) i miganie ikony na pasku zadań, dopóki nie zajrzysz. */
-export async function powiadom(tekst: string): Promise<void> {
+export interface OpcjePowiadomienia {
+  /** Co otworzyć po kliknięciu: 'powtorki', 'aktualizacja' albo nic (samo okno). */
+  akcja?: string
+  /** Napis na przycisku w okienku. */
+  przycisk?: string
+}
+
+/** Wygląd powiadomień w programie: własne okienko Kompendium albo dymek Windows. */
+export const wygladPowiadomien = (): 'kompendium' | 'windows' =>
+  czytaj('pulpit.wygladPowiadomien') === 'windows' ? 'windows' : 'kompendium'
+export const ustawWygladPowiadomien = (w: 'kompendium' | 'windows') => zapisz('pulpit.wygladPowiadomien', w)
+/** Po ilu sekundach okienko znika; 0 = zostaje, aż klikniesz. */
+export const czasPowiadomien = (): number => {
+  const v = Number(czytaj('pulpit.czasPowiadomien') ?? '0')
+  return Number.isFinite(v) && v >= 0 ? v : 0
+}
+export const ustawCzasPowiadomien = (s: number) => zapisz('pulpit.czasPowiadomien', String(Math.max(0, Math.round(s))))
+
+export async function powiadom(tekst: string, opcje: OpcjePowiadomienia = {}): Promise<void> {
   if (naPulpicie) {
     try {
-      const n = await import('@tauri-apps/plugin-notification')
-      let ok = await n.isPermissionGranted()
-      if (!ok) ok = (await n.requestPermission()) === 'granted'
-      if (ok) n.sendNotification({ title: 'Kompendium', body: tekst })
+      if (wygladPowiadomien() === 'kompendium') {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const q = new URLSearchParams({
+          okno: 'powiadomienie',
+          t: tekst,
+          a: opcje.akcja ?? '',
+          e: opcje.przycisk ?? 'Otwórz',
+          z: String(czasPowiadomien()),
+        })
+        await invoke('pokaz_powiadomienie', { zapytanie: q.toString() })
+      } else {
+        const n = await import('@tauri-apps/plugin-notification')
+        let ok = await n.isPermissionGranted()
+        if (!ok) ok = (await n.requestPermission()) === 'granted'
+        if (ok) n.sendNotification({ title: 'Kompendium', body: tekst })
+      }
       const { getCurrentWindow, UserAttentionType } = await import('@tauri-apps/api/window')
       await getCurrentWindow().requestUserAttention(UserAttentionType.Critical)
     } catch {
@@ -231,7 +261,7 @@ export async function szukajAktualizacji(): Promise<string | null> {
     window.dispatchEvent(new CustomEvent('komp:aktualizacja', { detail: v }))
     if (czytaj('pulpit.powiadomionoO') !== v) {
       zapisz('pulpit.powiadomionoO', v)
-      void powiadom(`Jest nowa wersja Kompendium (${v}). Otwórz program i kliknij „Zainstaluj".`)
+      void powiadom(`Jest nowa wersja Kompendium (${v}).`, { akcja: 'aktualizacja', przycisk: 'Zobacz' })
     }
   }
   return v
@@ -298,6 +328,13 @@ export function wlaczPulpit(): void {
   }
 
   codziennaKopia()
+
+  // Klik w okienko powiadomienia: program się pokazuje i otwiera to, o czym było.
+  void import('@tauri-apps/api/event').then(({ listen }) =>
+    listen<string>('komp-akcja', (e) => {
+      if (e.payload) window.dispatchEvent(new CustomEvent('komp:akcja', { detail: e.payload }))
+    }),
+  )
   // Aktualizacje: przy starcie i co 6 godzin (program może chodzić tygodniami
   // w tle). Pasek w oknie + powiadomienie — bez okienek, które przy schowanym
   // oknie nikt by nie zobaczył.

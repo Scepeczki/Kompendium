@@ -99,6 +99,25 @@ function Widok() {
   const planDzis = useLiveQuery(() => planNauki(), [])
   const doPowtorki = planDzis?.dzis.length ?? 0
 
+  // Klik w powiadomienie programu: otwiera to, o czym było.
+  useEffect(() => {
+    const h = (e: Event) => {
+      const a = (e as CustomEvent<string>).detail
+      if (a === 'powtorki') {
+        setShowSettings(false)
+        setSesja(null)
+        setShowPowtorki(true)
+      } else if (a.startsWith('test:')) {
+        const [, id, rodzaj] = a.split(':')
+        setShowSettings(false)
+        setSesja(rodzaj === 'douczanie' ? { jednostkaId: id, douczanie: true } : { jednostkaId: id })
+      }
+      // 'aktualizacja' — pasek „Jest nowa wersja" już jest na dole okna
+    }
+    window.addEventListener('komp:akcja', h)
+    return () => window.removeEventListener('komp:akcja', h)
+  }, [])
+
   // Sesja otwierana zdarzeniem (np. próba z Ustawień).
   useEffect(() => {
     const h = (e: Event) => {
@@ -129,7 +148,7 @@ function Widok() {
           ? `Przerwa minęła — czas na test nowych w sektorze „${j.nazwa}".`
           : `Przerwa minęła — czas na test sektora „${j.nazwa}".`
         window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: tekst }))
-        void powiadom(tekst)
+        void powiadom(tekst, { akcja: `test:${j.id}:${dz ? 'douczanie' : ''}`, przycisk: 'Zacznij test' })
       }
 
       // Codzienne przypomnienie o powtórkach — raz dziennie, od ustawionej godziny.
@@ -152,7 +171,7 @@ function Widok() {
             } catch {
               // jw.
             }
-            void powiadom(`Na dziś czeka powtórka: ${ile}. Zajrzyj do Powtórek.`)
+            void powiadom(`Na dziś czeka powtórka: ${ile}.`, { akcja: 'powtorki', przycisk: 'Do Powtórek' })
           }
         }
       }

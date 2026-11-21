@@ -9,6 +9,7 @@ import { renderMarkdown } from '../markdown'
 import { topoOrder } from '../topo'
 import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
+import { OcenyCzatu } from './TestCzatem'
 import { PoleRozmiaru, RichEditor, obrazyZ, wstawObrazy } from './RichEditor'
 import {
   ileLuk,
@@ -19,6 +20,7 @@ import {
   skonczMapowanie,
   skonczMapowanieDouczania,
   zapiszMapeKafelka,
+  zapiszWymagania,
   zmienJednostke,
 } from '../nauka'
 import { pytania, sciaga, zasady } from '../naukaUstawienia'
@@ -269,6 +271,34 @@ function wstawSekcje(editor: Editor, punkt: string) {
       { type: 'paragraph' },
     ])
     .run()
+}
+
+/** Wymagania kafelka: co ma być w odpowiedzi. W teście stoją pod nazwą
+ *  kafelka — z samego tytułu trudno czasem przywołać wszystkie szczegóły. */
+function PoleWymagan({ wartosc, onZmiana }: { wartosc: string; onZmiana: (t: string) => void }) {
+  const [t, setT] = useState(wartosc)
+  const czas = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(czas.current), [])
+  return (
+    <label className="tm-wymagania">
+      <span className="tm-etykieta">Wymagania w teście</span>
+      <textarea
+        rows={2}
+        value={t}
+        placeholder="Co ma być w odpowiedzi — np. definicja, 3 własności, przykład. Zobaczysz to w teście pod nazwą kafelka."
+        onChange={(e) => {
+          setT(e.target.value)
+          window.clearTimeout(czas.current)
+          const v = e.target.value
+          czas.current = window.setTimeout(() => onZmiana(v), 400)
+        }}
+        onBlur={() => {
+          window.clearTimeout(czas.current)
+          onZmiana(t)
+        }}
+      />
+    </label>
+  )
 }
 
 /** Kartka mapy: nagłówek z nazwą i edytor bez własnego paska. */
@@ -665,6 +695,11 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
             />
 
             <section className="tm-mapa-kolumna">
+              <PoleWymagan
+                key={`${j.id}:${biezacy.klucz}`}
+                wartosc={j.wymagania?.[biezacy.klucz] ?? ''}
+                onZmiana={(t) => void zapiszWymagania(j.id, biezacy.klucz, t)}
+              />
               <PasekMapy editor={edytor} />
               <KartkaMapy
                 klucz={`${j.id}:${biezacy.klucz}`}
@@ -733,6 +768,13 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
                 <details className="tm-uwaga" open>
                   <summary>Luki z czatu — popraw mapowanie tych miejsc</summary>
                   <pre>{j.luki}</pre>
+                  {j.czatKafelki && <OcenyCzatu kafelki={j.czatKafelki} />}
+                  {j.kluczCzatu && (
+                    <details className="test-czatem-klucz">
+                      <summary>Klucz odpowiedzi od czatu</summary>
+                      <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(j.kluczCzatu) }} />
+                    </details>
+                  )}
                 </details>
               )}
               <PasekMapy editor={edytor} />

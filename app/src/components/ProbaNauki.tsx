@@ -37,14 +37,14 @@ export function ProbaNauki() {
             onClick={() => {
               const t = `Przerwa minęła — czas na test sektora „${sektor?.nazwa ?? 'Przykład'}".`
               komunikat(t)
-              void powiadom(t)
+              void powiadom(t, { przycisk: 'Otwórz' })
             }}
           >
             Test po przerwie
           </button>
           <button
             className="btn"
-            onClick={() => void powiadom('Na dziś czeka powtórka: 3. Zajrzyj do Powtórek.')}
+            onClick={() => void powiadom('Na dziś czeka powtórka: 3.', { akcja: 'powtorki', przycisk: 'Do Powtórek' })}
           >
             Powtórki na dziś
           </button>
@@ -52,7 +52,7 @@ export function ProbaNauki() {
             <button
               className="btn"
               onClick={() => {
-                void powiadom('Jest nowa wersja Kompendium (9.9.9). Otwórz program i kliknij „Zainstaluj".')
+                void powiadom('Jest nowa wersja Kompendium (9.9.9).', { akcja: 'aktualizacja', przycisk: 'Zobacz' })
                 window.dispatchEvent(new CustomEvent('komp:aktualizacja', { detail: '9.9.9 — próba' }))
               }}
             >
@@ -138,7 +138,7 @@ export function ProbaNauki() {
                     key={czatJ.luki ? 'dogrywka' : 'test'}
                     j={czatJ}
                     tryb="zero"
-                    proba={(zaliczone, luki) => {
+                    proba={(zaliczone, luki, zCzatu) => {
                       if (zaliczone) {
                         setCzatJ(null)
                         setPoCzacie(
@@ -147,7 +147,12 @@ export function ProbaNauki() {
                         )
                       } else {
                         // jak naprawdę: luki zostają przy sektorze, następny krok to dogrywka
-                        setCzatJ({ ...czatJ, luki: luki?.trim() || czatJ.luki })
+                        setCzatJ({
+                          ...czatJ,
+                          luki: luki?.trim() || czatJ.luki,
+                          czatKafelki: zCzatu?.kafelki.length ? zCzatu.kafelki : czatJ.czatKafelki,
+                          kluczCzatu: zCzatu?.klucz || czatJ.kluczCzatu,
+                        })
                       }
                     }}
                   />

@@ -33,3 +33,8 @@ public/pdfjs
 *.sw?
 scripts/test-multi.pdf
 scripts/relations-backup.zip
+
+# zrzuty ze sprawdzeń
+proba-wynik.png
+powiadomienie.png
+program-ustawienia.png

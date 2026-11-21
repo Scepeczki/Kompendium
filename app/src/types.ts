@@ -541,6 +541,10 @@ export interface JednostkaNauki {
   /** Mapy kafelków sektora (Markdown) — klucz to id węzła ścieżki, a dla
    *  zadania z paska `zadanie:<id kafelka>`. Mapa sektora zbiera je w całość. */
   mapyKafelkow?: Record<string, string>
+  /** Wymagania kafelków: co ma się znaleźć w odpowiedzi (np. „definicja,
+   *  3 własności, przykład"). Klucz jak w mapach kafelków. W teście stoją
+   *  pod nazwą kafelka, nad polem na odpowiedź. */
+  wymagania?: Record<string, string>
   /** Barwa pasma w Linii (#rrggbb). */
   kolor?: string
   etap: EtapNauki
@@ -560,6 +564,10 @@ export interface JednostkaNauki {
   ostatnia?: string
   /** Luki z ostatniego testu czatem — do poprawy mapowania i dogrywki. */
   luki?: string
+  /** Ocena kafelków przez czat (ostatni test czatem z lukami). */
+  czatKafelki?: OcenaCzatu[]
+  /** Klucz odpowiedzi od czatu: wzorcowe odpowiedzi do słabszych kafelków. */
+  kluczCzatu?: string
   /** Ile było powtórek rozszerzonych (wybiera, co tym razem: czat, zadania
    *  czy trudny tryb). */
   rozszerzonych?: number
@@ -579,6 +587,15 @@ export interface JednostkaNauki {
   }
   utworzono: string
   zmieniono: string
+}
+
+/** Jak czat ocenił jeden kafelek. */
+export interface OcenaCzatu {
+  nazwa: string
+  ocena: 'tak' | 'czesciowo' | 'nie'
+  uwaga?: string
+  /** Węzeł ścieżki (albo zadanie:id), jeśli nazwa pasuje do kafelka sektora. */
+  klucz?: string
 }
 
 /** Pamięć jednego kafelka — wspólna dla wszystkich ścieżek: jeśli nie

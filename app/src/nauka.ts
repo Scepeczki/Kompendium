@@ -12,6 +12,7 @@ import { topoOrder } from './topo'
 import { czatWZero, wez, zadaniaWZero } from './naukaUstawienia'
 import type {
   JednostkaNauki,
+  OcenaCzatu,
   KartaFsrs,
   LearningPath,
   PamiecKafelka,
@@ -300,6 +301,18 @@ export async function zapiszMapeKafelka(id: string, klucz: string, md: string) {
     if (md.trim()) mapy[klucz] = md
     else delete mapy[klucz]
     await db.nauka.update(id, { mapyKafelkow: mapy, zmieniono: teraz().toISOString() })
+  })
+}
+
+/** Zapis wymagań jednego kafelka sektora (pozostałe zostają). */
+export async function zapiszWymagania(id: string, klucz: string, tekst: string) {
+  await db.transaction('rw', db.nauka, async () => {
+    const j = await db.nauka.get(id)
+    if (!j) return
+    const w = { ...(j.wymagania ?? {}) }
+    if (tekst.trim()) w[klucz] = tekst
+    else delete w[klucz]
+    await db.nauka.update(id, { wymagania: w, zmieniono: teraz().toISOString() })
   })
 }
 
@@ -721,14 +734,52 @@ export async function naProbe<T>(f: () => Promise<T>): Promise<T> {
   return wynik as T
 }
 
-export async function wynikCzatu(id: string, zaliczone: boolean, luki?: string) {
+/** Dopasowuje nazwy kafelków z odpowiedzi czatu do kafelków sektora
+ *  (najpierw dokładnie, potem „jedna nazwa zawiera drugą"). */
+export async function dopasujKafelkiCzatu(
+  j: JednostkaNauki,
+  kafelki: { nazwa: string; ocena: 'tak' | 'czesciowo' | 'nie'; uwaga?: string }[],
+): Promise<OcenaCzatu[]> {
+  const sciezka = j.pathId ? await db.paths.get(j.pathId) : undefined
+  const kandydaci: { klucz: string; nazwa: string }[] = []
+  for (const n of wezlySektora(j, sciezka).filter(ocenialny)) {
+    if (n.kind === 'block') {
+      const c = await db.concepts.get(n.conceptId)
+      kandydaci.push({ klucz: n.id, nazwa: n.nazwa ?? c?.name ?? '' })
+    } else if (n.kind === 'fusion') kandydaci.push({ klucz: n.id, nazwa: n.name || 'Grupa' })
+  }
+  for (const id of j.zadania ?? []) {
+    const c = await db.concepts.get(id)
+    if (c) kandydaci.push({ klucz: kluczZadania(id), nazwa: c.name })
+  }
+  const norm = (s: string) => s.toLowerCase().replace(/[„”"'«»*_`]/g, '').replace(/\s+/g, ' ').trim()
+  return kafelki.map((k) => {
+    const n = norm(k.nazwa)
+    const trafiony =
+      kandydaci.find((c) => norm(c.nazwa) === n) ??
+      kandydaci.find((c) => norm(c.nazwa) && (n.includes(norm(c.nazwa)) || norm(c.nazwa).includes(n)))
+    return { ...k, klucz: trafiony?.klucz }
+  })
+}
+
+export async function wynikCzatu(
+  id: string,
+  zaliczone: boolean,
+  luki?: string,
+  zCzatu?: { kafelki?: OcenaCzatu[]; klucz?: string },
+) {
   const iso = teraz().toISOString()
   await db.transaction('rw', db.nauka, db.historia, async () => {
     const j = await db.nauka.get(id)
     if (!j) return
+    // kafelki, które czat ocenił CZĘŚCIOWO albo NIE, trafiają do poprawy
+    const slabe = (zCzatu?.kafelki ?? []).filter((k) => k.ocena !== 'tak' && k.klucz).map((k) => k.klucz!)
     await db.nauka.update(id, {
       etap: zaliczone && j.etap === 'czat' ? (zadaniaWZero() ? 'zadania' : 'powtorki') : j.etap,
       luki: zaliczone ? undefined : luki?.trim() || j.luki,
+      czatKafelki: zaliczone ? undefined : zCzatu?.kafelki?.length ? zCzatu.kafelki : j.czatKafelki,
+      kluczCzatu: zaliczone ? undefined : zCzatu?.klucz?.trim() || j.kluczCzatu,
+      doPoprawy: zaliczone ? j.doPoprawy : slabe.length ? slabe : j.doPoprawy,
       zmieniono: iso,
     })
     await db.historia.add({

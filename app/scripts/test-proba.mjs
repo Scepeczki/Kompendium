@@ -47,7 +47,9 @@ await page.evaluate(async (termin) => {
   T.objectStore('paths').put({ id: 'p', name: 'Topologia', folderId: null, order: 0, nodes, edges: [], createdAt: now, updatedAt: now })
   const karta = { due: termin, stability: 10, difficulty: 5, scheduled_days: 10, reps: 2, lapses: 0, learning_steps: 0, state: 2, last_review: now }
   // sektor już nauczony — próba nie może go cofnąć ani dopisać mu historii
-  T.objectStore('nauka').put({ id: 's1', rodzaj: 'sektor', pathId: 'p', nazwa: 'Kule', wezly: ['nc1', 'nc2', 'nc3'], kolor: '#5b8def', etap: 'powtorki', karta, termin, powtorek: 1, ostatniaRozszerzona: 0, mapa: 'kule → otoczenia', utworzono: now, zmieniono: now })
+  T.objectStore('nauka').put({ id: 's1', rodzaj: 'sektor', pathId: 'p', nazwa: 'Kule', wezly: ['nc1', 'nc2', 'nc3'], kolor: '#5b8def', etap: 'powtorki', karta, termin, powtorek: 1, ostatniaRozszerzona: 0, mapa: 'kule → otoczenia', wymagania: { nc1: 'definicja i rysunek' }, utworzono: now, zmieniono: now })
+  // drugi sektor — bez mapy
+  T.objectStore('nauka').put({ id: 's2', rodzaj: 'sektor', pathId: 'p', nazwa: 'Bez mapy', wezly: ['nc3'], kolor: '#c55', etap: 'mapowanie', powtorek: 0, ostatniaRozszerzona: 0, utworzono: now, zmieniono: now })
   for (const k of ['c1', 'c2', 'c3']) T.objectStore('pamiec').put({ klucz: k, karta, slaby: false, termin, wpadki: 0, jednostkaId: 's1', pathId: 'p', zmieniono: now })
   T.objectStore('historia').put({ id: 'h1', kiedy: now, jednostkaId: 's1', typ: 'test', ocena: 3, kafelki: { c1: 'tak', c2: 'tak', c3: 'tak' } })
   await new Promise((r) => (T.oncomplete = r))
@@ -72,24 +74,39 @@ await page.click('[data-proba="test"] button:has-text("Test po mapowaniu")')
 await page.waitForSelector('.sesja-element')
 check('sesja próbna: plakietka „Próba"', await page.locator('.sesja-proba').isVisible())
 check('sesja próbna: to pierwszy test po mapowaniu', (await page.locator('.sesja-rodzaj').textContent()) === 'Test po mapowaniu')
+check('wymagania pod nazwą kafelka', (await page.locator('.sesja-element[data-klucz="c1"] .sesja-wymagania').innerText()).includes('definicja i rysunek'))
+check('mapa na górze i od razu do odkrycia', await page.locator('.sesja-mapa-pamiec button:has-text("Odkryj mapę")').isEnabled())
+await page.click('.sesja-mapa-pamiec button:has-text("Odkryj mapę")')
+check('po odkryciu mapa widoczna przy niej', (await page.locator('.sesja-mapa-pamiec .sesja-mapa').innerText()).includes('kule'))
+await page.click('.sesja-mapa-porownaj .zaznacz-tak')
 const ile = await page.locator('.sesja-element').count()
 for (let i = 0; i < ile; i++) {
   await page.locator('.sesja-element').nth(i).locator('button:has-text("Sprawdź")').click()
   await page.locator('.sesja-element').nth(i).locator(i === 0 ? 'button:has-text("Nie")' : 'button:has-text("Tak")').click()
 }
-await page.click('button:has-text("Odkryj mapę")').catch(() => {})
-if (await page.locator('.sesja-mapa-porownaj .zaznacz-tak').count()) await page.click('.sesja-mapa-porownaj .zaznacz-tak')
 await page.locator('.sesja-zapisz').first().click()
 await page.waitForSelector('.sesja-wynik')
 const wynik = await page.locator('.sesja-wynik').innerText()
 check('wynik próby policzony (jak naprawdę)', wynik.length > 20, wynik.slice(0, 120))
 check('wynik też z plakietką „Próba"', await page.locator('.sesja-proba').isVisible())
+check('wynik: liczby Tak/Częściowo/Nie i lista kafelków', (await page.locator('.sesja-wynik-liczba').count()) >= 3 &&
+  (await page.locator('.sesja-wynik-lista li').count()) === ile && (await page.locator('.sesja-wynik-lista li.zaznacz-nie').count()) === 1)
+await page.screenshot({ path: 'proba-wynik.png' })
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 await page.waitForTimeout(500)
 check('po teście na próbę baza bez zmian', (await baza()) === przed)
 
+// sektor bez mapy: test bez części z mapą
+await doProby()
+await page.selectOption('.settings-row select', 's2')
+await page.click('[data-proba="test"] button:has-text("Test po mapowaniu")')
+await page.waitForSelector('.sesja-element')
+check('sektor bez mapy: nie ma części z mapą', (await page.locator('.sesja-mapa-pamiec').count()) === 0)
+await page.click('.sesja-glowa button:has-text("Wróć")')
+
 // --- test czatem i dogrywka na próbę ---
 await doProby()
+await page.selectOption('.settings-row select', 's1')
 await page.click('[data-proba="czat"] button:has-text("Zacznij test czatem")')
 const [karta] = await Promise.all([
   kontekst.waitForEvent('page', { timeout: 5000 }).catch(() => null),
@@ -101,9 +118,17 @@ const polecenie = await page.evaluate(() => navigator.clipboard.readText())
 check('test czatem: polecenie w schowku', polecenie.includes('Kula'), polecenie.slice(0, 60))
 check('próba: bez „Pomiń czat"', (await page.locator('[data-proba="czat"] button:has-text("Pomiń")').count()) === 0)
 await page.click('[data-proba="czat"] button:has-text("Są luki")')
-await page.fill('[data-proba="czat"] .test-czatem-wklej textarea', 'WYNIK: luki\n- definicja otoczenia')
+await page.fill('[data-proba="czat"] .test-czatem-wklej textarea',
+  'Super.\n**WYNIK: NIEZALICZONE**\nKAFELKI:\n- Kula: TAK — dobrze\n- Otoczenie: CZĘŚCIOWO — bez przykładu\n- Zbiór domknięty: NIE — myli z otwartym\nLUKI:\n- definicja otoczenia\nKLUCZ:\n- Otoczenie: zbiór zawierający kulę wokół punktu.')
+check('odczyt odpowiedzi czatu: oceny kafelków', (await page.locator('[data-proba="czat"] .test-czatem-odczyt li').count()) === 3 &&
+  (await page.locator('[data-proba="czat"] .test-czatem-odczyt li.zaznacz-nie').innerText()).includes('Zbiór domknięty'))
 await page.click('[data-proba="czat"] button:has-text("Zapisz luki")')
 await page.waitForSelector('[data-proba="czat"] .test-czatem-luki')
+const luki = await page.locator('[data-proba="czat"] .test-czatem-luki pre').innerText()
+check('dogrywka: same luki (bez ocen i klucza w środku)', luki.includes('definicja otoczenia') && !luki.includes('KLUCZ') && !luki.includes('Kula'), luki)
+check('dogrywka: oceny kafelków i klucz odpowiedzi', (await page.locator('[data-proba="czat"] .test-czatem-luki .test-czatem-kafelki li').count()) === 3 &&
+  (await page.locator('[data-proba="czat"] .test-czatem-klucz').count()) === 1)
+check('„Tylko kopiuj" jest osobno', (await page.locator('[data-proba="czat"] button:has-text("Tylko kopiuj")').count()) === 1)
 check('po lukach: dogrywka z lukami', (await page.locator('[data-proba="czat"] .test-czatem-luki').innerText()).includes('otoczenia') &&
   (await page.locator('[data-proba="czat"] button:has-text("Dogrywka")').count()) === 1)
 await page.click('[data-proba="czat"] button:has-text("Zaliczone")')

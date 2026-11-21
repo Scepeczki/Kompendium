@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Kompendium",
   "mainBinaryName": "Kompendium",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "identifier": "pl.kompendium.app",
   "build": {
     "frontendDist": "../dist",
@@ -21,7 +21,8 @@
         "minHeight": 480,
         "center": true,
         "visible": false,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "maximized": true
       }
     ],
     "security": {

@@ -1,7 +1,16 @@
-import { useState } from 'react'
-import { adresCzatu, czatWybrany, czytajWynik, CZATY, otworzCzat, zlozPolecenie } from '../czat'
-import { pominCzat, wynikCzatu } from '../nauka'
-import type { JednostkaNauki } from '../types'
+import { useMemo, useState } from 'react'
+import { renderMarkdown } from '../markdown'
+import {
+  adresCzatu,
+  czatWybrany,
+  czytajWynik,
+  CZATY,
+  kopiujPolecenie,
+  otworzCzat,
+  zlozPolecenie,
+} from '../czat'
+import { dopasujKafelkiCzatu, pominCzat, wynikCzatu } from '../nauka'
+import type { JednostkaNauki, OcenaCzatu } from '../types'
 
 interface Props {
   j: JednostkaNauki
@@ -12,21 +21,43 @@ interface Props {
   onWynik?: (zaliczone: boolean, luki?: string) => void
   wynik?: { zaliczone: boolean; luki?: string }
   /** Próba: wynik idzie tutaj zamiast do bazy. */
-  proba?: (zaliczone: boolean, luki?: string) => void
+  proba?: (zaliczone: boolean, luki?: string, zCzatu?: { kafelki: OcenaCzatu[]; klucz?: string }) => void
 }
 
 const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new URL(adresCzatu()).host
 
+const NAPIS: Record<OcenaCzatu['ocena'], string> = { tak: 'Tak', czesciowo: 'Częściowo', nie: 'Nie' }
+
+/** Kafelki ocenione przez czat — kolorowe wiersze, najpierw słabsze. */
+export function OcenyCzatu({ kafelki }: { kafelki: OcenaCzatu[] }) {
+  if (!kafelki.length) return null
+  const kolej = ['nie', 'czesciowo', 'tak']
+  return (
+    <ul className="test-czatem-kafelki">
+      {[...kafelki]
+        .sort((a, b) => kolej.indexOf(a.ocena) - kolej.indexOf(b.ocena))
+        .map((k, i) => (
+          <li key={i} className={`zaznacz-${k.ocena}`}>
+            <span className="test-czatem-ocena">{NAPIS[k.ocena]}</span>
+            <span className="test-czatem-kafelek">{k.nazwa}</span>
+            {k.uwaga && <span className="test-czatem-uwaga">{k.uwaga}</span>}
+          </li>
+        ))}
+    </ul>
+  )
+}
+
 /** Test czatem: skopiuj polecenie z materiałem, porozmawiaj z czatem
- *  w drugiej karcie, wróć i zapisz wynik. Czat kończy listą luk — można
- *  wkleić całą jego końcówkę, wynik i luki wyczytamy sami. */
+ *  w drugim oknie, wróć i wklej jego końcówkę. Czat ocenia każdy kafelek,
+ *  wypisuje luki i klucz odpowiedzi — program to odczytuje sam. */
 export function TestCzatem({ j, tryb, onWynik, wynik, proba }: Props) {
   const dogrywka = tryb === 'zero' && !!j.luki
   const [tekst, setTekst] = useState<string | null>(null)
   const [luki, setLuki] = useState('')
   const [saLuki, setSaLuki] = useState(false)
+  const odczytane = useMemo(() => (luki.trim() ? czytajWynik(luki) : null), [luki])
 
-  const start = async () => {
+  const zloz = async () => {
     const t = await zlozPolecenie(j, {
       rodzaj: dogrywka ? 'dogrywka' : 'test',
       krotki: tryb === 'rozszerzona',
@@ -34,15 +65,16 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba }: Props) {
       luki: j.luki,
     })
     setTekst(t)
-    await otworzCzat(t)
+    return t
   }
 
   const zapisz = async (zaliczone: boolean) => {
-    const wyczytane = czytajWynik(luki)
-    const listaLuk = zaliczone ? undefined : wyczytane.luki
+    const w = czytajWynik(luki)
+    const listaLuk = zaliczone ? undefined : w.luki || undefined
+    const kafelki = await dopasujKafelkiCzatu(j, w.kafelki)
     if (tryb === 'rozszerzona') onWynik?.(zaliczone, listaLuk)
-    else if (proba) proba(zaliczone, listaLuk)
-    else await wynikCzatu(j.id, zaliczone, listaLuk)
+    else if (proba) proba(zaliczone, listaLuk, { kafelki, klucz: w.klucz })
+    else await wynikCzatu(j.id, zaliczone, listaLuk, { kafelki, klucz: w.klucz })
     setSaLuki(false)
     setLuki('')
   }
@@ -54,16 +86,26 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba }: Props) {
           <strong>Luki z czatu</strong> — popraw mapowanie tych miejsc, potem dogrywka (czat sprawdzi
           tylko je):
           <pre>{j.luki}</pre>
+          {j.czatKafelki && <OcenyCzatu kafelki={j.czatKafelki} />}
+          {j.kluczCzatu && (
+            <details className="test-czatem-klucz">
+              <summary>Klucz odpowiedzi od czatu</summary>
+              <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(j.kluczCzatu) }} />
+            </details>
+          )}
         </div>
       )}
       <div className="test-czatem-krok">
-        <button className="btn btn-primary" onClick={start}>
-          {dogrywka ? 'Dogrywka' : 'Test czatem'}: kopiuj polecenie i otwórz {nazwaCzatu()}
+        <button className="btn btn-primary" onClick={async () => void otworzCzat(await zloz())}>
+          {dogrywka ? 'Dogrywka' : 'Test czatem'}: kopiuj i otwórz {nazwaCzatu()}
+        </button>
+        <button className="btn" onClick={async () => void kopiujPolecenie(await zloz())}>
+          Tylko kopiuj
         </button>
         {tekst !== null && (
           <details className="test-czatem-polecenie">
-            <summary>Pokaż polecenie (gdyby schowek nie zadziałał)</summary>
-            <textarea readOnly value={tekst} rows={8} onFocus={(e) => e.target.select()} />
+            <summary>Pokaż polecenie</summary>
+            <textarea readOnly value={tekst} rows={10} onFocus={(e) => e.target.select()} />
           </details>
         )}
       </div>
@@ -91,11 +133,18 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba }: Props) {
         <div className="test-czatem-wklej">
           <textarea
             className="sesja-pole"
-            rows={5}
-            placeholder="Wklej luki — albo całą końcówkę odpowiedzi czatu (od „WYNIK:”)."
+            rows={6}
+            placeholder="Wklej końcówkę odpowiedzi czatu (od „WYNIK:”) — ocenę kafelków, luki i klucz odczytam sam. Same luki też wystarczą."
             value={luki}
             onChange={(e) => setLuki(e.target.value)}
           />
+          {odczytane && odczytane.kafelki.length > 0 && (
+            <div className="test-czatem-odczyt">
+              <span className="sesja-etykieta">Czat ocenił kafelki</span>
+              <OcenyCzatu kafelki={odczytane.kafelki} />
+              {odczytane.klucz && <span className="hint">+ klucz odpowiedzi do słabszych kafelków</span>}
+            </div>
+          )}
           <button className="btn btn-primary" disabled={!luki.trim()} onClick={() => zapisz(false)}>
             Zapisz luki
           </button>

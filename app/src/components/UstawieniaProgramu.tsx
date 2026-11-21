@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { PoleLiczby } from './PoleLiczby'
 import {
+  czasPowiadomien,
   czyAutostart,
+  powiadom,
+  ustawCzasPowiadomien,
+  ustawWygladPowiadomien,
+  wygladPowiadomien,
   naPulpicie,
   otworzFolderKopii,
   sprawdzAktualizacje,
@@ -43,6 +48,8 @@ function Program() {
   const [kopie, setKopie] = useState<UstawieniaKopii | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [zajety, setZajety] = useState(false)
+  const [wyglad, setWyglad] = useState(wygladPowiadomien)
+  const [czas, setCzas] = useState(czasPowiadomien)
 
   const odswiezKopie = () => void ustawieniaKopii().then(setKopie)
   useEffect(() => {
@@ -63,6 +70,51 @@ function Program() {
           </button>
         </div>
         <p className="settings-hint">Program sam sprawdza przy każdym starcie.</p>
+      </div>
+
+      <div className="settings-row" data-program="powiadomienia">
+        <span className="settings-label">Powiadomienia</span>
+        <div className="view-switch">
+          <button
+            className={`btn ${wyglad === 'kompendium' ? 'btn-active' : ''}`}
+            onClick={() => {
+              ustawWygladPowiadomien('kompendium')
+              setWyglad('kompendium')
+            }}
+          >
+            W stylu Kompendium
+          </button>
+          <button
+            className={`btn ${wyglad === 'windows' ? 'btn-active' : ''}`}
+            onClick={() => {
+              ustawWygladPowiadomien('windows')
+              setWyglad('windows')
+            }}
+          >
+            Dymek Windows
+          </button>
+        </div>
+        {wyglad === 'kompendium' && (
+          <label className="menu-wielkosc">
+            Znika po
+            <PoleLiczby
+              wartosc={czas}
+              min={0}
+              max={600}
+              tytul="Po ilu sekundach okienko znika: 0 = zostaje, aż klikniesz"
+              onZmien={(v) => {
+                ustawCzasPowiadomien(v)
+                setCzas(v)
+              }}
+            />
+            <span>s (0 = zostaje, aż klikniesz)</span>
+          </label>
+        )}
+        <div className="settings-backup-actions">
+          <button className="btn" onClick={() => void powiadom('Tak wygląda powiadomienie.', { przycisk: 'Otwórz' })}>
+            Pokaż przykład
+          </button>
+        </div>
       </div>
 
       <div className="settings-row" data-program="autostart">

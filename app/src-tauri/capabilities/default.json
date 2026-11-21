@@ -2,7 +2,10 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Uprawnienia okna Kompendium",
-  "windows": ["main"],
+  "windows": [
+    "main",
+    "powiadomienie"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-show",

@@ -112,6 +112,66 @@ fn otworz_folder(folder: String) -> Result<(), String> {
     Ok(())
 }
 
+const OKNO_POWIADOMIENIA: &str = "powiadomienie";
+
+/// Własne powiadomienie w stylu Kompendium: małe okienko bez ramki
+/// w prawym dolnym rogu ekranu, zawsze na wierzchu, nie kradnie pisania.
+/// `zapytanie` to parametry strony (treść, akcja, motyw, czas).
+#[tauri::command]
+async fn pokaz_powiadomienie(app: AppHandle, zapytanie: String) -> Result<(), String> {
+    use tauri::{PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
+    if let Some(stare) = app.get_webview_window(OKNO_POWIADOMIENIA) {
+        let _ = stare.destroy();
+    }
+    let (szer, wys) = (400.0_f64, 170.0_f64);
+    let okno = WebviewWindowBuilder::new(
+        &app,
+        OKNO_POWIADOMIENIA,
+        WebviewUrl::App(format!("index.html?{zapytanie}").into()),
+    )
+    .title("Kompendium — powiadomienie")
+    .inner_size(szer, wys)
+    .decorations(false)
+    .transparent(true)
+    .shadow(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .resizable(false)
+    .focused(false)
+    .visible(false)
+    .build()
+    .map_err(|e| e.to_string())?;
+    // prawy dolny róg obszaru roboczego (nad paskiem zadań)
+    if let Ok(Some(m)) = okno.primary_monitor() {
+        let s = m.scale_factor();
+        let obszar = m.work_area();
+        let x = obszar.position.x + obszar.size.width as i32 - ((szer + 12.0) * s) as i32;
+        let y = obszar.position.y + obszar.size.height as i32 - ((wys + 12.0) * s) as i32;
+        let _ = okno.set_position(PhysicalPosition::new(x, y));
+    }
+    okno.show().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn zamknij_powiadomienie(app: AppHandle) {
+    zamknij_okienko(&app)
+}
+
+fn zamknij_okienko(app: &AppHandle) {
+    if let Some(o) = app.get_webview_window(OKNO_POWIADOMIENIA) {
+        let _ = o.destroy();
+    }
+}
+
+/// Klik w powiadomienie: zamyka je, pokazuje program i mówi mu, co otworzyć.
+#[tauri::command]
+async fn z_powiadomienia(app: AppHandle, akcja: String) {
+    use tauri::Emitter;
+    zamknij_okienko(&app);
+    pokaz_okno(&app);
+    let _ = app.emit_to("main", "komp-akcja", akcja);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default();
@@ -144,7 +204,10 @@ pub fn run() {
             lista_kopii,
             usun_kopie,
             domyslny_folder_kopii,
-            otworz_folder
+            otworz_folder,
+            pokaz_powiadomienie,
+            zamknij_powiadomienie,
+            z_powiadomienia
         ])
         .setup(|app| {
             let otworz = MenuItem::with_id(app, "otworz", "Otwórz Kompendium", true, None::<&str>)?;

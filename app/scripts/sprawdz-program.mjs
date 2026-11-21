@@ -41,6 +41,41 @@ try {
 } catch {
   // nie było wpisu
 }
+// po przerwanym sprawdzeniu wpis mógł zostać na egzemplarzu próbnym —
+// wtedy właściwy to zainstalowany program
+if (wpisAutostartu?.includes('target\\release')) {
+  const zainstalowany = join(process.env.LOCALAPPDATA ?? '', 'Kompendium', 'Kompendium.exe')
+  wpisAutostartu = existsSync(zainstalowany) ? `${zainstalowany} --w-tle` : null
+}
+let posprzatane = false
+const oddajWpis = () => {
+  if (posprzatane) return
+  posprzatane = true
+  try {
+    if (wpisAutostartu) {
+      execFileSync('reg', ['add', RUN, '/v', 'Kompendium', '/t', 'REG_SZ', '/d', wpisAutostartu, '/f'], { stdio: 'ignore' })
+    } else {
+      execFileSync('reg', ['delete', RUN, '/v', 'Kompendium', '/f'], { stdio: 'ignore' })
+    }
+  } catch {
+    // nic do zrobienia
+  }
+}
+// Zegar bezpieczeństwa: jeśli coś się zawiesi, sprzątamy i kończymy sami.
+const zegar = setTimeout(() => {
+  console.error('\n✗ Sprawdzenie zawisło (3 min) — przerywam.')
+  try {
+    proc.kill()
+  } catch {
+    // już nie żyje
+  }
+  oddajWpis()
+  process.exit(2)
+}, 180_000)
+process.on('SIGINT', () => {
+  oddajWpis()
+  process.exit(130)
+})
 const proc = spawn(EXE, [], {
   env: {
     ...process.env,
@@ -100,7 +135,10 @@ try {
   await page.waitForSelector('.settings-page', { timeout: 5000 }).catch(() => {})
   if (await page.locator('.settings-page').count()) {
     await page.click('.settings-nav-item:has-text("Program")')
-    check('Ustawienia → Program: wersja', (await page.locator('.settings-page').innerText()).includes(wersja))
+    await page.waitForSelector(`.settings-page .settings-value:has-text("${wersja}")`, { timeout: 5000 }).catch(() => {})
+    const tekstProgramu = await page.locator('.settings-page').innerText()
+    if (!tekstProgramu.includes(wersja)) await page.screenshot({ path: resolve(APP, 'program-ustawienia.png') })
+    check('Ustawienia → Program: wersja', tekstProgramu.includes(wersja))
     await page.click('button:has-text("Zrób kopię teraz")')
     await page.waitForSelector('.settings-status', { timeout: 20000 })
     const status = await page.locator('.settings-status').innerText()
@@ -140,6 +178,28 @@ try {
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('komp:aktualizacja', { detail: '9.9.9' })))
   check('pasek aktualizacji w oknie', (await page.locator('.nowa-wersja:has-text("9.9.9")').count()) === 1)
 
+  // okno zmaksymalizowane od startu
+  check('okno startuje zmaksymalizowane', await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('plugin:window|is_maximized', { label: 'main' })))
+
+  // własne okienko powiadomienia w rogu ekranu
+  await page.evaluate(() =>
+    window.__TAURI_INTERNALS__.invoke('pokaz_powiadomienie', {
+      zapytanie: new URLSearchParams({ okno: 'powiadomienie', t: 'Próba okienka', a: '', e: 'Otwórz', z: '0' }).toString(),
+    }),
+  )
+  let pw
+  for (let i = 0; i < 30 && !pw; i++) {
+    await czekaj(300)
+    pw = przegladarka.contexts().flatMap((c) => c.pages()).find((p) => p.url().includes('okno=powiadomienie'))
+  }
+  check('okienko powiadomienia się pokazuje', !!pw && (await pw.locator('.pw-tresc').innerText()).includes('Próba okienka'))
+  if (pw) {
+    await pw.screenshot({ path: resolve(APP, 'powiadomienie.png') })
+    await pw.click('.pw-btn:has-text("Później")')
+    await czekaj(800)
+    check('„Później" zamyka okienko', !przegladarka.contexts().flatMap((c) => c.pages()).some((p) => p.url().includes('okno=powiadomienie')))
+  }
+
   // krzyżyk chowa do zasobnika, program działa dalej
   await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('plugin:window|close', { label: 'main' }))
   await czekaj(1500)
@@ -153,15 +213,8 @@ try {
   proc.kill()
   await czekaj(800)
   // Wpis startu z Windows wraca do stanu sprzed sprawdzenia.
-  try {
-    if (wpisAutostartu) {
-      execFileSync('reg', ['add', RUN, '/v', 'Kompendium', '/t', 'REG_SZ', '/d', wpisAutostartu, '/f'], { stdio: 'ignore' })
-    } else {
-      execFileSync('reg', ['delete', RUN, '/v', 'Kompendium', '/f'], { stdio: 'ignore' })
-    }
-  } catch {
-    // nic do zrobienia
-  }
+  oddajWpis()
+  clearTimeout(zegar)
   rmSync(robocze, { recursive: true, force: true })
 }
 

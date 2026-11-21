@@ -11664,3 +11664,363 @@ html.na-pulpicie .app {
   font-size: var(--fs-1);
   font-weight: 600;
 }
+
+/* --------------------------------------------------------------------------
+   Okienko powiadomienia (program na Windows) — osobne, przezroczyste okno
+   w rogu ekranu; widać tylko kartę.
+   -------------------------------------------------------------------------- */
+html.okno-powiadomienia,
+html.okno-powiadomienia body {
+  background: transparent !important;
+  background-image: none !important;
+  overflow: hidden;
+}
+html.okno-powiadomienia #root {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.pw {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(43, 38, 32, 0.22);
+  padding: 10px 14px 12px;
+  font-size: 14px;
+  animation: pw-wjazd 0.22s ease-out;
+}
+.pw-wychodzi {
+  animation: pw-wyjazd 0.18s ease-in forwards;
+}
+@keyframes pw-wjazd {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes pw-wyjazd {
+  to { transform: translateX(30px); opacity: 0; }
+}
+.pw-glowa {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.pw-ikona {
+  width: 16px;
+  height: 16px;
+}
+.pw-nazwa {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+.pw-x {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.pw-x:hover {
+  color: var(--ink);
+}
+.pw-tresc {
+  margin: 7px 0 10px;
+  font-family: var(--font-content, inherit);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.pw-akcje {
+  display: flex;
+  gap: 8px;
+}
+.pw-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-alt);
+  color: var(--ink);
+  cursor: pointer;
+}
+.pw-btn-glowny {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* tryb mapowania: wymagania kafelka w teście */
+.tm-wymagania {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.tm-wymagania textarea {
+  font: inherit;
+  font-family: var(--font-content, inherit);
+  font-size: 14.5px;
+  line-height: 1.45;
+  resize: vertical;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+}
+.tm-wymagania textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--sektor, var(--accent)) 40%, transparent);
+  border-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   Sesja (test, powtórka) — karty jak w trybie mapowania, nowy ekran wyniku
+   -------------------------------------------------------------------------- */
+.sesja {
+  --ocena-tak: #2f8f5b;
+  --ocena-czesciowo: #c7881d;
+  --ocena-nie: var(--danger);
+}
+.sesja-etykieta {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sesja-blok,
+.sesja-element {
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 6px 18px rgba(43, 38, 32, 0.06);
+}
+.sesja-karta-glowa,
+.sesja-element-glowa {
+  margin: -12px -14px 2px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 14px 14px 0 0;
+  background: color-mix(in srgb, var(--typ, var(--accent)) 10%, var(--panel));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sesja-element.odkryty .sesja-element-glowa {
+  margin-bottom: 0;
+}
+.sesja-znaczek-oceny {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: #fff;
+}
+.sesja-znaczek-oceny.zaznacz-tak { background: var(--ocena-tak); }
+.sesja-znaczek-oceny.zaznacz-czesciowo { background: var(--ocena-czesciowo); }
+.sesja-znaczek-oceny.zaznacz-nie { background: var(--ocena-nie); }
+.sesja-wymagania {
+  margin: 0;
+  padding: 7px 11px;
+  border-left: 3px solid var(--typ, var(--accent));
+  background: var(--panel-alt);
+  border-radius: 0 8px 8px 0;
+  font-size: var(--fs-4);
+  line-height: 1.45;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+.sesja-wymagania .sesja-etykieta {
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* ekran wyniku */
+.sesja-wynik {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-y: auto;
+  gap: 14px;
+}
+.sesja-wynik-ocena {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--accent);
+  box-shadow: 0 6px 18px rgba(43, 38, 32, 0.06);
+}
+.sesja-wynik-ocena strong {
+  font-size: 30px;
+  line-height: 1.15;
+  font-family: var(--font-content, inherit);
+}
+.sesja-wynik-ocena.ocena-1 { border-left-color: var(--ocena-nie); }
+.sesja-wynik-ocena.ocena-2 { border-left-color: var(--ocena-czesciowo); }
+.sesja-wynik-ocena.ocena-3,
+.sesja-wynik-ocena.ocena-4 { border-left-color: var(--ocena-tak); }
+.sesja-wynik-termin {
+  color: var(--muted);
+  font-size: var(--fs-4);
+}
+.sesja-wynik-glowny {
+  padding: 2px 2px;
+}
+.sesja-wynik-kafelki {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.sesja-wynik-liczby {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sesja-wynik-liczba {
+  flex: 1;
+  min-width: 80px;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--panel-alt);
+  border-top: 3px solid var(--line);
+}
+.sesja-wynik-liczba strong {
+  font-size: 22px;
+}
+.sesja-wynik-liczba span {
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+.sesja-wynik-liczba.zaznacz-tak { border-top-color: var(--ocena-tak); }
+.sesja-wynik-liczba.zaznacz-czesciowo { border-top-color: var(--ocena-czesciowo); }
+.sesja-wynik-liczba.zaznacz-nie { border-top-color: var(--ocena-nie); }
+.sesja-wynik-pasek {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  gap: 2px;
+}
+.sesja-wynik-pasek .zaznacz-tak { background: var(--ocena-tak); }
+.sesja-wynik-pasek .zaznacz-czesciowo { background: var(--ocena-czesciowo); }
+.sesja-wynik-pasek .zaznacz-nie { background: var(--ocena-nie); }
+.sesja-wynik-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sesja-wynik-lista li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-4);
+}
+.sesja-wynik-lista li:last-child {
+  border-bottom: none;
+}
+.sesja-wynik-kropka {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+.sesja-wynik-lista .zaznacz-tak .sesja-wynik-kropka { background: var(--ocena-tak); }
+.sesja-wynik-lista .zaznacz-czesciowo .sesja-wynik-kropka { background: var(--ocena-czesciowo); }
+.sesja-wynik-lista .zaznacz-nie .sesja-wynik-kropka { background: var(--ocena-nie); }
+.sesja-wynik-nazwa {
+  flex: 1;
+}
+.sesja-wynik-dopisek {
+  font-size: var(--fs-1);
+  color: var(--muted);
+}
+.sesja-wynik-co {
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* test czatem: ocena kafelków przez czat, klucz odpowiedzi */
+.test-czatem-krok {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.test-czatem-krok .test-czatem-polecenie {
+  flex-basis: 100%;
+}
+.test-czatem-kafelki {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.test-czatem-kafelki li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--fs-3);
+  line-height: 1.4;
+}
+.test-czatem-ocena {
+  flex: none;
+  min-width: 74px;
+  text-align: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #2f8f5b;
+}
+.test-czatem-kafelki .zaznacz-czesciowo .test-czatem-ocena { background: #c7881d; }
+.test-czatem-kafelki .zaznacz-nie .test-czatem-ocena { background: var(--danger); }
+.test-czatem-kafelek {
+  font-weight: 600;
+}
+.test-czatem-uwaga {
+  color: var(--muted);
+}
+.test-czatem-odczyt {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--panel-alt);
+}
+.test-czatem-klucz {
+  margin-top: 8px;
+}
+.test-czatem-klucz summary {
+  cursor: pointer;
+  font-weight: 600;
+}

@@ -14,6 +14,10 @@ import { seedBlockTypes } from './db'
 import { wlaczKopiowanieZrodla } from './kopiowanie'
 import { wczytajObrazy } from './obrazy'
 import { naPulpicie, wlaczPulpit } from './pulpit'
+import { OknoPowiadomienia } from './components/OknoPowiadomienia'
+
+/** Okienko powiadomienia (program na Windows) — ta sama paczka, inny widok. */
+const oknoPowiadomienia = new URLSearchParams(location.search).get('okno') === 'powiadomienie'
 
 // motyw: zapamiętany wybór albo preferencja systemowa
 const savedTheme = localStorage.getItem('ui.theme')
@@ -25,6 +29,14 @@ document.documentElement.dataset.theme =
       ? 'dark'
       : 'light'
 
+if (oknoPowiadomienia) {
+  document.documentElement.classList.add('okno-powiadomienia')
+  createRoot(document.getElementById('root')!).render(<OknoPowiadomienia />)
+} else {
+  uruchomProgram()
+}
+
+function uruchomProgram() {
 // zapamiętane ustawienia wyglądu tekstu (szerokość strony, interlinia, akapity)
 initUiSettings()
 
@@ -67,3 +79,4 @@ wczytajObrazy()
       </StrictMode>,
     )
   })
+}

@@ -78,6 +78,65 @@ interface Pozycja {
 
 const NAPISY: Record<Przypomnienie, string> = { tak: 'Tak', czesciowo: 'Częściowo', nie: 'Nie' }
 
+/** Po teście: ile Tak / Częściowo / Nie i jak poszedł każdy kafelek. */
+function WynikKafelkow({
+  pozycje,
+  oceny,
+  podejrzane,
+  struktura,
+}: {
+  pozycje: Pozycja[]
+  oceny: Record<string, Przypomnienie>
+  podejrzane: Set<string>
+  struktura?: Przypomnienie
+}) {
+  const ile = { tak: 0, czesciowo: 0, nie: 0 }
+  for (const p of pozycje) if (oceny[p.klucz]) ile[oceny[p.klucz]]++
+  const razem = ile.tak + ile.czesciowo + ile.nie
+  if (!razem) return null
+  const kolejnosc: Przypomnienie[] = ['nie', 'czesciowo', 'tak']
+  const posortowane = [...pozycje].sort(
+    (a, b) => kolejnosc.indexOf(oceny[a.klucz]) - kolejnosc.indexOf(oceny[b.klucz]),
+  )
+  return (
+    <div className="sesja-wynik-kafelki">
+      <div className="sesja-wynik-liczby">
+        {(['tak', 'czesciowo', 'nie'] as Przypomnienie[]).map((o) => (
+          <div key={o} className={`sesja-wynik-liczba zaznacz-${o}`}>
+            <strong>{ile[o]}</strong>
+            <span>{NAPISY[o]}</span>
+          </div>
+        ))}
+        {struktura && (
+          <div className={`sesja-wynik-liczba zaznacz-${struktura}`}>
+            <strong>{NAPISY[struktura]}</strong>
+            <span>mapa</span>
+          </div>
+        )}
+      </div>
+      <div className="sesja-wynik-pasek" aria-hidden>
+        {(['tak', 'czesciowo', 'nie'] as Przypomnienie[]).map((o) =>
+          ile[o] ? <span key={o} className={`zaznacz-${o}`} style={{ flex: ile[o] }} /> : null,
+        )}
+      </div>
+      <ul className="sesja-wynik-lista">
+        {posortowane.map((p) => {
+          const o = oceny[p.klucz]
+          if (!o) return null
+          return (
+            <li key={p.klucz} className={`zaznacz-${o}`}>
+              <span className="sesja-wynik-kropka" />
+              <span className="sesja-wynik-nazwa">{p.nazwa}</span>
+              {podejrzane.has(p.klucz) && <span className="sesja-wynik-dopisek">podejrzane</span>}
+              <span className="sesja-wynik-co">{NAPISY[o]}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 /** Ekran powtórki — wspólny dla testu powtórki zero, zwykłej powtórki,
  *  rozszerzonej (trudny tryb) i kafelka powtarzanego osobno.
  *
@@ -241,7 +300,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   }
 
   const wszystkieOcenione = pozycje.length > 0 && pozycje.every((p) => oceny[p.klucz])
-  const zStruktura = !!sektor && !douczanie
+  // porównanie z mapą tylko wtedy, gdy sektor ma mapę
+  const zStruktura = !!sektor && !douczanie && !!sektor.mapa?.trim()
   const czekaNaCzat = rozszerzona === 'czat' && !czat && !czatPominiety
   const gotowe = wszystkieOcenione && (!zStruktura || !!struktura) && !czekaNaCzat
   const zZaznaczen: Ocena | null = gotowe
@@ -343,6 +403,16 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           </div>
         </header>
         <div className="sesja-wynik">
+          <div className={`sesja-wynik-ocena ocena-${wynik.ocena}`}>
+            <span className="sesja-etykieta">Wynik</span>
+            <strong>{NAZWY_OCEN[wynik.ocena]}</strong>
+            {wynik.termin && (
+              <span className="sesja-wynik-termin">
+                następna powtórka {opisDni(dniDo(wynik.termin))} ·{' '}
+                {new Date(wynik.termin).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </span>
+            )}
+          </div>
           {wynik.douczanie ? (
             <p className="sesja-wynik-glowny">
               Nowe zapisane. Każdy ma własny termin i wraca osobno, aż dogoni sektor — termin
@@ -413,6 +483,12 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               przerwa i test jeszcze raz.
             </p>
           )}
+          <WynikKafelkow
+            pozycje={pozycje}
+            oceny={oceny}
+            podejrzane={podejrzane}
+            struktura={zStruktura ? struktura : undefined}
+          />
           {wynik.slabe > 0 && (
             <p>
               Słabe kafelki: <strong>{wynik.slabe}</strong> — wrócą osobno, wcześniej niż sektor, aż go
@@ -456,6 +532,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         p={p}
         trudny={false}
         zadanie
+        wymagania={j?.wymagania?.[p.wezel?.id ?? p.klucz]}
         odpowiedz={odpowiedzi[p.klucz] ?? ''}
         onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
         odkryty={odkryte.has(p.klucz)}
@@ -492,21 +569,44 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           przypomniałeś. <strong>Podejrzyj</strong> — gdy nie pamiętasz (liczy się jako „Nie").
         </p>
 
-        {sektor && !douczanie && (
+        {zStruktura && (
           <div className="sesja-blok sesja-mapa-pamiec">
-            <h3>Sens i mapa — z pamięci</h3>
+            <div className="sesja-karta-glowa">
+              <span className="sesja-etykieta">Mapa sektora</span>
+              <b>Sens i mapa — z pamięci</b>
+            </div>
             <ul className="sesja-pytania">
               {listaPytan.map((p) => (
                 <li key={p}>{p}</li>
               ))}
             </ul>
-            <textarea
-              className="sesja-pole"
-              rows={6}
-              placeholder="Odtwórz mapę sektora i odpowiedz na pytania — tak, jak pamiętasz. Porównasz na końcu."
-              value={odpowiedzi.mapa ?? ''}
-              onChange={(e) => setOdpowiedzi((o) => ({ ...o, mapa: e.target.value }))}
-            />
+            {!mapaOdkryta ? (
+              <>
+                <textarea
+                  className="sesja-pole"
+                  rows={6}
+                  placeholder="Odtwórz mapę sektora i odpowiedz na pytania — tak, jak pamiętasz."
+                  value={odpowiedzi.mapa ?? ''}
+                  onChange={(e) => setOdpowiedzi((o) => ({ ...o, mapa: e.target.value }))}
+                />
+                <div className="sesja-przyciski sesja-mapa-porownaj">
+                  <button className="btn btn-primary" onClick={() => setMapaOdkryta(true)}>
+                    <Icon name="odkryj" size={1} /> Odkryj mapę
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="sesja-mapa-porownaj">
+                {odpowiedzi.mapa && (
+                  <details className="sesja-twoja" open>
+                    <summary>Twoja odpowiedź</summary>
+                    <p>{odpowiedzi.mapa}</p>
+                  </details>
+                )}
+                <div className="markdown-body sesja-mapa" dangerouslySetInnerHTML={{ __html: renderMarkdown(mapa ?? '') }} />
+                <Zaznaczenie pytanie="Sens i struktura — pamiętałeś?" ocena={struktura} onOcena={setStruktura} />
+              </div>
+            )}
           </div>
         )}
 
@@ -531,6 +631,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                   p={p}
                   trudny={trudny}
                   odpowiedz={odpowiedzi[p.klucz] ?? ''}
+                  wymagania={j?.wymagania?.[n.id]}
                   onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
                   odkryty={odkryte.has(p.klucz)}
                   podejrzany={podejrzane.has(p.klucz)}
@@ -600,40 +701,6 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           </div>
         )}
 
-        {sektor && !douczanie && (
-          <div className="sesja-blok sesja-mapa-porownaj">
-            <h3>Porównaj z mapą</h3>
-            {!mapaOdkryta ? (
-              <button
-                className="btn"
-                disabled={!wszystkieOcenione}
-                title={wszystkieOcenione ? '' : 'Najpierw sprawdź wszystkie kafelki i zadania'}
-                onClick={() => setMapaOdkryta(true)}
-              >
-                <Icon name="odkryj" size={1} /> Odkryj mapę
-              </button>
-            ) : (
-              <>
-                {mapa ? (
-                  <div className="markdown-body sesja-mapa" dangerouslySetInnerHTML={{ __html: renderMarkdown(mapa) }} />
-                ) : (
-                  <p className="hint">
-                    Ten sektor nie ma jeszcze mapy — porównaj z kafelkami powyżej. Mapę dopiszesz
-                    w widoku Nauka.
-                  </p>
-                )}
-                {odpowiedzi.mapa && (
-                  <details className="sesja-twoja">
-                    <summary>Twoja odpowiedź</summary>
-                    <p>{odpowiedzi.mapa}</p>
-                  </details>
-                )}
-                <Zaznaczenie pytanie="Sens i struktura — pamiętałeś?" ocena={struktura} onOcena={setStruktura} />
-              </>
-            )}
-          </div>
-        )}
-
         {rozszerzona === 'czat' && j && (
           <div className="sesja-blok sesja-czat">
             <h3>Test czatem</h3>
@@ -691,7 +758,9 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                 : douczanie
                   ? 'Sprawdź wszystkie nowe — każdy dostanie własną ocenę.'
                   : sektor
-                  ? 'Sprawdź wszystkie kafelki i porównaj mapę — wtedy podpowiem ocenę.'
+                  ? zStruktura
+                    ? 'Sprawdź wszystkie kafelki i porównaj mapę — wtedy podpowiem ocenę.'
+                    : 'Sprawdź wszystkie kafelki — wtedy podpowiem ocenę.'
                   : 'Sprawdź kafelek — wtedy podpowiem ocenę.'}
             </p>
           ) : douczanie ? (
@@ -816,6 +885,7 @@ function ElementSesji({
   widoczne,
   typy,
   zadanie,
+  wymagania,
 }: {
   p: Pozycja
   trudny: boolean
@@ -829,13 +899,19 @@ function ElementSesji({
   onOdslon: (podejrzyj: boolean) => void
   onOcena: (o: Przypomnienie) => void
   tresc: () => React.ReactNode
+  /** Wymagania z mapowania — pod nazwą, nad polem na odpowiedź. */
+  wymagania?: string
   /** Fiszka z zakrytą jedną stroną: to, co widać od początku. */
   widoczne?: () => React.ReactNode
   typy: ReturnType<typeof useBlockTypes>
 }) {
   const def = p.typ ? typy.def(p.typ) : undefined
   return (
-    <div className={`sesja-element ${odkryty ? 'odkryty' : ''} ${zadanie ? 'sesja-element-zadanie' : ''}`} data-klucz={p.klucz}>
+    <div
+      className={`sesja-element ${odkryty ? 'odkryty' : ''} ${zadanie ? 'sesja-element-zadanie' : ''}`}
+      data-klucz={p.klucz}
+      style={def ? ({ '--typ': def.color } as React.CSSProperties) : undefined}
+    >
       {!zadanie && widoczne?.()}
       {/* po odsłonięciu nagłówek ma sam kafelek — drugi raz nazwy nie trzeba
           (zadanie pokazuje odsłonięte tylko rozwiązanie, więc nazwa zostaje) */}
@@ -847,7 +923,14 @@ function ElementSesji({
           </span>
         )}
         <span className="sesja-nazwa">{trudny ? 'Co tu stoi?' : p.nazwa}</span>
+        {ocena && <span className={`sesja-znaczek-oceny zaznacz-${ocena}`}>{NAPISY[ocena]}</span>}
       </div>
+      )}
+      {!trudny && wymagania?.trim() && !odkryty && (
+        <p className="sesja-wymagania">
+          <span className="sesja-etykieta">Wymagania</span>
+          {wymagania}
+        </p>
       )}
       {zadanie && widoczne?.()}
       {!odkryty ? (
