@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: aa0469f7-ff5b-4897-a86d-3ce9f069d361
-  modified: 2026-11-20T23:12:18.186Z
+  modified: 2026-11-21T18:58:27.991Z
 ---
 
 Kompendium ma tryb nauki typu Anki: NOTOWANIE → NAUKA → UTRWALENIE. Pełny opis: VISION.md §5, SLOWNIK.md §2a, kolejka w ROADMAP.md.
@@ -17,6 +17,7 @@ Stan (2026-11-19):
 - Cel nauki i ściąga do mapowania słowami użytkownika (naukaUstawienia: PYTANIA_DOMYSLNE, SCIAGA_DOMYSLNA) — nie parafrazować ich.
 - Zadania, „Doucz nowe", panel PDF pamięta miejsce.
 - Ustawienia → Próba (2026-11-21): powiadomienia na pokaz, test zakryty i test czatem z dogrywką na kopii sektora; zapis przez `naProbe()` (transakcja wycofywana) — baza bez zmian.
+- Test czatem wg specyfikacji użytkownika (2026-11-21, wersja 1.0.7): ocena łączna = gorsza z zakrytego i czatu (czat tylko obniża; karta FSRS liczona raz z `PamiecKafelka.przed`); NIESPRAWDZONY = brak oceny; luki „- Nazwa: brak" → `lukiKafelkow` → wymagania „z czatu:" (znikają po Tak w teście zakrytym albo po sprzeciwie); bramka: etap czat do ZALICZONE; dogrywki nie ruszają terminów; limit dogrywek (ustawienie `limitDogrywek`, dom. 2) → `przemapowanie` kafelków z NIE → przerwa → krótki test (bez zmiany terminów) → znowu dogrywka; „Nie zgadzam się z oceną" z uzasadnieniem; „Pomiń czat" zostaje, ale z kosztem (`czatNastepnym` → najbliższa powtórka rozszerzona z czatem); w rozszerzonej bez bramki, dogrywka dobrowolna. Cel pamięci zostaje 95% (użytkownik odrzucił 90%). Test: `scripts/test-czat-bramka.mjs`. Próba ma gotowe podsumowania do kliknięcia.
 - Testy chodzą na Edge (KOMP_PRZEGLADARKA może podmienić); Brave po resecie nie ma.
 
 Ustalone z użytkownikiem (nie wracać do tego): zwykła powtórka bez czatu; rozszerzona (czat/zadania/trudny) co 3., przy dalekich co 2., nigdy w pierwszych 2–3; pole odpowiedzi przed odsłonięciem, podejrzenie = „Nie"; pytania to ściąga, nie szablon, i normalnie ich nie widać (rozwijane z ikony); cel 95% (do 97%); „ile dziś/jutro" zamiast limitu; czat egzaminator (głównie Gemini), polecenie pojawia się po mapowaniu i teście z pamięci; zadania = metoda, nie liczenie; odrzucone zadania mieszane z wielu sektorów; mało tekstu objaśniającego w interfejsie (użytkownik rozumie system).
