@@ -10,6 +10,7 @@ import {
   zlozPolecenie,
 } from '../czat'
 import { dopasujKafelkiCzatu, pominCzat, wynikCzatu } from '../nauka'
+import { zadaniaWZero } from '../naukaUstawienia'
 import type { JednostkaNauki, OcenaCzatu } from '../types'
 
 interface Props {
@@ -151,6 +152,47 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba }: Props) {
         </div>
       )}
       {wynik && !wynik.zaliczone && wynik.luki && <pre className="test-czatem-zapisane">{wynik.luki}</pre>}
+    </div>
+  )
+}
+
+/** Test czatem i dogrywka na próbę — na kopii sektora w pamięci, bez zapisu.
+ *  Używany w Ustawienia → Próba i zaraz po teście zakrytym w próbie. */
+export function CzatNaProbe({ j, onKoniec }: { j: JednostkaNauki; onKoniec?: () => void }) {
+  const [kopia, setKopia] = useState<JednostkaNauki | null>({ ...j, etap: 'czat', luki: undefined, czatKafelki: undefined, kluczCzatu: undefined })
+  const [koniec, setKoniec] = useState<string | null>(null)
+  return (
+    <div className="czat-na-probe">
+      {kopia && (
+        <TestCzatem
+          key={kopia.luki ? 'dogrywka' : 'test'}
+          j={kopia}
+          tryb="zero"
+          proba={(zaliczone, luki, zCzatu) => {
+            if (zaliczone) {
+              setKopia(null)
+              setKoniec(
+                'Zaliczone. W prawdziwej nauce sektor poszedłby dalej: ' +
+                  (zadaniaWZero() ? 'zadania (opcjonalne) i test końcowy.' : 'powtórki.'),
+              )
+            } else {
+              // jak naprawdę: luki zostają przy sektorze, następny krok to dogrywka
+              setKopia({
+                ...kopia,
+                luki: luki?.trim() || kopia.luki,
+                czatKafelki: zCzatu?.kafelki.length ? zCzatu.kafelki : kopia.czatKafelki,
+                kluczCzatu: zCzatu?.klucz || kopia.kluczCzatu,
+              })
+            }
+          }}
+        />
+      )}
+      {koniec && <p className="settings-hint settings-status">{koniec}</p>}
+      {onKoniec && (
+        <button className="btn btn-link" onClick={onKoniec}>
+          {koniec ? 'Jeszcze raz' : 'Zakończ próbę czatu'}
+        </button>
+      )}
     </div>
   )
 }

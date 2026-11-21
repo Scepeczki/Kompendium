@@ -74,6 +74,9 @@ await page.click('[data-proba="test"] button:has-text("Test po mapowaniu")')
 await page.waitForSelector('.sesja-element')
 check('sesja próbna: plakietka „Próba"', await page.locator('.sesja-proba').isVisible())
 check('sesja próbna: to pierwszy test po mapowaniu', (await page.locator('.sesja-rodzaj').textContent()) === 'Test po mapowaniu')
+await page.locator('.sesja-element').first().screenshot({ path: 'proba-kafelek.png' })
+check('kafelek: z lewej zakryty, z prawej pole na odpowiedź', (await page.locator('.sesja-element').first().locator('.sesja-lewa .sesja-zakryte').count()) === 1 &&
+  (await page.locator('.sesja-element').first().locator('.sesja-prawa textarea').count()) === 1)
 check('wymagania pod nazwą kafelka', (await page.locator('.sesja-element[data-klucz="c1"] .sesja-wymagania').innerText()).includes('definicja i rysunek'))
 check('mapa na górze i od razu do odkrycia', await page.locator('.sesja-mapa-pamiec button:has-text("Odkryj mapę")').isEnabled())
 await page.click('.sesja-mapa-pamiec button:has-text("Odkryj mapę")')
@@ -84,6 +87,8 @@ for (let i = 0; i < ile; i++) {
   await page.locator('.sesja-element').nth(i).locator('button:has-text("Sprawdź")').click()
   await page.locator('.sesja-element').nth(i).locator(i === 0 ? 'button:has-text("Nie")' : 'button:has-text("Tak")').click()
 }
+await page.locator('.sesja-element').nth(1).screenshot({ path: 'proba-odsloniety.png' })
+check('po odsłonięciu: kafelek z lewej, twoja odpowiedź z prawej', (await page.locator('.sesja-element').nth(1).locator('.sesja-lewa .sesja-odkryta').count()) === 1 && (await page.locator('.sesja-element').nth(1).locator('.sesja-prawa .sesja-twoja').count()) === 1)
 await page.locator('.sesja-zapisz').first().click()
 await page.waitForSelector('.sesja-wynik')
 const wynik = await page.locator('.sesja-wynik').innerText()
@@ -92,6 +97,8 @@ check('wynik też z plakietką „Próba"', await page.locator('.sesja-proba').i
 check('wynik: liczby Tak/Częściowo/Nie i lista kafelków', (await page.locator('.sesja-wynik-liczba').count()) >= 3 &&
   (await page.locator('.sesja-wynik-lista li').count()) === ile && (await page.locator('.sesja-wynik-lista li.zaznacz-nie').count()) === 1)
 await page.screenshot({ path: 'proba-wynik.png' })
+check('próba: po teście od razu test czatem (jak w nauce)', (await page.locator('.sesja-wynik .czat-na-probe button:has-text("Test czatem")').count()) === 1 &&
+  (await page.locator('.sesja-wynik').innerText()).includes('test czatem'))
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 await page.waitForTimeout(500)
 check('po teście na próbę baza bez zmian', (await baza()) === przed)

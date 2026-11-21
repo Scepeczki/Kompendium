@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { naPulpicie, powiadom } from '../pulpit'
-import { zadaniaWZero } from '../naukaUstawienia'
-import { TestCzatem } from './TestCzatem'
+import { CzatNaProbe } from './TestCzatem'
 import type { CelSesji } from './SesjaNauki'
 import type { JednostkaNauki } from '../types'
 
@@ -25,7 +24,6 @@ export function ProbaNauki() {
   const [wybrany, setWybrany] = useState('')
   const sektor = sektory.find((s) => s.id === wybrany) ?? sektory[0]
   const [czatJ, setCzatJ] = useState<JednostkaNauki | null>(null)
-  const [poCzacie, setPoCzacie] = useState<string | null>(null)
 
   return (
     <>
@@ -81,7 +79,6 @@ export function ProbaNauki() {
                 onChange={(e) => {
                   setWybrany(e.target.value)
                   setCzatJ(null)
-                  setPoCzacie(null)
                 }}
               >
                 {sektory.map((s) => (
@@ -123,45 +120,12 @@ export function ProbaNauki() {
                 <span className="settings-label">Test czatem i dogrywka</span>
                 {!czatJ ? (
                   <div className="settings-backup-actions">
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => {
-                        setPoCzacie(null)
-                        setCzatJ({ ...sektor, etap: 'czat', luki: undefined })
-                      }}
-                    >
+                    <button className="btn btn-primary" onClick={() => setCzatJ(sektor)}>
                       Zacznij test czatem
                     </button>
                   </div>
                 ) : (
-                  <TestCzatem
-                    key={czatJ.luki ? 'dogrywka' : 'test'}
-                    j={czatJ}
-                    tryb="zero"
-                    proba={(zaliczone, luki, zCzatu) => {
-                      if (zaliczone) {
-                        setCzatJ(null)
-                        setPoCzacie(
-                          'Zaliczone. W prawdziwej nauce sektor poszedłby dalej: ' +
-                            (zadaniaWZero() ? 'zadania (opcjonalne) i test końcowy.' : 'powtórki.'),
-                        )
-                      } else {
-                        // jak naprawdę: luki zostają przy sektorze, następny krok to dogrywka
-                        setCzatJ({
-                          ...czatJ,
-                          luki: luki?.trim() || czatJ.luki,
-                          czatKafelki: zCzatu?.kafelki.length ? zCzatu.kafelki : czatJ.czatKafelki,
-                          kluczCzatu: zCzatu?.klucz || czatJ.kluczCzatu,
-                        })
-                      }
-                    }}
-                  />
-                )}
-                {poCzacie && <p className="settings-hint settings-status">{poCzacie}</p>}
-                {czatJ && (
-                  <button className="btn btn-link" onClick={() => setCzatJ(null)}>
-                    Zakończ próbę czatu
-                  </button>
+                  <CzatNaProbe key={czatJ.id} j={czatJ} onKoniec={() => setCzatJ(null)} />
                 )}
                 <p className="settings-hint">
                   Polecenie naprawdę trafia do schowka i otwiera się czat. „Są luki" → wklejasz luki

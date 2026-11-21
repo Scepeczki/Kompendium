@@ -6,7 +6,7 @@ import { useBlockTypes } from '../blockTypes'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Icon } from './Icon'
-import { TestCzatem } from './TestCzatem'
+import { CzatNaProbe, TestCzatem } from './TestCzatem'
 import { useZadania } from './ZadaniaSektora'
 import { eksperyment, otworzCzat, zlozPolecenie } from '../czat'
 import {
@@ -31,7 +31,6 @@ import {
   type Ocena,
   type PoSesji,
 } from '../nauka'
-import { pytania } from '../naukaUstawienia'
 import {
   kluczWlasnej,
   type BlockVersion,
@@ -289,6 +288,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const [mapaOdkryta, setMapaOdkryta] = useState(false)
   const [wybor, setWybor] = useState<Ocena | null>(null)
   const [wynik, setWynik] = useState<(PoSesji & { ocena: Ocena }) | null>(null)
+  /** Próba: sektor w stanie, w jakim byłby po zapisie (zapis jest wycofany). */
+  const [jPoProbie, setJPoProbie] = useState<JednostkaNauki | undefined>()
   const [zapisuje, setZapisuje] = useState(false)
 
   const odslon = (klucz: string, podejrzyj: boolean) => {
@@ -345,13 +346,17 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       pathId,
       douczanie: douczanie || undefined,
     }
-    const po = cel.proba
-      ? await naProbe(async () => {
-          // próba: sektor w stanie z próby, zapis i tak zostanie wycofany
-          if (j) await db.nauka.put(j)
-          return zapiszSesje(dane)
-        })
-      : await zapiszSesje(dane)
+    let po: PoSesji
+    if (cel.proba) {
+      const r = await naProbe(async () => {
+        // próba: sektor w stanie z próby, zapis i tak zostanie wycofany
+        if (j) await db.nauka.put(j)
+        const po = await zapiszSesje(dane)
+        return { po, jPo: j ? await db.nauka.get(j.id) : undefined }
+      })
+      po = r.po
+      setJPoProbie(r.jPo)
+    } else po = await zapiszSesje(dane)
     setWynik({ ...po, ocena })
     setZapisuje(false)
   }
@@ -392,6 +397,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               : 'Powtórka'
 
   // ---- po zapisie ----
+  // w próbie: sektor taki, jaki byłby po zapisie (np. etap „czat")
+  const jw = cel.proba ? (jPoProbie ?? j) : j
   if (wynik) {
     return (
       <section className="sesja">
@@ -436,24 +443,20 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               Test zaliczony (<strong>{NAZWY_OCEN[wynik.ocena]}</strong>). Powtórka zero idzie dalej:{' '}
               <strong>zadania</strong> (opcjonalne), potem test końcowy — przy sektorze w widoku Nauka.
             </p>
-          ) : wynik.czat && j ? (
-            j.etap === 'zadania' ? (
+          ) : wynik.czat && jw ? (
+            jw.etap === 'zadania' ? (
               <p className="sesja-wynik-glowny">
                 Test czatem zaliczony. Teraz <strong>zadania</strong> (opcjonalne) i test końcowy — przy
                 sektorze w widoku Nauka. Możesz je też pominąć.
               </p>
-            ) : j.etap === 'czat' ? (
+            ) : jw.etap === 'czat' ? (
               <>
                 <p className="sesja-wynik-glowny">
                   Test zaliczony (<strong>{NAZWY_OCEN[wynik.ocena]}</strong>). Powtórka zero idzie dalej:{' '}
                   <strong>test czatem</strong>. Możesz go zrobić teraz albo później — czeka przy sektorze
                   w widoku Nauka.
                 </p>
-                {cel.proba ? (
-                  <p className="hint">Test czatem wypróbujesz w Ustawienia → Próba.</p>
-                ) : (
-                  <TestCzatem j={j} tryb="zero" />
-                )}
+                {cel.proba ? <CzatNaProbe j={jw} /> : <TestCzatem j={jw} tryb="zero" />}
               </>
             ) : (
               <p className="sesja-wynik-glowny">
@@ -512,7 +515,6 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
 
   // ---- sesja ----
   const mapa = sektor?.mapa?.trim()
-  const listaPytan = pytania()
 
   /** Zadanie w sesji: nazwa i treść widoczne, pole na rozwiązanie z pamięci,
    *  zakryte strony z rozwiązaniem. */
@@ -575,35 +577,38 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               <span className="sesja-etykieta">Mapa sektora</span>
               <b>Sens i mapa — z pamięci</b>
             </div>
-            <ul className="sesja-pytania">
-              {listaPytan.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-            {!mapaOdkryta ? (
-              <>
-                <textarea
-                  className="sesja-pole"
-                  rows={6}
-                  placeholder="Odtwórz mapę sektora i odpowiedz na pytania — tak, jak pamiętasz."
-                  value={odpowiedzi.mapa ?? ''}
-                  onChange={(e) => setOdpowiedzi((o) => ({ ...o, mapa: e.target.value }))}
-                />
-                <div className="sesja-przyciski sesja-mapa-porownaj">
-                  <button className="btn btn-primary" onClick={() => setMapaOdkryta(true)}>
-                    <Icon name="odkryj" size={1} /> Odkryj mapę
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="sesja-mapa-porownaj">
-                {odpowiedzi.mapa && (
-                  <details className="sesja-twoja" open>
-                    <summary>Twoja odpowiedź</summary>
-                    <p>{odpowiedzi.mapa}</p>
-                  </details>
+            <div className="sesja-dwie">
+              <div className="sesja-lewa">
+                {mapaOdkryta ? (
+                  <div className="markdown-body sesja-mapa" dangerouslySetInnerHTML={{ __html: renderMarkdown(mapa ?? '') }} />
+                ) : (
+                  <div className="sesja-zakryte sesja-mapa-porownaj">
+                    <span className="sesja-etykieta">Mapa zakryta</span>
+                    <button className="btn btn-primary" onClick={() => setMapaOdkryta(true)}>
+                      <Icon name="odkryj" size={1} /> Odkryj mapę
+                    </button>
+                  </div>
                 )}
-                <div className="markdown-body sesja-mapa" dangerouslySetInnerHTML={{ __html: renderMarkdown(mapa ?? '') }} />
+              </div>
+              <div className="sesja-prawa">
+                {!mapaOdkryta ? (
+                  <textarea
+                    className="sesja-pole"
+                    rows={7}
+                    placeholder="Odtwórz mapę sektora — sens, struktura, jak kafelki się łączą — tak, jak pamiętasz."
+                    value={odpowiedzi.mapa ?? ''}
+                    onChange={(e) => setOdpowiedzi((o) => ({ ...o, mapa: e.target.value }))}
+                  />
+                ) : (
+                  <div className="sesja-twoja">
+                    <span className="sesja-etykieta">Twoja odpowiedź</span>
+                    <p>{odpowiedzi.mapa?.trim() ? odpowiedzi.mapa : <em>— nic nie napisałeś —</em>}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            {mapaOdkryta && (
+              <div className="sesja-mapa-porownaj">
                 <Zaznaczenie pytanie="Sens i struktura — pamiętałeś?" ocena={struktura} onOcena={setStruktura} />
               </div>
             )}
@@ -913,9 +918,7 @@ function ElementSesji({
       style={def ? ({ '--typ': def.color } as React.CSSProperties) : undefined}
     >
       {!zadanie && widoczne?.()}
-      {/* po odsłonięciu nagłówek ma sam kafelek — drugi raz nazwy nie trzeba
-          (zadanie pokazuje odsłonięte tylko rozwiązanie, więc nazwa zostaje) */}
-      {(!odkryty || zadanie) && (
+      {/* nagłówek karty zostaje też po odsłonięciu — z nim znaczek oceny */}
       <div className="sesja-element-glowa">
         {def && (
           <span className="sesja-znak" style={{ color: def.color }}>
@@ -925,54 +928,63 @@ function ElementSesji({
         <span className="sesja-nazwa">{trudny ? 'Co tu stoi?' : p.nazwa}</span>
         {ocena && <span className={`sesja-znaczek-oceny zaznacz-${ocena}`}>{NAPISY[ocena]}</span>}
       </div>
-      )}
-      {!trudny && wymagania?.trim() && !odkryty && (
-        <p className="sesja-wymagania">
-          <span className="sesja-etykieta">Wymagania</span>
-          {wymagania}
-        </p>
-      )}
       {zadanie && widoczne?.()}
-      {!odkryty ? (
-        <>
-          <textarea
-            className="sesja-pole"
-            rows={3}
-            placeholder={
-              zadanie
-                ? 'Jak to rozwiązać? Pomysł i kluczowe kroki — z pamięci.'
-                : trudny
-                  ? 'Co to za kafelek i co mówi?'
-                  : 'Napisz z pamięci (albo na kartce obok).'
-            }
-            value={odpowiedz}
-            onChange={(e) => onOdpowiedz(e.target.value)}
-          />
-          <div className="sesja-przyciski">
-            <button className="btn btn-primary" onClick={() => onOdslon(false)}>
-              <Icon name="odkryj" size={1} /> Sprawdź
-            </button>
-            <button className="btn" onClick={() => onOdslon(true)} title={'Nie pamiętam — pokaż (liczy się jako „Nie")'}>
-              Podejrzyj
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          {odpowiedz && (
-            <details className="sesja-twoja" open>
-              <summary>Twoja odpowiedź</summary>
-              <p>{odpowiedz}</p>
-            </details>
+      {/* z lewej kafelek (najpierw zakryty), z prawej twoja odpowiedź —
+          po odsłonięciu oba naraz na ekranie, łatwiej ocenić */}
+      <div className="sesja-dwie">
+        <div className="sesja-lewa">
+          {odkryty ? (
+            <div className="sesja-odkryta">{tresc()}</div>
+          ) : (
+            <div className="sesja-zakryte">
+              <span className="sesja-etykieta">{zadanie ? 'Rozwiązanie zakryte' : 'Kafelek zakryty'}</span>
+              <div className="sesja-przyciski">
+                <button className="btn btn-primary" onClick={() => onOdslon(false)}>
+                  <Icon name="odkryj" size={1} /> Sprawdź
+                </button>
+                <button className="btn" onClick={() => onOdslon(true)} title={'Nie pamiętam — pokaż (liczy się jako „Nie")'}>
+                  Podejrzyj
+                </button>
+              </div>
+            </div>
           )}
-          <div className="sesja-odkryta">{tresc()}</div>
-          <Zaznaczenie
-            pytanie={podejrzany ? 'Podejrzane — liczy się jako „Nie"' : 'Pamiętałeś?'}
-            ocena={ocena}
-            onOcena={onOcena}
-            zablokowane={podejrzany}
-          />
-        </>
+        </div>
+        <div className="sesja-prawa">
+          {!trudny && wymagania?.trim() && (
+            <p className="sesja-wymagania">
+              <span className="sesja-etykieta">Wymagania</span>
+              {wymagania}
+            </p>
+          )}
+          {!odkryty ? (
+            <textarea
+              className="sesja-pole"
+              rows={5}
+              placeholder={
+                zadanie
+                  ? 'Jak to rozwiązać? Pomysł i kluczowe kroki — z pamięci.'
+                  : trudny
+                    ? 'Co to za kafelek i co mówi?'
+                    : 'Napisz z pamięci (albo na kartce obok).'
+              }
+              value={odpowiedz}
+              onChange={(e) => onOdpowiedz(e.target.value)}
+            />
+          ) : (
+            <div className="sesja-twoja">
+              <span className="sesja-etykieta">Twoja odpowiedź</span>
+              <p>{odpowiedz.trim() ? odpowiedz : <em>— nic nie napisałeś —</em>}</p>
+            </div>
+          )}
+        </div>
+      </div>
+      {odkryty && (
+        <Zaznaczenie
+          pytanie={podejrzany ? 'Podejrzane — liczy się jako „Nie"' : 'Pamiętałeś?'}
+          ocena={ocena}
+          onOcena={onOcena}
+          zablokowane={podejrzany}
+        />
       )}
     </div>
   )
