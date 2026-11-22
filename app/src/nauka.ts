@@ -402,8 +402,10 @@ export function laczna(zakryta: Przypomnienie, czat?: OcenaCzatu['ocena']): Przy
   return RANGA[czat] < RANGA[zakryta] ? czat : zakryta
 }
 
-/** Ocena czatu, która się liczy (bez sprzeciwu, nie NIESPRAWDZONY). */
-const liczySie = (k: OcenaCzatu) => !!k.klucz && !k.sprzeciw && k.ocena !== 'niesprawdzony'
+/** Ocena kafelka po czacie: twoja (gdy się nie zgodziłeś), inaczej czatu. */
+export const ocenaPoCzacie = (k: OcenaCzatu): OcenaCzatu['ocena'] => k.twoja ?? k.ocena
+/** Ocena, która się liczy (nie NIESPRAWDZONY, kafelek rozpoznany). */
+const liczySie = (k: OcenaCzatu) => !!k.klucz && ocenaPoCzacie(k) !== 'niesprawdzony'
 
 /** Klucz czatu (węzeł albo zadanie:id) → klucz pamięci. */
 async function kluczePamieci(j: JednostkaNauki): Promise<Map<string, string>> {
@@ -418,7 +420,7 @@ async function kluczePamieci(j: JednostkaNauki): Promise<Map<string, string>> {
 }
 
 /** Luki czatu dopisane do wymagań kafelków (z oceną Częściowo/Nie);
- *  sprzeciw usuwa luki kafelka. Zwraca nową mapę (albo undefined, gdy pusta). */
+ *  twoje „Tak" usuwa luki kafelka. Zwraca nową mapę (albo undefined, gdy pusta). */
 function dopiszLuki(
   stare: Record<string, string[]> | undefined,
   kafelki: OcenaCzatu[],
@@ -426,12 +428,13 @@ function dopiszLuki(
   const m: Record<string, string[]> = { ...(stare ?? {}) }
   for (const k of kafelki) {
     if (!k.klucz) continue
-    if (k.sprzeciw) {
+    const o = ocenaPoCzacie(k)
+    if (k.twoja === 'tak') {
       delete m[k.klucz]
       continue
     }
-    if (k.ocena !== 'czesciowo' && k.ocena !== 'nie') continue
-    const nowe = k.luki?.length ? k.luki : k.uwaga ? [k.uwaga] : []
+    if (o !== 'czesciowo' && o !== 'nie') continue
+    const nowe = k.luki?.length ? k.luki : k.uwaga && k.ocena !== 'tak' ? [k.uwaga] : ['oznaczone przez ciebie po czacie']
     const l = [...(m[k.klucz] ?? [])]
     for (const x of nowe) if (!l.includes(x)) l.push(x)
     if (l.length) m[k.klucz] = l
@@ -441,7 +444,7 @@ function dopiszLuki(
 
 /** Sprzeciwy z oceny czatu — do historii. */
 const sprzeciwy = (kafelki?: OcenaCzatu[]) => {
-  const l = (kafelki ?? []).filter((k) => k.sprzeciw).map((k) => ({ nazwa: k.nazwa, ocena: k.ocena, powod: k.sprzeciw! }))
+  const l = (kafelki ?? []).filter((k) => k.twoja && k.twoja !== k.ocena).map((k) => ({ nazwa: k.nazwa, czat: k.ocena, twoja: k.twoja! }))
   return l.length ? l : undefined
 }
 
@@ -891,7 +894,7 @@ export interface PoCzacie {
   /** Etap sektora po zapisie. */
   etap: JednostkaNauki['etap']
   /** Kafelki z oceną łączną (gorsza z zakrytego i czatu) — tylko te, które czat ocenił. */
-  kafelki: { nazwa: string; zakryta?: Przypomnienie; czat: OcenaCzatu['ocena']; lacznie?: Przypomnienie; sprzeciw?: string }[]
+  kafelki: { nazwa: string; zakryta?: Przypomnienie; czat: OcenaCzatu['ocena']; twoja?: Przypomnienie; lacznie?: Przypomnienie }[]
   /** Ile kafelków czat obniżył (zmieniła się karta FSRS). */
   obnizone: number
   /** Nieudane dogrywki z rzędu po zapisie i limit. */
@@ -942,8 +945,8 @@ export async function wynikCzatu(
       const pk = k.klucz ? klucze.get(k.klucz) : undefined
       const p = pk ? await db.pamiec.get(pk) : undefined
       const zak = p?.przed ? Z_RANGI[p.przed.ocena] : undefined
-      const lacz = zak && liczySie(k) ? laczna(zak, k.ocena) : zak
-      opis.push({ nazwa: k.nazwa, zakryta: zak, czat: k.ocena, lacznie: lacz, sprzeciw: k.sprzeciw })
+      const lacz = zak && liczySie(k) ? laczna(zak, ocenaPoCzacie(k)) : zak
+      opis.push({ nazwa: k.nazwa, zakryta: zak, czat: k.ocena, twoja: k.twoja, lacznie: lacz })
       if (!zero || dogrywka || !p || !pk || !zak || !lacz) continue
       zakryte[pk] = zak
       lacznie[pk] = lacz
@@ -960,16 +963,16 @@ export async function wynikCzatu(
       if (Object.keys(zmiana).length) await db.pamiec.update(pk, { ...zmiana, zmieniono: iso })
     }
 
-    // 2. luki → wymagania kafelków (sprzeciw usuwa luki kafelka)
+    // 2. luki → wymagania kafelków (twoje „Tak" usuwa luki kafelka)
     const lukiKafelkow = dopiszLuki(j.lukiKafelkow, kafelki)
 
-    // „do poprawy": kafelki z NIE (bez sprzeciwu)
-    const nie = kafelki.filter((k) => liczySie(k) && k.ocena === 'nie').map((k) => k.klucz!)
+    // „do poprawy": kafelki z NIE (po twoich zmianach)
+    const nie = kafelki.filter((k) => liczySie(k) && ocenaPoCzacie(k) === 'nie').map((k) => k.klucz!)
     // luki do dogrywki: z podsumowania, a gdy ich nie ma — ze słabszych kafelków
     const lukiTekst =
       luki?.trim() ||
       kafelki
-        .filter((k) => liczySie(k) && k.ocena !== 'tak')
+        .filter((k) => liczySie(k) && ocenaPoCzacie(k) !== 'tak')
         .map((k) => `- ${k.nazwa}: ${k.luki?.join('; ') || k.uwaga || 'do poprawy'}`)
         .join('\n') ||
       j.luki ||

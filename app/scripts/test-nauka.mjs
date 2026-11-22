@@ -198,7 +198,7 @@ d = await baza()
 const poCzacie = d.nauka.find((j) => j.id === sektor.id)
 check('luki z czatu zapisane, sektor dalej w czacie', poCzacie.etap === 'czat' && poCzacie.luki?.startsWith('- brak przykładu') && !poCzacie.luki.includes('WYNIK'), poCzacie.luki)
 check('dogrywka: przycisk i lista luk', (await page.locator('.sesja-wynik .test-czatem-krok .btn-primary').innerText()).startsWith('Dogrywka') &&
-  (await page.locator('.sesja-wynik .test-czatem-luki').innerText()).includes('myli kulę'))
+  (await page.locator('.sesja-wynik .test-czatem').innerText()).includes('myli kulę'))
 await page.click('.sesja-wynik .test-czatem-krok .btn-primary')
 await page.waitForTimeout(500)
 const dogrywka = await page.evaluate(() => navigator.clipboard.readText())

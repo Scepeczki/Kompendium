@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { naPulpicie, powiadom } from '../pulpit'
-import { CzatNaProbe } from './TestCzatem'
 import type { CelSesji } from './SesjaNauki'
-import type { JednostkaNauki, Przypomnienie } from '../types'
+import type { Przypomnienie } from '../types'
 
 const komunikat = (tekst: string) =>
   window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: tekst }))
@@ -23,7 +22,6 @@ export function ProbaNauki() {
     ) ?? []
   const [wybrany, setWybrany] = useState('')
   const sektor = sektory.find((s) => s.id === wybrany) ?? sektory[0]
-  const [czatJ, setCzatJ] = useState<JednostkaNauki | null>(null)
   const [zakryte, setZakryte] = useState<Przypomnienie>('tak')
 
   return (
@@ -79,7 +77,6 @@ export function ProbaNauki() {
                 value={sektor?.id}
                 onChange={(e) => {
                   setWybrany(e.target.value)
-                  setCzatJ(null)
                 }}
               >
                 {sektory.map((s) => (
@@ -156,7 +153,7 @@ export function ProbaNauki() {
 
               <div className="settings-row" data-proba="czat">
                 <span className="settings-label">Test czatem i dogrywka</span>
-                {!czatJ ? (
+                {(
                   <div className="settings-backup-actions">
                     <label className="settings-pole">
                       <span>Test zakryty przed czatem</span>
@@ -165,12 +162,13 @@ export function ProbaNauki() {
                         <option value="czesciowo">wszystko Częściowo</option>
                       </select>
                     </label>
-                    <button className="btn btn-primary" onClick={() => setCzatJ(sektor)}>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => otworzSesje({ jednostkaId: sektor.id, probaCzatu: true, zakryteProby: zakryte, proba: {} })}
+                    >
                       Zacznij test czatem
                     </button>
                   </div>
-                ) : (
-                  <CzatNaProbe key={czatJ.id} j={czatJ} zakryte={() => zakryte} />
                 )}
                 <p className="settings-hint">
                   Nie musisz rozmawiać z czatem: kliknij gotowe podsumowanie (wszystko TAK, z CZĘŚCIOWO,

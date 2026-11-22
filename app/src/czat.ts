@@ -371,13 +371,13 @@ const normNazwy = (s: string) =>
   s.toLowerCase().replace(/[„”"'«»*_`]/g, '').replace(/\s+/g, ' ').trim()
 
 /** Czy podsumowanie przechodzi: bez kafelków — według WYNIK; z kafelkami —
- *  gdy żaden nie ma NIE (sprzeciw uchyla ocenę czatu). Bez WYNIK i bez
+ *  gdy żaden nie ma NIE (twoja ocena zastępuje ocenę czatu). Bez WYNIK i bez
  *  kafelków (wklejone same luki) — nie przechodzi. */
 export function czyZaliczone(w: {
   zaliczone?: boolean
-  kafelki: { ocena: OcenaKafelkaCzatu; sprzeciw?: string }[]
+  kafelki: { ocena: OcenaKafelkaCzatu; twoja?: 'tak' | 'czesciowo' | 'nie' }[]
 }): boolean {
-  if (w.kafelki.length) return !w.kafelki.some((k) => k.ocena === 'nie' && !k.sprzeciw)
+  if (w.kafelki.length) return !w.kafelki.some((k) => (k.twoja ?? k.ocena) === 'nie')
   return w.zaliczone === true
 }
 

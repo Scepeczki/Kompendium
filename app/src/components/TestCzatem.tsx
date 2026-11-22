@@ -14,6 +14,7 @@ import {
   dopasujKafelkiCzatu,
   naProbe,
   nazwyKafelkowSektora,
+  ocenaPoCzacie,
   pominCzat,
   symulujTestZakryty,
   wynikCzatu,
@@ -39,10 +40,14 @@ interface Props {
   /** Tylko w powtórce rozszerzonej: wynik oddany do sesji. */
   onWynik?: (w: CzatWSesji) => void
   wynik?: CzatWSesji
-  /** Próba: zamiast zapisu do bazy. Zwraca, co by się stało. */
+  /** Próba: zamiast zapisu do bazy. */
   proba?: (zaliczone: boolean, luki: string | undefined, zCzatu: { kafelki: OcenaCzatu[]; klucz?: string }) => Promise<void>
   /** Próba: gotowe podsumowania do wklejenia jednym kliknięciem. */
   przyklady?: { nazwa: string; tekst: string }[]
+  /** „Popraw mapy" przy lukach — otwiera tryb mapowania sektora. */
+  onMapuj?: () => void
+  /** Skutki poprzedniego zapisu (próba trzyma je u siebie). */
+  skutki?: PoCzacie | null
 }
 
 const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new URL(adresCzatu()).host
@@ -54,97 +59,166 @@ export const NAPIS: Record<OcenaCzatu['ocena'], string> = {
   niesprawdzony: 'Niesprawdzony',
 }
 const NAPIS_P: Record<Przypomnienie, string> = { tak: 'Tak', czesciowo: 'Częściowo', nie: 'Nie' }
+const KOLEJ = ['nie', 'czesciowo', 'niesprawdzony', 'tak']
+const posortuj = (l: OcenaCzatu[]) =>
+  l.map((k, i) => ({ k, i })).sort((a, b) => KOLEJ.indexOf(ocenaPoCzacie(a.k)) - KOLEJ.indexOf(ocenaPoCzacie(b.k)))
 
-/** Kafelki ocenione przez czat — kolorowe wiersze, najpierw słabsze.
- *  Z `onSprzeciw` przy Częściowo/Nie jest „Nie zgadzam się z oceną". */
-export function OcenyCzatu({
-  kafelki,
-  onSprzeciw,
-}: {
-  kafelki: OcenaCzatu[]
-  onSprzeciw?: (i: number, powod: string | undefined) => void
-}) {
-  const [pisze, setPisze] = useState<number | null>(null)
-  const [powod, setPowod] = useState('')
+/** Kafelki ocenione przez czat — tylko do wglądu, najpierw słabsze. */
+export function OcenyCzatu({ kafelki }: { kafelki: OcenaCzatu[] }) {
   if (!kafelki.length) return null
-  const kolej = ['nie', 'czesciowo', 'niesprawdzony', 'tak']
   return (
     <ul className="test-czatem-kafelki">
-      {kafelki
-        .map((k, i) => ({ k, i }))
-        .sort((a, b) => kolej.indexOf(a.k.ocena) - kolej.indexOf(b.k.ocena))
-        .map(({ k, i }) => (
-          <li key={i} className={`zaznacz-${k.ocena}${k.sprzeciw ? ' test-czatem-uchylona' : ''}`} data-kafelek={k.nazwa}>
-            <span className="test-czatem-ocena">{NAPIS[k.ocena]}</span>
-            <span className="test-czatem-kafelek">
-              {k.nazwa}
-              {!k.klucz && onSprzeciw && <span className="hint"> (nie pasuje do żadnego kafelka sektora)</span>}
-            </span>
-            {k.uwaga && <span className="test-czatem-uwaga">{k.uwaga}</span>}
-            {!!k.luki?.length && (
-              <ul className="test-czatem-luki-kafelka">
-                {k.luki.map((l, x) => (
-                  <li key={x}>{l}</li>
-                ))}
-              </ul>
-            )}
-            {k.sprzeciw ? (
-              <span className="test-czatem-sprzeciw">
-                Nie zgadzasz się: „{k.sprzeciw}" — liczy się ocena z testu zakrytego.
-                {onSprzeciw && (
-                  <button className="btn btn-link" onClick={() => onSprzeciw(i, undefined)}>
-                    Cofnij
-                  </button>
-                )}
-              </span>
-            ) : (
-              onSprzeciw &&
-              (k.ocena === 'nie' || k.ocena === 'czesciowo') &&
-              (pisze === i ? (
-                <span className="test-czatem-sprzeciw-pole">
-                  <input
-                    autoFocus
-                    placeholder="Jedno zdanie: dlaczego ocena jest zła?"
-                    value={powod}
-                    onChange={(e) => setPowod(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && powod.trim()) {
-                        onSprzeciw(i, powod.trim())
-                        setPisze(null)
-                        setPowod('')
-                      }
-                    }}
-                  />
+      {posortuj(kafelki).map(({ k, i }) => (
+        <li key={i} className={`zaznacz-${ocenaPoCzacie(k)}`} data-kafelek={k.nazwa}>
+          <span className="test-czatem-ocena">{NAPIS[ocenaPoCzacie(k)]}</span>
+          <span className="test-czatem-kafelek">{k.nazwa}</span>
+          {k.twoja && k.twoja !== k.ocena && <span className="hint">(twoja ocena; czat: {NAPIS[k.ocena]})</span>}
+          {k.uwaga && <span className="test-czatem-uwaga">{k.uwaga}</span>}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Ocena czatu do zatwierdzenia: przy każdym kafelku „Nie zgadzam się" —
+ *  wtedy wybierasz własną ocenę (Tak / Częściowo / Nie), w obie strony. */
+function OcenaDoZatwierdzenia({
+  kafelki,
+  onZmien,
+}: {
+  kafelki: OcenaCzatu[]
+  onZmien: (i: number, twoja: Przypomnienie | undefined) => void
+}) {
+  const [edytowane, setEdytowane] = useState<Set<number>>(new Set())
+  return (
+    <ul className="tc-oceny">
+      {posortuj(kafelki).map(({ k, i }) => {
+        const edycja = edytowane.has(i) || !!k.twoja
+        const o = ocenaPoCzacie(k)
+        return (
+          <li key={i} className={`tc-ocena zaznacz-${o}`} data-kafelek={k.nazwa}>
+            <div className="tc-ocena-glowa">
+              <span className="test-czatem-ocena">{NAPIS[o]}</span>
+              <span className="test-czatem-kafelek">{k.nazwa}</span>
+              {!k.klucz && <span className="hint">(nie pasuje do żadnego kafelka sektora — pominięty)</span>}
+              {!edycja ? (
+                <button
+                  className="btn btn-link tc-nie-zgadzam"
+                  onClick={() => setEdytowane((s) => new Set(s).add(i))}
+                >
+                  Nie zgadzam się
+                </button>
+              ) : (
+                <span className="tc-twoja">
+                  <span className="hint">Twoja ocena:</span>
+                  {(['tak', 'czesciowo', 'nie'] as Przypomnienie[]).map((x) => (
+                    <button
+                      key={x}
+                      className={`btn btn-maly zaznacz-${x} ${k.twoja === x ? 'btn-active' : ''}`}
+                      onClick={() => onZmien(i, x)}
+                    >
+                      {NAPIS_P[x]}
+                    </button>
+                  ))}
                   <button
-                    className="btn btn-maly"
-                    disabled={!powod.trim()}
+                    className="btn btn-link"
+                    title="Wróć do oceny czatu"
                     onClick={() => {
-                      onSprzeciw(i, powod.trim())
-                      setPisze(null)
-                      setPowod('')
+                      onZmien(i, undefined)
+                      setEdytowane((s) => {
+                        const n = new Set(s)
+                        n.delete(i)
+                        return n
+                      })
                     }}
                   >
-                    Uchyl ocenę
-                  </button>
-                  <button className="btn btn-link" onClick={() => setPisze(null)}>
-                    Anuluj
+                    Zgadzam się z czatem
                   </button>
                 </span>
-              ) : (
-                <button
-                  className="btn btn-link test-czatem-nie-zgadzam"
-                  onClick={() => {
-                    setPisze(i)
-                    setPowod('')
-                  }}
-                >
-                  Nie zgadzam się z oceną
-                </button>
-              ))
-            )}
+              )}
+            </div>
+            <div className="tc-ocena-opis">
+              {k.twoja && k.twoja !== k.ocena && (
+                <span className="tc-zmiana">
+                  Czat: {NAPIS[k.ocena]} → liczy się twoja: <strong>{NAPIS_P[k.twoja]}</strong>
+                </span>
+              )}
+              {k.uwaga && <span className="test-czatem-uwaga">{k.uwaga}</span>}
+              {!!k.luki?.length && o !== 'tak' && (
+                <ul className="test-czatem-luki-kafelka">
+                  {k.luki.map((l, x) => (
+                    <li key={x}>{l}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </li>
-        ))}
+        )
+      })}
     </ul>
+  )
+}
+
+/** Klucz odpowiedzi czatu do jednego kafelka („- Nazwa: odpowiedź"). */
+function kluczKafelka(klucz: string | undefined, nazwa: string): string | undefined {
+  if (!klucz) return undefined
+  const n = nazwa.toLowerCase()
+  const linie = klucz.split('\n')
+  for (let i = 0; i < linie.length; i++) {
+    const m = /^\s*[-*•]\s*\**(.+?)\**\s*:\s*(.*)$/.exec(linie[i])
+    if (!m || m[1].trim().toLowerCase() !== n) continue
+    const reszta = [m[2]]
+    for (let x = i + 1; x < linie.length && !/^\s*[-*•]\s/.test(linie[x]); x++) reszta.push(linie[x])
+    return reszta.join('\n').trim()
+  }
+  return undefined
+}
+
+/** Po czacie z lukami: podsumowanie luk przy każdym kafelku i klucz odpowiedzi. */
+function PodsumowanieLuk({ j }: { j: JednostkaNauki }) {
+  const slabe = (j.czatKafelki ?? []).filter((k) => {
+    const o = ocenaPoCzacie(k)
+    return o === 'nie' || o === 'czesciowo'
+  })
+  return (
+    <div className="tc-luki">
+      <h4 className="tc-tytul">Luki do poprawy</h4>
+      {slabe.length ? (
+        <ul className="tc-luki-lista">
+          {posortuj(slabe).map(({ k, i }) => {
+            const wzor = kluczKafelka(j.kluczCzatu, k.nazwa)
+            const o = ocenaPoCzacie(k)
+            return (
+              <li key={i} className={`tc-luka zaznacz-${o}`}>
+                <div className="tc-ocena-glowa">
+                  <span className="test-czatem-ocena">{NAPIS[o]}</span>
+                  <span className="test-czatem-kafelek">{k.nazwa}</span>
+                </div>
+                <ul className="test-czatem-luki-kafelka">
+                  {(k.luki?.length ? k.luki : k.uwaga ? [k.uwaga] : ['(czat nie opisał luki)']).map((l, x) => (
+                    <li key={x}>{l}</li>
+                  ))}
+                </ul>
+                {wzor && (
+                  <details className="tc-wzor">
+                    <summary>Wzorcowa odpowiedź od czatu</summary>
+                    <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(wzor) }} />
+                  </details>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <pre className="test-czatem-zapisane">{j.luki}</pre>
+      )}
+      {j.kluczCzatu && !slabe.some((k) => kluczKafelka(j.kluczCzatu, k.nazwa)) && (
+        <details className="tc-wzor">
+          <summary>Klucz odpowiedzi od czatu</summary>
+          <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(j.kluczCzatu) }} />
+        </details>
+      )}
+    </div>
   )
 }
 
@@ -165,7 +239,7 @@ export function SkutkiCzatu({ po }: { po: PoCzacie }) {
           : po.przemapowanie
             ? `Limit dogrywek (${po.limit}) — teraz przemapowanie samych kafelków z NIE: ${po.przemapowanie.join(', ')}. Potem przerwa, krótki test z nich i znowu dogrywka.`
             : po.etap === 'czat'
-              ? `Są luki — sektor czeka na dogrywkę${po.dogrywek ? ` (nieudane dogrywki: ${po.dogrywek} z ${po.limit})` : ''}.`
+              ? `Są luki — popraw mapy i zrób dogrywkę${po.dogrywek ? ` (nieudane dogrywki: ${po.dogrywek} z ${po.limit})` : ''}.`
               : 'Są luki — dogrywka jest dobrowolna, powtórki idą normalnie.'}
       </strong>
       {zLaczna.length > 0 && (
@@ -183,9 +257,8 @@ export function SkutkiCzatu({ po }: { po: PoCzacie }) {
               <tr key={i}>
                 <td>{k.nazwa}</td>
                 <td className={`zaznacz-${k.zakryta}`}>{NAPIS_P[k.zakryta!]}</td>
-                <td className={`zaznacz-${k.czat}`}>
-                  {NAPIS[k.czat]}
-                  {k.sprzeciw && ' (uchylona)'}
+                <td className={`zaznacz-${k.twoja ?? k.czat}`}>
+                  {k.twoja && k.twoja !== k.czat ? `${NAPIS_P[k.twoja]} (twoja; czat: ${NAPIS[k.czat]})` : NAPIS[k.czat]}
                 </td>
                 <td className={`zaznacz-${k.lacznie}`}>
                   {NAPIS_P[k.lacznie!]}
@@ -198,17 +271,17 @@ export function SkutkiCzatu({ po }: { po: PoCzacie }) {
       )}
       {po.obnizone > 0 && (
         <span className="hint">
-          Czat obniżył {po.obnizone} {po.obnizone === 1 ? 'kafelek' : 'kafelki'} — terminy policzone jeszcze raz z oceną łączną.
+          Obniżone: {po.obnizone} {po.obnizone === 1 ? 'kafelek' : 'kafelki'} — terminy policzone jeszcze raz z oceną łączną.
         </span>
       )}
     </div>
   )
 }
 
-/** Test czatem: skopiuj polecenie z materiałem, porozmawiaj z czatem
- *  w drugim oknie, wróć i wklej podsumowanie. Program sam odczyta wynik,
- *  ocenę kafelków, luki i klucz — ty możesz nie zgodzić się z oceną kafelka. */
-export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady }: Props) {
+/** Test czatem: rozmowa z czatem w drugim oknie, potem wklejasz jego
+ *  podsumowanie, zatwierdzasz ocenę (albo zmieniasz ją przy kafelku) i zapisujesz.
+ *  Z lukami: podsumowanie luk, popraw mapy, dogrywka. */
+export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj, skutki }: Props) {
   const dogrywka = tryb === 'zero' && !!j.luki
   const bramka = tryb === 'zero' && j.etap === 'czat'
   const [tekst, setTekst] = useState<string | null>(null)
@@ -217,8 +290,9 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady }: Props)
   const [zapisuje, setZapisuje] = useState(false)
   const [po, setPo] = useState<PoCzacie | null>(null)
   const odczytane = useMemo(() => (wklejone.trim() ? czytajWynik(wklejone) : null), [wklejone])
+  const pokazSkutki = skutki ?? po
 
-  // dopasowanie nazw z czatu do kafelków sektora (sprzeciwy znikają przy nowym wklejeniu)
+  // dopasowanie nazw z czatu do kafelków sektora (twoje zmiany znikają przy nowym wklejeniu)
   useEffect(() => {
     let zyje = true
     if (!odczytane) setKafelki([])
@@ -229,6 +303,7 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady }: Props)
   }, [odczytane, j])
 
   const zaliczone = odczytane ? czyZaliczone({ zaliczone: odczytane.zaliczone, kafelki }) : false
+  const zostaje = kafelki.filter((k) => ['nie', 'czesciowo'].includes(ocenaPoCzacie(k))).length
 
   const zloz = async () => {
     const t = await zlozPolecenie(j, {
@@ -244,12 +319,12 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady }: Props)
   const zapisz = async () => {
     if (!odczytane || zapisuje) return
     setZapisuje(true)
-    // luki uchylonych kafelków nie idą dalej
-    const uchylone = kafelki.filter((k) => k.sprzeciw).map((k) => k.nazwa.toLowerCase())
+    // luki kafelków, które uznałeś za „Tak", nie idą dalej
+    const zamkniete = kafelki.filter((k) => k.twoja === 'tak').map((k) => k.nazwa.toLowerCase())
     const luki =
       odczytane.luki
         .split('\n')
-        .filter((l) => !uchylone.some((n) => l.toLowerCase().includes(n)))
+        .filter((l) => !zamkniete.some((n) => l.toLowerCase().includes(n)))
         .join('\n')
         .trim() || undefined
     const listaLuk = zaliczone ? undefined : luki
@@ -273,52 +348,69 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady }: Props)
     }
   }
 
+  let nr = 0
   return (
     <div className="test-czatem">
+      {pokazSkutki && <SkutkiCzatu po={pokazSkutki} />}
       {dogrywka && (
-        <div className="test-czatem-luki">
-          <strong>Luki z czatu</strong> — popraw mapy tych kafelków, potem dogrywka (czat sprawdzi tylko
-          je).
-          {bramka
-            ? ' Sektor pójdzie dalej dopiero po zaliczonej dogrywce.'
-            : ' Dogrywka jest dobrowolna — powtórki idą normalnie.'}
-          {bramka && (j.dogrywek ?? 0) > 0 && (
-            <span className="test-czatem-licznik">
-              {' '}
-              Nieudane dogrywki: {j.dogrywek} z {wez('limitDogrywek')}.
-            </span>
+        <>
+          <PodsumowanieLuk j={j} />
+          <h4 className="tc-tytul">Co dalej</h4>
+          {bramka && (
+            <p className="hint tc-bramka">
+              Sektor pójdzie dalej dopiero po zaliczonej dogrywce
+              {(j.dogrywek ?? 0) > 0 && (
+                <span className="test-czatem-licznik">
+                  {' '}
+                  · nieudane dogrywki: {j.dogrywek} z {wez('limitDogrywek')}
+                </span>
+              )}
+              .
+            </p>
           )}
-          <pre>{j.luki}</pre>
-          {j.czatKafelki && <OcenyCzatu kafelki={j.czatKafelki} />}
-          {j.kluczCzatu && (
-            <details className="test-czatem-klucz">
-              <summary>Klucz odpowiedzi od czatu</summary>
-              <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(j.kluczCzatu) }} />
+          {!bramka && <p className="hint tc-bramka">Dogrywka jest dobrowolna — powtórki idą normalnie.</p>}
+          <div className="tc-krok">
+            <span className="test-czatem-nr">{++nr}</span>
+            <div className="tc-krok-tresc">
+              <strong>Popraw mapy kafelków z lukami</strong>
+              <span className="hint">Luki są już w wymaganiach tych kafelków („z czatu: …").</span>
+              <div className="tc-przyciski">
+                <button className="btn" disabled={!onMapuj} onClick={onMapuj} data-popraw-mapy>
+                  Popraw mapy
+                </button>
+                {!onMapuj && proba && <span className="hint">(w próbie mapy się nie otwierają — nic by się nie zapisało)</span>}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      <div className="tc-krok test-czatem-krok">
+        <span className="test-czatem-nr">{++nr}</span>
+        <div className="tc-krok-tresc">
+          <strong>{dogrywka ? 'Dogrywka — czat zapyta tylko o luki' : 'Rozmowa z czatem'}</strong>
+          <div className="tc-przyciski">
+            <button className="btn btn-primary" onClick={async () => void otworzCzat(await zloz())}>
+              {dogrywka ? 'Dogrywka' : 'Test czatem'}: kopiuj i otwórz {nazwaCzatu()}
+            </button>
+            <button className="btn" onClick={async () => void kopiujPolecenie(await zloz())}>
+              Tylko kopiuj
+            </button>
+          </div>
+          {tekst !== null && (
+            <details className="test-czatem-polecenie">
+              <summary>Pokaż polecenie</summary>
+              <textarea readOnly value={tekst} rows={10} onFocus={(e) => e.target.select()} />
             </details>
           )}
         </div>
-      )}
-      <div className="test-czatem-krok">
-        <span className="test-czatem-nr">1</span>
-        <button className="btn btn-primary" onClick={async () => void otworzCzat(await zloz())}>
-          {dogrywka ? 'Dogrywka' : 'Test czatem'}: kopiuj i otwórz {nazwaCzatu()}
-        </button>
-        <button className="btn" onClick={async () => void kopiujPolecenie(await zloz())}>
-          Tylko kopiuj
-        </button>
-        {tekst !== null && (
-          <details className="test-czatem-polecenie">
-            <summary>Pokaż polecenie</summary>
-            <textarea readOnly value={tekst} rows={10} onFocus={(e) => e.target.select()} />
-          </details>
-        )}
       </div>
-      <div className="test-czatem-wklej">
-        <span className="test-czatem-nr">2</span>
-        <div className="test-czatem-wklej-pole">
+      <div className="tc-krok test-czatem-wklej">
+        <span className="test-czatem-nr">{++nr}</span>
+        <div className="tc-krok-tresc test-czatem-wklej-pole">
+          <strong>Wklej podsumowanie czatu</strong>
           {przyklady && przyklady.length > 0 && (
             <div className="test-czatem-przyklady">
-              <span className="hint">Próba — wklej gotowe podsumowanie:</span>
+              <span className="hint">Próba — gotowe podsumowanie:</span>
               {przyklady.map((p) => (
                 <button key={p.nazwa} className="btn btn-maly" onClick={() => setWklejone(p.tekst)}>
                   {p.nazwa}
@@ -328,8 +420,8 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady }: Props)
           )}
           <textarea
             className="sesja-pole"
-            rows={5}
-            placeholder="Na końcu rozmowy czat poda podsumowanie w ramce (WYNIK, KAFELKI, LUKI, KLUCZ). Skopiuj je i wklej tutaj — resztę odczytam sam."
+            rows={4}
+            placeholder="Na końcu rozmowy czat poda podsumowanie w ramce (WYNIK, KAFELKI, LUKI, KLUCZ). Skopiuj je i wklej tutaj."
             value={wklejone}
             onChange={(e) => setWklejone(e.target.value)}
           />
@@ -337,23 +429,12 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady }: Props)
       </div>
       {odczytane && (
         <div className="test-czatem-odczyt">
-          <div className={`test-czatem-werdykt ${zaliczone ? 'zaznacz-tak' : 'zaznacz-nie'}`} data-werdykt={zaliczone ? 'zaliczone' : 'luki'}>
-            {zaliczone ? 'ZALICZONE' : 'NIEZALICZONE'}
-            {odczytane.zaliczone !== undefined && odczytane.zaliczone !== zaliczone && (
-              <span className="hint"> (czat napisał {odczytane.zaliczone ? 'ZALICZONE' : 'NIEZALICZONE'}, ale liczą się oceny kafelków i twoje sprzeciwy)</span>
-            )}
-          </div>
+          <h4 className="tc-tytul">Ocena czatu — zgadzasz się?</h4>
           {kafelki.length > 0 ? (
-            <>
-              <span className="sesja-etykieta">Czat ocenił kafelki</span>
-              <OcenyCzatu
-                kafelki={kafelki}
-                onSprzeciw={(i, powod) =>
-                  setKafelki((l) => l.map((k, x) => (x === i ? { ...k, sprzeciw: powod } : k)))
-                }
-              />
-              {odczytane.klucz && <span className="hint">+ klucz odpowiedzi do słabszych kafelków</span>}
-            </>
+            <OcenaDoZatwierdzenia
+              kafelki={kafelki}
+              onZmien={(i, twoja) => setKafelki((l) => l.map((k, x) => (x === i ? { ...k, twoja } : k)))}
+            />
           ) : (
             <span className="hint">
               {odczytane.zaliczone === undefined
@@ -361,18 +442,27 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady }: Props)
                 : 'Bez ocen kafelków — liczy się sam WYNIK.'}
             </span>
           )}
-          <button className="btn btn-primary" disabled={zapisuje} onClick={zapisz} data-zapisz-czat>
-            {zaliczone
-              ? bramka
-                ? 'Zapisz — zaliczone, idę dalej'
-                : 'Zapisz — zaliczone'
-              : bramka
-                ? 'Zapisz luki — potem dogrywka'
-                : 'Zapisz luki'}
+          <div
+            className={`test-czatem-werdykt ${zaliczone ? 'zaznacz-tak' : 'zaznacz-nie'}`}
+            data-werdykt={zaliczone ? 'zaliczone' : 'luki'}
+          >
+            <span className="tc-werdykt-slowo">{zaliczone ? 'ZALICZONE' : 'NIEZALICZONE'}</span>
+            <span className="tc-werdykt-co">
+              {zaliczone
+                ? bramka
+                  ? `Sektor idzie dalej${zostaje ? `; kafelki na Częściowo (${zostaje}) będą słabe` : ''}.`
+                  : `Zapisze się${zostaje ? `; kafelki na Częściowo (${zostaje}) będą słabe` : ''}.`
+                : bramka
+                  ? 'Zostają luki — po zapisie: podsumowanie luk, poprawa map i dogrywka.'
+                  : 'Zostają luki — dogrywka będzie dobrowolna.'}
+              {odczytane.zaliczone !== undefined && odczytane.zaliczone !== zaliczone && ' (liczą się oceny kafelków po twoich zmianach)'}
+            </span>
+          </div>
+          <button className="btn btn-primary tc-zapisz" disabled={zapisuje} onClick={zapisz} data-zapisz-czat>
+            Zapisz
           </button>
         </div>
       )}
-      {po && !proba && <SkutkiCzatu po={po} />}
       {tryb === 'rozszerzona' && wynik && (
         <p className="hint test-czatem-zapisane">
           Wynik czatu: {wynik.zaliczone ? 'zaliczone' : 'są luki'}
@@ -433,7 +523,7 @@ export function przykladyPodsumowan(nazwy: string[], dogrywka: boolean): { nazwa
             : [n, 'TAK', 'dobrze.'],
     ),
     [`${a}: brak uzasadnienia`, `${c}: pomylone pojęcia`],
-    [`${a}: wzorcowa odpowiedź.`, `${c}: wzorcowa odpowiedź.`],
+    [`${a}: wzorcowa odpowiedź z uzasadnieniem.`, `${c}: wzorcowa odpowiedź — oba pojęcia rozróżnione.`],
   )
   const out = [
     { nazwa: 'Wszystko TAK', tekst: wszystkieTak },
@@ -444,7 +534,10 @@ export function przykladyPodsumowan(nazwy: string[], dogrywka: boolean): { nazwa
   if (dogrywka) {
     out.unshift(
       { nazwa: 'Dogrywka zaliczona', tekst: blok('ZALICZONE', [[c, 'TAK', 'już siedzi.']], [], []) },
-      { nazwa: 'Dogrywka nieudana', tekst: blok('NIEZALICZONE', [[c, 'NIE', 'nadal myli pojęcia.']], [`${c}: nadal myli pojęcia`], [`${c}: wzorcowa odpowiedź.`]) },
+      {
+        nazwa: 'Dogrywka nieudana',
+        tekst: blok('NIEZALICZONE', [[c, 'NIE', 'nadal myli pojęcia.']], [`${c}: nadal myli pojęcia`], [`${c}: wzorcowa odpowiedź.`]),
+      },
     )
   }
   return out
@@ -456,12 +549,10 @@ export function przykladyPodsumowan(nazwy: string[], dogrywka: boolean): { nazwa
  *  albo „na niby" z ocenami `zakryte` (domyślnie wszystko Tak). */
 export function CzatNaProbe({
   j,
-  onKoniec,
   przedCzatem,
   zakryte,
 }: {
   j: JednostkaNauki
-  onKoniec?: () => void
   przedCzatem?: () => Promise<void>
   zakryte?: (kluczCzatu: string) => Przypomnienie
 }) {
@@ -514,30 +605,25 @@ export function CzatNaProbe({
   const dalej = kopia.etap === 'czat' && !kopia.przemapowanie
   return (
     <div className="czat-na-probe" data-runda={runda}>
-      {po && <SkutkiCzatu po={po} />}
-      {kopia.lukiKafelkow && (
-        <div className="test-czatem-wymagania-proba">
-          <span className="sesja-etykieta">Wymagania w następnym teście (z czatu)</span>
-          <ul>
-            {Object.entries(kopia.lukiKafelkow).map(([k, l]) => (
-              <li key={k}>
-                {l.map((x) => `z czatu: ${x}`).join('; ')}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
       {kopia.przemapowanie && (
-        <div className="test-czatem-luki">
-          W prawdziwej nauce teraz: mapowanie samych kafelków z NIE → przerwa → krótki test z nich (terminy
-          się nie zmieniają) → znowu dogrywka.{' '}
-          <button
-            className="btn btn-maly"
-            onClick={() => setKopia({ ...kopia, przemapowanie: undefined, dogrywek: 0 })}
-          >
-            Załóż, że krótki test przeszedł → dogrywka
-          </button>
-        </div>
+        <>
+          {po && <SkutkiCzatu po={po} />}
+          <div className="tc-krok">
+            <span className="test-czatem-nr">!</span>
+            <div className="tc-krok-tresc">
+              <strong>Limit dogrywek</strong>
+              <span>
+                W prawdziwej nauce teraz: mapowanie samych kafelków z NIE → przerwa → krótki test z nich
+                (terminy się nie zmieniają) → znowu dogrywka.
+              </span>
+              <div className="tc-przyciski">
+                <button className="btn btn-primary" onClick={() => setKopia({ ...kopia, przemapowanie: undefined, dogrywek: 0 })}>
+                  Załóż, że krótki test przeszedł → dogrywka
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
       {dalej && (
         <TestCzatem
@@ -545,14 +631,18 @@ export function CzatNaProbe({
           j={kopia}
           tryb="zero"
           proba={proba}
+          skutki={po}
           przyklady={przykladyPodsumowan(nazwy, !!kopia.luki)}
         />
       )}
       {!dalej && !kopia.przemapowanie && (
-        <p className="settings-hint settings-status">
-          W prawdziwej nauce sektor poszedłby dalej:{' '}
-          {kopia.etap === 'zadania' || zadaniaWZero() ? 'zadania (opcjonalne) i test końcowy.' : 'powtórki.'}
-        </p>
+        <>
+          {po && <SkutkiCzatu po={po} />}
+          <p className="settings-hint settings-status">
+            W prawdziwej nauce sektor poszedłby dalej:{' '}
+            {kopia.etap === 'zadania' || zadaniaWZero() ? 'zadania (opcjonalne) i test końcowy.' : 'powtórki.'}
+          </p>
+        </>
       )}
       <button
         className="btn btn-link"
@@ -560,7 +650,6 @@ export function CzatNaProbe({
           setKopia(start)
           setPo(null)
           setRunda((x) => x + 1)
-          onKoniec?.()
         }}
       >
         Jeszcze raz od testu czatem

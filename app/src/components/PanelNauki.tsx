@@ -669,7 +669,7 @@ function KartaSektora({
           Przerwij naukę
         </button>
       )}
-      {j.etap === 'czat' && !j.przemapowanie && <TestCzatem j={j} tryb="zero" />}
+      {j.etap === 'czat' && !j.przemapowanie && <TestCzatem j={j} tryb="zero" onMapuj={onMapuj} />}
       {j.etap === 'zadania' && (
         <p className="hint karta-sektora-rada">
           Rozwiąż zadania, potem test końcowy.
@@ -679,7 +679,7 @@ function KartaSektora({
       {j.etap === 'powtorki' && j.luki && (
         <details className="karta-sektora-uwaga">
           <summary>Luki z ostatniego czatu — dogrywka (dobrowolna)</summary>
-          <TestCzatem j={j} tryb="zero" />
+          <TestCzatem j={j} tryb="zero" onMapuj={onMapuj} />
         </details>
       )}
       {zmieniony && j.etap === 'powtorki' && (

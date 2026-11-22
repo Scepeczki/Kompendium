@@ -19,6 +19,7 @@ import {
   przerwijNauke,
   skonczMapowanie,
   skonczMapowanieDouczania,
+  skonczPrzemapowanie,
   zapiszMapeKafelka,
   zapiszWymagania,
   zmienJednostke,
@@ -373,7 +374,9 @@ interface Element {
 
 function elementy(j: JednostkaNauki, sciezka: LearningPath | undefined, kafelek: Map<string, Concept>): Element[] {
   const out: Element[] = []
-  const tylko = j.douczanie ? new Set(j.douczanie.wezly) : null
+  // douczanie: same nowe; przemapowanie po limicie dogrywek: same kafelki z NIE
+  const czesc = j.douczanie ?? (j.etap === 'czat' ? j.przemapowanie : undefined)
+  const tylko = czesc ? new Set(czesc.wezly) : null
   if (sciezka) {
     const nale = new Set(j.wezly)
     for (const n of topoOrder(sciezka.nodes, sciezka.edges)) {
@@ -395,7 +398,7 @@ function elementy(j: JednostkaNauki, sciezka: LearningPath | undefined, kafelek:
       }
     }
   }
-  for (const id of j.douczanie ? j.douczanie.zadania : (j.zadania ?? [])) {
+  for (const id of czesc ? czesc.zadania : (j.zadania ?? [])) {
     const c = kafelek.get(id)
     if (c) out.push({ klucz: kluczZadania(id), nazwa: c.name, typ: c.type, conceptId: id, versionId: null, zadanie: true })
   }
@@ -525,8 +528,16 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
   }, [dane, lista.length, strona])
   const biezacy = lista[Math.min(nr, lista.length - 1)]
 
-  const mapuje = j.etap === 'mapowanie' || j.douczanie?.etap === 'mapowanie'
-  const od = j.douczanie?.etap === 'mapowanie' ? j.douczanie.od : j.etap === 'mapowanie' ? j.etapOd : undefined
+  const przemapowuje = j.etap === 'czat' && j.przemapowanie?.etap === 'mapowanie'
+  const mapuje = j.etap === 'mapowanie' || j.douczanie?.etap === 'mapowanie' || przemapowuje
+  const od =
+    j.douczanie?.etap === 'mapowanie'
+      ? j.douczanie.od
+      : przemapowuje
+        ? j.przemapowanie!.od
+        : j.etap === 'mapowanie'
+          ? j.etapOd
+          : undefined
   const minut = od ? Math.max(0, Math.round((Date.now() - new Date(od).getTime()) / 60000)) : 0
   const doPoprawy = new Set(j.doPoprawy ?? [])
   const typMini = (typ?: string) => {
@@ -541,6 +552,7 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
 
   const skoncz = async () => {
     if (j.douczanie?.etap === 'mapowanie') await skonczMapowanieDouczania(j.id)
+    else if (przemapowuje) await skonczPrzemapowanie(j.id)
     else await skonczMapowanie(j.id)
     if ('Notification' in window && Notification.permission === 'default') void Notification.requestPermission()
     onZamknij()
@@ -572,7 +584,7 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
       <header className="tm-glowa">
         <span className="tm-plakietka">
           <span className="tm-kropka" />
-          {j.douczanie ? 'Douczanie' : mapuje ? 'Mapowanie' : 'Mapa'} · {j.nazwa}
+          {j.douczanie ? 'Douczanie' : przemapowuje ? 'Przemapowanie kafelków z NIE' : mapuje ? 'Mapowanie' : 'Mapa'} · {j.nazwa}
         </span>
         <span className="tm-sciezka">{sciezka?.name}</span>
         <nav className="tm-strony" aria-label="Strony mapowania">
@@ -597,9 +609,9 @@ export function TrybMapowania({ j, onZamknij }: { j: JednostkaNauki; onZamknij: 
         <Sciaga onWstaw={edytor ? (p) => wstawSekcje(edytor, p) : undefined} />
         {mapuje && (
           <>
-            <button className="tm-btn" onClick={przerwij} title="Nic nie zostanie zaliczone; mapy zostają">
+            {!przemapowuje && <button className="tm-btn" onClick={przerwij} title="Nic nie zostanie zaliczone; mapy zostają">
               Przerwij
-            </button>
+            </button>}
             <button className="tm-btn tm-btn-glowny" onClick={skoncz}>
               Skończyłem mapowanie
             </button>

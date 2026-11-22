@@ -8,6 +8,7 @@ import { GroupShell } from './GroupShell'
 import { Icon } from './Icon'
 import { CzatNaProbe, TestCzatem, przykladyPodsumowan, type CzatWSesji } from './TestCzatem'
 import { useZadania } from './ZadaniaSektora'
+import { TrybMapowania } from './TrybMapowania'
 import { eksperyment, otworzCzat, zlozPolecenie } from '../czat'
 import {
   NAZWY_OCEN,
@@ -18,6 +19,7 @@ import {
   idZadania,
   kluczZadania,
   laczna,
+  ocenaPoCzacie,
   znaneKlucze,
   ocenialny,
   opisDni,
@@ -55,6 +57,10 @@ export interface CelSesji {
   klucz?: string
   /** Kafelek osobno: jego sektor (dla nowych kafelków jeszcze bez pamięci). */
   sektorId?: string
+  /** Próba samego testu czatem na cały ekran (bez testu zakrytego przed nim —
+   *  ten jest „na niby", z oceną `zakryteProby`). */
+  probaCzatu?: boolean
+  zakryteProby?: Przypomnienie
   /** Próba (Ustawienia → Próba): sektor z podmienionymi polami (np. etap),
    *  a zapis wyniku jest wycofywany — w bazie nic się nie zmienia. */
   proba?: Partial<JednostkaNauki>
@@ -299,6 +305,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   /** Próba: sektor w stanie, w jakim byłby po zapisie (zapis jest wycofany). */
   const [jPoProbie, setJPoProbie] = useState<JednostkaNauki | undefined>()
   const [zapisuje, setZapisuje] = useState(false)
+  /** „Popraw mapy" z ekranu wyniku — tryb mapowania nad sesją. */
+  const [mapuje, setMapuje] = useState(false)
   /** Próba: dane testu zakrytego — czat na próbę odtwarza je przed sobą. */
   const daneProby = useRef<Parameters<typeof zapiszSesje>[0] | null>(null)
 
@@ -316,15 +324,16 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const czekaNaCzat = rozszerzona === 'czat' && !czat && !czatPominiety
   const gotowe = wszystkieOcenione && (!zStruktura || !!struktura) && !czekaNaCzat
   /** Ocena łączna w powtórce rozszerzonej z czatem: gorsza z zakrytego
-   *  i czatu (NIESPRAWDZONY i sprzeciw nic nie zmieniają). */
+   *  i czatu (albo twojej oceny zamiast czatu; NIESPRAWDZONY nic nie zmienia). */
   const { ocenyRazem, slabeZCzatu } = useMemo(() => {
     const razem = { ...oceny }
     const slabe: string[] = []
     for (const k of czat?.kafelki ?? []) {
-      if (!k.klucz || k.sprzeciw || k.ocena === 'niesprawdzony') continue
+      const o = ocenaPoCzacie(k)
+      if (!k.klucz || o === 'niesprawdzony') continue
       const p = pozycje.find((x) => x.wezel?.id === k.klucz || x.klucz === k.klucz)
       if (!p || !oceny[p.klucz]) continue
-      razem[p.klucz] = laczna(oceny[p.klucz], k.ocena)
+      razem[p.klucz] = laczna(oceny[p.klucz], o)
       if (razem[p.klucz] !== 'tak') slabe.push(p.klucz)
     }
     return { ocenyRazem: razem, slabeZCzatu: slabe }
@@ -425,6 +434,32 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               ? 'Powtórka rozszerzona · zadania'
               : 'Powtórka'
 
+  // ---- próba samego testu czatem: wygląd jak w prawdziwej nauce ----
+  if (cel.probaCzatu && j) {
+    return (
+      <section className="sesja">
+        <header className="sesja-glowa">
+          <div>
+            <span className="sesja-rodzaj">Test czatem</span>
+            <span className="sesja-proba">Próba — nic się nie zapisuje</span>
+            <h2>{tytul}</h2>
+          </div>
+          <button className="btn" onClick={onZamknij}>
+            ← Wróć
+          </button>
+        </header>
+        <div className="sesja-wynik sesja-czat-proba">
+          <p className="hint">
+            Przed czatem test zakryty „na niby": każdy kafelek{' '}
+            <strong>{({ tak: 'Tak', czesciowo: 'Częściowo', nie: 'Nie' } as const)[cel.zakryteProby ?? 'tak']}</strong>. Rozmawiać z
+            czatem nie musisz — kliknij gotowe podsumowanie.
+          </p>
+          <CzatNaProbe j={j} zakryte={() => cel.zakryteProby ?? 'tak'} />
+        </div>
+      </section>
+    )
+  }
+
   // ---- po zapisie ----
   // w próbie: sektor taki, jaki byłby po zapisie (np. etap „czat")
   const jw = cel.proba ? (jPoProbie ?? j) : j
@@ -503,7 +538,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                     }}
                   />
                 ) : (
-                  <TestCzatem j={jw} tryb="zero" />
+                  <TestCzatem j={jw} tryb="zero" onMapuj={() => setMapuje(true)} />
                 )}
               </>
             ) : (
@@ -557,6 +592,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
             Gotowe
           </button>
         </div>
+        {mapuje && jw && <TrybMapowania j={jw} onZamknij={() => setMapuje(false)} />}
       </section>
     )
   }

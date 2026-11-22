@@ -616,8 +616,8 @@ export interface OcenaCzatu {
   uwaga?: string
   /** Luki czatu przypisane do tego kafelka. */
   luki?: string[]
-  /** „Nie zgadzam się z oceną" — uzasadnienie. Uchyla ocenę czatu. */
-  sprzeciw?: string
+  /** „Nie zgadzam się z oceną" — twoja ocena zamiast oceny czatu. */
+  twoja?: 'tak' | 'czesciowo' | 'nie'
   /** Węzeł ścieżki (albo zadanie:id), jeśli nazwa pasuje do kafelka sektora. */
   klucz?: string
 }
@@ -662,14 +662,14 @@ export interface WpisNauki {
   /** Test czatem: wynik (albo pominięty) i luki, które wypisał czat. */
   czat?: 'zaliczone' | 'luki' | 'pominiety'
   luki?: string
-  /** Test czatem: jak czat ocenił kafelki (z NIESPRAWDZONY i sprzeciwami). */
+  /** Test czatem: jak czat ocenił kafelki (z NIESPRAWDZONY i twoimi zmianami). */
   czatKafelki?: OcenaCzatu[]
   /** Ocena z testu zakrytego (klucz pamięci) — przy wpisie czatu. */
   zakryte?: Record<string, Przypomnienie>
   /** Ocena łączna: gorsza z testu zakrytego i czatu (klucz pamięci). */
   lacznie?: Record<string, Przypomnienie>
-  /** „Nie zgadzam się z oceną" — z uzasadnieniem. */
-  sprzeciwy?: { nazwa: string; ocena: string; powod: string }[]
+  /** „Nie zgadzam się z oceną" — co dał czat i co ustawiłeś ty. */
+  sprzeciwy?: { nazwa: string; czat: string; twoja: string }[]
   /** Numer dogrywki (0 = pierwszy test czatem). */
   dogrywka?: number
   /** Krótki test po przemapowaniu kafelków z NIE (bez zmiany terminów). */

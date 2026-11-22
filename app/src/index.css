@@ -12213,3 +12213,143 @@ html.okno-powiadomienia #root {
   font-weight: 600;
   color: var(--danger);
 }
+
+/* test czatem — kroki, ocena do zatwierdzenia, luki (wygląd jak w nauce) */
+.test-czatem { gap: 12px; }
+.tc-tytul {
+  margin: 4px 0 0;
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--ink);
+}
+.tc-krok,
+.test-czatem .tc-krok.test-czatem-krok,
+.test-czatem .tc-krok.test-czatem-wklej {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.tc-krok-tresc {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tc-przyciski {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.tc-bramka { margin: 0; }
+.tc-oceny,
+.tc-luki-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tc-ocena,
+.tc-luka {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ocena-tak, #2f8f5b);
+}
+.tc-ocena.zaznacz-czesciowo,
+.tc-luka.zaznacz-czesciowo { border-left-color: #c7881d; }
+.tc-ocena.zaznacz-nie,
+.tc-luka.zaznacz-nie { border-left-color: var(--danger); }
+.tc-ocena.zaznacz-niesprawdzony { border-left-color: var(--muted); }
+.tc-ocena-glowa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.tc-ocena .test-czatem-ocena,
+.tc-luka .test-czatem-ocena {
+  flex: none;
+  min-width: 74px;
+  text-align: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--ocena-tak, #2f8f5b);
+}
+.zaznacz-czesciowo > .tc-ocena-glowa .test-czatem-ocena { background: #c7881d; }
+.zaznacz-nie > .tc-ocena-glowa .test-czatem-ocena { background: var(--danger); }
+.zaznacz-niesprawdzony > .tc-ocena-glowa .test-czatem-ocena { background: var(--muted); }
+.tc-nie-zgadzam {
+  margin-left: auto;
+  font-size: 12px;
+}
+.tc-twoja {
+  margin-left: auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.tc-twoja .btn.zaznacz-tak.btn-active { background: var(--ocena-tak, #2f8f5b); border-color: var(--ocena-tak, #2f8f5b); color: #fff; }
+.tc-twoja .btn.zaznacz-czesciowo.btn-active { background: #c7881d; border-color: #c7881d; color: #fff; }
+.tc-twoja .btn.zaznacz-nie.btn-active { background: var(--danger); border-color: var(--danger); color: #fff; }
+.tc-ocena-opis {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 0 82px;
+  font-size: var(--fs-4);
+}
+.tc-ocena-opis:empty { display: none; }
+.tc-ocena-opis .test-czatem-luki-kafelka,
+.tc-luka .test-czatem-luki-kafelka {
+  margin: 2px 0 0;
+}
+.tc-luka .test-czatem-luki-kafelka { margin-left: 82px; }
+.tc-zmiana { color: var(--ink-soft); }
+.tc-wzor { margin: 6px 0 0 82px; }
+.tc-wzor summary {
+  cursor: pointer;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  color: var(--accent);
+}
+.tc-luki {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.test-czatem-odczyt {
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.test-czatem-werdykt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+}
+.tc-werdykt-slowo { font-size: var(--fs-2, 18px); }
+.tc-werdykt-co {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+.tc-zapisz { min-width: 140px; }
+.sesja-czat-proba { max-width: 860px; }

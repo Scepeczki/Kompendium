@@ -115,45 +115,51 @@ await page.click('.sesja-glowa button:has-text("Wróć")')
 await doProby()
 await page.selectOption('.settings-row select', 's1')
 await page.click('[data-proba="czat"] button:has-text("Zacznij test czatem")')
+// próba czatu na cały ekran — wygląda jak prawdziwa nauka
+const P = '.sesja-czat-proba'
+await page.waitForSelector(P)
+check('próba czatu na cały ekran, z plakietką „Próba"', (await page.locator('.sesja-rodzaj').textContent()) === 'Test czatem' && (await page.locator('.sesja-proba').isVisible()))
 const [karta] = await Promise.all([
   kontekst.waitForEvent('page', { timeout: 5000 }).catch(() => null),
-  page.click('[data-proba="czat"] button:has-text("Test czatem")'),
+  page.click(`${P} button:has-text("Test czatem: kopiuj i otwórz")`),
 ])
 check('test czatem: otwiera czat', !!karta)
 await karta?.close()
 const polecenie = await page.evaluate(() => navigator.clipboard.readText())
 check('test czatem: polecenie w schowku', polecenie.includes('Kula'), polecenie.slice(0, 60))
-check('próba: bez „Pomiń czat"', (await page.locator('[data-proba="czat"] button:has-text("Pomiń")').count()) === 0)
+check('próba: bez „Pomiń czat"', (await page.locator(`${P} button:has-text("Pomiń")`).count()) === 0)
 check('polecenie: wzór, zasady i przykład podsumowania', polecenie.includes('Zasady podsumowania') && polecenie.includes('Przykład (sektor z czterema kafelkami') && polecenie.includes('NIESPRAWDZONY') &&
   polecenie.includes('bloku kodu'))
-check('próba: gotowe podsumowania do kliknięcia', (await page.locator('[data-proba="czat"] .test-czatem-przyklady button').count()) >= 4)
+check('próba: gotowe podsumowania do kliknięcia', (await page.locator(`${P} .test-czatem-przyklady button`).count()) >= 4)
 // tak, jak poda to czat: blok kodu, nazwy z rodzajem, pusty klucz
-await page.fill('[data-proba="czat"] .test-czatem-wklej textarea',
+await page.fill(`${P} .test-czatem-wklej textarea`,
   'Dzięki za rozmowę.\n```\nWYNIK: NIEZALICZONE\nKAFELKI:\n- Definicja: Kula: TAK — dobrze.\n- Otoczenie: CZĘŚCIOWO — bez przykładu.\n- Zbiór domknięty: NIE — pomylony.\nLUKI:\n- brak przykładu\nKLUCZ:\n- brak\n```')
 await page.waitForTimeout(400)
-check('odczyt bloku kodu: 3 kafelki, „- brak" w kluczu = brak klucza', (await page.locator('[data-proba="czat"] .test-czatem-odczyt li').count()) === 3 &&
-  (await page.locator('[data-proba="czat"] .test-czatem-odczyt:has-text("klucz odpowiedzi")').count()) === 0)
-await page.fill('[data-proba="czat"] .test-czatem-wklej textarea',
-  'Super.\n**WYNIK: NIEZALICZONE**\nKAFELKI:\n- Kula: TAK — dobrze\n- Otoczenie: CZĘŚCIOWO — bez przykładu\n- Zbiór domknięty: NIE — myli z otwartym\nLUKI:\n- definicja otoczenia\nKLUCZ:\n- Otoczenie: zbiór zawierający kulę wokół punktu.')
+check('odczyt bloku kodu: 3 kafelki do zatwierdzenia', (await page.locator(`${P} .tc-oceny > li`).count()) === 3)
+await page.fill(`${P} .test-czatem-wklej textarea`,
+  'Super.\n**WYNIK: NIEZALICZONE**\nKAFELKI:\n- Kula: TAK — dobrze\n- Otoczenie: CZĘŚCIOWO — bez przykładu\n- Zbiór domknięty: NIE — myli z otwartym\nLUKI:\n- Otoczenie: definicja otoczenia\n- Zbiór domknięty: myli z otwartym\nKLUCZ:\n- Otoczenie: zbiór zawierający kulę wokół punktu.')
 await page.waitForTimeout(400)
-check('odczyt odpowiedzi czatu: oceny kafelków', (await page.locator('[data-proba="czat"] .test-czatem-odczyt li').count()) === 3 &&
-  (await page.locator('[data-proba="czat"] .test-czatem-odczyt li.zaznacz-nie').innerText()).includes('Zbiór domknięty'))
-await page.click('[data-proba="czat"] [data-zapisz-czat]')
-await page.waitForSelector('[data-proba="czat"] .test-czatem-luki', { timeout: 5000 }).catch(() => console.log('BŁĘDY:', errors.join(' | ')))
-const luki = await page.locator('[data-proba="czat"] .test-czatem-luki pre').innerText()
-check('dogrywka: same luki (bez ocen i klucza w środku)', luki.includes('definicja otoczenia') && !luki.includes('KLUCZ') && !luki.includes('Kula'), luki)
-check('dogrywka: oceny kafelków i klucz odpowiedzi', (await page.locator('[data-proba="czat"] .test-czatem-luki .test-czatem-kafelki li').count()) === 3 &&
-  (await page.locator('[data-proba="czat"] .test-czatem-klucz').count()) === 1)
-check('„Tylko kopiuj" jest osobno', (await page.locator('[data-proba="czat"] button:has-text("Tylko kopiuj")').count()) === 1)
-check('po lukach: dogrywka z lukami', (await page.locator('[data-proba="czat"] .test-czatem-luki').innerText()).includes('otoczenia') &&
-  (await page.locator('[data-proba="czat"] .test-czatem-krok button:has-text("Dogrywka")').count()) === 1)
-check('próba: skutki — ocena łączna (Tak + NIE = Nie)', (await page.locator('[data-proba="czat"] .test-czatem-tabela').innerText()).includes('słaby, do poprawy'))
-check('próba: luki trafiły do wymagań następnego testu', (await page.locator('[data-proba="czat"] .test-czatem-wymagania-proba').count()) === 1)
-await page.click('[data-proba="czat"] .test-czatem-przyklady button:has-text("Dogrywka zaliczona")')
-await page.click('[data-proba="czat"] [data-zapisz-czat]')
-await page.waitForSelector('[data-proba="czat"] .settings-status')
-check('dogrywka zaliczona: komunikat, co byłoby dalej', (await page.locator('[data-proba="czat"] .test-czatem-skutki').innerText()).includes('Zaliczone') &&
-  (await page.locator('[data-proba="czat"] .settings-status').innerText()).includes('poszedłby dalej'))
+check('odczyt odpowiedzi czatu: oceny kafelków', (await page.locator(`${P} .tc-oceny > li`).count()) === 3 &&
+  (await page.locator(`${P} .tc-oceny > li.zaznacz-nie`).innerText()).includes('Zbiór domknięty'))
+await page.locator('.sesja-czat-proba').screenshot({ path: 'proba-czat-ocena.png' })
+check('werdykt i co dalej przed zapisem', (await page.locator(`${P} .test-czatem-werdykt`).innerText()).includes('po zapisie: podsumowanie luk'))
+await page.click(`${P} [data-zapisz-czat]`)
+await page.waitForSelector(`${P} .tc-luki`, { timeout: 5000 }).catch(() => console.log('BŁĘDY:', errors.join(' | ')))
+check('po zapisie: skutki — ocena łączna (Tak + NIE = Nie)', (await page.locator(`${P} .test-czatem-tabela`).innerText()).includes('słaby, do poprawy'))
+check('po zapisie: podsumowanie luk przy kafelkach (Otoczenie, Zbiór domknięty)', (await page.locator(`${P} .tc-luka`).count()) === 2 &&
+  (await page.locator(`${P} .tc-luka`).first().innerText()).includes('Zbiór domknięty'))
+check('po zapisie: wzorcowa odpowiedź przy Otoczeniu', (await page.locator(`${P} .tc-luka .tc-wzor`).count()) === 1)
+check('po zapisie: „Co dalej" — popraw mapy, dogrywka', (await page.locator(`${P} [data-popraw-mapy]`).count()) === 1 &&
+  (await page.locator(`${P} .test-czatem-krok button:has-text("Dogrywka")`).count()) === 1)
+await page.locator('.sesja-czat-proba').screenshot({ path: 'proba-czat-luki.png' })
+check('„Tylko kopiuj" jest osobno', (await page.locator(`${P} button:has-text("Tylko kopiuj")`).count()) === 1)
+await page.click(`${P} .test-czatem-przyklady button:has-text("Dogrywka zaliczona")`)
+await page.click(`${P} [data-zapisz-czat]`)
+await page.waitForSelector(`${P} .settings-status`)
+check('dogrywka zaliczona: komunikat, co byłoby dalej', (await page.locator(`${P} .test-czatem-skutki`).innerText()).includes('Zaliczone') &&
+  (await page.locator(`${P} .settings-status`).innerText()).includes('poszedłby dalej'))
+await page.screenshot({ path: 'proba-czat.png', fullPage: true })
+await page.click('.sesja-glowa button:has-text("Wróć")')
 check('po czacie na próbę baza bez zmian', (await baza()) === przed)
 
 console.log(`BŁĘDY KONSOLI: ${errors.length ? errors.join(' | ') : 'brak'}`)
