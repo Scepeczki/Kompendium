@@ -12353,3 +12353,98 @@ html.okno-powiadomienia #root {
 }
 .tc-zapisz { min-width: 140px; }
 .sesja-czat-proba { max-width: 860px; }
+
+/* test zakryty i test czatem: osobny ekran na całe okno, jak tryb mapowania */
+.sesja-ekran {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-alt);
+}
+.sesja-ekran > .sesja {
+  flex: 1;
+  min-height: 0;
+  border-right: 0;
+}
+.komunikat-ekran {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 95;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--fs-3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+.tm ~ .komunikat-ekran,
+.komunikat-ekran { pointer-events: none; }
+
+/* ocena czatu: klik w ocenę → wybór („Nie zgadzam się z oceną czatu — zmień na:") */
+.tc-wybor {
+  position: relative;
+  display: inline-flex;
+}
+.tc-ocena-btn {
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.tc-ocena-btn:hover { filter: brightness(1.08); }
+.tc-ocena-btn span { font-size: 9px; opacity: 0.8; }
+.tc-ocena-btn.tc-zmieniona {
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--accent);
+}
+.tc-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 240px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+.tc-menu-tytul {
+  padding: 4px 8px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 2px;
+}
+.tc-menu-poz {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-3);
+  text-align: left;
+  cursor: pointer;
+}
+.tc-menu-poz:hover { background: var(--panel-alt); }
+.tc-menu-poz.wl { font-weight: 700; background: var(--panel-alt); }
+.tc-menu-kropka {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ocena-tak, #2f8f5b);
+}
+.tc-menu-poz.zaznacz-czesciowo .tc-menu-kropka { background: #c7881d; }
+.tc-menu-poz.zaznacz-nie .tc-menu-kropka { background: var(--danger); }
+.tc-menu-poz.zaznacz-niesprawdzony .tc-menu-kropka { background: var(--muted); }
+.karta-sektora-luki { margin-top: 6px; }

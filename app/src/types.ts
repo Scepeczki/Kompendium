@@ -617,7 +617,7 @@ export interface OcenaCzatu {
   /** Luki czatu przypisane do tego kafelka. */
   luki?: string[]
   /** „Nie zgadzam się z oceną" — twoja ocena zamiast oceny czatu. */
-  twoja?: 'tak' | 'czesciowo' | 'nie'
+  twoja?: 'tak' | 'czesciowo' | 'nie' | 'niesprawdzony'
   /** Węzeł ścieżki (albo zadanie:id), jeśli nazwa pasuje do kafelka sektora. */
   klucz?: string
 }

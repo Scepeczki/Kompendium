@@ -12,6 +12,7 @@ import { SettingsPage } from './components/SettingsPage'
 import { DialogProvider } from './components/Dialogs'
 import { Icon } from './components/Icon'
 import { Powtorki } from './components/Powtorki'
+import { KomunikatNaEkranie } from './components/KomunikatNaEkranie'
 import { SesjaNauki, type CelSesji } from './components/SesjaNauki'
 import { minutyDouczania, minutyPrzemapowania, minutyPrzerwy, planNauki } from './nauka'
 import { wez } from './naukaUstawienia'
@@ -460,12 +461,15 @@ function Widok() {
       {showSettings ? (
         <SettingsPage onClose={() => setShowSettings(false)} />
       ) : sesja ? (
-        <SesjaNauki
-          key={JSON.stringify(sesja)}
-          cel={sesja}
-          onZamknij={() => setSesja(null)}
-          onJumpToSource={jumpToSource}
-        />
+        // test i czat na cały ekran — bez biblioteki, ścieżek i PDF obok
+        <div className="sesja-ekran">
+          <SesjaNauki
+            key={JSON.stringify(sesja)}
+            cel={sesja}
+            onZamknij={() => setSesja(null)}
+          />
+          <KomunikatNaEkranie />
+        </div>
       ) : showPowtorki ? (
         <Powtorki
           onStart={setSesja}

@@ -375,7 +375,7 @@ const normNazwy = (s: string) =>
  *  kafelków (wklejone same luki) — nie przechodzi. */
 export function czyZaliczone(w: {
   zaliczone?: boolean
-  kafelki: { ocena: OcenaKafelkaCzatu; twoja?: 'tak' | 'czesciowo' | 'nie' }[]
+  kafelki: { ocena: OcenaKafelkaCzatu; twoja?: OcenaKafelkaCzatu }[]
 }): boolean {
   if (w.kafelki.length) return !w.kafelki.some((k) => (k.twoja ?? k.ocena) === 'nie')
   return w.zaliczone === true

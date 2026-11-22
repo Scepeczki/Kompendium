@@ -3,7 +3,6 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
-import { TestCzatem } from './TestCzatem'
 import { ListaZadan } from './ZadaniaSektora'
 import { TrybMapowania } from './TrybMapowania'
 import {
@@ -367,6 +366,7 @@ export function PanelNauki({
                 }}
                 onTestNowych={() => onStart?.({ jednostkaId: s.j.id, douczanie: true })}
                 onTestPrzemapowania={() => onStart?.({ jednostkaId: s.j.id, przemapowanie: true })}
+                onCzat={() => onStart?.({ jednostkaId: s.j.id, czat: true })}
                 onOdNowa={() => odNowa(s.j)}
                 onPrzerwij={() => przerwij(s.j)}
                 onUsun={() => usun(s.j)}
@@ -432,6 +432,7 @@ function KartaSektora({
   onDoucz,
   onTestNowych,
   onTestPrzemapowania,
+  onCzat,
   onOdNowa,
   onPrzerwij,
   onUsun,
@@ -457,6 +458,7 @@ function KartaSektora({
   onDoucz: () => void
   onTestNowych: () => void
   onTestPrzemapowania: () => void
+  onCzat: () => void
   onOdNowa: () => void
   onPrzerwij: () => void
   onUsun: () => void
@@ -557,7 +559,12 @@ function KartaSektora({
             </span>
           ))}
         {j.etap === 'czat' && !j.przemapowanie && (
-          <span>{j.luki ? 'Luki z czatu — popraw mapy i dogrywka' : 'Test zaliczony — teraz test czatem'}</span>
+          <>
+            <span>{j.luki ? 'Luki z czatu — popraw mapy i dogrywka' : 'Test zaliczony — teraz test czatem'}</span>
+            <button className="btn btn-primary btn-maly" onClick={onCzat} data-czat>
+              {j.luki ? 'Dogrywka' : 'Test czatem'}
+            </button>
+          </>
         )}
         {j.etap === 'czat' && j.przemapowanie && (
           <>
@@ -669,7 +676,6 @@ function KartaSektora({
           Przerwij naukę
         </button>
       )}
-      {j.etap === 'czat' && !j.przemapowanie && <TestCzatem j={j} tryb="zero" onMapuj={onMapuj} />}
       {j.etap === 'zadania' && (
         <p className="hint karta-sektora-rada">
           Rozwiąż zadania, potem test końcowy.
@@ -677,10 +683,12 @@ function KartaSektora({
       )}
       {(aktywny || j.etap === 'zadania') && <ListaZadan j={j} onOtworz={onOtworz} nowe={new Set(nowe.zadania)} />}
       {j.etap === 'powtorki' && j.luki && (
-        <details className="karta-sektora-uwaga">
-          <summary>Luki z ostatniego czatu — dogrywka (dobrowolna)</summary>
-          <TestCzatem j={j} tryb="zero" onMapuj={onMapuj} />
-        </details>
+        <div className="karta-sektora-etap karta-sektora-luki">
+          <span>Luki z ostatniego czatu</span>
+          <button className="btn btn-maly" onClick={onCzat} data-czat>
+            Dogrywka (dobrowolna)
+          </button>
+        </div>
       )}
       {zmieniony && j.etap === 'powtorki' && (
         <p className="karta-sektora-uwaga">

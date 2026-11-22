@@ -894,7 +894,7 @@ export interface PoCzacie {
   /** Etap sektora po zapisie. */
   etap: JednostkaNauki['etap']
   /** Kafelki z oceną łączną (gorsza z zakrytego i czatu) — tylko te, które czat ocenił. */
-  kafelki: { nazwa: string; zakryta?: Przypomnienie; czat: OcenaCzatu['ocena']; twoja?: Przypomnienie; lacznie?: Przypomnienie }[]
+  kafelki: { nazwa: string; zakryta?: Przypomnienie; czat: OcenaCzatu['ocena']; twoja?: OcenaCzatu['ocena']; lacznie?: Przypomnienie }[]
   /** Ile kafelków czat obniżył (zmieniła się karta FSRS). */
   obnizone: number
   /** Nieudane dogrywki z rzędu po zapisie i limit. */

@@ -151,44 +151,55 @@ check('skutki pokazane: tabela zakryty → czat → łącznie', (await page.loca
 const terminyPoCzacie = Object.fromEntries(d.pamiec.map((p) => [p.klucz, p.termin]))
 
 // ---------------------------------------------------------------------------
-// 3. Dogrywki — nie zmieniają terminów; limit 2 → przemapowanie
+// 3. Dogrywki — osobny ekran; nie zmieniają terminów; limit 2 → przemapowanie
 await page.click('.sesja-wynik button:has-text("Gotowe")')
-await page.waitForSelector('.karta-sektora[data-sektor="s1"] .tc-luki')
 const K = '.karta-sektora[data-sektor="s1"]'
-const panel = await page.locator(`${K} .test-czatem`).innerText()
-check('karta: podsumowanie luk przy kafelkach, potem „Co dalej"', panel.indexOf('Luki do poprawy') < panel.indexOf('Co dalej') &&
-  (await page.locator(`${K} .tc-luka`).count()) === 2 && (await page.locator(`${K} .tc-luka[class*="zaznacz-nie"]`).innerText()).includes('opisany jak otwarty'))
-check('karta: wzorcowa odpowiedź przy kafelku', (await page.locator(`${K} .tc-luka .tc-wzor`).count()) === 1)
-check('karta: kroki popraw mapy → dogrywka → wklej, informacja o bramce', panel.includes('dopiero po zaliczonej dogrywce') &&
+const C = '.sesja-czat-proba'
+const naEkranie = () => page.evaluate(() => !!document.elementFromPoint(60, 300)?.closest('.sesja-ekran'))
+await page.waitForSelector(`${K} [data-czat]`)
+check('karta: przycisk „Dogrywka", bez czatu w karcie', (await page.locator(`${K} [data-czat]`).innerText()) === 'Dogrywka' && (await page.locator(`${K} .test-czatem`).count()) === 0)
+await page.click(`${K} [data-czat]`)
+await page.waitForSelector(`${C} .tc-luki`)
+check('dogrywka na osobnym ekranie, zasłania bibliotekę', (await page.locator('.sesja-rodzaj').textContent()) === 'Dogrywka' && (await naEkranie()))
+const panel = await page.locator(`${C} .test-czatem`).innerText()
+check('ekran: podsumowanie luk przy kafelkach, potem „Co dalej"', panel.indexOf('Luki do poprawy') < panel.indexOf('Co dalej') &&
+  (await page.locator(`${C} .tc-luka`).count()) === 2 && (await page.locator(`${C} .tc-luka[class*="zaznacz-nie"]`).innerText()).includes('opisany jak otwarty'))
+check('ekran: wzorcowa odpowiedź przy kafelku', (await page.locator(`${C} .tc-luka .tc-wzor`).count()) === 1)
+check('ekran: kroki popraw mapy → dogrywka → wklej, informacja o bramce', panel.includes('dopiero po zaliczonej dogrywce') &&
   panel.indexOf('Popraw mapy') < panel.indexOf('Dogrywka: kopiuj i otwórz') && panel.indexOf('Dogrywka: kopiuj') < panel.indexOf('Wklej podsumowanie'))
-await page.click(`${K} [data-popraw-mapy]`)
+await page.click(`${C} [data-popraw-mapy]`)
 await page.waitForSelector('.tm')
 check('„Popraw mapy" otwiera tryb mapowania, bez „Skończyłem" (etap czatu zostaje)', (await page.locator('.tm-glowa button:has-text("Skończyłem")').count()) === 0)
 await page.click('.tm-glowa button[aria-label="Schowaj tryb mapowania"]')
 await page.waitForSelector('.tm', { state: 'detached' })
-check('po zamknięciu map sektor dalej czeka na dogrywkę', (await sektor('s1')).etap === 'czat')
-await page.click(`${K} button:has-text("Tylko kopiuj")`)
-await page.click(`${K} .test-czatem-polecenie summary`)
-const dogr = await page.locator(`${K} .test-czatem-polecenie textarea`).inputValue()
+check('po zamknięciu map dalej ekran dogrywki', (await sektor('s1')).etap === 'czat' && (await page.locator(`${C} .tc-luki`).count()) === 1)
+await page.click(`${C} button:has-text("Tylko kopiuj")`)
+check('komunikat widać na ekranie czatu', !!(await page.waitForSelector('.komunikat-ekran', { timeout: 3000 }).catch(() => null)))
+await page.click(`${C} .test-czatem-polecenie summary`)
+const dogr = await page.locator(`${C} .test-czatem-polecenie textarea`).inputValue()
 check('polecenie dogrywki: z aktualnych luk', dogr.includes('Zbiór domknięty: opisany jak otwarty') && dogr.includes('sprawdź TYLKO te luki'))
-check('Pomiń czat niedostępny w dogrywce', (await page.locator(`${K} .test-czatem-pomin`).count()) === 0)
+check('Pomiń czat niedostępny w dogrywce', (await page.locator(`${C} .test-czatem-pomin`).count()) === 0)
 
 const nieudana = podsumowanie('NIEZALICZONE', ['Zbiór domknięty: NIE — nadal myli pojęcia.'], ['Zbiór domknięty: nadal myli z otwartym'])
-await wklej(K, nieudana)
-await page.click(`${K} [data-zapisz-czat]`)
+await wklej(C, nieudana)
+await page.click(`${C} [data-zapisz-czat]`)
 check('dogrywka 1 nieudana → licznik 1, dalej czat', await czekaj((b) => b.nauka.find((j) => j.id === 's1').dogrywek === 1))
 s1 = await sektor('s1')
 check('kolejne podsumowanie zastępuje listę luk', s1.luki.includes('nadal myli') && !s1.luki.includes('brak przykładu'))
 check('luki z dogrywki dopisane do wymagań', s1.lukiKafelkow.nc3.length === 2)
-await page.waitForSelector(`${K} .test-czatem-licznik`)
-await wklej(K, nieudana)
-await page.click(`${K} [data-zapisz-czat]`)
+await page.waitForSelector(`${C} .test-czatem-licznik`)
+check('po nieudanej: skutki i znów „Co dalej" na tym samym ekranie', (await page.locator(`${C} .test-czatem-skutki`).count()) === 1 && (await page.locator(`${C} .tc-luki`).count()) === 1)
+await wklej(C, nieudana)
+await page.click(`${C} [data-zapisz-czat]`)
 check('dogrywka 2 nieudana → limit: przemapowanie samego kafelka z NIE', await czekaj((b) => !!b.nauka.find((j) => j.id === 's1').przemapowanie))
+await page.waitForSelector(`${C} button:has-text("Mapuj (1)")`)
+check('ekran: „Przemapuj kafelki z NIE"', (await page.locator(C).innerText()).includes('Przemapuj kafelki z NIE'))
 s1 = await sektor('s1')
 check('przemapowanie: tylko Zbiór domknięty, etap czatu zostaje', JSON.stringify(s1.przemapowanie.wezly) === '["nc3"]' && s1.etap === 'czat')
 d = await baza()
 check('dogrywki nie zmieniły terminów kafelków', d.pamiec.every((p) => p.termin === terminyPoCzacie[p.klucz]))
 check('historia: numer dogrywki', d.historia.filter((h) => h.typ === 'czat').at(-1)?.dogrywka === 2)
+await page.click('.sesja-glowa button:has-text("Wróć")')
 
 // przemapowanie → przerwa → krótki test
 await page.waitForSelector(`${K} button:has-text("Skończyłem")`)
@@ -207,6 +218,7 @@ await page.click(`${K} button:has-text("Krótki test")`)
 await page.waitForSelector('.sesja-element')
 check('krótki test: tylko kafelek z NIE, bez mapy', (await page.locator('.sesja-element').count()) === 1 &&
   (await page.locator('.sesja-rodzaj').textContent()) === 'Krótki test po przemapowaniu' && (await page.locator('.sesja-mapa-pamiec').count()) === 0)
+check('test zakryty na osobnym ekranie, zasłania bibliotekę', await naEkranie())
 check('krótki test: luki z czatu w wymaganiach', (await page.locator('.sesja-element .sesja-wymagania').innerText()).includes('z czatu:'))
 await page.locator('.sesja-element button:has-text("Sprawdź")').click()
 await page.locator('.sesja-element button:has-text("Tak")').click()
@@ -221,22 +233,33 @@ check('krótki test nie zmienił terminów', d.pamiec.every((p) => p.termin === 
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 
 // ---------------------------------------------------------------------------
-// 4. „Nie zgadzam się z oceną" → uchyla NIE → ZALICZONE → sektor idzie dalej
-await page.waitForSelector(`${K} .tc-luki`)
-await wklej(K, nieudana)
-check('przed sprzeciwem: NIEZALICZONE', (await page.locator(`${K} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'luki')
-const Z = `${K} .tc-ocena[data-kafelek="Zbiór domknięty"]`
-await page.click(`${Z} .tc-nie-zgadzam`)
-check('„Nie zgadzam się" → wybór twojej oceny, bez uzasadnienia', (await page.locator(`${Z} .tc-twoja button`).count()) === 4 && (await page.locator(`${Z} input`).count()) === 0)
-await page.click(`${Z} .tc-twoja button:has-text("Częściowo")`)
-check('twoja ocena Częściowo: dalej NIE nie ma → ZALICZONE', (await page.locator(`${K} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'zaliczone')
-await page.click(`${Z} .tc-twoja button:has-text("Zgadzam się z czatem")`)
-check('„Zgadzam się z czatem" przywraca ocenę czatu', (await page.locator(`${K} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'luki')
-await page.click(`${Z} .tc-nie-zgadzam`)
-await page.click(`${Z} .tc-twoja button:has-text("Tak")`)
-check('po zmianie na Tak: ZALICZONE', (await page.locator(`${K} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'zaliczone')
-await page.click(`${K} [data-zapisz-czat]`)
+// 4. Klik w ocenę → „Nie zgadzam się z oceną czatu — zmień na…" → ZALICZONE
+await page.waitForSelector(`${K} [data-czat]`)
+await page.click(`${K} [data-czat]`)
+await page.waitForSelector(`${C} .tc-luki`)
+await wklej(C, nieudana)
+check('przed zmianą: NIEZALICZONE', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'luki')
+const Z = `${C} .tc-ocena[data-kafelek="Zbiór domknięty"]`
+await page.click(`${Z} .tc-ocena-btn`)
+check('klik w ocenę → wybór z nagłówkiem „Nie zgadzam się z oceną czatu", 4 opcje', (await page.locator(`${Z} .tc-menu-tytul`).innerText()).includes('Nie zgadzam się z oceną czatu') &&
+  (await page.locator(`${Z} .tc-menu-poz`).count()) === 4 && (await page.locator(`${Z} .tc-menu-poz.zaznacz-niesprawdzony`).count()) === 1)
+await page.click(`${Z} .tc-menu-poz.zaznacz-czesciowo`)
+check('zmiana na Częściowo: nie ma NIE → ZALICZONE', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'zaliczone' &&
+  (await page.locator(`${Z} .tc-zmiana`).innerText()).includes('czat dał: Nie'))
+await page.click(`${Z} .tc-ocena-btn`)
+await page.click(`${Z} .tc-menu-poz.zaznacz-nie`)
+check('wybór oceny czatu przywraca ją', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'luki' && (await page.locator(`${Z} .tc-zmiana`).count()) === 0)
+await page.click(`${Z} .tc-ocena-btn`)
+await page.click(`${Z} .tc-menu-poz.zaznacz-niesprawdzony`)
+check('zmiana na Niesprawdzony: liczy się test zakryty → ZALICZONE', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'zaliczone')
+await page.click(`${Z} .tc-ocena-btn`)
+await page.click(`${Z} .tc-menu-poz.zaznacz-tak`)
+check('zmiana na Tak: ZALICZONE', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'zaliczone')
+await page.click(`${C} [data-zapisz-czat]`)
 check('zaliczone → sektor idzie do powtórek', await czekaj((b) => b.nauka.find((j) => j.id === 's1').etap === 'powtorki'))
+await page.waitForSelector(`${C} .test-czatem-skutki`)
+check('ekran po zaliczeniu: skutki i „Gotowe"', (await page.locator(`${C} .test-czatem-skutki`).innerText()).includes('Zaliczone') && (await page.locator(`${C} .tc-krok`).count()) === 0)
+await page.click(`${C} button:has-text("Gotowe")`)
 s1 = await sektor('s1')
 d = await baza()
 const ostatni = d.historia.filter((h) => h.typ === 'czat').at(-1)
@@ -260,14 +283,19 @@ await page.evaluate(async () => {
 })
 await doNauki()
 const K2 = '.karta-sektora[data-sektor="s2"]'
-await page.waitForSelector(`${K2} .test-czatem-pomin`)
-await page.click(`${K2} .test-czatem-pomin`)
+await page.waitForSelector(`${K2} [data-czat]`)
+check('karta: przycisk „Test czatem"', (await page.locator(`${K2} [data-czat]`).innerText()) === 'Test czatem')
+await page.click(`${K2} [data-czat]`)
+await page.waitForSelector(`${C} .test-czatem-pomin`)
+check('ekran testu czatem: kroki 1–2, bez luk', (await page.locator('.sesja-rodzaj').textContent()) === 'Test czatem' && (await page.locator(`${C} .tc-krok`).count()) === 2)
+await page.click(`${C} .test-czatem-pomin`)
 check('pominięcie: sektor idzie dalej, najbliższa powtórka z czatem', await czekaj((b) => {
   const s = b.nauka.find((j) => j.id === 's2')
   return s.etap === 'powtorki' && s.czatNastepnym === true
 }))
+await page.waitForSelector(`${K2} button:has-text("Powtórz teraz")`)
 d = await baza()
-check('pominięcie w historii', d.historia.some((h) => h.jednostkaId === 's2' && h.czat === 'pominiety'))
+check('pominięcie w historii, ekran zamknięty', d.historia.some((h) => h.jednostkaId === 's2' && h.czat === 'pominiety') && (await page.locator('.sesja-ekran').count()) === 0)
 
 // ---------------------------------------------------------------------------
 // 6. Powtórka rozszerzona z czatem: łączenie ocen, bez bramki
@@ -293,14 +321,13 @@ await wklej('.sesja-czat', podsumowanie('ZALICZONE', [
 ], ['Otoczenie: wciąż bez przykładu']))
 check('rozszerzona: ZALICZONE mimo CZĘŚCIOWO', (await page.locator('.sesja-czat .test-czatem-werdykt').getAttribute('data-werdykt')) === 'zaliczone')
 // czat dał Kuli TAK, ale ty uważasz, że Nie — twoja ocena też może obniżyć
-await page.click('.sesja-czat .tc-ocena[data-kafelek="Kula"] .tc-nie-zgadzam')
-await page.click('.sesja-czat .tc-ocena[data-kafelek="Kula"] .tc-twoja button:has-text("Nie")')
+await page.click('.sesja-czat .tc-ocena[data-kafelek="Kula"] .tc-ocena-btn')
+await page.click('.sesja-czat .tc-ocena[data-kafelek="Kula"] .tc-menu-poz.zaznacz-nie')
 check('rozszerzona: twoje Nie przy Kuli → NIEZALICZONE', (await page.locator('.sesja-czat .test-czatem-werdykt').getAttribute('data-werdykt')) === 'luki')
 await page.click('.sesja-czat [data-zapisz-czat]')
 await page.waitForSelector('.sesja-czat .test-czatem-zapisane')
-check('rozszerzona: czat obniżył Otoczenie (widać w sesji)', (await page.locator('.sesja-czat').innerText()).includes('Czat obniżył ocenę: Kula, Otoczenie'))
+check('rozszerzona: obniżone Kula i Otoczenie (widać w sesji)', (await page.locator('.sesja-czat').innerText()).includes('Czat obniżył ocenę: Kula, Otoczenie'))
 check('rozszerzona: CZĘŚCIOWO od czatu zmienia podpowiedź oceny', (await page.locator('.sesja-ocena-btn.btn-active .sesja-ocena-nazwa').textContent()) === 'Trudno')
-const przedRozsz = await pam('c2')
 await page.click('.sesja-zapisz')
 await page.waitForSelector('.sesja-wynik')
 d = await baza()
@@ -308,35 +335,26 @@ const s2 = d.nauka.find((j) => j.id === 's2')
 const w2 = d.historia.filter((h) => h.jednostkaId === 's2' && h.typ === 'powtorka').at(-1)
 check('rozszerzona: kafelek obniżony przez czat jest słaby', d.pamiec.find((p) => p.klucz === 'c2').slaby && d.pamiec.find((p) => p.klucz === 'c2').przed.ocena === 2)
 check('rozszerzona: historia z oceną zakrytą, czatem i łączną', w2?.zakryte?.c2 === 'tak' && w2?.lacznie?.c2 === 'czesciowo' && w2?.lacznie?.c1 === 'nie' && w2?.czatKafelki?.length === 4)
-check('rozszerzona: Kula (twoje Nie) słaba, z luką w wymaganiach', d.pamiec.find((p) => p.klucz === 'c1').slaby && !!d.nauka.find((j) => j.id === 's2').lukiKafelkow?.nc1)
+check('rozszerzona: Kula (twoje Nie) słaba, z luką w wymaganiach', d.pamiec.find((p) => p.klucz === 'c1').slaby && !!s2.lukiKafelkow?.nc1)
 check('rozszerzona: luki do wymagań, „najbliższa z czatem" zużyte', s2.lukiKafelkow?.nc2?.some((l) => l.includes('wciąż bez przykładu')) && !s2.czatNastepnym)
 check('rozszerzona: bez bramki — sektor ma nowy termin', s2.etap === 'powtorki' && s2.powtorek === 1)
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 
 // ---------------------------------------------------------------------------
 // 7. Dobrowolna dogrywka po rozszerzonej z lukami
-await page.evaluate(async () => {
-  const req = indexedDB.open('kompendium')
-  await new Promise((r) => (req.onsuccess = r))
-  const db = req.result
-  const t = db.transaction('nauka', 'readwrite')
-  const st = t.objectStore('nauka')
-  const g = st.get('s2')
-  await new Promise((r) => (g.onsuccess = r))
-  st.put({ ...g.result, luki: '- Otoczenie: wciąż bez przykładu' })
-  await new Promise((r) => (t.oncomplete = r))
-  db.close()
-})
-await doNauki()
-await page.waitForSelector(`${K2} details.karta-sektora-uwaga`)
-await page.click(`${K2} details.karta-sektora-uwaga summary`)
-check('dogrywka dobrowolna przy powtórkach', (await page.locator(`${K2} .test-czatem`).innerText()).includes('dobrowolna'))
-await wklej(K2, podsumowanie('ZALICZONE', ['Otoczenie: TAK — jest przykład.']))
-await page.click(`${K2} [data-zapisz-czat]`)
+await page.waitForSelector(`${K2} .karta-sektora-luki [data-czat]`)
+check('karta: „Dogrywka (dobrowolna)" przy lukach z powtórki', (await page.locator(`${K2} .karta-sektora-luki [data-czat]`).innerText()) === 'Dogrywka (dobrowolna)')
+await page.click(`${K2} .karta-sektora-luki [data-czat]`)
+await page.waitForSelector(`${C} .tc-luki`)
+check('ekran dobrowolnej dogrywki', (await page.locator('.sesja-rodzaj').textContent()) === 'Dogrywka (dobrowolna)' && (await page.locator(C).innerText()).includes('dobrowolna'))
+await wklej(C, podsumowanie('ZALICZONE', ['Kula: TAK — już jest.', 'Otoczenie: TAK — jest przykład.']))
+await page.click(`${C} [data-zapisz-czat]`)
 check('dobrowolna dogrywka zaliczona → luki zamknięte, etap bez zmian', await czekaj((b) => {
   const s = b.nauka.find((j) => j.id === 's2')
   return !s.luki && s.etap === 'powtorki'
 }))
+await page.waitForSelector(`${C} button:has-text("Gotowe")`)
+await page.click(`${C} button:has-text("Gotowe")`)
 
 // ---------------------------------------------------------------------------
 // 8. Same luki bez wzoru → zapisane jako luki
@@ -354,10 +372,11 @@ await page.evaluate(async () => {
 })
 await doNauki()
 const K3 = '.karta-sektora[data-sektor="s3"]'
-await page.waitForSelector(`${K3} .test-czatem-wklej textarea`)
-await wklej(K3, 'Nie umiesz rozróżnić zbioru otwartego i domkniętego.')
-check('tekst bez wzoru → NIEZALICZONE (luki)', (await page.locator(`${K3} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'luki')
-await page.click(`${K3} [data-zapisz-czat]`)
+await page.click(`${K3} [data-czat]`)
+await page.waitForSelector(`${C} .test-czatem-wklej textarea`)
+await wklej(C, 'Nie umiesz rozróżnić zbioru otwartego i domkniętego.')
+check('tekst bez wzoru → NIEZALICZONE (luki)', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'luki')
+await page.click(`${C} [data-zapisz-czat]`)
 check('tekst bez wzoru zapisany jako luki', await czekaj((b) => (b.nauka.find((j) => j.id === 's3').luki ?? '').includes('rozróżnić')))
 
 console.log(errors.length ? `Błędy konsoli:\n${errors.join('\n')}` : '✓ bez błędów konsoli')

@@ -6,8 +6,9 @@ import { useBlockTypes } from '../blockTypes'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Icon } from './Icon'
-import { CzatNaProbe, TestCzatem, przykladyPodsumowan, type CzatWSesji } from './TestCzatem'
+import { CzatNaProbe, SkutkiCzatu, TestCzatem, przykladyPodsumowan, type CzatWSesji } from './TestCzatem'
 import { useZadania } from './ZadaniaSektora'
+import { wez } from '../naukaUstawienia'
 import { TrybMapowania } from './TrybMapowania'
 import { eksperyment, otworzCzat, zlozPolecenie } from '../czat'
 import {
@@ -31,7 +32,10 @@ import {
   zapiszSesje,
   naProbe,
   znajdzTypZadania,
+  minutyPrzemapowania,
+  przemapowanieOtwarte,
   type Ocena,
+  type PoCzacie,
   type PoSesji,
 } from '../nauka'
 import {
@@ -61,6 +65,9 @@ export interface CelSesji {
    *  ten jest „na niby", z oceną `zakryteProby`). */
   probaCzatu?: boolean
   zakryteProby?: Przypomnienie
+  /** Test czatem albo dogrywka na osobnym ekranie (etap czatu powtórki zero
+   *  albo dobrowolna dogrywka po powtórce rozszerzonej). */
+  czat?: boolean
   /** Próba (Ustawienia → Próba): sektor z podmienionymi polami (np. etap),
    *  a zapis wyniku jest wycofywany — w bazie nic się nie zmienia. */
   proba?: Partial<JednostkaNauki>
@@ -307,6 +314,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const [zapisuje, setZapisuje] = useState(false)
   /** „Popraw mapy" z ekranu wyniku — tryb mapowania nad sesją. */
   const [mapuje, setMapuje] = useState(false)
+  /** Ekran czatu: co zmienił ostatni zapis. */
+  const [poCzacie, setPoCzacie] = useState<PoCzacie | null>(null)
   /** Próba: dane testu zakrytego — czat na próbę odtwarza je przed sobą. */
   const daneProby = useRef<Parameters<typeof zapiszSesje>[0] | null>(null)
 
@@ -456,6 +465,88 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           </p>
           <CzatNaProbe j={j} zakryte={() => cel.zakryteProby ?? 'tak'} />
         </div>
+      </section>
+    )
+  }
+
+  // ---- test czatem / dogrywka na osobnym ekranie ----
+  if (cel.czat && j) {
+    const koniec = !!poCzacie && (poCzacie.zaliczone || j.etap !== 'czat') && !j.luki
+    const rodzaj = j.przemapowanie
+      ? 'Przemapowanie kafelków z NIE'
+      : j.luki
+        ? j.etap === 'czat'
+          ? 'Dogrywka'
+          : 'Dogrywka (dobrowolna)'
+        : 'Test czatem'
+    return (
+      <section className="sesja">
+        <header className="sesja-glowa">
+          <div>
+            <span className="sesja-rodzaj">{rodzaj}</span>
+            <h2>{tytul}</h2>
+          </div>
+          <button className="btn" onClick={onZamknij}>
+            ← Wróć
+          </button>
+        </header>
+        <div className="sesja-wynik sesja-czat-proba">
+          {koniec ? (
+            <>
+              <SkutkiCzatu po={poCzacie!} />
+              <button className="btn btn-primary" onClick={onZamknij}>
+                Gotowe
+              </button>
+            </>
+          ) : j.przemapowanie ? (
+            <>
+              {poCzacie && <SkutkiCzatu po={poCzacie} />}
+              <div className="tc-krok">
+                <span className="test-czatem-nr">1</span>
+                <div className="tc-krok-tresc">
+                  <strong>Przemapuj kafelki z NIE</strong>
+                  <span className="hint">
+                    Potem przerwa i krótki test samych tych kafelków (terminy się nie zmieniają), a po nim
+                    znowu dogrywka.
+                  </span>
+                  <div className="tc-przyciski">
+                    {j.przemapowanie.etap === 'mapowanie' ? (
+                      <button className="btn btn-primary" onClick={() => setMapuje(true)}>
+                        Mapuj ({j.przemapowanie.wezly.length + j.przemapowanie.zadania.length})
+                      </button>
+                    ) : przemapowanieOtwarte(j) ? (
+                      <button
+                        className="btn btn-primary"
+                        onClick={() =>
+                          window.dispatchEvent(
+                            new CustomEvent('komp:sesja', { detail: { jednostkaId: j.id, przemapowanie: true } }),
+                          )
+                        }
+                      >
+                        Krótki test
+                      </button>
+                    ) : (
+                      <span>Przerwa — krótki test za {Math.max(0, Math.ceil(wez('przerwa') - minutyPrzemapowania(j)))} min.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button className="btn" onClick={onZamknij}>
+                Gotowe
+              </button>
+            </>
+          ) : (
+            <TestCzatem
+              j={j}
+              tryb="zero"
+              onMapuj={() => setMapuje(true)}
+              skutki={poCzacie}
+              onZapisano={setPoCzacie}
+              onPominieto={onZamknij}
+            />
+          )}
+        </div>
+        {mapuje && <TrybMapowania j={j} onZamknij={() => setMapuje(false)} />}
       </section>
     )
   }

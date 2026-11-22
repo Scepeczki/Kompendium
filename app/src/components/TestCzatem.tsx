@@ -46,8 +46,12 @@ interface Props {
   przyklady?: { nazwa: string; tekst: string }[]
   /** „Popraw mapy" przy lukach — otwiera tryb mapowania sektora. */
   onMapuj?: () => void
-  /** Skutki poprzedniego zapisu (próba trzyma je u siebie). */
+  /** Skutki poprzedniego zapisu (próba i ekran czatu trzymają je u siebie). */
   skutki?: PoCzacie | null
+  /** Po zapisie (nie w próbie) — co się zmieniło. */
+  onZapisano?: (po: PoCzacie) => void
+  /** Po „Pomiń czat". */
+  onPominieto?: () => void
 }
 
 const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new URL(adresCzatu()).host
@@ -80,71 +84,75 @@ export function OcenyCzatu({ kafelki }: { kafelki: OcenaCzatu[] }) {
   )
 }
 
-/** Ocena czatu do zatwierdzenia: przy każdym kafelku „Nie zgadzam się" —
- *  wtedy wybierasz własną ocenę (Tak / Częściowo / Nie), w obie strony. */
+/** Ocena czatu do zatwierdzenia. Klik w ocenę przy kafelku otwiera wybór:
+ *  „Nie zgadzam się z oceną czatu — zmień na…" (Tak / Częściowo / Nie /
+ *  Niesprawdzony). Twoja ocena zastępuje ocenę czatu. */
 function OcenaDoZatwierdzenia({
   kafelki,
   onZmien,
 }: {
   kafelki: OcenaCzatu[]
-  onZmien: (i: number, twoja: Przypomnienie | undefined) => void
+  onZmien: (i: number, twoja: OcenaCzatu['ocena'] | undefined) => void
 }) {
-  const [edytowane, setEdytowane] = useState<Set<number>>(new Set())
+  const [otwarte, setOtwarte] = useState<number | null>(null)
+  useEffect(() => {
+    if (otwarte === null) return
+    const h = (e: MouseEvent) => {
+      if (!(e.target as Element).closest?.('.tc-wybor')) setOtwarte(null)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [otwarte])
   return (
     <ul className="tc-oceny">
       {posortuj(kafelki).map(({ k, i }) => {
-        const edycja = edytowane.has(i) || !!k.twoja
         const o = ocenaPoCzacie(k)
+        const zmieniona = !!k.twoja && k.twoja !== k.ocena
         return (
           <li key={i} className={`tc-ocena zaznacz-${o}`} data-kafelek={k.nazwa}>
             <div className="tc-ocena-glowa">
-              <span className="test-czatem-ocena">{NAPIS[o]}</span>
+              <span className="tc-wybor">
+                <button
+                  className={`test-czatem-ocena tc-ocena-btn ${zmieniona ? 'tc-zmieniona' : ''}`}
+                  title="Kliknij, żeby zmienić ocenę"
+                  aria-haspopup="menu"
+                  aria-expanded={otwarte === i}
+                  onClick={() => setOtwarte(otwarte === i ? null : i)}
+                >
+                  {NAPIS[o]} <span aria-hidden>▾</span>
+                </button>
+                {otwarte === i && (
+                  <div className="tc-menu" role="menu">
+                    <div className="tc-menu-tytul">Nie zgadzam się z oceną czatu — zmień na:</div>
+                    {(['tak', 'czesciowo', 'nie', 'niesprawdzony'] as OcenaCzatu['ocena'][]).map((x) => (
+                      <button
+                        key={x}
+                        role="menuitem"
+                        className={`tc-menu-poz zaznacz-${x} ${o === x ? 'wl' : ''}`}
+                        onClick={() => {
+                          onZmien(i, x === k.ocena ? undefined : x)
+                          setOtwarte(null)
+                        }}
+                      >
+                        <span className="tc-menu-kropka" />
+                        {NAPIS[x]}
+                        {x === k.ocena && <span className="hint"> — ocena czatu</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </span>
               <span className="test-czatem-kafelek">{k.nazwa}</span>
               {!k.klucz && <span className="hint">(nie pasuje do żadnego kafelka sektora — pominięty)</span>}
-              {!edycja ? (
-                <button
-                  className="btn btn-link tc-nie-zgadzam"
-                  onClick={() => setEdytowane((s) => new Set(s).add(i))}
-                >
-                  Nie zgadzam się
-                </button>
-              ) : (
-                <span className="tc-twoja">
-                  <span className="hint">Twoja ocena:</span>
-                  {(['tak', 'czesciowo', 'nie'] as Przypomnienie[]).map((x) => (
-                    <button
-                      key={x}
-                      className={`btn btn-maly zaznacz-${x} ${k.twoja === x ? 'btn-active' : ''}`}
-                      onClick={() => onZmien(i, x)}
-                    >
-                      {NAPIS_P[x]}
-                    </button>
-                  ))}
-                  <button
-                    className="btn btn-link"
-                    title="Wróć do oceny czatu"
-                    onClick={() => {
-                      onZmien(i, undefined)
-                      setEdytowane((s) => {
-                        const n = new Set(s)
-                        n.delete(i)
-                        return n
-                      })
-                    }}
-                  >
-                    Zgadzam się z czatem
-                  </button>
-                </span>
-              )}
             </div>
             <div className="tc-ocena-opis">
-              {k.twoja && k.twoja !== k.ocena && (
+              {zmieniona && (
                 <span className="tc-zmiana">
-                  Czat: {NAPIS[k.ocena]} → liczy się twoja: <strong>{NAPIS_P[k.twoja]}</strong>
+                  Zmienione przez ciebie — czat dał: {NAPIS[k.ocena]}
                 </span>
               )}
               {k.uwaga && <span className="test-czatem-uwaga">{k.uwaga}</span>}
-              {!!k.luki?.length && o !== 'tak' && (
+              {!!k.luki?.length && (o === 'nie' || o === 'czesciowo') && (
                 <ul className="test-czatem-luki-kafelka">
                   {k.luki.map((l, x) => (
                     <li key={x}>{l}</li>
@@ -258,7 +266,7 @@ export function SkutkiCzatu({ po }: { po: PoCzacie }) {
                 <td>{k.nazwa}</td>
                 <td className={`zaznacz-${k.zakryta}`}>{NAPIS_P[k.zakryta!]}</td>
                 <td className={`zaznacz-${k.twoja ?? k.czat}`}>
-                  {k.twoja && k.twoja !== k.czat ? `${NAPIS_P[k.twoja]} (twoja; czat: ${NAPIS[k.czat]})` : NAPIS[k.czat]}
+                  {k.twoja && k.twoja !== k.czat ? `${NAPIS[k.twoja]} (twoja; czat: ${NAPIS[k.czat]})` : NAPIS[k.czat]}
                 </td>
                 <td className={`zaznacz-${k.lacznie}`}>
                   {NAPIS_P[k.lacznie!]}
@@ -281,7 +289,7 @@ export function SkutkiCzatu({ po }: { po: PoCzacie }) {
 /** Test czatem: rozmowa z czatem w drugim oknie, potem wklejasz jego
  *  podsumowanie, zatwierdzasz ocenę (albo zmieniasz ją przy kafelku) i zapisujesz.
  *  Z lukami: podsumowanie luk, popraw mapy, dogrywka. */
-export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj, skutki }: Props) {
+export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj, skutki, onZapisano, onPominieto }: Props) {
   const dogrywka = tryb === 'zero' && !!j.luki
   const bramka = tryb === 'zero' && j.etap === 'czat'
   const [tekst, setTekst] = useState<string | null>(null)
@@ -319,8 +327,10 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj,
   const zapisz = async () => {
     if (!odczytane || zapisuje) return
     setZapisuje(true)
-    // luki kafelków, które uznałeś za „Tak", nie idą dalej
-    const zamkniete = kafelki.filter((k) => k.twoja === 'tak').map((k) => k.nazwa.toLowerCase())
+    // luki kafelków, które uznałeś za „Tak" (albo niesprawdzone), nie idą dalej
+    const zamkniete = kafelki
+      .filter((k) => k.twoja === 'tak' || k.twoja === 'niesprawdzony')
+      .map((k) => k.nazwa.toLowerCase())
     const luki =
       odczytane.luki
         .split('\n')
@@ -335,6 +345,7 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj,
         const r = await wynikCzatu(j.id, zaliczone, listaLuk, { kafelki, klucz: odczytane.klucz })
         if (r) {
           setPo(r)
+          onZapisano?.(r)
           window.dispatchEvent(
             new CustomEvent('komp:komunikat', {
               detail: r.zaliczone ? 'Wynik czatu zapisany — zaliczone' : 'Wynik czatu zapisany — są luki',
@@ -430,6 +441,7 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj,
       {odczytane && (
         <div className="test-czatem-odczyt">
           <h4 className="tc-tytul">Ocena czatu — zgadzasz się?</h4>
+          {kafelki.length > 0 && <span className="hint">Kliknij ocenę przy kafelku, żeby ją zmienić.</span>}
           {kafelki.length > 0 ? (
             <OcenaDoZatwierdzenia
               kafelki={kafelki}
@@ -475,7 +487,7 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj,
           title="Np. bez internetu albo czat nie działa"
           onClick={() => {
             if (window.confirm('Pominąć czat? Zostanie to w historii, a najbliższa powtórka tego sektora będzie z czatem.'))
-              void pominCzat(j.id)
+              void pominCzat(j.id).then(() => onPominieto?.())
           }}
         >
           Pomiń czat (najbliższa powtórka będzie z czatem)

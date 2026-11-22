@@ -231,7 +231,11 @@ function WToku({
             ? 'po przerwie — test gotowy'
             : `przerwa · test za ${zostalo} min`}
       </span>
-      {j.etap === 'czat' && przemapowanieOtwarte(j) ? (
+      {j.etap === 'czat' && !j.przemapowanie ? (
+        <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id, czat: true })}>
+          {j.luki ? 'Dogrywka' : 'Test czatem'}
+        </button>
+      ) : j.etap === 'czat' && przemapowanieOtwarte(j) ? (
         <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id, przemapowanie: true })}>
           Krótki test
         </button>
