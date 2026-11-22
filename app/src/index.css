@@ -13420,7 +13420,17 @@ html.okno-powiadomienia #root {
 .ez3-kolumna.linear-view { min-width: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: stretch; }
 .ez3-kolumna .linear-column { flex: none; width: 100%; box-sizing: border-box; }
 .ez3-linia.linear-column { padding: 18px 24px 80px; }
-.ez3-seg { content-visibility: visible; }
+/* kafelki z Linii oszczędzają rysowanie (content-visibility) i przy tym
+   przycinają wszystko, co wystaje — obwódkę i cień zaznaczenia; tu zadań
+   jest kilka, więc rysujemy je normalnie */
+.ez3 .linear-seg.ez3-seg { content-visibility: visible; contain: none; contain-intrinsic-size: none; }
+.ez3-linia.linear-column { padding-left: 28px; padding-right: 28px; }
+.ez3-pelna { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.ez3-pelna > .editor { flex: 1; min-height: 0; border-right: 0; }
+.ez3-pelna-pasek { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.ez3-menu { z-index: 90; }
+.ez3-menu .tree-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; }
+.ez3-menu .ez3-menu-usun { color: var(--danger); }
 .ez3 .ez2-tytul { font-family: inherit; }
 .ez3 .ez2-strony { margin: 0; gap: 4px 12px; align-items: center; }
 .ez3-strona { display: inline-flex; align-items: center; gap: 1px; }

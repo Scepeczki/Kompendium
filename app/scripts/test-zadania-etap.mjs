@@ -201,6 +201,24 @@ check('zaznaczony fragment PDF podpięty do zadania, w stopce „…, s. 1"', aw
   return !!v?.sourceRefs.some((r) => r.pdfId && r.page === 1)
 }) && (await page.locator(`${W} .source-list`).innerText()).includes('s. 1') && (await page.locator(`${E} [data-podpinanie]`).count()) === 0)
 if (process.env.SHOT_PDF) await page.screenshot({ path: process.env.SHOT_PDF })
+// kafelek nie jest przycinany (obwódka zaznaczenia widać w całości)
+check('kafelki rysowane w całości, bez przycinania', await page.evaluate(() => {
+  const seg = document.querySelector('.ez3-seg')
+  const cs = getComputedStyle(seg)
+  return cs.contentVisibility !== 'auto' && !/paint|strict|content/.test(cs.contain)
+}))
+// prawy przycisk: pełna edycja jak w bibliotece (z PDF obok)
+await page.click(`${W} .block-stopka`, { button: 'right', position: { x: 5, y: 5 } })
+await page.waitForSelector(`${E} .ez3-menu`)
+check('menu pod prawym: pełna edycja, źródła, usuwanie', (await page.locator(`${E} .ez3-menu`).innerText()).includes('Pełna edycja') &&
+  (await page.locator(`${E} .ez3-menu`).innerText()).includes('Usuń zadanie'))
+await page.click(`${E} .ez3-menu [data-pelna-edycja]`)
+await page.waitForSelector(`${E} [data-pelna-edycja-widok] .editor`)
+check('pełna edycja: edytor z biblioteki (Podepnij źródło, Kafelek jako źródło), PDF dalej obok', (await page.locator(`${E} [data-pelna-edycja-widok]`).innerText()).includes('Podepnij źródło') &&
+  (await page.locator(`${E} .ez3-pdf .pdf-panel`).count()) === 1 && (await page.locator(`${E} .ez3-kolumna`).count()) === 0)
+await page.click(`${E} [data-wroc-do-zadan]`)
+await page.waitForSelector(`${E} .ez3-kolumna`)
+check('„Wróć do zadań": kolumna z tym samym zadaniem wybranym', (await page.locator(`${W} .ez2-tytul`).inputValue()) === 'Kula dyskretna')
 await page.click(`${E} [data-pdf]`)
 
 // usunięcie zadania

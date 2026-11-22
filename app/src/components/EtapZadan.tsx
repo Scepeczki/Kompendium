@@ -16,10 +16,11 @@ import {
   znajdzTypZadania,
   type ZadanieDoEdycji,
 } from '../nauka'
-import { db } from '../db'
+import { db, updateVersion } from '../db'
 import { useBlockTypes } from '../blockTypes'
 import { renderMarkdown } from '../markdown'
 import { isPdfSource, type Concept, type JednostkaNauki, type PdfSourceRef, type SourceRef } from '../types'
+import { BlockEditor } from './BlockEditor'
 import { ConceptPicker } from './ConceptPicker'
 import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
@@ -100,6 +101,7 @@ function KafelekZadania({
   onSkok,
   onOdepnij,
   onEdytor,
+  onMenu,
 }: {
   z: ZadanieDoEdycji
   nr: number
@@ -121,6 +123,8 @@ function KafelekZadania({
   onOdepnij: (r: SourceRef) => void
   /** Oddaje edytor do wspólnego paska narzędzi u góry kolumny. */
   onEdytor: (ed: Editor | null) => void
+  /** Prawy przycisk: menu kafelka (pełna edycja jak w bibliotece, źródła, usuwanie). */
+  onMenu: (x: number, y: number) => void
 }) {
   const typy = useBlockTypes()
   const [strona, setStrona] = useState<string>('polecenie')
@@ -139,6 +143,12 @@ function KafelekZadania({
       data-seg={z.id}
       onPointerDownCapture={onWybierz}
       onFocusCapture={onWybierz}
+      onContextMenu={(e) => {
+        // w polu nazwy zostaje zwykłe menu (kopiuj, wklej, pisownia)
+        if ((e.target as Element).closest('input, textarea')) return
+        e.preventDefault()
+        onMenu(e.clientX, e.clientY)
+      }}
     >
       <div className="linear-content">
         <section
@@ -482,7 +492,36 @@ export function EtapZadan({
   const zadania = proba ? lokalne : (zBazy ?? [])
   const [wybrany, setWybrany] = useState<string | null>(null)
   const [nowy, setNowy] = useState<string | null>(null)
+  // „nowe" tylko na chwilę po dodaniu — inaczej po powrocie z pełnej edycji
+  // nowo narysowany kafelek znów łapałby kursor
+  useEffect(() => {
+    if (!nowy) return
+    const t = window.setTimeout(() => setNowy(null), 600)
+    return () => window.clearTimeout(t)
+  }, [nowy])
   const [czat, setCzat] = useState(false)
+  /** Menu pod prawym przyciskiem przy kafelku-zadaniu. */
+  const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null)
+  useEffect(() => {
+    if (!menu) return
+    const zamknij = () => setMenu(null)
+    const klawisz = (e: KeyboardEvent) => e.key === 'Escape' && zamknij()
+    window.addEventListener('pointerdown', zamknij)
+    window.addEventListener('keydown', klawisz)
+    window.addEventListener('resize', zamknij)
+    return () => {
+      window.removeEventListener('pointerdown', zamknij)
+      window.removeEventListener('keydown', klawisz)
+      window.removeEventListener('resize', zamknij)
+    }
+  }, [menu])
+  /** Pełna edycja kafelka (ten sam edytor co w bibliotece) zamiast kolumny. */
+  const [pelny, setPelny] = useState<string | null>(null)
+  const [wersjaPelna, setWersjaPelna] = useState<string | null>(null)
+  const pelnyConcept = useLiveQuery(() => (pelny ? db.concepts.get(pelny) : undefined), [pelny])
+  const pelneWersje = useLiveQuery(() => (pelny ? db.versions.where('conceptId').equals(pelny).toArray() : []), [pelny]) ?? []
+  const pelnaWersja =
+    pelneWersje.find((v) => v.id === wersjaPelna) ?? pelneWersje.find((v) => v.id === pelnyConcept?.currentVersionId)
   /** Edytory kafelków — jeden wspólny pasek narzędzi działa na wybranym, jak w Linii. */
   const edytory = useRef(new Map<string, Editor>())
   const [, setIleEdytorow] = useState(0)
@@ -543,6 +582,19 @@ export function EtapZadan({
     przewin(`[data-zadanie-edycja="${id}"]`)
   }
 
+  const otworzPelna = (id: string) => {
+    zapis.wypchnij()
+    setPodpinam(null)
+    setWersjaPelna(null)
+    setPelny(id)
+  }
+  const zamknijPelna = () => {
+    const id = pelny
+    setPelny(null)
+    setPodpinam(null)
+    if (id) pokaz(id)
+  }
+
   const nowe = async () => {
     const [id] = await dodaj([{}])
     if (id) {
@@ -588,8 +640,15 @@ export function EtapZadan({
     else void zapiszZrodlaZadania(id, nowe)
   }
 
-  const naFragment = (base: Omit<PdfSourceRef, 'id'>) => {
+  const naFragment = async (base: Omit<PdfSourceRef, 'id'>) => {
     if (!podpinam) return
+    // pełna edycja: źródło do wersji, którą właśnie widać
+    if (pelny && podpinam === pelny && pelnaWersja) {
+      const v = await db.versions.get(pelnaWersja.id)
+      if (v) await updateVersion(v.id, { sourceRefs: [...v.sourceRefs, { id: crypto.randomUUID(), ...base }] })
+      setPodpinam(null)
+      return
+    }
     ustawZrodla(podpinam, (l) => [...l, { id: crypto.randomUUID(), ...base }])
     const z = zadania.find((x) => x.id === podpinam)
     window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: `Podpięte źródło do „${z?.nazwa || 'zadania'}"` }))
@@ -639,7 +698,9 @@ export function EtapZadan({
   }
 
   const wPowtorceZero = j.etap === 'zadania'
-  const zadanieDoPodpiecia = zadania.find((z) => z.id === podpinam)
+  const zadanieDoPodpiecia =
+    zadania.find((z) => z.id === podpinam) ??
+    (pelny && podpinam === pelny && pelnyConcept ? { nazwa: pelnyConcept.name } : undefined)
   return (
     <div className={`ez3 ${pdf ? 'z-pdf' : ''}`}>
       {(wPowtorceZero || (!!j.doPoprawy?.length && wPowtorceZero)) && (
@@ -698,6 +759,36 @@ export function EtapZadan({
           </button>
         </aside>
 
+        {pelny && pelnyConcept && pelnaWersja ? (
+          <section className="ez3-pelna" data-pelna-edycja-widok>
+            <div className="ez3-pelna-pasek">
+              <button className="btn" onClick={zamknijPelna} data-wroc-do-zadan>
+                ← Wróć do zadań
+              </button>
+              <span className="tcz-szary">Pełna edycja — jak w bibliotece. Zmiany zapisują się od razu.</span>
+            </div>
+            <BlockEditor
+              key={pelnyConcept.id}
+              concept={pelnyConcept}
+              version={pelnaWersja}
+              versions={pelneWersje}
+              onShowVersion={setWersjaPelna}
+              onClose={zamknijPelna}
+              onDeleted={() => {
+                setPelny(null)
+                setPodpinam(null)
+              }}
+              selecting={podpinam === pelny}
+              onToggleSelecting={() => {
+                if (podpinam === pelny) return setPodpinam(null)
+                setPdf(true)
+                setPodpinam(pelny)
+              }}
+              onJumpToSource={(r) => (isPdfSource(r) ? skok(r) : otworzPelna(r.conceptId))}
+              onOpenConcept={otworzPelna}
+            />
+          </section>
+        ) : (
         <section className="ez3-kolumna linear-view">
           <div className="linear-toolbar ez3-pasek">
             <RichToolbar editor={(wybrany && edytory.current.get(wybrany)) || null} />
@@ -746,6 +837,7 @@ export function EtapZadan({
                 onSkok={skok}
                 onOdepnij={(r) => ustawZrodla(z.id, (l) => l.filter((x) => x.id !== r.id))}
                 onEdytor={(ed) => zarejestruj(z.id, ed)}
+                onMenu={(x, y) => setMenu({ x, y, id: z.id })}
               />
             ))}
 
@@ -806,6 +898,7 @@ export function EtapZadan({
             )}
           </div>
         </section>
+        )}
 
         {pdf && (
           <aside className="ez3-pdf" aria-label="PDF">
@@ -878,6 +971,49 @@ export function EtapZadan({
           )}
         </div>
       </div>
+
+      {menu &&
+        (() => {
+          const z = zadania.find((x) => x.id === menu.id)
+          if (!z) return null
+          const zrob = (f: () => void) => () => {
+            setMenu(null)
+            f()
+          }
+          return (
+            <div
+              className="tree-menu ez3-menu"
+              style={{ left: Math.min(menu.x, window.innerWidth - 270), top: Math.min(menu.y, window.innerHeight - 200) }}
+              onPointerDown={(e) => e.stopPropagation()}
+              role="menu"
+            >
+              <button
+                className="tree-menu-item"
+                data-pelna-edycja
+                disabled={!!proba}
+                title={proba ? 'W próbie zadania są tylko w pamięci — pełna edycja działa w prawdziwej nauce' : 'Ten sam edytor co w bibliotece: wersje, strony, źródła, podgląd'}
+                onClick={zrob(() => otworzPelna(z.id))}
+              >
+                <Icon name="edycja" size={0.95} /> Pełna edycja (jak w bibliotece)
+              </button>
+              <button
+                className="tree-menu-item"
+                onClick={zrob(() => {
+                  setPdf(true)
+                  setPodpinam(z.id)
+                })}
+              >
+                <Icon name="book-open" size={0.95} /> Źródło z PDF
+              </button>
+              <button className="tree-menu-item" onClick={zrob(() => setWybor({ rodzaj: 'zrodlo', id: z.id }))}>
+                <Icon name="library" size={0.95} /> Kafelek jako źródło
+              </button>
+              <button className="tree-menu-item ez3-menu-usun" onClick={zrob(() => void usun(z))}>
+                <Icon name="usun" size={0.95} /> Usuń zadanie
+              </button>
+            </div>
+          )
+        })()}
 
       {wybor && (
         <ConceptPicker
