@@ -748,6 +748,43 @@ export async function utworzZadania(sektorId: string, lista: NoweZadanie[]): Pro
   return ids
 }
 
+/** Zadanie do edycji na ekranie zadań: nazwa, treść i rozwiązanie. */
+export interface ZadanieDoEdycji {
+  id: string
+  nazwa: string
+  tresc: string
+  rozwiazanie: string
+}
+
+/** Zadania sektora z treścią i rozwiązaniem (strona „Rozwiązanie"). */
+export async function wczytajZadania(ids: string[]): Promise<ZadanieDoEdycji[]> {
+  const out: ZadanieDoEdycji[] = []
+  for (const id of ids) {
+    const c = await db.concepts.get(id)
+    if (!c) continue
+    const v = await db.versions.get(c.currentVersionId)
+    const strony = await db.subpages.where('[conceptId+versionId]').equals([c.id, c.currentVersionId]).toArray()
+    const r = strony.find((s) => s.name === STRONY_ZADANIA[0]) ?? strony[0]
+    out.push({ id, nazwa: c.name, tresc: v?.content ?? '', rozwiazanie: r?.content ?? '' })
+  }
+  return out
+}
+
+/** Zapisuje zmienioną nazwę, treść albo rozwiązanie zadania. */
+export async function zapiszZadanie(id: string, z: Partial<Omit<ZadanieDoEdycji, 'id'>>) {
+  const c = await db.concepts.get(id)
+  if (!c) return
+  const iso = teraz().toISOString()
+  if (z.nazwa !== undefined) await db.concepts.update(id, { name: z.nazwa, updatedAt: iso })
+  if (z.tresc !== undefined) await db.versions.update(c.currentVersionId, { content: z.tresc, updatedAt: iso })
+  if (z.rozwiazanie !== undefined) {
+    const strony = await db.subpages.where('[conceptId+versionId]').equals([c.id, c.currentVersionId]).toArray()
+    const r = strony.find((s) => s.name === STRONY_ZADANIA[0]) ?? strony[0]
+    const sid = r?.id ?? (await createSubpage(id, c.currentVersionId, STRONY_ZADANIA[0]))
+    await db.subpages.update(sid, { content: z.rozwiazanie, updatedAt: iso })
+  }
+}
+
 /** Odpina zadanie od sektora. Kafelek zostaje w folderze ścieżki. */
 export async function odepnijZadanie(sektorId: string, conceptId: string) {
   const j = await db.nauka.get(sektorId)

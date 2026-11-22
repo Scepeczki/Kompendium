@@ -243,9 +243,9 @@ function WToku({
         <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id, douczanie: true })}>
           Test nowych
         </button>
-      ) : j.etap === 'zadania' && j.zadania?.length ? (
-        <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id })}>
-          Test końcowy
+      ) : j.etap === 'zadania' ? (
+        <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id, zadania: true })}>
+          Zadania
         </button>
       ) : j.etap === 'przerwa' && testOtwarty(j) ? (
         <button className="btn btn-primary" onClick={() => onStart({ jednostkaId: j.id })}>

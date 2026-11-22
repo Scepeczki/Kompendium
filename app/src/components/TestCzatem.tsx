@@ -109,7 +109,12 @@ function OcenaDoZatwierdzenia({
         const o = ocenaPoCzacie(k)
         const zmieniona = !!k.twoja && k.twoja !== k.ocena
         return (
-          <li key={i} className={`tc-ocena zaznacz-${o}`} data-kafelek={k.nazwa}>
+          <li key={i} className={`tc-ocena zaznacz-${o} ${zmieniona ? 'tc-ocena-zmieniona' : ''}`} data-kafelek={k.nazwa}>
+            {zmieniona && (
+              <span className="tc-zmiana-etykieta">
+                Nie zgadzasz się z oceną czatu · czat dał: {NAPIS[k.ocena]}
+              </span>
+            )}
             <div className="tc-ocena-glowa">
               <span className="tc-wybor">
                 <button
@@ -146,11 +151,6 @@ function OcenaDoZatwierdzenia({
               {!k.klucz && <span className="hint">(nie pasuje do żadnego kafelka sektora — pominięty)</span>}
             </div>
             <div className="tc-ocena-opis">
-              {zmieniona && (
-                <span className="tc-zmiana">
-                  Zmienione przez ciebie — czat dał: {NAPIS[k.ocena]}
-                </span>
-              )}
               {k.uwaga && <span className="test-czatem-uwaga">{k.uwaga}</span>}
               {!!k.luki?.length && (o === 'nie' || o === 'czesciowo') && (
                 <ul className="test-czatem-luki-kafelka">

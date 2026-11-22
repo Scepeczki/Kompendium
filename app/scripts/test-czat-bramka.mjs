@@ -245,10 +245,10 @@ check('klik w ocenę → wybór z nagłówkiem „Nie zgadzam się z oceną czat
   (await page.locator(`${Z} .tc-menu-poz`).count()) === 4 && (await page.locator(`${Z} .tc-menu-poz.zaznacz-niesprawdzony`).count()) === 1)
 await page.click(`${Z} .tc-menu-poz.zaznacz-czesciowo`)
 check('zmiana na Częściowo: nie ma NIE → ZALICZONE', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'zaliczone' &&
-  (await page.locator(`${Z} .tc-zmiana`).innerText()).includes('czat dał: Nie'))
+  (await page.locator(`${Z} .tc-zmiana-etykieta`).innerText()).includes('czat dał: Nie') && (await page.locator(`${Z}.tc-ocena-zmieniona`).count()) === 1)
 await page.click(`${Z} .tc-ocena-btn`)
 await page.click(`${Z} .tc-menu-poz.zaznacz-nie`)
-check('wybór oceny czatu przywraca ją', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'luki' && (await page.locator(`${Z} .tc-zmiana`).count()) === 0)
+check('wybór oceny czatu przywraca ją', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'luki' && (await page.locator(`${Z} .tc-zmiana-etykieta`).count()) === 0)
 await page.click(`${Z} .tc-ocena-btn`)
 await page.click(`${Z} .tc-menu-poz.zaznacz-niesprawdzony`)
 check('zmiana na Niesprawdzony: liczy się test zakryty → ZALICZONE', (await page.locator(`${C} .test-czatem-werdykt`).getAttribute('data-werdykt')) === 'zaliczone')

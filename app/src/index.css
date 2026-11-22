@@ -12448,3 +12448,168 @@ html.okno-powiadomienia #root {
 .tc-menu-poz.zaznacz-nie .tc-menu-kropka { background: var(--danger); }
 .tc-menu-poz.zaznacz-niesprawdzony .tc-menu-kropka { background: var(--muted); }
 .karta-sektora-luki { margin-top: 6px; }
+
+/* ocena czatu: większa ikonka; kafelek ze zmienioną oceną ma ramkę i podpis */
+.tc-ocena .tc-ocena-btn {
+  min-width: 112px;
+  padding: 5px 12px;
+  font-size: 14px;
+  border-radius: 999px;
+}
+.tc-ocena .tc-ocena-btn span { font-size: 11px; }
+.tc-ocena-btn.tc-zmieniona { box-shadow: none; }
+.tc-ocena.tc-ocena-zmieniona {
+  border: 2px dashed var(--accent);
+  border-left-width: 4px;
+  border-left-style: solid;
+  position: relative;
+  padding-top: 26px;
+}
+.tc-zmiana-etykieta {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 2px 10px;
+  border-bottom-right-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.tc-ocena-opis { margin-left: 120px; }
+.tc-luka .test-czatem-luki-kafelka,
+.tc-wzor { margin-left: 120px; }
+
+/* etap zadań — osobny ekran */
+.etap-zadan {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ez-sekcja {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ez-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ez-zadanie {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.ez-zadanie.do-poprawy { border-left-color: var(--danger); }
+.ez-zadanie-glowa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ez-nr {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--panel-alt);
+  color: var(--ink-soft);
+}
+.ez-nazwa {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.ez-nazwa-pole {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+}
+.ez-poprawa {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--danger);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+.ez-usun { color: var(--danger); }
+.ez-pola {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+.ez-pola label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+@media (max-width: 720px) {
+  .ez-pola { grid-template-columns: 1fr; }
+}
+.ez-plus {
+  align-self: flex-start;
+  font-weight: 600;
+}
+.ez-od-czatu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ez-od-czatu li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.ez-od-czatu label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.ez-podglad {
+  color: var(--ink-soft);
+  font-size: var(--fs-4);
+  margin-left: 24px;
+  white-space: pre-wrap;
+}
+.ez-koniec {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.ez-koniec .btn-primary { margin-top: 10px; }
+.sesja-uwaga-poprawa { color: var(--danger); font-weight: 600; }
+.sesja-do-zadan { align-self: flex-start; }

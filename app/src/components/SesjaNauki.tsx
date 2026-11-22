@@ -10,6 +10,7 @@ import { CzatNaProbe, SkutkiCzatu, TestCzatem, przykladyPodsumowan, type CzatWSe
 import { useZadania } from './ZadaniaSektora'
 import { wez } from '../naukaUstawienia'
 import { TrybMapowania } from './TrybMapowania'
+import { EtapZadan } from './EtapZadan'
 import { eksperyment, otworzCzat, zlozPolecenie } from '../czat'
 import {
   NAZWY_OCEN,
@@ -68,6 +69,8 @@ export interface CelSesji {
   /** Test czatem albo dogrywka na osobnym ekranie (etap czatu powtórki zero
    *  albo dobrowolna dogrywka po powtórce rozszerzonej). */
   czat?: boolean
+  /** Etap zadań powtórki zero na osobnym ekranie (z `proba` — na niby). */
+  zadania?: boolean
   /** Próba (Ustawienia → Próba): sektor z podmienionymi polami (np. etap),
    *  a zapis wyniku jest wycofywany — w bazie nic się nie zmienia. */
   proba?: Partial<JednostkaNauki>
@@ -469,6 +472,40 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     )
   }
 
+  // ---- etap zadań na osobnym ekranie ----
+  if (cel.zadania && j) {
+    return (
+      <section className="sesja">
+        <header className="sesja-glowa">
+          <div>
+            <span className="sesja-rodzaj">Zadania</span>
+            {cel.proba && <span className="sesja-proba">Próba — nic się nie zapisuje</span>}
+            <h2>{tytul}</h2>
+          </div>
+          <button className="btn" onClick={onZamknij}>
+            ← Wróć
+          </button>
+        </header>
+        <div className="sesja-wynik sesja-czat-proba">
+          <p className="hint">
+            Dodaj zadania do sektora — sam (+ Nowe zadanie) albo od czatu. Potem test zakryty: kafelki
+            i zadania (treść widać, rozwiązanie zakryte).
+          </p>
+          {!!j.doPoprawy?.length && j.etap === 'zadania' && (
+            <p className="tc-bramka sesja-uwaga-poprawa">
+              Test zakryty nie wyszedł — popraw zaznaczone ({j.doPoprawy.length}) i zrób go jeszcze raz.
+            </p>
+          )}
+          <EtapZadan
+            j={j}
+            proba={!!cel.proba}
+            onTest={() => window.dispatchEvent(new CustomEvent('komp:sesja', { detail: { jednostkaId: j.id } }))}
+          />
+        </div>
+      </section>
+    )
+  }
+
   // ---- test czatem / dogrywka na osobnym ekranie ----
   if (cel.czat && j) {
     const koniec = !!poCzacie && (poCzacie.zaliczone || j.etap !== 'czat') && !j.luki
@@ -494,9 +531,18 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           {koniec ? (
             <>
               <SkutkiCzatu po={poCzacie!} />
-              <button className="btn btn-primary" onClick={onZamknij}>
-                Gotowe
-              </button>
+              {j.etap === 'zadania' ? (
+                <button
+                  className="btn btn-primary sesja-do-zadan"
+                  onClick={() => window.dispatchEvent(new CustomEvent('komp:sesja', { detail: { jednostkaId: j.id, zadania: true } }))}
+                >
+                  Dalej: zadania
+                </button>
+              ) : (
+                <button className="btn btn-primary" onClick={onZamknij}>
+                  Gotowe
+                </button>
+              )}
             </>
           ) : j.przemapowanie ? (
             <>
@@ -594,22 +640,46 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                 {new Date(wynik.termin).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}).
               </p>
             ) : (
-              <p className="sesja-wynik-glowny">
-                Do poprawy: <strong>{wynik.doPoprawy?.length ?? 0}</strong> — są zaznaczone w widoku Nauka.
-                Popraw je (mapa, rozwiązania, metody) i zrób test końcowy jeszcze raz.
-              </p>
+              <>
+                <p className="sesja-wynik-glowny">
+                  Do poprawy: <strong>{wynik.doPoprawy?.length ?? 0}</strong> — popraw je (mapy, rozwiązania
+                  zadań) i zrób test zakryty jeszcze raz.
+                </p>
+                {!cel.proba && jw && <button
+                className="btn btn-primary sesja-do-zadan"
+                onClick={() => window.dispatchEvent(new CustomEvent('komp:sesja', { detail: { jednostkaId: jw.id, zadania: true } }))}
+              >
+                Przejdź do zadań
+              </button>}
+              </>
             )
           ) : wynik.zadania ? (
-            <p className="sesja-wynik-glowny">
-              Test zaliczony (<strong>{NAZWY_OCEN[wynik.ocena]}</strong>). Powtórka zero idzie dalej:{' '}
-              <strong>zadania</strong> (opcjonalne), potem test końcowy — przy sektorze w widoku Nauka.
-            </p>
+            <>
+              <p className="sesja-wynik-glowny">
+                Test zaliczony (<strong>{NAZWY_OCEN[wynik.ocena]}</strong>). Powtórka zero idzie dalej:{' '}
+                <strong>zadania</strong>, potem test zakryty z zadaniami.
+              </p>
+              {!cel.proba && jw && <button
+                className="btn btn-primary sesja-do-zadan"
+                onClick={() => window.dispatchEvent(new CustomEvent('komp:sesja', { detail: { jednostkaId: jw.id, zadania: true } }))}
+              >
+                Przejdź do zadań
+              </button>}
+            </>
           ) : wynik.czat && jw ? (
             jw.etap === 'zadania' ? (
-              <p className="sesja-wynik-glowny">
-                Test czatem zaliczony. Teraz <strong>zadania</strong> (opcjonalne) i test końcowy — przy
-                sektorze w widoku Nauka. Możesz je też pominąć.
-              </p>
+              <>
+                <p className="sesja-wynik-glowny">
+                  Test czatem zaliczony. Teraz <strong>zadania</strong> (możesz je pominąć), potem test zakryty
+                  z zadaniami.
+                </p>
+                {!cel.proba && <button
+                className="btn btn-primary sesja-do-zadan"
+                onClick={() => window.dispatchEvent(new CustomEvent('komp:sesja', { detail: { jednostkaId: jw.id, zadania: true } }))}
+              >
+                Przejdź do zadań
+              </button>}
+              </>
             ) : jw.etap === 'czat' ? (
               <>
                 <p className="sesja-wynik-glowny">

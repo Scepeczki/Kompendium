@@ -216,11 +216,13 @@ check('historia ma wpis testu z odpowiedziami', d.historia.filter((h) => h.typ =
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 
 // --- zadania: nowe zadanie (kafelek rodzaju Zadanie w folderze ścieżki) ---
-await page.waitForSelector('.karta-sektora .zadania-sektora')
-check('test końcowy zablokowany bez zadań', await page.locator('.karta-sektora button:has-text("Test końcowy")').isDisabled())
-check('bez generowania czatem', (await page.locator('.zadania-sektora button:has-text("Wygeneruj")').count()) === 0)
-await page.click('.zadania-sektora button:has-text("Nowe zadanie")')
+await page.waitForSelector('.karta-sektora [data-zadania]')
+await page.click('.karta-sektora [data-zadania]')
+await page.waitForSelector('.etap-zadan')
+check('ekran zadań: bez zadań „Pomiń zadania — test zakryty"', (await page.locator('[data-test-koncowy]').innerText()).includes('Pomiń zadania'))
+await page.click('[data-nowe-zadanie]')
 await page.waitForTimeout(800)
+await page.click('.sesja-glowa button:has-text("Wróć")')
 // zadanie otwiera się w edytorze; treść wpisujemy prosto do bazy i dokładamy drugie
 await page.evaluate(async (sektorId) => {
   const req = indexedDB.open('kompendium')
@@ -327,7 +329,7 @@ d = await baza()
 check('pusty sektor zapisany', d.nauka.some((j) => j.nazwa === 'Pusty' && j.wezly.length === 0))
 
 // --- test końcowy: najpierw nie wychodzi ---
-await page.click('.karta-sektora button:has-text("Test końcowy")')
+await page.click('.karta-sektora button:has-text("Test zakryty")')
 await page.waitForSelector('.sesja-element')
 check('test końcowy: kafelki i zadania', (await page.locator('.sesja-rodzaj').textContent()) === 'Test końcowy' &&
   (await page.locator('.sesja-element').count()) === 4 && (await page.locator('.sesja-element-zadanie').count()) === 2)
@@ -345,10 +347,14 @@ check('nieudany test końcowy: zostaje przy zadaniach, do poprawy kafelki i zada
   poZlym.doPoprawy?.length === 4 && poZlym.doPoprawy.includes(zadK[0].id) && poZlym.termin === poCzacieZero.termin)
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 await page.waitForSelector('.karta-sektora')
-check('zadanie do poprawy zaznaczone w panelu', (await page.locator('.zadania-lista .do-poprawy').count()) === 2)
+await page.click('.karta-sektora [data-zadania]')
+await page.waitForSelector('.etap-zadan .ez-zadanie')
+check('zadanie do poprawy zaznaczone na ekranie zadań', (await page.locator('.ez-zadanie.do-poprawy').count()) === 2 &&
+  (await page.locator('.sesja-uwaga-poprawa').count()) === 1)
+await page.click('.sesja-glowa button:has-text("Wróć")')
 
 // --- test końcowy jeszcze raz: zaliczony ---
-await page.click('.karta-sektora button:has-text("Test końcowy")')
+await page.click('.karta-sektora button:has-text("Test zakryty")')
 await page.waitForSelector('.sesja-element')
 for (let i = 0; i < 2; i++) {
   await page.locator('.sesja-element').nth(i).locator('button:has-text("Sprawdź")').click()

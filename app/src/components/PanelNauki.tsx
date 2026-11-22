@@ -19,7 +19,6 @@ import {
   kluczZadania,
   minutyDouczania,
   opisDni,
-  pominZadania,
   przerwijDouczanie,
   przerwijNauke,
   skonczMapowanieDouczania,
@@ -367,6 +366,7 @@ export function PanelNauki({
                 onTestNowych={() => onStart?.({ jednostkaId: s.j.id, douczanie: true })}
                 onTestPrzemapowania={() => onStart?.({ jednostkaId: s.j.id, przemapowanie: true })}
                 onCzat={() => onStart?.({ jednostkaId: s.j.id, czat: true })}
+                onZadania={() => onStart?.({ jednostkaId: s.j.id, zadania: true })}
                 onOdNowa={() => odNowa(s.j)}
                 onPrzerwij={() => przerwij(s.j)}
                 onUsun={() => usun(s.j)}
@@ -433,6 +433,7 @@ function KartaSektora({
   onTestNowych,
   onTestPrzemapowania,
   onCzat,
+  onZadania,
   onOdNowa,
   onPrzerwij,
   onUsun,
@@ -459,6 +460,7 @@ function KartaSektora({
   onTestNowych: () => void
   onTestPrzemapowania: () => void
   onCzat: () => void
+  onZadania: () => void
   onOdNowa: () => void
   onPrzerwij: () => void
   onUsun: () => void
@@ -599,19 +601,14 @@ function KartaSektora({
           <>
             <span>
               {j.doPoprawy?.length
-                ? `Test końcowy — do poprawy (${j.doPoprawy.length})`
-                : 'Zadania (opcjonalne), potem test końcowy'}
+                ? `Test z zadaniami — do poprawy (${j.doPoprawy.length})`
+                : `Zadania${j.zadania?.length ? ` (${j.zadania.length})` : ''}, potem test zakryty`}
             </span>
-            <button
-              className="btn btn-primary btn-maly"
-              disabled={!j.zadania?.length}
-              title={j.zadania?.length ? 'Zakryty test całego sektora, już z zadaniami' : 'Najpierw dodaj zadania — albo pomiń je'}
-              onClick={onTest}
-            >
-              Test końcowy
+            <button className="btn btn-primary btn-maly" onClick={onZadania} data-zadania>
+              Zadania
             </button>
-            <button className="btn btn-link" title="Powtórka zero kończy się bez zadań" onClick={() => pominZadania(j.id)}>
-              Bez zadań — do powtórek
+            <button className="btn btn-maly" title="Test zakryty całego sektora, z zadaniami (jeśli są)" onClick={onTest}>
+              Test zakryty
             </button>
           </>
         )}
@@ -676,12 +673,7 @@ function KartaSektora({
           Przerwij naukę
         </button>
       )}
-      {j.etap === 'zadania' && (
-        <p className="hint karta-sektora-rada">
-          Rozwiąż zadania, potem test końcowy.
-        </p>
-      )}
-      {(aktywny || j.etap === 'zadania') && <ListaZadan j={j} onOtworz={onOtworz} nowe={new Set(nowe.zadania)} />}
+      {aktywny && j.etap !== 'zadania' && <ListaZadan j={j} onOtworz={onOtworz} nowe={new Set(nowe.zadania)} />}
       {j.etap === 'powtorki' && j.luki && (
         <div className="karta-sektora-etap karta-sektora-luki">
           <span>Luki z ostatniego czatu</span>

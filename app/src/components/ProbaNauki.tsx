@@ -142,6 +142,13 @@ export function ProbaNauki() {
                   >
                     Krótki test po limicie dogrywek
                   </button>
+                  <button
+                    className="btn"
+                    data-proba-zadania
+                    onClick={() => otworzSesje({ jednostkaId: sektor.id, zadania: true, proba: { etap: 'zadania' } })}
+                  >
+                    Zadania
+                  </button>
                 </div>
                 <p className="settings-hint">
                   Piszesz z pamięci, odsłaniasz, oceniasz każdy kafelek: Tak / Częściowo / Nie. Po

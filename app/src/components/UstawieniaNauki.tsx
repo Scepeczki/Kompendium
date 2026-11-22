@@ -204,12 +204,13 @@ export function UstawieniaNauki() {
           ['test', 'Polecenie: test czatem'],
           ['dogrywka', 'Polecenie: dogrywka z luk'],
           ['sprawdz', 'Polecenie: sprawdź moje odpowiedzi'],
+          ['zadania', 'Polecenie: zadania od czatu'],
         ] as [RodzajPolecenia, string][]
       ).map(([r, n]) => (
         <PoleTekstu
           key={r}
           nazwa={n}
-          opis="W miejsce {NAZWA}, {MATERIAL}, {PYTANIA}, {TECHNIKI}, {ILE}, {LUKI} i {ODPOWIEDZI} aplikacja wstawia nazwę sektora, jego treść, pytania nauki, techniki, liczbę pytań, luki i twoje odpowiedzi."
+          opis="W miejsce {NAZWA}, {MATERIAL}, {PYTANIA}, {TECHNIKI}, {ILE}, {LUKI}, {ODPOWIEDZI} i {ZADANIA} aplikacja wstawia nazwę sektora, jego treść, pytania nauki, techniki, liczbę pytań (albo zadań), luki, twoje odpowiedzi i listę dotychczasowych zadań sektora."
           wartosc={polecenie(r)}
           domyslna={DOMYSLNE[r]}
           onZapisz={(t) => ustawPolecenie(r, t)}

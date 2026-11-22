@@ -29,6 +29,7 @@ const K = {
   test: 'ui.nauka.polecenieTest',
   dogrywka: 'ui.nauka.polecenieDogrywka',
   sprawdz: 'ui.nauka.polecenieSprawdz',
+  zadania: 'ui.nauka.polecenieZadania',
   tryb: 'ui.nauka.czatTryb',
   eksperyment: 'ui.nauka.eksperyment',
 }
@@ -182,16 +183,43 @@ Materiał — sektor „{NAZWA}":
 
 {MATERIAL}`
 
-export type RodzajPolecenia = 'test' | 'dogrywka' | 'sprawdz'
+export const POLECENIE_ZADANIA = `Ułóż {ILE} NOWYCH zadań do materiału podanego na końcu (sektor „{NAZWA}"). Materiał jest jedynym źródłem prawdy.
+
+Zasady:
+- Zadania mają sprawdzać zrozumienie i metodę (jak to rozwiązać i dlaczego), a nie długie rachunki.
+- Każde zadanie dotyczy tego materiału. Różnicuj je: różne kafelki i różne rodzaje (dowód, przykład i kontrprzykład, zastosowanie, wykrycie błędu).
+- NIE powtarzaj zadań, które już są w tym sektorze — ani tych samych, ani tylko przeformułowanych. Oto wszystkie dotychczasowe zadania sektora:
+{ZADANIA}
+- Do każdego zadania podaj rozwiązanie wzorcowe: metodę i kluczowe kroki.
+- Pisz po polsku, wzory w LaTeX-u.
+
+Podaj wszystkie zadania w JEDNYM bloku kodu, każde według wzoru (zadania oddziel linią „---"):
+\`\`\`
+ZADANIE: krótka nazwa zadania
+TREŚĆ:
+treść zadania
+ROZWIĄZANIE:
+metoda i kluczowe kroki
+---
+ZADANIE: …
+\`\`\`
+
+Materiał — sektor „{NAZWA}":
+
+{MATERIAL}`
+
+export type RodzajPolecenia = 'test' | 'dogrywka' | 'sprawdz' | 'zadania'
 const KLUCZ_POLECENIA: Record<RodzajPolecenia, string> = {
   test: K.test,
   dogrywka: K.dogrywka,
   sprawdz: K.sprawdz,
+  zadania: K.zadania,
 }
 export const DOMYSLNE: Record<RodzajPolecenia, string> = {
   test: POLECENIE_TEST,
   dogrywka: POLECENIE_DOGRYWKA,
   sprawdz: POLECENIE_SPRAWDZ,
+  zadania: POLECENIE_ZADANIA,
 }
 export const polecenie = (r: RodzajPolecenia) => localStorage.getItem(KLUCZ_POLECENIA[r]) ?? DOMYSLNE[r]
 export const ustawPolecenie = (r: RodzajPolecenia, t: string) => {
@@ -287,6 +315,8 @@ export interface Parametry {
   technika?: number
   luki?: string
   odpowiedzi?: string
+  /** Polecenie „zadania": ile nowych. */
+  ileZadan?: number
 }
 
 export async function zlozPolecenie(j: JednostkaNauki, p: Parametry): Promise<string> {
@@ -294,7 +324,13 @@ export async function zlozPolecenie(j: JednostkaNauki, p: Parametry): Promise<st
   const n = await ileOcenialnych(j)
   const jedna = p.krotki && trybCzatu() === 'jedna'
   const techniki = jedna ? [TECHNIKI[(p.technika ?? 0) % TECHNIKI.length]] : TECHNIKI
-  const ile = p.krotki ? Math.max(3, Math.min(6, n)) : Math.max(5, Math.min(12, n + 3))
+  const ile =
+    p.rodzaj === 'zadania'
+      ? (p.ileZadan ?? Math.max(3, Math.min(6, Math.ceil(n / 2))))
+      : p.krotki
+        ? Math.max(3, Math.min(6, n))
+        : Math.max(5, Math.min(12, n + 3))
+  const zadania = p.rodzaj === 'zadania' ? await listaZadanSektora(j) : ''
   return polecenie(p.rodzaj)
     .replaceAll('{NAZWA}', j.nazwa)
     .replaceAll('{MATERIAL}', material)
@@ -303,6 +339,57 @@ export async function zlozPolecenie(j: JednostkaNauki, p: Parametry): Promise<st
     .replaceAll('{ILE}', String(ile))
     .replaceAll('{LUKI}', p.luki?.trim() || '(brak listy)')
     .replaceAll('{ODPOWIEDZI}', p.odpowiedzi?.trim() || '(nic nie napisałem)')
+    .replaceAll('{ZADANIA}', zadania)
+}
+
+// ---------------------------------------------------------------------------
+// Zadania od czatu
+
+/** Wszystkie zadania sektora (z paska i z Linii): nazwa i treść, żeby czat
+ *  ich nie powtarzał. */
+export async function listaZadanSektora(j: JednostkaNauki): Promise<string> {
+  const sciezka = j.pathId ? await db.paths.get(j.pathId) : undefined
+  const typZad = (await db.blockTypes.toArray()).find((t) => /zadani/i.test(t.label))?.id
+  const ids = [...(j.zadania ?? [])]
+  for (const n of wezlySektora(j, sciezka)) {
+    if (n.kind !== 'block' || ids.includes(n.conceptId)) continue
+    const c = await db.concepts.get(n.conceptId)
+    if (c && typZad && c.type === typZad) ids.push(c.id)
+  }
+  const linie: string[] = []
+  for (const id of ids) {
+    const c = await db.concepts.get(id)
+    if (!c) continue
+    const v = await db.versions.get(c.currentVersionId)
+    const tresc = (v?.content ?? '').replace(/\s+/g, ' ').trim()
+    const krotka = tresc.length > 400 ? `${tresc.slice(0, 400)}…` : tresc
+    linie.push(`  - ${c.name}${krotka ? `: ${krotka}` : ''}`)
+  }
+  return linie.length ? linie.join('\n') : '  (jeszcze nie ma żadnych)'
+}
+
+export interface ZadanieOdCzatu {
+  nazwa: string
+  tresc: string
+  rozwiazanie: string
+}
+
+/** Odczytuje zadania z odpowiedzi czatu: ZADANIE / TREŚĆ / ROZWIĄZANIE,
+ *  zadania oddzielone „---". */
+export function czytajZadania(wklejone: string): ZadanieOdCzatu[] {
+  const tekst = wklejone.replace(/^[ \t]*```.*$/gm, '')
+  const out: ZadanieOdCzatu[] = []
+  for (const cz of tekst.split(/^[ \t>#*]*ZADANIE\**[ \t]*:/im).slice(1)) {
+    const bez = cz.replace(/^[ \t]*-{3,}[ \t]*$/gm, '')
+    const nazwa = bez.split('\n')[0].replace(/\*/g, '').trim()
+    const mT = /^[ \t>#*]*TRE[ŚS][ĆC]\**[ \t]*:[ \t]*/im.exec(bez)
+    const mR = /^[ \t>#*]*ROZWI[ĄA]ZANIE\**[ \t]*:[ \t]*/im.exec(bez)
+    const tresc = mT ? bez.slice(mT.index + mT[0].length, mR && mR.index > mT.index ? mR.index : undefined).trim() : ''
+    const rozwiazanie = mR ? bez.slice(mR.index + mR[0].length).trim() : ''
+    if (!nazwa && !tresc) continue
+    out.push({ nazwa: nazwa || 'Zadanie', tresc, rozwiazanie })
+  }
+  return out
 }
 
 /** Kopiuje polecenie do schowka (bez otwierania czatu). */
