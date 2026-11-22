@@ -9,3 +9,4 @@
 - [System nauki — ustalenia](project-system-nauki.md) — stan 2026-11-19: tryb mapowania gotowy (runda 2), dalej tablica/telefon/statystyki
 - [Krótkie testy](feedback-krotkie-testy.md) — po zmianie tylko testy związane z nią; pełny zestaw (ok. 70) rzadko, bo długo trwa
 - [Program na Windows](project-program-windows.md) — Tauri, jedno publiczne repo, Releases + `npm run wydaj`, klucz w ~/.tauri, git email noreply
+- [Numeracja wersji](feedback-wersje.md) — tylko trzecia liczba (1.0.10…), 1.1.0 dopiero na znak użytkownika
