@@ -1,26 +1,49 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import type { Editor } from '@tiptap/react'
 import { adresCzatu, czatWybrany, CZATY, czytajZadania, kopiujPolecenie, otworzCzat, zlozPolecenie, type ZadanieOdCzatu } from '../czat'
 import {
   dodajRozwiazanie,
   nazwaRozwiazania,
+  przypnijZadanie,
   usunRozwiazanie,
   usunZadanie,
   utworzZadania,
   wczytajZadania,
   zapiszRozwiazanie,
   zapiszZadanie,
+  zapiszZrodlaZadania,
   znajdzTypZadania,
   type ZadanieDoEdycji,
 } from '../nauka'
+import { db } from '../db'
 import { useBlockTypes } from '../blockTypes'
 import { renderMarkdown } from '../markdown'
+import { isPdfSource, type Concept, type JednostkaNauki, type PdfSourceRef, type SourceRef } from '../types'
+import { ConceptPicker } from './ConceptPicker'
 import { useDialogs } from './Dialogs'
-import { RichEditor } from './RichEditor'
+import { Icon } from './Icon'
+import { PdfPanel, type PdfTarget } from './PdfPanel'
+import { RichEditor, RichToolbar } from './RichEditor'
+import { SourceList } from './SourceList'
 import { Etapy } from './TestCzatem'
-import type { JednostkaNauki } from '../types'
 
 const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new URL(adresCzatu()).host
+
+const czytajUstawienie = (k: string) => {
+  try {
+    return localStorage.getItem(k)
+  } catch {
+    return null
+  }
+}
+const zapiszUstawienie = (k: string, w: string) => {
+  try {
+    localStorage.setItem(k, w)
+  } catch {
+    /* bez pamięci — trudno */
+  }
+}
 
 /** Zapis z opóźnieniem: pisze się płynnie, a do bazy idzie po chwili bez
  *  pisania (i na pewno przy zmianie zadania albo strony). */
@@ -54,135 +77,199 @@ function useZapisPoChwili(zapisz: (klucz: string, w: string) => void) {
   }
 }
 
-/** Schemat kafelka-zadania: nazwa, strona „Polecenie" (widać ją w teście)
- *  i strony z rozwiązaniami (w teście zakryte) — można ich mieć kilka. */
-function SchematZadania({
+/** Kafelek-zadanie w kolumnie — wygląda i pisze się jak kafelek w Linii:
+ *  nagłówek z rodzajem, nazwą i stronami (Polecenie, Rozwiązanie, …),
+ *  treść do pisania od razu, a w stopce źródła (PDF, inne kafelki). */
+function KafelekZadania({
   z,
+  nr,
+  wl,
   nowe,
   doPoprawy,
-  znak,
-  kolor,
+  typ,
+  podpinam,
+  onWybierz,
   onNazwa,
   onTresc,
   onRozwiazanie,
   onDodajRozwiazanie,
   onUsunRozwiazanie,
   onUsun,
+  onZrodloPdf,
+  onZrodloKafelek,
+  onSkok,
+  onOdepnij,
+  onEdytor,
 }: {
   z: ZadanieDoEdycji
+  nr: number
+  wl: boolean
   nowe: boolean
   doPoprawy: boolean
-  znak: string
-  kolor: string
+  typ: string
+  podpinam: boolean
+  onWybierz: () => void
   onNazwa: (t: string) => void
   onTresc: (t: string) => void
   onRozwiazanie: (stronaId: string, t: string) => void
   onDodajRozwiazanie: () => Promise<string | undefined>
   onUsunRozwiazanie: (stronaId: string) => void
   onUsun: () => void
+  onZrodloPdf: () => void
+  onZrodloKafelek: () => void
+  onSkok: (r: SourceRef) => void
+  onOdepnij: (r: SourceRef) => void
+  /** Oddaje edytor do wspólnego paska narzędzi u góry kolumny. */
+  onEdytor: (ed: Editor | null) => void
 }) {
+  const typy = useBlockTypes()
   const [strona, setStrona] = useState<string>('polecenie')
   const [nazwa, setNazwa] = useState(z.nazwa)
-  const [zapis, setZapis] = useState<'zapisano' | 'pisze'>('zapisano')
-  const czas = useRef<number | undefined>(undefined)
-  const zaznacz = () => {
-    setZapis('pisze')
-    window.clearTimeout(czas.current)
-    czas.current = window.setTimeout(() => setZapis('zapisano'), 700)
-  }
   const r = z.rozwiazania.find((x) => x.id === strona)
   const naPoleceniu = strona === 'polecenie' || !r
+  /** Treść wczytana do pola — z nią porównujemy „zmiany" zgłaszane przy otwarciu. */
+  const wczytana = naPoleceniu ? z.tresc : r!.tresc
+  const kluczPola = `${z.id}-${naPoleceniu ? 'polecenie' : r!.id}`
+  const wczytanaRef = useRef({ klucz: kluczPola, tresc: wczytana })
+  if (wczytanaRef.current.klucz !== kluczPola) wczytanaRef.current = { klucz: kluczPola, tresc: wczytana }
+
   return (
-    <article className="ez2-kafelek" data-zadanie-edycja={z.id} style={{ '--typ': kolor } as CSSProperties}>
-      <div className="ez2-kafelek-glowa">
-        <span className="ez2-typ">{znak}</span>
-        <input
-          className="ez2-tytul ez-nazwa-pole"
-          value={nazwa}
-          autoFocus={nowe}
-          placeholder="Nazwa zadania"
-          aria-label="Nazwa zadania"
-          onChange={(e) => {
-            setNazwa(e.target.value)
-            onNazwa(e.target.value)
-            zaznacz()
-          }}
-        />
-        {doPoprawy && <span className="tcz-r tcz-r-nie">do poprawy</span>}
-        <span className="ez2-zapis">{zapis === 'zapisano' ? 'zapisano' : 'zapisuję…'}</span>
-        <button className="tcz-link ez-usun" title="Usuń to zadanie (zapyta)" onClick={onUsun}>
-          Usuń
-        </button>
-      </div>
-      <div className="ez2-strony" role="tablist">
-        <button
-          role="tab"
-          aria-selected={naPoleceniu}
-          className={`ez2-strona ${naPoleceniu ? 'wl' : ''}`}
-          onClick={() => setStrona('polecenie')}
-          data-strona="polecenie"
+    <div
+      className={`linear-seg ez3-seg ${wl ? 'zaznaczony' : ''}`}
+      data-seg={z.id}
+      onPointerDownCapture={onWybierz}
+      onFocusCapture={onWybierz}
+    >
+      <div className="linear-content">
+        <section
+          className={`script-block ez2-kafelek ${wl ? 'wl' : ''} ${doPoprawy ? 'do-poprawy' : ''}`}
+          data-zadanie-edycja={z.id}
+          data-typ={typ}
+          style={typy.style(typ)}
         >
-          Polecenie
-        </button>
-        {z.rozwiazania.map((x) => (
-          <span key={x.id} className={`ez2-strona-wrap ${strona === x.id ? 'wl' : ''}`}>
-            <button
-              role="tab"
-              aria-selected={strona === x.id}
-              className={`ez2-strona ${strona === x.id ? 'wl' : ''}`}
-              onClick={() => setStrona(x.id)}
-              data-strona="rozwiazanie"
-            >
-              {x.nazwa}
-            </button>
-            {strona === x.id && (
+          <div className="script-block-glowa">
+            <header className="script-block-head">
+              <h3 className="script-block-title">
+                <span className="script-block-type type-mini" title={typy.label(typ)}>
+                  {typy.short(typ)}
+                </span>{' '}
+                <input
+                  className="inline-title ez2-tytul ez-nazwa-pole"
+                  value={nazwa}
+                  autoFocus={nowe}
+                  placeholder={`Zadanie ${nr}`}
+                  aria-label="Nazwa zadania"
+                  onChange={(e) => {
+                    setNazwa(e.target.value)
+                    onNazwa(e.target.value)
+                  }}
+                />
+              </h3>
+              <div className="block-pages ez2-strony" role="tablist">
+                <button
+                  role="tab"
+                  aria-selected={naPoleceniu}
+                  className={`block-page ${naPoleceniu ? 'active' : ''}`}
+                  title="Polecenie — widać je w teście"
+                  onClick={() => setStrona('polecenie')}
+                  data-strona="polecenie"
+                >
+                  Polecenie
+                </button>
+                {z.rozwiazania.map((x) => (
+                  <span key={x.id} className={`ez3-strona ${strona === x.id ? 'active' : ''}`}>
+                    <button
+                      role="tab"
+                      aria-selected={strona === x.id}
+                      className={`block-page ${strona === x.id ? 'active' : ''}`}
+                      title="Rozwiązanie — w teście zakryte"
+                      onClick={() => setStrona(x.id)}
+                      data-strona="rozwiazanie"
+                    >
+                      {x.nazwa}
+                    </button>
+                    {strona === x.id && (
+                      <button
+                        className="ez2-strona-usun"
+                        title={`Usuń stronę „${x.nazwa}" (zapyta)`}
+                        aria-label={`Usuń stronę ${x.nazwa}`}
+                        onClick={() => onUsunRozwiazanie(x.id)}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+                <button
+                  className="block-page ez3-plus"
+                  data-dodaj-rozwiazanie
+                  title="Kolejne rozwiązanie — np. inną metodą"
+                  onClick={async () => {
+                    const id = await onDodajRozwiazanie()
+                    if (id) setStrona(id)
+                  }}
+                >
+                  + rozwiązanie
+                </button>
+              </div>
+              {doPoprawy && <span className="tcz-r tcz-r-nie">do poprawy</span>}
+            </header>
+
+            <div className="script-block-body">
+              <div className="block-content ez2-edytor">
+                <RichEditor
+                  key={kluczPola}
+                  value={wczytana}
+                  editable
+                  bezPaska
+                  ruler={false}
+                  onReady={onEdytor}
+                  placeholder={
+                    naPoleceniu
+                      ? 'Polecenie — widać je w teście. Tak, żeby dało się zacząć bez zaglądania gdzie indziej.'
+                      : 'Rozwiązanie — w teście zakryte. Metoda: pomysł i kluczowe kroki, dlaczego to działa.'
+                  }
+                  onChange={(md) => {
+                    // bez prawdziwej zmiany (edytor normalizuje treść przy otwarciu) — nic nie zapisujemy
+                    if (md === wczytanaRef.current.tresc) return
+                    wczytanaRef.current = { klucz: kluczPola, tresc: md }
+                    if (naPoleceniu) onTresc(md)
+                    else onRozwiazanie(r!.id, md)
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="block-stopka ez3-stopka">
+            <SourceList refs={z.zrodla} onJump={onSkok} onRemove={onOdepnij} />
+            <div className="ez3-zrodla-dodaj">
               <button
-                className="ez2-strona-usun"
-                title={`Usuń stronę „${x.nazwa}" (zapyta)`}
-                aria-label={`Usuń stronę ${x.nazwa}`}
-                onClick={() => {
-                  onUsunRozwiazanie(x.id)
-                }}
+                className={`btn btn-dolacz ${podpinam ? 'btn-active' : ''}`}
+                data-zrodlo-pdf
+                title="Zaznacz fragment w PDF i podepnij go jako źródło tego zadania"
+                onClick={onZrodloPdf}
               >
-                ×
+                <Icon name="book-open" size={0.95} />
+                {podpinam ? 'Zaznacz w PDF…' : 'Źródło z PDF'}
               </button>
-            )}
-          </span>
-        ))}
-        <button
-          className="ez2-strona ez2-strona-plus"
-          data-dodaj-rozwiazanie
-          title="Kolejne rozwiązanie — np. inną metodą"
-          onClick={async () => {
-            const id = await onDodajRozwiazanie()
-            if (id) setStrona(id)
-          }}
-        >
-          + rozwiązanie
-        </button>
+              <button
+                className="btn btn-dolacz"
+                data-zrodlo-kafelek
+                title="Wskaż kafelek z biblioteki, na którym to zadanie się opiera"
+                onClick={onZrodloKafelek}
+              >
+                <Icon name="library" size={0.95} />
+                Kafelek jako źródło
+              </button>
+              <button className="btn btn-dolacz ez-usun" title="Usuń to zadanie (zapyta)" onClick={onUsun}>
+                <Icon name="usun" size={0.95} />
+                Usuń
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
-      <p className="ez2-strona-opis">
-        {naPoleceniu
-          ? 'Polecenie widać w teście — napisz je tak, żeby dało się zacząć bez zaglądania gdzie indziej.'
-          : 'W teście zakryte. O metodę tu chodzi: pomysł i kluczowe kroki, dlaczego to działa.'}
-      </p>
-      <div className="ez2-edytor">
-        <RichEditor
-          key={`${z.id}-${naPoleceniu ? 'polecenie' : r!.id}`}
-          value={naPoleceniu ? z.tresc : r!.tresc}
-          editable
-          ruler={false}
-          placeholder={naPoleceniu ? 'Polecenie zadania' : 'Rozwiązanie: metoda i kluczowe kroki'}
-          onChange={(md) => {
-            // bez prawdziwej zmiany (edytor normalizuje treść przy otwarciu) — nic nie zapisujemy
-            if (md === (naPoleceniu ? z.tresc : r!.tresc)) return
-            if (naPoleceniu) onTresc(md)
-            else onRozwiazanie(r!.id, md)
-            zaznacz()
-          }}
-        />
-      </div>
-    </article>
+    </div>
   )
 }
 
@@ -195,12 +282,14 @@ function ZadaniaZCzatem({
   proba,
   zloz,
   onDodaj,
+  onZamknij,
 }: {
   znak: string
   kolor: string
   proba: boolean
   zloz: () => Promise<string>
   onDodaj: (l: ZadanieOdCzatu[]) => Promise<void>
+  onZamknij: () => void
 }) {
   const [tekst, setTekst] = useState<string | null>(null)
   const [wklejone, setWklejone] = useState('')
@@ -214,12 +303,22 @@ function ZadaniaZCzatem({
   }
   const skopiowane = tekst !== null
   return (
-    <div className="tcz ez2-czat">
-      <div className="tcz-glowa">
-        <h1 className="tcz-h1">Zadania z czatem</h1>
-        <p className="tcz-pod">
-          Czat ułoży nowe zadania do tego sektora — inne niż te, które już są — i przerobi je z tobą.
-        </p>
+    <div className="tcz ez2-czat ez3-czat" data-panel-czatu>
+      <div className="tcz-glowa tcz-glowa-rzad">
+        <div>
+          <h2 className="ez2-h2">
+            <span className="ez2-czat-znak" aria-hidden>
+              ✦
+            </span>{' '}
+            Zadania z czatem
+          </h2>
+          <p className="tcz-pod">
+            Czat ułoży nowe zadania do tego sektora — inne niż te, które już są — i przerobi je z tobą.
+          </p>
+        </div>
+        <button className="tcz-link" onClick={onZamknij}>
+          Zwiń
+        </button>
       </div>
       <div className="tcz-kroki">
         <div className={`tcz-karta tcz-krok tcz-krok-czat ${skopiowane ? 'zrobiony' : 'teraz'}`}>
@@ -286,13 +385,11 @@ function ZadaniaZCzatem({
       )}
       {odczytane.length > 0 && (
         <section className="ez2-rozpoznane">
-          <div className="tcz-glowa tcz-glowa-rzad">
-            <div>
-              <h2 className="ez2-h2">
-                Rozpoznane: {odczytane.length} {odczytane.length === 1 ? 'zadanie' : odczytane.length < 5 ? 'zadania' : 'zadań'}
-              </h2>
-              <p className="tcz-szary">Tak zostaną dodane — jako kafelki-zadania. Odznacz te, których nie chcesz.</p>
-            </div>
+          <div>
+            <h2 className="ez2-h2">
+              Rozpoznane: {odczytane.length} {odczytane.length === 1 ? 'zadanie' : odczytane.length < 5 ? 'zadania' : 'zadań'}
+            </h2>
+            <p className="tcz-szary">Tak zostaną dodane — jako kafelki-zadania. Odznacz te, których nie chcesz.</p>
           </div>
           <ul className="ez-od-czatu ez2-podglad">
             {odczytane.map((z, i) => (
@@ -353,8 +450,13 @@ function ZadaniaZCzatem({
   )
 }
 
-/** Ekran zadań sektora. Z lewej lista zadań i „Dołóż" (zadanie albo z czatem),
- *  pośrodku schemat wybranego kafelka-zadania albo zadania z czatem, na dole
+/** Przewija kolumnę do kafelka-zadania (albo innego elementu). */
+const przewin = (sel: string) =>
+  window.setTimeout(() => document.querySelector(sel)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+
+/** Ekran zadań sektora — jak Linia: z lewej spis zadań, pośrodku kolumna
+ *  kafelków-zadań do pisania wprost i „Dołóż" na końcu (zadanie, z czatem,
+ *  z biblioteki), z prawej panel PDF do czytania i podpinania źródeł. Na dole
  *  dalej: test zakryty z zadaniami (albo „Pomiń zadania"). Ekran działa też po
  *  nauce sektora — nowe zadania trafiają wtedy do „Doucz nowe".
  *  `proba` — zadania tylko w pamięci, nic się nie zapisuje. */
@@ -378,11 +480,32 @@ export function EtapZadan({
   const zBazy = useLiveQuery(() => (proba ? Promise.resolve([]) : wczytajZadania(j.zadania ?? [])), [proba, (j.zadania ?? []).join()])
   const [lokalne, setLokalne] = useState<ZadanieDoEdycji[]>([])
   const zadania = proba ? lokalne : (zBazy ?? [])
-  /** Co jest pośrodku: id zadania albo „czat". */
-  const [widok, setWidok] = useState<string | null>(null)
+  const [wybrany, setWybrany] = useState<string | null>(null)
   const [nowy, setNowy] = useState<string | null>(null)
+  const [czat, setCzat] = useState(false)
+  /** Edytory kafelków — jeden wspólny pasek narzędzi działa na wybranym, jak w Linii. */
+  const edytory = useRef(new Map<string, Editor>())
+  const [, setIleEdytorow] = useState(0)
+  const zarejestruj = (id: string, ed: Editor | null) => {
+    if (ed) edytory.current.set(id, ed)
+    else edytory.current.delete(id)
+    setIleEdytorow((n) => n + 1)
+  }
   const poprawki = new Set(j.doPoprawy ?? [])
-  const wybrane = zadania.find((z) => z.id === widok) ?? (widok === 'czat' ? undefined : zadania[0])
+
+  // PDF z prawej: pamiętany między wejściami; podpinanie źródła do zadania
+  const [pdf, setPdf] = useState(() => czytajUstawienie('ui.zadaniaPdf') === '1')
+  useEffect(() => zapiszUstawienie('ui.zadaniaPdf', pdf ? '1' : '0'), [pdf])
+  const [cel, setCel] = useState<PdfTarget | null>(null)
+  const [podpinam, setPodpinam] = useState<string | null>(null)
+  /** Wybór kafelka z biblioteki: jako źródło zadania albo jako nowe zadanie. */
+  const [wybor, setWybor] = useState<{ rodzaj: 'zrodlo'; id: string } | { rodzaj: 'zadanie' } | null>(null)
+  useEffect(() => {
+    if (!podpinam) return
+    const h = (e: KeyboardEvent) => e.key === 'Escape' && setPodpinam(null)
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [podpinam])
 
   const zmienLok = (id: string, f: (z: ZadanieDoEdycji) => ZadanieDoEdycji) =>
     setLokalne((l) => l.map((z) => (z.id === id ? f(z) : z)))
@@ -407,6 +530,7 @@ export function EtapZadan({
           nazwa: nazwaRozwiazania(k),
           tresc: r,
         })),
+        zrodla: [],
       }))
       setLokalne((l) => [...l, ...nowe])
       return nowe.map((z) => z.id)
@@ -414,11 +538,16 @@ export function EtapZadan({
     return utworzZadania(j.id, lista)
   }
 
+  const pokaz = (id: string) => {
+    setWybrany(id)
+    przewin(`[data-zadanie-edycja="${id}"]`)
+  }
+
   const nowe = async () => {
     const [id] = await dodaj([{}])
     if (id) {
-      setWidok(id)
       setNowy(id)
+      pokaz(id)
     }
   }
 
@@ -433,7 +562,7 @@ export function EtapZadan({
     zapis.wypchnij()
     if (proba) setLokalne((l) => l.filter((x) => x.id !== z.id))
     else await usunZadanie(j.id, z.id)
-    setWidok(null)
+    if (podpinam === z.id) setPodpinam(null)
   }
 
   const usunStrone = async (z: ZadanieDoEdycji, stronaId: string) => {
@@ -450,6 +579,54 @@ export function EtapZadan({
     else await usunRozwiazanie(stronaId)
   }
 
+  /** Źródła zadania: w próbie tylko w pamięci, poza nią w bieżącej wersji kafelka. */
+  const ustawZrodla = (id: string, f: (l: SourceRef[]) => SourceRef[]) => {
+    const z = zadania.find((x) => x.id === id)
+    if (!z) return
+    const nowe = f(z.zrodla)
+    if (proba) zmienLok(id, (x) => ({ ...x, zrodla: nowe }))
+    else void zapiszZrodlaZadania(id, nowe)
+  }
+
+  const naFragment = (base: Omit<PdfSourceRef, 'id'>) => {
+    if (!podpinam) return
+    ustawZrodla(podpinam, (l) => [...l, { id: crypto.randomUUID(), ...base }])
+    const z = zadania.find((x) => x.id === podpinam)
+    window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: `Podpięte źródło do „${z?.nazwa || 'zadania'}"` }))
+    setPodpinam(null)
+  }
+
+  const naKafelek = async (c: Concept) => {
+    const w = wybor
+    setWybor(null)
+    if (!w) return
+    if (w.rodzaj === 'zrodlo') {
+      ustawZrodla(w.id, (l) =>
+        l.some((r) => !isPdfSource(r) && r.conceptId === c.id)
+          ? l
+          : [...l, { id: crypto.randomUUID(), kind: 'block' as const, conceptId: c.id, versionId: null }],
+      )
+      return
+    }
+    // kafelek z biblioteki jako zadanie sektora
+    if (zadania.some((z) => z.id === c.id)) return pokaz(c.id)
+    if (proba) {
+      const v = await db.versions.get(c.currentVersionId)
+      const id = `proba-${Date.now()}`
+      setLokalne((l) => [...l, { id, nazwa: c.name, tresc: v?.content ?? '', rozwiazania: [], zrodla: v?.sourceRefs ?? [] }])
+      pokaz(id)
+      return
+    }
+    await przypnijZadanie(j.id, c.id)
+    pokaz(c.id)
+  }
+
+  const skok = (r: SourceRef) => {
+    if (!isPdfSource(r)) return
+    setPdf(true)
+    setCel({ pdfId: r.pdfId, page: r.page, rect: r.rect })
+  }
+
   const zloz = async () => {
     zapis.wypchnij()
     let t = await zlozPolecenie(j, { rodzaj: 'zadania' })
@@ -462,36 +639,43 @@ export function EtapZadan({
   }
 
   const wPowtorceZero = j.etap === 'zadania'
+  const zadanieDoPodpiecia = zadania.find((z) => z.id === podpinam)
   return (
-    <div className="ez2-ekran">
-      {wPowtorceZero && (
-        <div className="tcz">
-          <Etapy teraz={4} />
+    <div className={`ez3 ${pdf ? 'z-pdf' : ''}`}>
+      {(wPowtorceZero || (!!j.doPoprawy?.length && wPowtorceZero)) && (
+        <div className="ez3-gora">
+          <div className="tcz ez3-etapy">
+            <Etapy teraz={4} />
+          </div>
+          {!!j.doPoprawy?.length && (
+            <p className="tcz-karta ez2-uwaga sesja-uwaga-poprawa">
+              Test zakryty nie wyszedł — popraw zaznaczone ({j.doPoprawy.length}) i zrób go jeszcze raz.
+            </p>
+          )}
         </div>
       )}
-      {!!j.doPoprawy?.length && wPowtorceZero && (
-        <p className="tcz-karta ez2-uwaga sesja-uwaga-poprawa">
-          Test zakryty nie wyszedł — popraw zaznaczone ({j.doPoprawy.length}) i zrób go jeszcze raz.
-        </p>
-      )}
-      <div className="ez2 etap-zadan">
-        <aside className="ez2-lewa" aria-label="Zadania sektora">
+      <div className="ez2 etap-zadan ez3-uklad">
+        <aside className="ez2-lewa ez3-lewa" aria-label="Zadania sektora">
           <span className="tcz-lbl">Zadania sektora{zadania.length ? ` · ${zadania.length}` : ''}</span>
           {zadania.length > 0 ? (
             <ol className="ez2-lista">
               {zadania.map((z, i) => (
                 <li key={z.id}>
                   <button
-                    className={`ez2-poz ${wybrane?.id === z.id && widok !== 'czat' ? 'wl' : ''} ${poprawki.has(z.id) ? 'do-poprawy' : ''}`}
+                    className={`ez2-poz ${wybrany === z.id ? 'wl' : ''} ${poprawki.has(z.id) ? 'do-poprawy' : ''}`}
                     data-zadanie={z.id}
                     onClick={() => {
                       zapis.wypchnij()
-                      setWidok(z.id)
-                      setNowy(null)
+                      pokaz(z.id)
                     }}
                   >
                     <span className="ez2-nr">{i + 1}</span>
                     <span className="ez2-poz-nazwa">{z.nazwa || 'Zadanie'}</span>
+                    {z.zrodla.length > 0 && (
+                      <span className="ez3-poz-zrodla" title={`Źródła: ${z.zrodla.length}`}>
+                        <Icon name="book-open" size={0.8} />
+                      </span>
+                    )}
                     {poprawki.has(z.id) && <span className="ez2-poz-znak">do poprawy</span>}
                   </button>
                 </li>
@@ -500,97 +684,154 @@ export function EtapZadan({
           ) : (
             <p className="tcz-szary ez2-brak">Jeszcze nie ma zadań w tym sektorze.</p>
           )}
-          <div className="ez2-doloz">
-            <span className="tcz-lbl">Dołóż</span>
-            <button className="btn btn-dolacz ez2-doloz-btn" onClick={() => void nowe()} data-nowe-zadanie>
-              <span className="ez2-typ" style={{ '--typ': kolor } as CSSProperties}>
-                {znak}
-              </span>
-              Zadanie
-            </button>
-            <button
-              className={`btn btn-dolacz ez2-doloz-btn ${widok === 'czat' ? 'btn-active' : ''}`}
-              onClick={() => {
-                zapis.wypchnij()
-                setWidok('czat')
-              }}
-              data-z-czatem
-            >
-              <span className="ez2-czat-znak" aria-hidden>
-                ✦
-              </span>
-              Z czatem
-            </button>
-          </div>
+          <button
+            className={`btn btn-dolacz ez3-pdf-przelacz ${pdf ? 'btn-active' : ''}`}
+            data-pdf
+            title={pdf ? 'Schowaj panel PDF' : 'Pokaż panel PDF — do czytania i podpinania źródeł'}
+            onClick={() => {
+              setPdf((p) => !p)
+              setPodpinam(null)
+            }}
+          >
+            <Icon name="book-open" size={0.95} />
+            {pdf ? 'Schowaj PDF' : 'PDF obok'}
+          </button>
         </aside>
-        <section className="ez2-glowna">
-          {widok === 'czat' ? (
-            <ZadaniaZCzatem
-              znak={znak}
-              kolor={kolor}
-              proba={!!proba}
-              zloz={zloz}
-              onDodaj={async (l) => {
-                const ids = await dodaj(l.map((z) => ({ nazwa: z.nazwa, tresc: z.tresc, rozwiazania: z.rozwiazania })))
-                window.dispatchEvent(
-                  new CustomEvent('komp:komunikat', { detail: `Dodane do zadań: ${ids.length}` }),
-                )
-                if (ids[0]) setWidok(ids[0])
-              }}
-            />
-          ) : wybrane ? (
-            <SchematZadania
-              key={wybrane.id}
-              z={wybrane}
-              nowe={nowy === wybrane.id}
-              doPoprawy={poprawki.has(wybrane.id)}
-              znak={znak}
-              kolor={kolor}
-              onNazwa={(t) => (proba ? zmienLok(wybrane.id, (x) => ({ ...x, nazwa: t })) : zapis.pisz(`n:${wybrane.id}`, t))}
-              onTresc={(t) => (proba ? zmienLok(wybrane.id, (x) => ({ ...x, tresc: t })) : zapis.pisz(`t:${wybrane.id}`, t))}
-              onRozwiazanie={(sid, t) =>
-                proba
-                  ? zmienLok(wybrane.id, (x) => ({ ...x, rozwiazania: x.rozwiazania.map((y) => (y.id === sid ? { ...y, tresc: t } : y)) }))
-                  : zapis.pisz(`r:${sid}`, t)
-              }
-              onDodajRozwiazanie={async () => {
-                zapis.wypchnij()
-                if (proba) {
-                  const id = `proba-r-${Date.now()}`
-                  zmienLok(wybrane.id, (x) => ({
-                    ...x,
-                    rozwiazania: [...x.rozwiazania, { id, nazwa: nazwaRozwiazania(x.rozwiazania.length), tresc: '' }],
-                  }))
-                  return id
+
+        <section className="ez3-kolumna linear-view">
+          <div className="linear-toolbar ez3-pasek">
+            <RichToolbar editor={(wybrany && edytory.current.get(wybrany)) || null} />
+          </div>
+          <div className="linear-column ez3-linia">
+            {zadania.map((z, i) => (
+              <KafelekZadania
+                key={z.id}
+                z={z}
+                nr={i + 1}
+                wl={wybrany === z.id}
+                nowe={nowy === z.id}
+                doPoprawy={poprawki.has(z.id)}
+                typ={typZad}
+                podpinam={podpinam === z.id}
+                onWybierz={() => {
+                  if (wybrany !== z.id) setWybrany(z.id)
+                }}
+                onNazwa={(t) => (proba ? zmienLok(z.id, (x) => ({ ...x, nazwa: t })) : zapis.pisz(`n:${z.id}`, t))}
+                onTresc={(t) => (proba ? zmienLok(z.id, (x) => ({ ...x, tresc: t })) : zapis.pisz(`t:${z.id}`, t))}
+                onRozwiazanie={(sid, t) =>
+                  proba
+                    ? zmienLok(z.id, (x) => ({ ...x, rozwiazania: x.rozwiazania.map((y) => (y.id === sid ? { ...y, tresc: t } : y)) }))
+                    : zapis.pisz(`r:${sid}`, t)
                 }
-                return dodajRozwiazanie(wybrane.id)
-              }}
-              onUsunRozwiazanie={(sid) => void usunStrone(wybrane, sid)}
-              onUsun={() => void usun(wybrane)}
-            />
-          ) : (
-            <div className="ez2-pusto">
-              <h1 className="tcz-h1">Zadania sektora</h1>
-              <p className="tcz-pod">
-                Dołóż zadanie sam albo z czatem. Polecenie widać w teście, rozwiązanie jest zakryte — tak
-                sprawdzisz metodę, nie tylko definicje.
+                onDodajRozwiazanie={async () => {
+                  zapis.wypchnij()
+                  if (proba) {
+                    const id = `proba-r-${Date.now()}`
+                    zmienLok(z.id, (x) => ({
+                      ...x,
+                      rozwiazania: [...x.rozwiazania, { id, nazwa: nazwaRozwiazania(x.rozwiazania.length), tresc: '' }],
+                    }))
+                    return id
+                  }
+                  return dodajRozwiazanie(z.id)
+                }}
+                onUsunRozwiazanie={(sid) => void usunStrone(z, sid)}
+                onUsun={() => void usun(z)}
+                onZrodloPdf={() => {
+                  if (podpinam === z.id) return setPodpinam(null)
+                  setPdf(true)
+                  setPodpinam(z.id)
+                }}
+                onZrodloKafelek={() => setWybor({ rodzaj: 'zrodlo', id: z.id })}
+                onSkok={skok}
+                onOdepnij={(r) => ustawZrodla(z.id, (l) => l.filter((x) => x.id !== r.id))}
+                onEdytor={(ed) => zarejestruj(z.id, ed)}
+              />
+            ))}
+
+            <div className="linear-append ez3-doloz">
+              <p>
+                {zadania.length
+                  ? 'Kolejne zadanie — puste do napisania, od czatu albo z biblioteki.'
+                  : 'Jeszcze nie ma zadań w tym sektorze. Polecenie widać w teście, rozwiązanie jest zakryte — tak sprawdzisz metodę, nie tylko definicje.'}
               </p>
-              <div className="ez2-pusto-przyciski">
-                <button className="ez2-plus-duzy" onClick={() => void nowe()}>
-                  <span className="ez2-plus-znak">+</span>
-                  <b>Nowe zadanie</b>
-                  <span className="tcz-szary">Polecenie i rozwiązanie (albo kilka rozwiązań)</span>
+              <div className="linear-append-actions">
+                <span className="linear-append-label">Dołóż:</span>
+                <button className="btn btn-dolacz" onClick={() => void nowe()} data-nowe-zadanie title="Nowy kafelek-zadanie: polecenie i rozwiązanie">
+                  <span className="type-mini menu-mini" data-typ={typZad} style={typy.style(typZad)}>
+                    {znak}
+                  </span>
+                  Zadanie
                 </button>
-                <button className="ez2-plus-duzy" onClick={() => setWidok('czat')}>
-                  <span className="ez2-plus-znak">✦</span>
-                  <b>Z czatem</b>
-                  <span className="tcz-szary">Czat da zadania, ty rozwiązujesz, on poprawia</span>
+                <button
+                  className={`btn btn-dolacz ${czat ? 'btn-active' : ''}`}
+                  onClick={() => {
+                    zapis.wypchnij()
+                    setCzat((c) => !c)
+                    przewin('[data-panel-czatu]')
+                  }}
+                  data-z-czatem
+                  title="Czat da zadania, ty rozwiązujesz, on poprawia — na końcu kod do wklejenia"
+                >
+                  <span className="ez2-czat-znak" aria-hidden>
+                    ✦
+                  </span>
+                  Z czatem
+                </button>
+                <button
+                  className="btn btn-dolacz"
+                  onClick={() => setWybor({ rodzaj: 'zadanie' })}
+                  data-z-biblioteki
+                  title="Istniejący kafelek z biblioteki jako zadanie tego sektora"
+                >
+                  <Icon name="library" size={0.95} />Z biblioteki
                 </button>
               </div>
             </div>
-          )}
+
+            {czat && (
+              <ZadaniaZCzatem
+                znak={znak}
+                kolor={kolor}
+                proba={!!proba}
+                zloz={zloz}
+                onZamknij={() => setCzat(false)}
+                onDodaj={async (l) => {
+                  const ids = await dodaj(l.map((z) => ({ nazwa: z.nazwa, tresc: z.tresc, rozwiazania: z.rozwiazania })))
+                  window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: `Dodane do zadań: ${ids.length}` }))
+                  setCzat(false)
+                  if (ids[0]) pokaz(ids[0])
+                }}
+              />
+            )}
+          </div>
         </section>
+
+        {pdf && (
+          <aside className="ez3-pdf" aria-label="PDF">
+            {zadanieDoPodpiecia && (
+              <div className="ez3-podpinanie" data-podpinanie>
+                <span>
+                  Zaznacz myszą fragment strony — podepnie się jako źródło do „{zadanieDoPodpiecia.nazwa || 'zadania'}".
+                </span>
+                <button className="tcz-link" onClick={() => setPodpinam(null)}>
+                  Anuluj (Esc)
+                </button>
+              </div>
+            )}
+            <PdfPanel
+              selecting={!!zadanieDoPodpiecia}
+              onRegionSelected={naFragment}
+              target={cel}
+              onHide={() => {
+                setPdf(false)
+                setPodpinam(null)
+              }}
+            />
+          </aside>
+        )}
       </div>
+
       <div className="tcz tcz-stopka-wrap">
         <div className="tcz-stopka ez-koniec">
           {proba ? (
@@ -637,6 +878,15 @@ export function EtapZadan({
           )}
         </div>
       </div>
+
+      {wybor && (
+        <ConceptPicker
+          title={wybor.rodzaj === 'zrodlo' ? '🧱 Który kafelek jest źródłem tego zadania?' : '🧱 Który kafelek dołożyć jako zadanie?'}
+          excludeIds={wybor.rodzaj === 'zrodlo' ? [wybor.id] : zadania.map((z) => z.id)}
+          onPick={(c) => void naKafelek(c)}
+          onClose={() => setWybor(null)}
+        />
+      )}
     </div>
   )
 }

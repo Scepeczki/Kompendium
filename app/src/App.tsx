@@ -524,7 +524,7 @@ function Widok() {
         </section>
       )}
 
-      {showPdf ? (
+      {sesja ? null : showPdf ? (
         <>
           <Splitter
             onDrag={(dx) =>

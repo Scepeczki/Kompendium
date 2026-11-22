@@ -20,6 +20,7 @@ import type {
   BlockTypeDef,
   Przypomnienie,
   RodzajRozszerzonej,
+  SourceRef,
   WpisNauki,
 } from './types'
 
@@ -773,6 +774,8 @@ export interface ZadanieDoEdycji {
   tresc: string
   /** Rozwiązania — podstrony, w teście zakryte. */
   rozwiazania: RozwiazanieZadania[]
+  /** Źródła kafelka (wycinki PDF, inne kafelki) — wspólne dla wszystkich stron. */
+  zrodla: SourceRef[]
 }
 
 /** Zadania sektora z poleceniem i wszystkimi rozwiązaniami (podstronami). */
@@ -788,6 +791,7 @@ export async function wczytajZadania(ids: string[]): Promise<ZadanieDoEdycji[]> 
       nazwa: c.name,
       tresc: v?.content ?? '',
       rozwiazania: strony.map((x) => ({ id: x.id, nazwa: x.name, tresc: x.content ?? '' })),
+      zrodla: v?.sourceRefs ?? [],
     })
   }
   return out
@@ -800,6 +804,15 @@ export async function zapiszZadanie(id: string, z: { nazwa?: string; tresc?: str
   const iso = teraz().toISOString()
   if (z.nazwa !== undefined) await db.concepts.update(id, { name: z.nazwa, updatedAt: iso })
   if (z.tresc !== undefined) await db.versions.update(c.currentVersionId, { content: z.tresc, updatedAt: iso })
+}
+
+/** Zmienia źródła zadania (bieżącej wersji kafelka). */
+export async function zapiszZrodlaZadania(id: string, zrodla: SourceRef[]) {
+  const c = await db.concepts.get(id)
+  if (!c) return
+  const iso = teraz().toISOString()
+  await db.versions.update(c.currentVersionId, { sourceRefs: zrodla, updatedAt: iso })
+  await db.concepts.update(id, { updatedAt: iso })
 }
 
 /** Dokłada zadaniu kolejną stronę z rozwiązaniem; zwraca jej id. */

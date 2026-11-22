@@ -80,6 +80,8 @@ await page.click('.path-item:has-text("Topologia")')
 await page.click('.view-switch button:has-text("Nauka")')
 const K = '.karta-sektora[data-sektor="s1"]'
 const E = '.sesja-czat-proba'
+/** Wybrany kafelek-zadanie w kolumnie. */
+const W = `${E} .ez2-kafelek.wl`
 await page.waitForSelector(`${K} [data-zadania]`)
 check('karta: „Zadania" i „Test zakryty", bez listy zadań w karcie', (await page.locator(`${K} [data-zadania]`).count()) === 1 &&
   (await page.locator(`${K} .zadania-sektora`).count()) === 0 && (await page.locator(`${K} button:has-text("Bez zadań")`).count()) === 0)
@@ -89,27 +91,29 @@ await page.click(`${K} [data-zadania]`)
 await page.waitForSelector(`${E} .etap-zadan`)
 check('ekran zadań na całe okno', (await page.locator('.sesja-rodzaj').textContent()) === 'Zadania' &&
   (await page.evaluate(() => !!document.elementFromPoint(60, 300)?.closest('.sesja-ekran'))))
-check('lista z lewej: stare zadanie, pośrodku jego schemat', (await page.locator(`${E} .ez2-poz`).count()) === 1 &&
+check('lista z lewej: stare zadanie, w kolumnie jego kafelek', (await page.locator(`${E} .ez2-poz`).count()) === 1 &&
   (await page.locator(`${E} .ez2-poz`).innerText()).includes('Stare zadanie') && (await page.locator(`${E} [data-zadanie-edycja="z0"]`).count()) === 1)
-check('„Dołóż": zadanie i z czatem', (await page.locator(`${E} .ez2-doloz [data-nowe-zadanie]`).count()) === 1 && (await page.locator(`${E} .ez2-doloz [data-z-czatem]`).count()) === 1)
+check('„Dołóż": zadanie i z czatem', (await page.locator(`${E} .ez3-doloz [data-nowe-zadanie]`).count()) === 1 && (await page.locator(`${E} .ez3-doloz [data-z-czatem]`).count()) === 1)
 
 // + Zadanie: schemat kafelka — polecenie, rozwiązanie, drugie rozwiązanie
 const pisz = async (tekst) => {
-  await page.click(`${E} .ez2-edytor .ProseMirror`)
+  await page.click(`${W} .ez2-edytor .ProseMirror`)
   await page.keyboard.type(tekst)
 }
 await page.click(`${E} [data-nowe-zadanie]`)
 await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez2-poz').length === 2)
-await page.locator(`${E} .ez2-tytul`).fill('Moje zadanie')
-check('schemat: strony Polecenie i Rozwiązanie, „+ rozwiązanie"', (await page.locator(`${E} .ez2-strony`).innerText()).includes('Polecenie') &&
-  (await page.locator(`${E} [data-strona="rozwiazanie"]`).count()) === 1 && (await page.locator(`${E} [data-dodaj-rozwiazanie]`).count()) === 1)
+await page.locator(`${W} .ez2-tytul`).fill('Moje zadanie')
+check('kafelek jak w Linii: rodzaj, nazwa, strony Polecenie/Rozwiązanie/+ w nagłówku', (await page.locator(`${W}.script-block .script-block-head .ez2-strony`).innerText()).includes('Polecenie') &&
+  (await page.locator(`${W} [data-strona="rozwiazanie"]`).count()) === 1 && (await page.locator(`${W} [data-dodaj-rozwiazanie]`).count()) === 1 &&
+  (await page.locator(`${E} .ez2-kafelek`).count()) === 2)
 await pisz('Udowodnij, że przecięcie dwóch kul zawiera kulę.')
-await page.click(`${E} [data-strona="rozwiazanie"]`)
+await page.click(`${W} [data-strona="rozwiazanie"]`)
 await pisz('Weź mniejszy promień.')
-await page.click(`${E} [data-dodaj-rozwiazanie]`)
-await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba [data-strona="rozwiazanie"]').length === 2)
+await page.click(`${W} [data-dodaj-rozwiazanie]`)
+await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez2-kafelek.wl [data-strona="rozwiazanie"]').length === 2)
 await pisz('Drugie: z nierówności trójkąta.')
-await page.click(`${E} [data-strona="polecenie"]`)
+if (process.env.SHOT_PISZ) await page.screenshot({ path: process.env.SHOT_PISZ })
+await page.click(`${W} [data-strona="polecenie"]`)
 check('„+ Zadanie" → kafelek-zadanie: polecenie i dwa rozwiązania', await czekaj((b) => {
   const s = b.nauka.find((j) => j.id === 's1')
   const c = b.concepts.find((x) => x.name === 'Moje zadanie')
@@ -144,20 +148,64 @@ check('dodane tylko zaznaczone, z dwoma rozwiązaniami', await czekaj((b) => {
     b.subpages.some((x) => x.conceptId === c.id && x.name === 'Rozwiązanie 2' && x.content === 'Z rysunku.')
 }))
 await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez2-poz').length === 3)
-check('po dodaniu: pośrodku nowe zadanie', (await page.locator(`${E} .ez2-tytul`).inputValue()) === 'Kula dyskretna')
+check('po dodaniu: nowe zadanie wybrane w kolumnie', (await page.locator(`${W} .ez2-tytul`).inputValue()) === 'Kula dyskretna')
 
 // usunięcie strony z rozwiązaniem (po pytaniu)
-await page.locator(`${E} [data-strona="rozwiazanie"]`).nth(1).click()
-await page.click(`${E} .ez2-strona-usun`)
+await page.locator(`${W} [data-strona="rozwiazanie"]`).nth(1).click()
+await page.click(`${W} .ez2-strona-usun`)
 await page.click('.ask-dialog .btn-danger-strong')
 check('usunięta strona „Rozwiązanie 2" (po pytaniu), zadanie zostaje', await czekaj((b) => {
   const c = b.concepts.find((x) => x.name === 'Kula dyskretna')
   return !!c && !b.subpages.some((x) => x.conceptId === c.id && x.name === 'Rozwiązanie 2') && b.subpages.some((x) => x.conceptId === c.id && x.name === 'Rozwiązanie')
 }))
 
+// źródła zadania: kafelek z biblioteki (i odpięcie), PDF obok w trybie podpinania
+check('stopka kafelka: „Źródło z PDF" i „Kafelek jako źródło"', (await page.locator(`${W} .block-stopka [data-zrodlo-pdf]`).count()) === 1 &&
+  (await page.locator(`${W} .block-stopka [data-zrodlo-kafelek]`).count()) === 1)
+await page.click(`${W} [data-zrodlo-kafelek]`)
+await page.fill('.picker-modal .picker-search', 'Otoczenie')
+await page.click('.picker-modal .picker-item:has-text("Otoczenie")')
+check('kafelek-źródło zapisany w zadaniu i widoczny w stopce', await czekaj((b) => {
+  const c = b.concepts.find((x) => x.name === 'Kula dyskretna')
+  const v = b.versions.find((x) => x.id === c?.currentVersionId)
+  return !!v?.sourceRefs.some((r) => r.kind === 'block' && r.conceptId === 'c2')
+}) && (await page.locator(`${W} .source-list`).innerText()).includes('Otoczenie'))
+await page.hover(`${W} .source-list-item`)
+await page.click(`${W} .source-odepnij`)
+check('odpięcie źródła', await czekaj((b) => {
+  const c = b.concepts.find((x) => x.name === 'Kula dyskretna')
+  return b.versions.find((x) => x.id === c?.currentVersionId)?.sourceRefs.length === 0
+}))
+await page.click(`${W} [data-zrodlo-pdf]`)
+await page.waitForSelector(`${E} .ez3-pdf .pdf-panel`)
+check('„Źródło z PDF": PDF obok kolumny i podpowiedź, co zaznaczyć', (await page.locator(`${E} [data-podpinanie]`).innerText()).includes('Kula dyskretna') &&
+  (await page.evaluate(() => { const k = document.querySelector('.ez3-kolumna').getBoundingClientRect(); const p = document.querySelector('.ez3-pdf').getBoundingClientRect(); return p.left >= k.right - 2 && k.width > 300 })))
+await page.keyboard.press('Escape')
+await page.waitForTimeout(150)
+check('Esc kończy podpinanie, ekran zostaje', (await page.locator(`${E} [data-podpinanie]`).count()) === 0 && (await page.locator(`${E} .etap-zadan`).count()) === 1)
+// wycinek PDF jako źródło zadania
+await page.setInputFiles(`${E} .ez3-pdf input[type=file][accept="application/pdf"]`, 'scripts/test-multi.pdf')
+await page.waitForSelector(`${E} .ez3-pdf .pdf-page-wrap canvas`)
+await page.click(`${W} [data-zrodlo-pdf]`)
+await page.waitForSelector(`${E} [data-podpinanie]`)
+{
+  const c = await page.locator(`${E} .ez3-pdf .pdf-page-wrap canvas`).first().boundingBox()
+  await page.mouse.move(c.x + 40, c.y + 50)
+  await page.mouse.down()
+  await page.mouse.move(c.x + 260, c.y + 120, { steps: 5 })
+  await page.mouse.up()
+}
+check('zaznaczony fragment PDF podpięty do zadania, w stopce „…, s. 1"', await czekaj((b) => {
+  const c = b.concepts.find((x) => x.name === 'Kula dyskretna')
+  const v = b.versions.find((x) => x.id === c?.currentVersionId)
+  return !!v?.sourceRefs.some((r) => r.pdfId && r.page === 1)
+}) && (await page.locator(`${W} .source-list`).innerText()).includes('s. 1') && (await page.locator(`${E} [data-podpinanie]`).count()) === 0)
+if (process.env.SHOT_PDF) await page.screenshot({ path: process.env.SHOT_PDF })
+await page.click(`${E} [data-pdf]`)
+
 // usunięcie zadania
 await page.click(`${E} .ez2-poz:has-text("Stare zadanie")`)
-await page.click(`${E} .ez2-kafelek .ez-usun`)
+await page.click(`${W} .ez-usun`)
 await page.click('.ask-dialog .btn-danger-strong')
 check('usuwanie zadania (po pytaniu)', await czekaj((b) => !b.nauka.find((j) => j.id === 's1').zadania.includes('z0')))
 
@@ -188,7 +236,7 @@ check('nauczony sektor: ekran zadań z „Gotowe" i informacją o douczaniu', (a
   (await page.locator(`${E} [data-test-koncowy]`).count()) === 0)
 await page.click(`${E} [data-nowe-zadanie]`)
 await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez2-poz').length === 3)
-await page.locator(`${E} .ez2-tytul`).fill('Późne zadanie')
+await page.locator(`${W} .ez2-tytul`).fill('Późne zadanie')
 await page.click(`${E} [data-gotowe-zadania]`)
 await page.waitForSelector(`${K} .karta-sektora-nowe`)
 check('po nauce: nowe zadanie → „Doucz nowe (1)" przy sektorze', (await page.locator(`${K} .karta-sektora-nowe`).innerText()).includes('Doucz nowe (1)'))
@@ -217,8 +265,8 @@ await page.click('[data-proba-zadania]')
 await page.waitForSelector(`${E} .etap-zadan`)
 check('próba zadań: plakietka „Próba"', await page.locator('.sesja-proba').isVisible())
 await page.click(`${E} [data-nowe-zadanie]`)
-await page.waitForSelector(`${E} .ez2-tytul`)
-await page.locator(`${E} .ez2-tytul`).fill('Zadanie na niby')
+await page.waitForSelector(`${W} .ez2-tytul`)
+await page.locator(`${W} .ez2-tytul`).fill('Zadanie na niby')
 await page.click(`${E} [data-z-czatem]`)
 await page.click(`${E} .test-czatem-przyklady button`)
 await page.click(`${E} [data-dodaj-od-czatu]`)

@@ -13182,83 +13182,6 @@ html.okno-powiadomienia #root {
 }
 .ez2-glowna { min-width: 0; }
 
-/* schemat kafelka-zadania */
-.ez2-kafelek {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: var(--cien-karta);
-  display: flex;
-  flex-direction: column;
-}
-.ez2-kafelek-glowa {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 18px 22px 10px;
-}
-.ez2-tytul {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--font-read);
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--ink);
-  border: 0;
-  border-bottom: 1px dashed transparent;
-  background: transparent;
-  padding: 2px 0;
-}
-.ez2-tytul:hover { border-bottom-color: var(--line-strong); }
-.ez2-tytul:focus { outline: none; border-bottom-color: var(--accent); }
-.ez2-zapis { font-size: 12px; color: var(--muted); white-space: nowrap; }
-.ez2-strony {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 22px 0;
-}
-.ez2-strona-wrap { display: inline-flex; align-items: center; }
-.ez2-strona {
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  min-height: 34px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--ink);
-  cursor: pointer;
-}
-.ez2-strona.wl { background: var(--ink); border-color: var(--ink); color: var(--panel); }
-.ez2-strona-wrap.wl .ez2-strona { border-radius: 999px 0 0 999px; padding-right: 10px; }
-.ez2-strona-usun {
-  font: inherit;
-  min-height: 34px;
-  padding: 0 10px 0 6px;
-  border: 1px solid var(--ink);
-  border-left: 0;
-  border-radius: 0 999px 999px 0;
-  background: var(--ink);
-  color: var(--panel);
-  opacity: 0.85;
-  cursor: pointer;
-}
-.ez2-strona-usun:hover { opacity: 1; color: #f7a58f; }
-.ez2-strona-plus { border-style: dashed; color: var(--accent); background: transparent; }
-.ez2-strona-opis { margin: 10px 22px 0; font-size: 13px; color: var(--ink-soft); }
-.ez2-edytor {
-  margin: 12px 22px 22px;
-  min-height: 280px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-  overflow: hidden;
-}
-.ez2-edytor .ProseMirror { min-height: 220px; padding: 14px 16px; }
-
 /* pusto: dwa duże plusy */
 .ez2-pusto { display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
 .ez2-pusto-przyciski { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 10px; }
@@ -13463,3 +13386,101 @@ html.okno-powiadomienia #root {
 .ez2-edytor .tiptap p.is-editor-empty:first-child::before { content: none; }
 .ez2-edytor .rich-pusty::before { top: 16px; left: 20px; right: 20px; }
 .ez2-ekran .ez2 { margin-bottom: 6px; }
+
+/* ===== ekran zadań jak Linia: spis | kolumna kafelków-zadań | PDF ===== */
+.sesja-czat-proba.sesja-zadania-ekran {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ez3 { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ez3-gora { display: flex; flex-direction: column; gap: 10px; padding: 12px 24px 10px; border-bottom: 1px solid var(--line); }
+.ez3-uklad.ez2 {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+}
+.ez3.z-pdf .ez3-uklad.ez2 { grid-template-columns: 210px minmax(0, 1fr) minmax(340px, 44%); }
+.ez3-lewa.ez2-lewa {
+  position: static;
+  overflow-y: auto;
+  padding: 16px 12px 16px 16px;
+  border-right: 1px solid var(--line);
+}
+.ez3-poz-zrodla { flex: none; display: inline-flex; color: var(--muted); }
+.ez3-pdf-przelacz { align-self: flex-start; margin-top: 6px; }
+.ez3-kolumna.linear-view { min-width: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: stretch; }
+.ez3-kolumna .linear-column { flex: none; width: 100%; box-sizing: border-box; }
+.ez3-linia.linear-column { padding: 18px 24px 80px; }
+.ez3-seg { content-visibility: visible; }
+.ez3 .ez2-tytul { font-family: inherit; }
+.ez3 .ez2-strony { margin: 0; gap: 4px 12px; align-items: center; }
+.ez3-strona { display: inline-flex; align-items: center; gap: 1px; }
+.ez3 .ez2-strona-usun {
+  font: inherit;
+  font-size: var(--fs-3);
+  line-height: 1;
+  padding: 0 3px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ez3 .ez2-strona-usun:hover { color: var(--danger); }
+.block-page.ez3-plus { color: var(--accent); font-weight: 600; }
+.ez3 .ez2-edytor .rich-content { padding: 0; }
+.ez3 .ez2-edytor .rich-content .tiptap { min-height: 4.5em; font-size: inherit; line-height: inherit; }
+.ez3 .ez2-edytor .ProseMirror { padding: 0; outline: none; }
+.ez3 .ez2-edytor .rich-pusty::before { top: 0; left: 0; right: 0; }
+.ez3-stopka.block-stopka { display: flex; }
+.ez3-zrodla-dodaj { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.ez3-zrodla-dodaj .btn-dolacz { font-size: var(--fs-2); }
+.ez3-zrodla-dodaj .ez-usun { color: var(--danger); }
+.ez3-kolumna:has(.tiptap:focus, .linear-toolbar:focus-within) .ez3-pasek.linear-toolbar { opacity: 1; pointer-events: auto; }
+.ez3-doloz.linear-append { margin-top: 18px; }
+.ez3-czat { margin-top: 18px; padding: 18px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.ez3-pdf { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--line); }
+.ez3-pdf > .pdf-panel { flex: 1; min-height: 0; }
+.ez3-podpinanie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  font-size: 13px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-bottom: 1px solid var(--line);
+}
+.ez3-podpinanie span { flex: 1; }
+.ez3 .tcz-stopka-wrap { padding: 0; }
+.ez3 .tcz-stopka { margin: 0; border-radius: 0; border-width: 1px 0 0; }
+.source-odepnij {
+  font: inherit;
+  font-size: var(--fs-2);
+  line-height: 1;
+  padding: 0 2px;
+  margin-left: 3px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.source-list-item:hover .source-odepnij,
+.source-odepnij:focus-visible { opacity: 1; }
+.source-odepnij:hover { color: var(--danger); }
+@media (max-width: 860px) {
+  .ez3-uklad.ez2,
+  .ez3.z-pdf .ez3-uklad.ez2 { grid-template-columns: 1fr; overflow-y: auto; }
+  .ez3-lewa.ez2-lewa { border-right: 0; border-bottom: 1px solid var(--line); }
+  .ez3-kolumna { overflow: visible; }
+  .ez3-pdf { min-height: 70vh; border-left: 0; }
+}

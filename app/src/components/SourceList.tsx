@@ -15,6 +15,8 @@ interface Props {
   refs: SourceRef[]
   /** Skok do źródła: wycinek PDF albo kafelek (klik w pozycję listy). */
   onJump?: (ref: SourceRef) => void
+  /** Gdy podane — przy każdym źródle krzyżyk „odepnij". */
+  onRemove?: (ref: SourceRef) => void
 }
 
 /** Podgląd wycinka strony PDF pokazywany po najechaniu. */
@@ -99,7 +101,7 @@ export const opisZrodla = (
 /** Źródła pod treścią bloku: nazwy zawsze na wierzchu, podgląd fragmentu po
  *  najechaniu i skok do źródła po kliknięciu. Źródłem może być wycinek PDF
  *  albo inny kafelek — stąd genealogia wiedzy aż do strony w książce. */
-export function SourceList({ refs, onJump }: Props) {
+export function SourceList({ refs, onJump, onRemove }: Props) {
   const [hover, setHover] = useState<string | null>(null)
   const timer = useRef<number | undefined>(undefined)
   const pdfs = useLiveQuery(() => db.pdfs.toArray(), []) ?? []
@@ -139,6 +141,16 @@ export function SourceList({ refs, onJump }: Props) {
               {opisZrodla(r, pdfs, concepts)}
               {r.group && <span className="source-list-group"> · {r.group}</span>}
             </button>
+            {onRemove && (
+              <button
+                className="source-odepnij"
+                title="Odepnij to źródło (sam PDF i kafelek zostają)"
+                aria-label="Odepnij źródło"
+                onClick={() => onRemove(r)}
+              >
+                ×
+              </button>
+            )}
             {hover === r.id &&
               (isPdfSource(r) ? <PdfPreview refItem={r} /> : <BlockPreview refItem={r} />)}
           </span>
