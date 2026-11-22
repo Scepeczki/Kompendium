@@ -6,7 +6,7 @@ import { useBlockTypes } from '../blockTypes'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Icon } from './Icon'
-import { CzatNaProbe, SkutkiCzatu, TestCzatem, przykladyPodsumowan, type CzatWSesji } from './TestCzatem'
+import { CzatNaProbe, KoniecCzatu, SkutkiCzatu, TestCzatem, przykladyPodsumowan, type CzatWSesji } from './TestCzatem'
 import { useZadania } from './ZadaniaSektora'
 import { wez } from '../naukaUstawienia'
 import { TrybMapowania } from './TrybMapowania'
@@ -460,7 +460,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
             ← Wróć
           </button>
         </header>
-        <div className="sesja-wynik sesja-czat-proba">
+        <div className="sesja-wynik sesja-czat-proba sesja-czat-ekran">
           <p className="hint">
             Przed czatem test zakryty „na niby": każdy kafelek{' '}
             <strong>{({ tak: 'Tak', czesciowo: 'Częściowo', nie: 'Nie' } as const)[cel.zakryteProby ?? 'tak']}</strong>. Rozmawiać z
@@ -527,23 +527,22 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
             ← Wróć
           </button>
         </header>
-        <div className="sesja-wynik sesja-czat-proba">
+        <div className="sesja-wynik sesja-czat-proba sesja-czat-ekran">
           {koniec ? (
-            <>
-              <SkutkiCzatu po={poCzacie!} />
+            <KoniecCzatu po={poCzacie!}>
               {j.etap === 'zadania' ? (
                 <button
                   className="btn btn-primary sesja-do-zadan"
                   onClick={() => window.dispatchEvent(new CustomEvent('komp:sesja', { detail: { jednostkaId: j.id, zadania: true } }))}
                 >
-                  Dalej: zadania
+                  Zadania sektora →
                 </button>
               ) : (
                 <button className="btn btn-primary" onClick={onZamknij}>
                   Gotowe
                 </button>
               )}
-            </>
+            </KoniecCzatu>
           ) : j.przemapowanie ? (
             <>
               {poCzacie && <SkutkiCzatu po={poCzacie} />}

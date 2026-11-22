@@ -97,7 +97,7 @@ check('wynik też z plakietką „Próba"', await page.locator('.sesja-proba').i
 check('wynik: liczby Tak/Częściowo/Nie i lista kafelków', (await page.locator('.sesja-wynik-liczba').count()) >= 3 &&
   (await page.locator('.sesja-wynik-lista li').count()) === ile && (await page.locator('.sesja-wynik-lista li.zaznacz-nie').count()) === 1)
 await page.screenshot({ path: 'proba-wynik.png' })
-check('próba: po teście od razu test czatem (jak w nauce)', (await page.locator('.sesja-wynik .czat-na-probe button:has-text("Test czatem")').count()) === 1 &&
+check('próba: po teście od razu test czatem (jak w nauce)', (await page.locator('.sesja-wynik .czat-na-probe .tcz-otworz').count()) === 1 &&
   (await page.locator('.sesja-wynik').innerText()).includes('test czatem'))
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 await page.waitForTimeout(500)
@@ -121,7 +121,7 @@ await page.waitForSelector(P)
 check('próba czatu na cały ekran, z plakietką „Próba"', (await page.locator('.sesja-rodzaj').textContent()) === 'Test czatem' && (await page.locator('.sesja-proba').isVisible()))
 const [karta] = await Promise.all([
   kontekst.waitForEvent('page', { timeout: 5000 }).catch(() => null),
-  page.click(`${P} button:has-text("Test czatem: kopiuj i otwórz")`),
+  page.click(`${P} .tcz-otworz`),
 ])
 check('test czatem: otwiera czat', !!karta)
 await karta?.close()
@@ -132,32 +132,35 @@ check('polecenie: wzór, zasady i przykład podsumowania', polecenie.includes('Z
   polecenie.includes('bloku kodu'))
 check('próba: gotowe podsumowania do kliknięcia', (await page.locator(`${P} .test-czatem-przyklady button`).count()) >= 4)
 // tak, jak poda to czat: blok kodu, nazwy z rodzajem, pusty klucz
-await page.fill(`${P} .test-czatem-wklej textarea`,
+await page.fill(`${P} .tcz-pole-wklej`,
   'Dzięki za rozmowę.\n```\nWYNIK: NIEZALICZONE\nKAFELKI:\n- Definicja: Kula: TAK — dobrze.\n- Otoczenie: CZĘŚCIOWO — bez przykładu.\n- Zbiór domknięty: NIE — pomylony.\nLUKI:\n- brak przykładu\nKLUCZ:\n- brak\n```')
 await page.waitForTimeout(400)
-check('odczyt bloku kodu: 3 kafelki do zatwierdzenia', (await page.locator(`${P} .tc-oceny > li`).count()) === 3)
-await page.fill(`${P} .test-czatem-wklej textarea`,
+await page.click(`${P} [data-pokaz-tak]`)
+check('odczyt bloku kodu: 3 kafelki do zatwierdzenia', (await page.locator(`${P} .tcz-oceny > li`).count()) === 3)
+await page.click(`${P} [data-wklej-ponownie]`)
+await page.fill(`${P} .tcz-pole-wklej`,
   'Super.\n**WYNIK: NIEZALICZONE**\nKAFELKI:\n- Kula: TAK — dobrze\n- Otoczenie: CZĘŚCIOWO — bez przykładu\n- Zbiór domknięty: NIE — myli z otwartym\nLUKI:\n- Otoczenie: definicja otoczenia\n- Zbiór domknięty: myli z otwartym\nKLUCZ:\n- Otoczenie: zbiór zawierający kulę wokół punktu.')
 await page.waitForTimeout(400)
-check('odczyt odpowiedzi czatu: oceny kafelków', (await page.locator(`${P} .tc-oceny > li`).count()) === 3 &&
-  (await page.locator(`${P} .tc-oceny > li.zaznacz-nie`).innerText()).includes('Zbiór domknięty'))
+await page.click(`${P} [data-pokaz-tak]`)
+check('odczyt odpowiedzi czatu: oceny kafelków', (await page.locator(`${P} .tcz-oceny > li`).count()) === 3 &&
+  (await page.locator(`${P} .tcz-oceny > li.zaznacz-nie`).innerText()).includes('Zbiór domknięty'))
 await page.locator('.sesja-czat-proba').screenshot({ path: 'proba-czat-ocena.png' })
 check('werdykt i co dalej przed zapisem', (await page.locator(`${P} .test-czatem-werdykt`).innerText()).includes('po zapisie: podsumowanie luk'))
 await page.click(`${P} [data-zapisz-czat]`)
-await page.waitForSelector(`${P} .tc-luki`, { timeout: 5000 }).catch(() => console.log('BŁĘDY:', errors.join(' | ')))
-check('po zapisie: skutki — ocena łączna (Tak + NIE = Nie)', (await page.locator(`${P} .test-czatem-tabela`).innerText()).includes('słaby, do poprawy'))
-check('po zapisie: podsumowanie luk przy kafelkach (Otoczenie, Zbiór domknięty)', (await page.locator(`${P} .tc-luka`).count()) === 2 &&
-  (await page.locator(`${P} .tc-luka`).first().innerText()).includes('Zbiór domknięty'))
-check('po zapisie: wzorcowa odpowiedź przy Otoczeniu', (await page.locator(`${P} .tc-luka .tc-wzor`).count()) === 1)
+await page.waitForSelector(`${P} .tcz-luki`, { timeout: 5000 }).catch(() => console.log('BŁĘDY:', errors.join(' | ')))
+check('po zapisie: skutki — ocena łączna (Tak + NIE = Nie)', (await page.locator(`${P} .tcz-tabela`).innerText()).includes('słaby, do poprawy'))
+check('po zapisie: podsumowanie luk przy kafelkach (Otoczenie, Zbiór domknięty)', (await page.locator(`${P} .tcz-luka`).count()) === 2 &&
+  (await page.locator(`${P} .tcz-luka`).first().innerText()).includes('Zbiór domknięty'))
+check('po zapisie: wzorcowa odpowiedź przy Otoczeniu', (await page.locator(`${P} .tcz-luka .tcz-wzor`).count()) === 1)
 check('po zapisie: „Co dalej" — popraw mapy, dogrywka', (await page.locator(`${P} [data-popraw-mapy]`).count()) === 1 &&
-  (await page.locator(`${P} .test-czatem-krok button:has-text("Dogrywka")`).count()) === 1)
+  (await page.locator(`${P} .tcz-krok-czat button:has-text("Dogrywka")`).count()) === 1)
 await page.locator('.sesja-czat-proba').screenshot({ path: 'proba-czat-luki.png' })
 check('„Tylko kopiuj" jest osobno', (await page.locator(`${P} button:has-text("Tylko kopiuj")`).count()) === 1)
 await page.click(`${P} .test-czatem-przyklady button:has-text("Dogrywka zaliczona")`)
 await page.click(`${P} [data-zapisz-czat]`)
-await page.waitForSelector(`${P} .settings-status`)
-check('dogrywka zaliczona: komunikat, co byłoby dalej', (await page.locator(`${P} .test-czatem-skutki`).innerText()).includes('Zaliczone') &&
-  (await page.locator(`${P} .settings-status`).innerText()).includes('poszedłby dalej'))
+await page.waitForSelector(`${P} .tcz-koniec`)
+check('dogrywka zaliczona: komunikat, co byłoby dalej', (await page.locator(`${P} .tcz-skutki`).innerText()).includes('Zaliczone') &&
+  (await page.locator(`${P} .tcz-koniec`).innerText()).includes('poszedłby dalej'))
 await page.screenshot({ path: 'proba-czat.png', fullPage: true })
 await page.click('.sesja-glowa button:has-text("Wróć")')
 check('po czacie na próbę baza bez zmian', (await baza()) === przed)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { renderMarkdown } from '../markdown'
 import {
   adresCzatu,
@@ -62,31 +62,76 @@ export const NAPIS: Record<OcenaCzatu['ocena'], string> = {
   nie: 'Nie',
   niesprawdzony: 'Niesprawdzony',
 }
-const NAPIS_P: Record<Przypomnienie, string> = { tak: 'Tak', czesciowo: 'Częściowo', nie: 'Nie' }
+const IKONA: Record<OcenaCzatu['ocena'], string> = { tak: '✓', czesciowo: '◐', nie: '✕', niesprawdzony: '?' }
 const KOLEJ = ['nie', 'czesciowo', 'niesprawdzony', 'tak']
 const posortuj = (l: OcenaCzatu[]) =>
   l.map((k, i) => ({ k, i })).sort((a, b) => KOLEJ.indexOf(ocenaPoCzacie(a.k)) - KOLEJ.indexOf(ocenaPoCzacie(b.k)))
+
+/** Znaczek oceny: ✓ Tak, ◐ Częściowo, ✕ Nie, ? Niesprawdzony. */
+function Ocena({ o, tekst }: { o: OcenaCzatu['ocena']; tekst?: string }) {
+  return (
+    <span className={`tcz-r tcz-r-${o}`}>
+      <span aria-hidden>{IKONA[o]}</span> {tekst ?? NAPIS[o]}
+    </span>
+  )
+}
+
+/** „1 luka", „2 luki", „5 luk". */
+function luk(n: number) {
+  if (n === 1) return '1 luka'
+  const d = n % 10
+  const s = n % 100
+  return `${n} ${d >= 2 && d <= 4 && (s < 12 || s > 14) ? 'luki' : 'luk'}`
+}
+const kafelkow = (n: number) => (n === 1 ? 'kafelka' : 'kafelków')
+
+/** Pasek etapów powtórki zero nad testem czatem. */
+function Etapy({ teraz }: { teraz: number }) {
+  const etapy = ['Test zakryty', 'Czat', 'Wynik', 'Luki i dogrywka', ...(zadaniaWZero() ? ['Zadania'] : [])]
+  return (
+    <nav className="tcz-etapy" aria-label="Etapy powtórki zero">
+      {etapy.map((e, i) => (
+        <span key={e} className="tcz-etap-wrap">
+          {i > 0 && <span className="tcz-etap-kreska" aria-hidden />}
+          <span className={`tcz-etap ${i < teraz ? 'zrobiony' : i === teraz ? 'teraz' : ''}`} aria-current={i === teraz ? 'step' : undefined}>
+            <span className="tcz-etap-nr">{i < teraz ? '✓' : i + 1}</span>
+            {e}
+          </span>
+        </span>
+      ))}
+    </nav>
+  )
+}
 
 /** Kafelki ocenione przez czat — tylko do wglądu, najpierw słabsze. */
 export function OcenyCzatu({ kafelki }: { kafelki: OcenaCzatu[] }) {
   if (!kafelki.length) return null
   return (
-    <ul className="test-czatem-kafelki">
+    <ul className="tcz-podglad">
       {posortuj(kafelki).map(({ k, i }) => (
         <li key={i} className={`zaznacz-${ocenaPoCzacie(k)}`} data-kafelek={k.nazwa}>
-          <span className="test-czatem-ocena">{NAPIS[ocenaPoCzacie(k)]}</span>
-          <span className="test-czatem-kafelek">{k.nazwa}</span>
-          {k.twoja && k.twoja !== k.ocena && <span className="hint">(twoja ocena; czat: {NAPIS[k.ocena]})</span>}
-          {k.uwaga && <span className="test-czatem-uwaga">{k.uwaga}</span>}
+          <span className="tcz-podglad-nazwa">{k.nazwa}</span>
+          {k.uwaga && <span className="tcz-szary">{k.uwaga}</span>}
+          {k.twoja && k.twoja !== k.ocena && <span className="tcz-szary">(twoja ocena; czat: {NAPIS[k.ocena]})</span>}
+          <Ocena o={ocenaPoCzacie(k)} />
         </li>
       ))}
     </ul>
   )
 }
 
-/** Ocena czatu do zatwierdzenia. Klik w ocenę przy kafelku otwiera wybór:
- *  „Nie zgadzam się z oceną czatu — zmień na…" (Tak / Częściowo / Nie /
- *  Niesprawdzony). Twoja ocena zastępuje ocenę czatu. */
+/** Uwaga czatu mówi to samo, co jedna z luk kafelka — nie pokazujemy dwa razy. */
+const bezKropki = (t: string) => t.trim().toLowerCase().replace(/[.\s]+$/, '')
+const powtarzaLuke = (k: OcenaCzatu) =>
+  !!k.uwaga &&
+  !!k.luki?.length &&
+  ['nie', 'czesciowo'].includes(ocenaPoCzacie(k)) &&
+  k.luki.some((l) => bezKropki(l).includes(bezKropki(k.uwaga!)) || bezKropki(k.uwaga!).includes(bezKropki(l)))
+
+/** Ocena czatu do zatwierdzenia. Na górze kafelki do sprawdzenia (nie-Tak
+ *  albo ze zmienioną oceną), Tak zwinięte. Klik w ocenę otwiera wybór:
+ *  „Nie zgadzam się z oceną czatu — zmień na…". Kafelek ze zmienioną oceną
+ *  ma przerywaną ramkę i podpis. */
 function OcenaDoZatwierdzenia({
   kafelki,
   onZmien,
@@ -95,75 +140,111 @@ function OcenaDoZatwierdzenia({
   onZmien: (i: number, twoja: OcenaCzatu['ocena'] | undefined) => void
 }) {
   const [otwarte, setOtwarte] = useState<number | null>(null)
+  const [pokazTak, setPokazTak] = useState(false)
   useEffect(() => {
     if (otwarte === null) return
     const h = (e: MouseEvent) => {
-      if (!(e.target as Element).closest?.('.tc-wybor')) setOtwarte(null)
+      if (!(e.target as Element).closest?.('.tcz-wybor')) setOtwarte(null)
     }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [otwarte])
-  return (
-    <ul className="tc-oceny">
-      {posortuj(kafelki).map(({ k, i }) => {
-        const o = ocenaPoCzacie(k)
-        const zmieniona = !!k.twoja && k.twoja !== k.ocena
-        return (
-          <li key={i} className={`tc-ocena zaznacz-${o} ${zmieniona ? 'tc-ocena-zmieniona' : ''}`} data-kafelek={k.nazwa}>
-            {zmieniona && (
-              <span className="tc-zmiana-etykieta">
-                Nie zgadzasz się z oceną czatu · czat dał: {NAPIS[k.ocena]}
-              </span>
-            )}
-            <div className="tc-ocena-glowa">
-              <span className="tc-wybor">
+  // kolejność wg oceny czatu — zmiana nie przestawia wierszy
+  const lista = kafelki.map((k, i) => ({ k, i })).sort((a, b) => KOLEJ.indexOf(a.k.ocena) - KOLEJ.indexOf(b.k.ocena))
+  const zmieniona = (k: OcenaCzatu) => !!k.twoja && k.twoja !== k.ocena
+  const doSprawdzenia = lista.filter(({ k }) => k.ocena !== 'tak' || zmieniona(k))
+  const naTak = lista.filter(({ k }) => k.ocena === 'tak' && !zmieniona(k))
+  const rozwiniete = pokazTak || !doSprawdzenia.length
+
+  const wiersz = ({ k, i }: { k: OcenaCzatu; i: number }) => {
+    const o = ocenaPoCzacie(k)
+    const zm = zmieniona(k)
+    return (
+      <li key={i} className={`tcz-wiersz zaznacz-${o} ${zm ? 'tcz-zmieniona' : ''}`} data-kafelek={k.nazwa}>
+        {zm && <span className="tcz-zmiana">Nie zgadzasz się z oceną czatu · czat dał: {NAPIS[k.ocena]}</span>}
+        <div className="tcz-wiersz-opis">
+          <b className="tcz-wiersz-nazwa">{k.nazwa}</b>
+          {k.uwaga && !powtarzaLuke(k) && <p className="tcz-szary">Czat: „{k.uwaga.replace(/\.$/, '')}"</p>}
+          {!k.klucz && <p className="tcz-szary">Nie pasuje do żadnego kafelka sektora — pominięty.</p>}
+          {!!k.luki?.length && (o === 'nie' || o === 'czesciowo') && (
+            <ul className="tcz-luki-kafelka">
+              {k.luki.map((l, x) => (
+                <li key={x}>
+                  <span className="tcz-luka-znak">luka</span> {l}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <span className="tcz-wybor">
+          <button
+            className={`tcz-ocena-btn tcz-r tcz-r-${o}`}
+            title="Kliknij, żeby zmienić ocenę"
+            aria-haspopup="menu"
+            aria-expanded={otwarte === i}
+            onClick={() => setOtwarte(otwarte === i ? null : i)}
+          >
+            <span aria-hidden>{IKONA[o]}</span> {NAPIS[o]} <span className="tcz-strzalka" aria-hidden>▾</span>
+          </button>
+          {otwarte === i && (
+            <div className="tcz-menu" role="menu">
+              <div className="tcz-menu-tytul">Nie zgadzam się z oceną czatu — zmień na:</div>
+              {(['tak', 'czesciowo', 'nie', 'niesprawdzony'] as OcenaCzatu['ocena'][]).map((x) => (
                 <button
-                  className={`test-czatem-ocena tc-ocena-btn ${zmieniona ? 'tc-zmieniona' : ''}`}
-                  title="Kliknij, żeby zmienić ocenę"
-                  aria-haspopup="menu"
-                  aria-expanded={otwarte === i}
-                  onClick={() => setOtwarte(otwarte === i ? null : i)}
+                  key={x}
+                  role="menuitem"
+                  className={`tcz-menu-poz zaznacz-${x} ${o === x ? 'wl' : ''}`}
+                  onClick={() => {
+                    onZmien(i, x === k.ocena ? undefined : x)
+                    setOtwarte(null)
+                  }}
                 >
-                  {NAPIS[o]} <span aria-hidden>▾</span>
+                  <Ocena o={x} />
+                  {x === k.ocena && <span className="tcz-szary">ocena czatu</span>}
                 </button>
-                {otwarte === i && (
-                  <div className="tc-menu" role="menu">
-                    <div className="tc-menu-tytul">Nie zgadzam się z oceną czatu — zmień na:</div>
-                    {(['tak', 'czesciowo', 'nie', 'niesprawdzony'] as OcenaCzatu['ocena'][]).map((x) => (
-                      <button
-                        key={x}
-                        role="menuitem"
-                        className={`tc-menu-poz zaznacz-${x} ${o === x ? 'wl' : ''}`}
-                        onClick={() => {
-                          onZmien(i, x === k.ocena ? undefined : x)
-                          setOtwarte(null)
-                        }}
-                      >
-                        <span className="tc-menu-kropka" />
-                        {NAPIS[x]}
-                        {x === k.ocena && <span className="hint"> — ocena czatu</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </span>
-              <span className="test-czatem-kafelek">{k.nazwa}</span>
-              {!k.klucz && <span className="hint">(nie pasuje do żadnego kafelka sektora — pominięty)</span>}
+              ))}
             </div>
-            <div className="tc-ocena-opis">
-              {k.uwaga && <span className="test-czatem-uwaga">{k.uwaga}</span>}
-              {!!k.luki?.length && (o === 'nie' || o === 'czesciowo') && (
-                <ul className="test-czatem-luki-kafelka">
-                  {k.luki.map((l, x) => (
-                    <li key={x}>{l}</li>
-                  ))}
-                </ul>
+          )}
+        </span>
+      </li>
+    )
+  }
+
+  return (
+    <div className="tcz-karta tcz-oceny-karta">
+      {doSprawdzenia.length > 0 && (
+        <>
+          <div className="tcz-karta-naglowek">Do sprawdzenia</div>
+          <ul className="tcz-oceny">{doSprawdzenia.map(wiersz)}</ul>
+        </>
+      )}
+      {naTak.length > 0 &&
+        (rozwiniete ? (
+          <>
+            <div className="tcz-karta-naglowek">
+              Na Tak
+              {doSprawdzenia.length > 0 && (
+                <button className="tcz-link" onClick={() => setPokazTak(false)}>
+                  zwiń ▴
+                </button>
               )}
             </div>
-          </li>
-        )
-      })}
-    </ul>
+            <ul className="tcz-oceny">{naTak.map(wiersz)}</ul>
+          </>
+        ) : (
+          <button className="tcz-tak-zwiniete" onClick={() => setPokazTak(true)} data-pokaz-tak>
+            <Ocena o="tak" tekst={`${naTak.length} × Tak`} />
+            <span className="tcz-tak-nazwy">
+              {naTak
+                .slice(0, 3)
+                .map(({ k }) => k.nazwa)
+                .join(', ')}
+              {naTak.length > 3 ? ` +${naTak.length - 3}` : ''}
+            </span>
+            <span className="tcz-link">pokaż ▾</span>
+          </button>
+        ))}
+    </div>
   )
 }
 
@@ -182,34 +263,39 @@ function kluczKafelka(klucz: string | undefined, nazwa: string): string | undefi
   return undefined
 }
 
-/** Po czacie z lukami: podsumowanie luk przy każdym kafelku i klucz odpowiedzi. */
-function PodsumowanieLuk({ j }: { j: JednostkaNauki }) {
-  const slabe = (j.czatKafelki ?? []).filter((k) => {
+const slabeKafelki = (j: JednostkaNauki) =>
+  (j.czatKafelki ?? []).filter((k) => {
     const o = ocenaPoCzacie(k)
     return o === 'nie' || o === 'czesciowo'
   })
+
+/** Po czacie z lukami: karta przy każdym kafelku z luką i wzorcową odpowiedzią. */
+function PodsumowanieLuk({ j }: { j: JednostkaNauki }) {
+  const slabe = slabeKafelki(j)
   return (
-    <div className="tc-luki">
-      <h4 className="tc-tytul">Luki do poprawy</h4>
+    <div className="tcz-luki">
       {slabe.length ? (
-        <ul className="tc-luki-lista">
+        <ul className="tcz-luki-lista">
           {posortuj(slabe).map(({ k, i }) => {
             const wzor = kluczKafelka(j.kluczCzatu, k.nazwa)
             const o = ocenaPoCzacie(k)
             return (
-              <li key={i} className={`tc-luka zaznacz-${o}`}>
-                <div className="tc-ocena-glowa">
-                  <span className="test-czatem-ocena">{NAPIS[o]}</span>
-                  <span className="test-czatem-kafelek">{k.nazwa}</span>
+              <li key={i} className={`tcz-karta tcz-luka zaznacz-${o}`}>
+                <div className="tcz-luka-glowa">
+                  <b>{k.nazwa}</b>
+                  <Ocena o={o} />
+                  {k.twoja && k.twoja !== k.ocena && <span className="tcz-szary">twoja ocena · czat: {NAPIS[k.ocena]}</span>}
                 </div>
-                <ul className="test-czatem-luki-kafelka">
+                <ul className="tcz-luki-kafelka">
                   {(k.luki?.length ? k.luki : k.uwaga ? [k.uwaga] : ['(czat nie opisał luki)']).map((l, x) => (
-                    <li key={x}>{l}</li>
+                    <li key={x}>
+                      <span className="tcz-luka-znak">luka</span> {l}
+                    </li>
                   ))}
                 </ul>
                 {wzor && (
-                  <details className="tc-wzor">
-                    <summary>Wzorcowa odpowiedź od czatu</summary>
+                  <details className="tcz-wzor">
+                    <summary>Wzorcowa odpowiedź czatu</summary>
                     <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(wzor) }} />
                   </details>
                 )}
@@ -218,10 +304,10 @@ function PodsumowanieLuk({ j }: { j: JednostkaNauki }) {
           })}
         </ul>
       ) : (
-        <pre className="test-czatem-zapisane">{j.luki}</pre>
+        <pre className="tcz-karta test-czatem-zapisane tcz-luki-tekst">{j.luki}</pre>
       )}
       {j.kluczCzatu && !slabe.some((k) => kluczKafelka(j.kluczCzatu, k.nazwa)) && (
-        <details className="tc-wzor">
+        <details className="tcz-karta tcz-wzor tcz-wzor-osobno">
           <summary>Klucz odpowiedzi od czatu</summary>
           <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(j.kluczCzatu) }} />
         </details>
@@ -234,24 +320,27 @@ function PodsumowanieLuk({ j }: { j: JednostkaNauki }) {
 export function SkutkiCzatu({ po }: { po: PoCzacie }) {
   const zLaczna = po.kafelki.filter((k) => k.zakryta)
   return (
-    <div className="test-czatem-skutki" data-skutki={po.zaliczone ? 'zaliczone' : 'luki'}>
-      <strong>
-        {po.zaliczone
-          ? po.etap === 'zadania'
-            ? 'Zaliczone — sektor idzie dalej: zadania i test końcowy.'
-            : po.etap === 'powtorki'
-              ? po.dogrywka && !zLaczna.length
-                ? 'Zaliczone — luki zamknięte.'
-                : 'Zaliczone — sektor idzie do powtórek.'
-              : 'Zaliczone.'
-          : po.przemapowanie
-            ? `Limit dogrywek (${po.limit}) — teraz przemapowanie samych kafelków z NIE: ${po.przemapowanie.join(', ')}. Potem przerwa, krótki test z nich i znowu dogrywka.`
-            : po.etap === 'czat'
-              ? `Są luki — popraw mapy i zrób dogrywkę${po.dogrywek ? ` (nieudane dogrywki: ${po.dogrywek} z ${po.limit})` : ''}.`
-              : 'Są luki — dogrywka jest dobrowolna, powtórki idą normalnie.'}
-      </strong>
+    <div className={`tcz-karta tcz-skutki ${po.zaliczone ? 'ok' : 'luki'}`} data-skutki={po.zaliczone ? 'zaliczone' : 'luki'}>
+      <div className="tcz-skutki-glowa">
+        <Ocena o={po.zaliczone ? 'tak' : 'nie'} tekst={po.zaliczone ? 'Zapisane' : 'Zapisane — są luki'} />
+        <strong>
+          {po.zaliczone
+            ? po.etap === 'zadania'
+              ? 'Zaliczone — sektor idzie dalej: zadania i test zakryty z zadaniami.'
+              : po.etap === 'powtorki'
+                ? po.dogrywka && !zLaczna.length
+                  ? 'Zaliczone — luki zamknięte.'
+                  : 'Zaliczone — sektor idzie do powtórek.'
+                : 'Zaliczone.'
+            : po.przemapowanie
+              ? `Limit dogrywek (${po.limit}) — teraz przemapowanie samych kafelków z NIE: ${po.przemapowanie.join(', ')}. Potem przerwa, krótki test z nich i znowu dogrywka.`
+              : po.etap === 'czat'
+                ? `Są luki — popraw mapy i zrób dogrywkę${po.dogrywek ? ` (nieudane dogrywki: ${po.dogrywek} z ${po.limit})` : ''}.`
+                : 'Są luki — dogrywka jest dobrowolna, powtórki idą normalnie.'}
+        </strong>
+      </div>
       {zLaczna.length > 0 && (
-        <table className="test-czatem-tabela">
+        <table className="tcz-tabela">
           <thead>
             <tr>
               <th>Kafelek</th>
@@ -264,13 +353,18 @@ export function SkutkiCzatu({ po }: { po: PoCzacie }) {
             {zLaczna.map((k, i) => (
               <tr key={i}>
                 <td>{k.nazwa}</td>
-                <td className={`zaznacz-${k.zakryta}`}>{NAPIS_P[k.zakryta!]}</td>
-                <td className={`zaznacz-${k.twoja ?? k.czat}`}>
-                  {k.twoja && k.twoja !== k.czat ? `${NAPIS[k.twoja]} (twoja; czat: ${NAPIS[k.czat]})` : NAPIS[k.czat]}
+                <td>
+                  <Ocena o={k.zakryta!} />
                 </td>
-                <td className={`zaznacz-${k.lacznie}`}>
-                  {NAPIS_P[k.lacznie!]}
-                  {k.lacznie === 'nie' ? ' · słaby, do poprawy' : k.lacznie === 'czesciowo' ? ' · słaby' : ''}
+                <td>
+                  <Ocena o={k.twoja ?? k.czat} />
+                  {k.twoja && k.twoja !== k.czat && <span className="tcz-szary"> twoja; czat: {NAPIS[k.czat]}</span>}
+                </td>
+                <td>
+                  <Ocena o={k.lacznie!} />
+                  <span className="tcz-szary">
+                    {k.lacznie === 'nie' ? ' słaby, do poprawy' : k.lacznie === 'czesciowo' ? ' słaby' : ''}
+                  </span>
                 </td>
               </tr>
             ))}
@@ -278,7 +372,7 @@ export function SkutkiCzatu({ po }: { po: PoCzacie }) {
         </table>
       )}
       {po.obnizone > 0 && (
-        <span className="hint">
+        <span className="tcz-szary">
           Obniżone: {po.obnizone} {po.obnizone === 1 ? 'kafelek' : 'kafelki'} — terminy policzone jeszcze raz z oceną łączną.
         </span>
       )}
@@ -286,9 +380,48 @@ export function SkutkiCzatu({ po }: { po: PoCzacie }) {
   )
 }
 
+/** Koniec testu czatem: duża karta z wynikiem i następnym krokiem. */
+export function KoniecCzatu({ po, children }: { po: PoCzacie; children?: ReactNode }) {
+  const oceny = po.kafelki.map((k) => ({ nazwa: k.nazwa, o: (k.lacznie ?? k.twoja ?? k.czat) as OcenaCzatu['ocena'] }))
+  const tak = oceny.filter((k) => k.o === 'tak').length
+  return (
+    <div className="test-czatem tcz">
+      <section className="tcz-karta tcz-koniec">
+        <div className="tcz-koniec-glowa">
+          <span className={`tcz-koniec-ikona ${po.zaliczone ? '' : 'luki'}`} aria-hidden>
+            {po.zaliczone ? '✓' : '!'}
+          </span>
+          <div>
+            <h1 className="tcz-h1">{po.zaliczone ? 'Czat zaliczony' : 'Wynik czatu zapisany'}</h1>
+            {oceny.length > 0 && (
+              <p className="tcz-pod">
+                {tak} z {oceny.length} {kafelkow(oceny.length)} na Tak{po.dogrywka ? ' — po dogrywce' : ''}.
+              </p>
+            )}
+          </div>
+        </div>
+        {oceny.length > 0 && (
+          <div className="tcz-chipy">
+            {oceny.map((k, i) => (
+              <Ocena key={i} o={k.o} tekst={k.nazwa} />
+            ))}
+          </div>
+        )}
+        <SkutkiCzatu po={po} />
+        {children && (
+          <div className="tcz-koniec-dalej">
+            <span className="tcz-lbl">Następny krok</span>
+            <div className="tcz-przyciski">{children}</div>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
 /** Test czatem: rozmowa z czatem w drugim oknie, potem wklejasz jego
  *  podsumowanie, zatwierdzasz ocenę (albo zmieniasz ją przy kafelku) i zapisujesz.
- *  Z lukami: podsumowanie luk, popraw mapy, dogrywka. */
+ *  Z lukami: karty luk, „Co dalej" (popraw mapy, dogrywka, wklej). */
 export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj, skutki, onZapisano, onPominieto }: Props) {
   const dogrywka = tryb === 'zero' && !!j.luki
   const bramka = tryb === 'zero' && j.etap === 'czat'
@@ -297,8 +430,17 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj,
   const [kafelki, setKafelki] = useState<OcenaCzatu[]>([])
   const [zapisuje, setZapisuje] = useState(false)
   const [po, setPo] = useState<PoCzacie | null>(null)
+  const [ile, setIle] = useState(0)
   const odczytane = useMemo(() => (wklejone.trim() ? czytajWynik(wklejone) : null), [wklejone])
   const pokazSkutki = skutki ?? po
+
+  useEffect(() => {
+    let zyje = true
+    void nazwyKafelkowSektora(j).then((l) => zyje && setIle(l.length))
+    return () => {
+      zyje = false
+    }
+  }, [j])
 
   // dopasowanie nazw z czatu do kafelków sektora (twoje zmiany znikają przy nowym wklejeniu)
   useEffect(() => {
@@ -359,107 +501,96 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj,
     }
   }
 
-  let nr = 0
-  return (
-    <div className="test-czatem">
-      {pokazSkutki && <SkutkiCzatu po={pokazSkutki} />}
-      {dogrywka && (
-        <>
-          <PodsumowanieLuk j={j} />
-          <h4 className="tc-tytul">Co dalej</h4>
-          {bramka && (
-            <p className="hint tc-bramka">
-              Sektor pójdzie dalej dopiero po zaliczonej dogrywce
-              {(j.dogrywek ?? 0) > 0 && (
-                <span className="test-czatem-licznik">
-                  {' '}
-                  · nieudane dogrywki: {j.dogrywek} z {wez('limitDogrywek')}
-                </span>
-              )}
-              .
-            </p>
-          )}
-          {!bramka && <p className="hint tc-bramka">Dogrywka jest dobrowolna — powtórki idą normalnie.</p>}
-          <div className="tc-krok">
-            <span className="test-czatem-nr">{++nr}</span>
-            <div className="tc-krok-tresc">
-              <strong>Popraw mapy kafelków z lukami</strong>
-              <span className="hint">Luki są już w wymaganiach tych kafelków („z czatu: …").</span>
-              <div className="tc-przyciski">
-                <button className="btn" disabled={!onMapuj} onClick={onMapuj} data-popraw-mapy>
-                  Popraw mapy
-                </button>
-                {!onMapuj && proba && <span className="hint">(w próbie mapy się nie otwierają — nic by się nie zapisało)</span>}
-              </div>
-            </div>
-          </div>
-        </>
+  // ---- kawałki wspólne dla widoków ----
+  const przyciskiCzatu = (
+    <>
+      <button className="btn btn-primary tcz-otworz" onClick={async () => void otworzCzat(await zloz())}>
+        {dogrywka ? 'Dogrywka: kopiuj i otwórz' : 'Kopiuj polecenie i otwórz'} {nazwaCzatu()}
+      </button>
+      <button className="tcz-link" onClick={async () => void kopiujPolecenie(await zloz())}>
+        Tylko kopiuj
+      </button>
+      {tekst !== null && (
+        <details className="test-czatem-polecenie">
+          <summary>Pokaż polecenie</summary>
+          <textarea readOnly value={tekst} rows={10} onFocus={(e) => e.target.select()} />
+        </details>
       )}
-      <div className="tc-krok test-czatem-krok">
-        <span className="test-czatem-nr">{++nr}</span>
-        <div className="tc-krok-tresc">
-          <strong>{dogrywka ? 'Dogrywka — czat zapyta tylko o luki' : 'Rozmowa z czatem'}</strong>
-          <div className="tc-przyciski">
-            <button className="btn btn-primary" onClick={async () => void otworzCzat(await zloz())}>
-              {dogrywka ? 'Dogrywka' : 'Test czatem'}: kopiuj i otwórz {nazwaCzatu()}
+    </>
+  )
+  const poleWklej = (duze: boolean) => (
+    <div className={`tcz-wklej ${duze ? 'duze' : ''}`}>
+      <textarea
+        className="tcz-pole-wklej"
+        aria-label="Podsumowanie czatu"
+        rows={duze ? 5 : 4}
+        placeholder={
+          duze
+            ? 'Wklej tutaj — Ctrl+V\n\nNa końcu rozmowy czat poda podsumowanie w ramce (WYNIK, KAFELKI, LUKI, KLUCZ).'
+            : 'Wklej podsumowanie dogrywki — Ctrl+V'
+        }
+        value={wklejone}
+        onChange={(e) => setWklejone(e.target.value)}
+      />
+      {przyklady && przyklady.length > 0 && (
+        <div className="test-czatem-przyklady">
+          <span className="tcz-szary">Próba — wstaw gotowe podsumowanie:</span>
+          {przyklady.map((p) => (
+            <button key={p.nazwa} className="btn btn-maly" onClick={() => setWklejone(p.tekst)}>
+              {p.nazwa}
             </button>
-            <button className="btn" onClick={async () => void kopiujPolecenie(await zloz())}>
-              Tylko kopiuj
-            </button>
-          </div>
-          {tekst !== null && (
-            <details className="test-czatem-polecenie">
-              <summary>Pokaż polecenie</summary>
-              <textarea readOnly value={tekst} rows={10} onFocus={(e) => e.target.select()} />
-            </details>
-          )}
+          ))}
         </div>
-      </div>
-      <div className="tc-krok test-czatem-wklej">
-        <span className="test-czatem-nr">{++nr}</span>
-        <div className="tc-krok-tresc test-czatem-wklej-pole">
-          <strong>Wklej podsumowanie czatu</strong>
-          {przyklady && przyklady.length > 0 && (
-            <div className="test-czatem-przyklady">
-              <span className="hint">Próba — gotowe podsumowanie:</span>
-              {przyklady.map((p) => (
-                <button key={p.nazwa} className="btn btn-maly" onClick={() => setWklejone(p.tekst)}>
-                  {p.nazwa}
-                </button>
-              ))}
+      )}
+    </div>
+  )
+  const etapy = tryb === 'zero' && bramka && <Etapy teraz={odczytane ? 2 : dogrywka ? 3 : 1} />
+
+  // ---- ocena czatu do zatwierdzenia ----
+  if (odczytane) {
+    const ile = (o: OcenaCzatu['ocena']) => kafelki.filter((k) => ocenaPoCzacie(k) === o).length
+    return (
+      <div className="test-czatem tcz tcz-widok-ocena">
+        {etapy}
+        <div className="tcz-glowa tcz-glowa-rzad">
+          <div>
+            <h1 className="tcz-h1">Ocena czatu{dogrywka ? ' — dogrywka' : ''}</h1>
+            <p className="tcz-pod">
+              {kafelki.length ? 'Zgadzasz się? Kliknij ocenę przy kafelku, żeby ją zmienić.' : 'Sprawdź, co odczytałem, i zapisz.'}
+            </p>
+          </div>
+          {kafelki.length > 0 && (
+            <div className="tcz-podsumowanie">
+              {(['nie', 'czesciowo', 'niesprawdzony', 'tak'] as OcenaCzatu['ocena'][])
+                .filter((o) => ile(o))
+                .map((o) => (
+                  <Ocena key={o} o={o} tekst={`${ile(o)} × ${NAPIS[o]}`} />
+                ))}
             </div>
           )}
-          <textarea
-            className="sesja-pole"
-            rows={4}
-            placeholder="Na końcu rozmowy czat poda podsumowanie w ramce (WYNIK, KAFELKI, LUKI, KLUCZ). Skopiuj je i wklej tutaj."
-            value={wklejone}
-            onChange={(e) => setWklejone(e.target.value)}
-          />
         </div>
-      </div>
-      {odczytane && (
         <div className="test-czatem-odczyt">
-          <h4 className="tc-tytul">Ocena czatu — zgadzasz się?</h4>
-          {kafelki.length > 0 && <span className="hint">Kliknij ocenę przy kafelku, żeby ją zmienić.</span>}
           {kafelki.length > 0 ? (
             <OcenaDoZatwierdzenia
               kafelki={kafelki}
               onZmien={(i, twoja) => setKafelki((l) => l.map((k, x) => (x === i ? { ...k, twoja } : k)))}
             />
           ) : (
-            <span className="hint">
+            <p className="tcz-karta tcz-pusto">
               {odczytane.zaliczone === undefined
                 ? 'Nie widzę podsumowania (WYNIK, KAFELKI) — zapiszę to jako luki.'
                 : 'Bez ocen kafelków — liczy się sam WYNIK.'}
-            </span>
+            </p>
           )}
-          <div
-            className={`test-czatem-werdykt ${zaliczone ? 'zaznacz-tak' : 'zaznacz-nie'}`}
-            data-werdykt={zaliczone ? 'zaliczone' : 'luki'}
-          >
-            <span className="tc-werdykt-slowo">{zaliczone ? 'ZALICZONE' : 'NIEZALICZONE'}</span>
-            <span className="tc-werdykt-co">
+          <details className="tcz-surowy">
+            <summary>Pokaż wklejony tekst</summary>
+            <pre>{wklejone}</pre>
+          </details>
+        </div>
+        <div className="tcz-stopka">
+          <div className="test-czatem-werdykt tcz-werdykt" data-werdykt={zaliczone ? 'zaliczone' : 'luki'}>
+            <Ocena o={zaliczone ? 'tak' : 'nie'} tekst={zaliczone ? 'Zaliczone' : 'Niezaliczone'} />
+            <span className="tcz-werdykt-co">
               {zaliczone
                 ? bramka
                   ? `Sektor idzie dalej${zostaje ? `; kafelki na Częściowo (${zostaje}) będą słabe` : ''}.`
@@ -470,20 +601,137 @@ export function TestCzatem({ j, tryb, onWynik, wynik, proba, przyklady, onMapuj,
               {odczytane.zaliczone !== undefined && odczytane.zaliczone !== zaliczone && ' (liczą się oceny kafelków po twoich zmianach)'}
             </span>
           </div>
-          <button className="btn btn-primary tc-zapisz" disabled={zapisuje} onClick={zapisz} data-zapisz-czat>
-            Zapisz
+          <button className="tcz-link" onClick={() => setWklejone('')} data-wklej-ponownie>
+            Wklej ponownie
+          </button>
+          <button className="btn btn-primary tcz-zapisz" disabled={zapisuje} onClick={zapisz} data-zapisz-czat>
+            Zapisz wynik
           </button>
         </div>
-      )}
+      </div>
+    )
+  }
+
+  // ---- luki i dogrywka ----
+  if (dogrywka) {
+    const slabe = slabeKafelki(j)
+    return (
+      <div className="test-czatem tcz tcz-widok-luki">
+        {etapy}
+        {pokazSkutki && <SkutkiCzatu po={pokazSkutki} />}
+        <div className="tcz-uklad">
+          <section className="tcz-glowna">
+            <div className="tcz-glowa tcz-glowa-rzad tcz-glowa-luki">
+              <h1 className="tcz-h1">{slabe.length ? `${luk(slabe.length)} do poprawy` : 'Luki do poprawy'}</h1>
+              <Ocena o="nie" tekst={bramka ? 'Niezaliczone' : 'Dogrywka dobrowolna'} />
+            </div>
+            <PodsumowanieLuk j={j} />
+            {(j.czatKafelki?.length ?? 0) > 0 && (
+              <details className="tcz-karta tcz-wszystkie">
+                <summary>
+                  Wszystkie oceny czatu · {j.czatKafelki!.length} {kafelkow(j.czatKafelki!.length)}
+                  <span className="tcz-szary"> — {j.czatKafelki!.length - slabe.length} bez luk, {slabe.length} z lukami</span>
+                </summary>
+                <OcenyCzatu kafelki={j.czatKafelki!} />
+              </details>
+            )}
+          </section>
+          <aside className="tcz-karta tcz-co-dalej" aria-label="Co dalej">
+            <span className="tcz-lbl">Co dalej</span>
+            <div className="tcz-krok">
+              <span className="tcz-nr">1</span>
+              <div className="tcz-krok-tresc">
+                <b>Popraw mapy</b>
+                <span className="tcz-szary">Luki są już w wymaganiach tych kafelków („z czatu: …").</span>
+                <button className="btn" disabled={!onMapuj} onClick={onMapuj} data-popraw-mapy>
+                  Popraw mapy
+                </button>
+                {!onMapuj && proba && <span className="tcz-szary">(w próbie mapy się nie otwierają)</span>}
+              </div>
+            </div>
+            <div className="tcz-krok tcz-krok-czat">
+              <span className="tcz-nr">2</span>
+              <div className="tcz-krok-tresc">
+                <b>Dogrywka z czatem</b>
+                <span className="tcz-szary">Czat zapyta tylko o luki.</span>
+                {przyciskiCzatu}
+              </div>
+            </div>
+            <div className="tcz-krok">
+              <span className="tcz-nr">3</span>
+              <div className="tcz-krok-tresc">
+                <b>Wklej wynik dogrywki</b>
+                {poleWklej(false)}
+              </div>
+            </div>
+            <p className="tcz-bramka">
+              {bramka ? (
+                <>
+                  Sektor pójdzie dalej dopiero po zaliczonej dogrywce
+                  {(j.dogrywek ?? 0) > 0 && (
+                    <span className="test-czatem-licznik">
+                      {' '}
+                      · nieudane dogrywki: {j.dogrywek} z {wez('limitDogrywek')}
+                    </span>
+                  )}
+                  .
+                </>
+              ) : (
+                'Dogrywka jest dobrowolna — powtórki idą normalnie.'
+              )}
+            </p>
+          </aside>
+        </div>
+      </div>
+    )
+  }
+
+  // ---- start: trzy kroki i pole do wklejenia ----
+  const skopiowane = tekst !== null
+  return (
+    <div className="test-czatem tcz tcz-widok-start">
+      {etapy}
+      {pokazSkutki && <SkutkiCzatu po={pokazSkutki} />}
+      <div className="tcz-glowa">
+        <h1 className="tcz-h1">Test czatem</h1>
+        <p className="tcz-pod">
+          {ile ? `Czat przepyta cię z ${ile} ${kafelkow(ile)}.` : 'Czat przepyta cię z kafelków sektora.'} Na końcu da
+          podsumowanie do wklejenia.
+        </p>
+      </div>
+      <div className="tcz-kroki">
+        <div className={`tcz-karta tcz-krok tcz-krok-czat ${skopiowane ? 'zrobiony' : 'teraz'}`}>
+          <div className="tcz-krok-glowa">
+            <span className="tcz-nr">{skopiowane ? '✓' : 1}</span>
+            <b>Otwórz czat</b>
+          </div>
+          {przyciskiCzatu}
+        </div>
+        <div className={`tcz-karta tcz-krok ${skopiowane ? 'zrobiony' : ''}`}>
+          <div className="tcz-krok-glowa">
+            <span className="tcz-nr">{skopiowane ? '✓' : 2}</span>
+            <b>Porozmawiaj</b>
+          </div>
+          <p className="tcz-szary">Odpowiadaj z pamięci, bez zaglądania. Czat sam zakończy rozmowę.</p>
+        </div>
+        <div className={`tcz-karta tcz-krok ${skopiowane ? 'teraz' : ''}`}>
+          <div className="tcz-krok-glowa">
+            <span className="tcz-nr">3</span>
+            <b>Wklej podsumowanie</b>
+          </div>
+          <p className="tcz-szary">Skopiuj ramkę z końca rozmowy i wklej poniżej.</p>
+        </div>
+      </div>
+      {poleWklej(true)}
       {tryb === 'rozszerzona' && wynik && (
-        <p className="hint test-czatem-zapisane">
+        <p className="tcz-karta test-czatem-zapisane tcz-zapisane">
           Wynik czatu: {wynik.zaliczone ? 'zaliczone' : 'są luki'}
           {wynik.kafelki.length ? ` · ocenione kafelki: ${wynik.kafelki.length}` : ''}
         </p>
       )}
-      {bramka && !dogrywka && !proba && (
+      {bramka && !proba && (
         <button
-          className="btn btn-link test-czatem-pomin"
+          className="tcz-link test-czatem-pomin"
           title="Np. bez internetu albo czat nie działa"
           onClick={() => {
             if (window.confirm('Pominąć czat? Zostanie to w historii, a najbliższa powtórka tego sektora będzie z czatem.'))
@@ -648,13 +896,14 @@ export function CzatNaProbe({
         />
       )}
       {!dalej && !kopia.przemapowanie && (
-        <>
-          {po && <SkutkiCzatu po={po} />}
-          <p className="settings-hint settings-status">
-            W prawdziwej nauce sektor poszedłby dalej:{' '}
-            {kopia.etap === 'zadania' || zadaniaWZero() ? 'zadania (opcjonalne) i test końcowy.' : 'powtórki.'}
-          </p>
-        </>
+        po ? (
+          <KoniecCzatu po={po}>
+            <span className="tcz-szary">
+              W prawdziwej nauce sektor poszedłby dalej:{' '}
+              {kopia.etap === 'zadania' || zadaniaWZero() ? 'zadania, potem test zakryty z zadaniami.' : 'powtórki.'}
+            </span>
+          </KoniecCzatu>
+        ) : null
       )}
       <button
         className="btn btn-link"

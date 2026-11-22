@@ -12613,3 +12613,483 @@ html.okno-powiadomienia #root {
 .ez-koniec .btn-primary { margin-top: 10px; }
 .sesja-uwaga-poprawa { color: var(--danger); font-weight: 600; }
 .sesja-do-zadan { align-self: flex-start; }
+
+/* ===== test czatem — nowy wygląd (projekt „Test czatem — nowy przebieg") ===== */
+.sesja-czat-proba.sesja-czat-ekran { max-width: 1180px; padding: 22px 32px 0; }
+.tcz {
+  --tcz-tak-bg: #e2eee6;
+  --tcz-tak: #22543f;
+  --tcz-cz-bg: #f6ecd2;
+  --tcz-cz: #6b4f0c;
+  --tcz-nie-bg: #f7e0d9;
+  --tcz-nie: #8f3a24;
+  --tcz-ns-bg: #ece6da;
+  --tcz-ns: #55503f;
+  --tcz-lila: #b07cc6;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--ink);
+}
+:root[data-theme='dark'] .tcz {
+  --tcz-tak-bg: #233a2e;
+  --tcz-tak: #9fd0b2;
+  --tcz-cz-bg: #3d321a;
+  --tcz-cz: #e6c47a;
+  --tcz-nie-bg: #432620;
+  --tcz-nie: #eda48c;
+  --tcz-ns-bg: #2f2b23;
+  --tcz-ns: #c7bfab;
+}
+.tcz p { margin: 0; }
+.tcz-karta {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.tcz-szary { color: var(--ink-soft); font-size: 13.5px; line-height: 1.5; }
+.tcz-lbl {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tcz-link {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.tcz-link:hover { background: var(--accent-soft); }
+.tcz-przyciski { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+/* znaczki ocen */
+.tcz-r {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.tcz-r-tak { background: var(--tcz-tak-bg); color: var(--tcz-tak); }
+.tcz-r-czesciowo { background: var(--tcz-cz-bg); color: var(--tcz-cz); }
+.tcz-r-nie { background: var(--tcz-nie-bg); color: var(--tcz-nie); }
+.tcz-r-niesprawdzony { background: var(--tcz-ns-bg); color: var(--tcz-ns); }
+
+/* pasek etapów */
+.tcz-etapy {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+.tcz-etap-wrap { display: inline-flex; align-items: center; gap: 8px; }
+.tcz-etap-kreska { width: 24px; height: 2px; background: var(--line-strong); }
+.tcz-etap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.tcz-etap-nr {
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tcz-etap.zrobiony { color: var(--ink); }
+.tcz-etap.zrobiony .tcz-etap-nr { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tcz-etap.teraz { color: var(--ink); font-weight: 700; }
+.tcz-etap.teraz .tcz-etap-nr { background: var(--tcz-lila); border-color: var(--tcz-lila); color: #2b2620; }
+
+/* nagłówki widoków */
+.tcz-glowa { display: flex; flex-direction: column; gap: 4px; }
+.tcz-glowa-rzad {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+.tcz-glowa-luki { align-items: center; justify-content: flex-start; }
+.tcz-h1 {
+  margin: 0;
+  font-family: var(--font-read);
+  font-size: 29px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.tcz-pod { color: var(--ink-soft); font-size: 15px; }
+.tcz-podsumowanie { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* start: trzy kroki */
+.tcz-kroki {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.tcz-kroki .tcz-krok {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tcz-kroki .tcz-krok.teraz { border: 2px solid var(--ink); padding: 17px 19px; }
+.tcz-krok-glowa { display: flex; align-items: center; gap: 12px; font-size: 16px; }
+.tcz-nr {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--muted);
+}
+.tcz-krok.teraz .tcz-nr { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+.tcz-krok.zrobiony .tcz-nr { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tcz .tcz-otworz { justify-content: center; white-space: normal; text-align: center; min-height: 40px; }
+.tcz .test-czatem-polecenie { font-size: 13px; }
+
+/* pole wklejenia */
+.tcz-wklej { display: flex; flex-direction: column; gap: 10px; }
+.tcz-pole-wklej {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--panel-alt);
+  border: 2px dashed var(--line-strong);
+  border-radius: 14px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+.tcz-wklej.duze .tcz-pole-wklej {
+  min-height: 150px;
+  padding: 28px 24px;
+  text-align: center;
+  font-size: 15px;
+}
+.tcz-wklej.duze .tcz-pole-wklej:not(:placeholder-shown) { text-align: left; }
+.tcz-pole-wklej::placeholder { color: var(--ink-soft); }
+.tcz-pole-wklej:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+.tcz .test-czatem-przyklady { gap: 8px; }
+.tcz-zapisane { padding: 10px 14px; margin: 0; }
+.tcz .test-czatem-pomin { color: var(--ink-soft); font-weight: 500; }
+
+/* ocena czatu */
+.tcz .test-czatem-odczyt { padding: 0; background: transparent; gap: 10px; }
+.tcz-oceny-karta { overflow: visible; }
+.tcz-karta-naglowek {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tcz-karta-naglowek:first-child { border-radius: 13px 13px 0 0; }
+.tcz-karta-naglowek .tcz-link { text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+.tcz-oceny { list-style: none; margin: 0; padding: 0; }
+.tcz-wiersz {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.tcz-oceny:last-child .tcz-wiersz:last-child { border-bottom: 0; }
+.tcz-wiersz-opis { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tcz-wiersz-nazwa { font-size: 15px; }
+.tcz-luki-kafelka {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+.tcz-luka-znak {
+  background: var(--tcz-cz-bg);
+  color: var(--tcz-cz);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  margin-right: 4px;
+}
+.tcz-wybor { position: relative; display: inline-flex; justify-self: end; }
+.tcz-ocena-btn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 132px;
+  justify-content: center;
+  padding: 7px 14px;
+  border: 0;
+  cursor: pointer;
+}
+.tcz-ocena-btn:hover { filter: brightness(0.96); }
+:root[data-theme='dark'] .tcz-ocena-btn:hover { filter: brightness(1.15); }
+.tcz-strzalka { font-size: 10px; opacity: 0.75; }
+.tcz-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 260px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+.tcz-menu-tytul {
+  padding: 6px 8px 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+.tcz-menu-poz {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tcz-menu-poz:hover,
+.tcz-menu-poz.wl { background: var(--panel-alt); }
+.tcz-menu-poz.wl .tcz-r { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px currentColor; }
+.tcz-menu-poz .tcz-szary { font-size: 12px; }
+/* zmieniona ocena: przerywana ramka i podpis */
+.tcz-wiersz.tcz-zmieniona {
+  margin: 8px 10px;
+  padding-top: 30px;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+}
+.tcz-zmiana {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 3px 12px;
+  border-radius: 10px 0 10px 0;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.tcz-tak-zwiniete {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 0 0 13px 13px;
+}
+.tcz-tak-zwiniete:first-child { border-radius: 13px; }
+.tcz-tak-zwiniete:hover { background: var(--panel-alt); }
+.tcz-tak-zwiniete:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tcz-tak-nazwy { color: var(--ink-soft); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tcz-tak-zwiniete .tcz-link { margin-left: auto; flex: none; }
+.tcz-pusto { padding: 14px 18px; color: var(--ink-soft); }
+.tcz-surowy summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
+.tcz-surowy pre {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+.tcz-stopka {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 4px;
+  padding: 14px 18px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.tcz-stopka .tcz-link { align-self: center; }
+.tcz-stopka { box-shadow: 0 -6px 18px rgba(70, 55, 30, 0.06); }
+.sesja:has(.sesja-czat-ekran) .sesja-glowa h2 { font-family: var(--font-read); font-size: 21px; font-weight: 600; }
+.tcz-widok-start,
+.tcz-widok-luki { padding-bottom: 28px; }
+.tcz .tcz-werdykt {
+  flex: 1 1 360px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+  padding: 0;
+  background: transparent;
+}
+.tcz-werdykt .tcz-r { font-size: 13.5px; padding: 6px 14px; }
+.tcz-werdykt-co { font-size: 14px; }
+.tcz .tcz-zapisz { min-height: 44px; padding: 0 26px; font-size: 14.5px; }
+
+/* luki i dogrywka */
+.tcz-uklad { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.tcz-glowna { flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.tcz-luki { display: flex; flex-direction: column; gap: 12px; }
+.tcz-luki-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.tcz-luka { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.tcz-luka-glowa { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 16px; }
+.tcz-luka .tcz-luki-kafelka { font-size: 14.5px; }
+.tcz-wzor summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--accent); }
+.tcz-wzor[open] summary { margin-bottom: 8px; }
+.tcz-wzor .markdown-body {
+  background: var(--panel-alt);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.tcz-wzor-osobno,
+.tcz-wszystkie { padding: 14px 18px; }
+.tcz-wszystkie summary { cursor: pointer; font-weight: 600; font-size: 14.5px; }
+.tcz-luki-tekst { padding: 14px 18px; margin: 0; white-space: pre-wrap; font: inherit; }
+.tcz-podglad { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; }
+.tcz-podglad li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.tcz-podglad li:last-child { border-bottom: 0; }
+.tcz-podglad-nazwa { font-weight: 600; }
+.tcz-podglad .tcz-r { margin-left: auto; }
+.tcz-co-dalej {
+  flex: 0 1 340px;
+  min-width: 280px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+}
+.tcz-co-dalej .tcz-krok { display: flex; gap: 12px; align-items: flex-start; }
+.tcz-co-dalej .tcz-nr { width: 28px; height: 28px; font-size: 13px; background: var(--ink); border-color: var(--ink); color: var(--panel); }
+.tcz-krok-tresc { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.tcz-krok-tresc > b { font-size: 14.5px; }
+.tcz-krok-tresc .tcz-wklej { align-self: stretch; }
+.tcz-co-dalej .tcz-otworz { align-self: stretch; }
+.tcz-bramka {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+/* skutki zapisu */
+.tcz-skutki { padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+.tcz-skutki-glowa { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14.5px; }
+.tcz-tabela { border-collapse: collapse; font-size: 13.5px; width: 100%; }
+.tcz-tabela th,
+.tcz-tabela td { text-align: left; padding: 7px 12px 7px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tcz-tabela th { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.tcz-tabela tr:last-child td { border-bottom: 0; }
+.tcz-tabela .tcz-r { font-size: 12px; padding: 2px 9px; }
+
+/* koniec: czat zaliczony */
+.tcz-koniec {
+  width: 100%;
+  max-width: 760px;
+  box-sizing: border-box;
+  margin: 24px auto 0;
+  padding: 32px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.tcz-koniec-glowa { display: flex; align-items: center; gap: 16px; }
+.tcz-koniec-ikona {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 700;
+  background: var(--tcz-tak-bg);
+  color: var(--tcz-tak);
+}
+.tcz-koniec-ikona.luki { background: var(--tcz-nie-bg); color: var(--tcz-nie); }
+.tcz-chipy { display: flex; flex-wrap: wrap; gap: 6px; }
+.tcz-chipy .tcz-r { font-weight: 600; }
+.tcz-koniec .tcz-skutki { background: var(--panel-alt); border: 0; }
+.tcz-koniec-dalej { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 18px; }
+.tcz-koniec-dalej .btn { min-height: 44px; padding: 0 22px; }
+
+@media (max-width: 720px) {
+  .sesja-czat-proba.sesja-czat-ekran { padding: 16px 16px 0; }
+  .tcz-wiersz { grid-template-columns: 1fr; }
+  .tcz-wybor { justify-self: start; }
+  .tcz-co-dalej { position: static; flex-basis: 100%; }
+}
+.tcz .test-czatem-odczyt { border: 0; border-radius: 0; }

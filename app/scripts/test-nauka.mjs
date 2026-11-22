@@ -183,7 +183,7 @@ d = await baza()
 check('po teście sektor czeka na czat (z kartą FSRS)', d.nauka.find((j) => j.id === sektor.id)?.etap === 'czat' && !!d.nauka.find((j) => j.id === sektor.id)?.karta)
 
 // --- test czatem w powtórce zero ---
-await page.click('.sesja-wynik .test-czatem-krok .btn-primary')
+await page.click('.sesja-wynik .tcz-krok-czat .btn-primary')
 await page.waitForTimeout(600)
 const polecenieCzatu = await page.evaluate(() => navigator.clipboard.readText())
 check('polecenie czatu w schowku: zasady, pytania i materiał',
@@ -191,19 +191,19 @@ check('polecenie czatu w schowku: zasady, pytania i materiał',
     polecenieCzatu.includes('Zbiór otwarty to taki') && polecenieCzatu.includes('Metryka → kule'),
   polecenieCzatu.slice(0, 60))
 check('otwiera wybrany czat (domyślnie Gemini)', (await page.evaluate(() => window.__otwarte.at(-1))) === 'https://gemini.google.com/app')
-await page.fill('.sesja-wynik .test-czatem-wklej textarea', 'Dobrze ci poszło.\nWYNIK: NIEZALICZONE\nLUKI:\n- brak przykładu kuli\n- myli kulę z otoczeniem')
+await page.fill('.sesja-wynik .tcz-pole-wklej', 'Dobrze ci poszło.\nWYNIK: NIEZALICZONE\nLUKI:\n- brak przykładu kuli\n- myli kulę z otoczeniem')
 await page.click('.sesja-wynik [data-zapisz-czat]')
 await page.waitForTimeout(500)
 d = await baza()
 const poCzacie = d.nauka.find((j) => j.id === sektor.id)
 check('luki z czatu zapisane, sektor dalej w czacie', poCzacie.etap === 'czat' && poCzacie.luki?.startsWith('- brak przykładu') && !poCzacie.luki.includes('WYNIK'), poCzacie.luki)
-check('dogrywka: przycisk i lista luk', (await page.locator('.sesja-wynik .test-czatem-krok .btn-primary').innerText()).startsWith('Dogrywka') &&
+check('dogrywka: przycisk i lista luk', (await page.locator('.sesja-wynik .tcz-krok-czat .btn-primary').innerText()).startsWith('Dogrywka') &&
   (await page.locator('.sesja-wynik .test-czatem').innerText()).includes('myli kulę'))
-await page.click('.sesja-wynik .test-czatem-krok .btn-primary')
+await page.click('.sesja-wynik .tcz-krok-czat .btn-primary')
 await page.waitForTimeout(500)
 const dogrywka = await page.evaluate(() => navigator.clipboard.readText())
 check('polecenie dogrywki ma tylko luki', dogrywka.includes('TYLKO te luki') && dogrywka.includes('myli kulę z otoczeniem'))
-await page.fill('.sesja-wynik .test-czatem-wklej textarea', 'WYNIK: ZALICZONE\nLUKI:\n- brak')
+await page.fill('.sesja-wynik .tcz-pole-wklej', 'WYNIK: ZALICZONE\nLUKI:\n- brak')
 await page.click('.sesja-wynik [data-zapisz-czat]')
 await page.waitForTimeout(500)
 check('zaliczona dogrywka prowadzi do zadań', (await page.locator('.sesja-wynik').innerText()).includes('Teraz zadania'))
@@ -423,7 +423,7 @@ for (let i = 0; i < 2; i++) {
 await page.click('button:has-text("Odkryj mapę")')
 await page.click('.sesja-mapa-porownaj .zaznacz-tak')
 check('ocena czeka na wynik czatu', (await page.locator('.sesja-zapisz').count()) === 0)
-await page.fill('.sesja-czat .test-czatem-wklej textarea', '- zapomniał o symetrii')
+await page.fill('.sesja-czat .tcz-pole-wklej', '- zapomniał o symetrii')
 await page.click('.sesja-czat [data-zapisz-czat]')
 const podpCzat = await page.locator('.sesja-ocena-btn.btn-active .sesja-ocena-nazwa').innerText()
 check('luki w czacie obniżają podpowiedź do „Trudno"', podpCzat === 'Trudno', podpCzat)
