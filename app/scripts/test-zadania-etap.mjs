@@ -209,10 +209,10 @@ check('kafelki rysowane w całości, bez przycinania', await page.evaluate(() =>
 }))
 // prawy przycisk: pełna edycja jak w bibliotece (z PDF obok)
 await page.click(`${W} .block-stopka`, { button: 'right', position: { x: 5, y: 5 } })
-await page.waitForSelector(`${E} .ez3-menu`)
-check('menu pod prawym: pełna edycja, źródła, usuwanie', (await page.locator(`${E} .ez3-menu`).innerText()).includes('Pełna edycja') &&
-  (await page.locator(`${E} .ez3-menu`).innerText()).includes('Usuń zadanie'))
-await page.click(`${E} .ez3-menu [data-pelna-edycja]`)
+await page.waitForSelector(`.ez3-menu`)
+check('menu pod prawym: pełna edycja, źródła, usuwanie', (await page.locator(`.ez3-menu`).innerText()).includes('Pełna edycja') &&
+  (await page.locator(`.ez3-menu`).innerText()).includes('Usuń zadanie'))
+await page.click(`.ez3-menu [data-pelna-edycja]`)
 await page.waitForSelector(`${E} [data-pelna-edycja-widok] .editor`)
 check('pełna edycja: edytor z biblioteki (Podepnij źródło, Kafelek jako źródło), PDF dalej obok', (await page.locator(`${E} [data-pelna-edycja-widok]`).innerText()).includes('Podepnij źródło') &&
   (await page.locator(`${E} .ez3-pdf .pdf-panel`).count()) === 1 && (await page.locator(`${E} .ez3-kolumna`).count()) === 0)
@@ -290,6 +290,11 @@ await page.click(`${E} .test-czatem-przyklady button`)
 await page.click(`${E} [data-dodaj-od-czatu]`)
 await page.waitForTimeout(300)
 check('próba: zadania w pamięci (własne i od czatu)', (await page.locator(`${E} .ez2-poz`).count()) >= 3)
+await page.click(`${W} .block-stopka`, { button: 'right', position: { x: 5, y: 5 } })
+await page.click('.ez3-menu [data-pelna-edycja]')
+await page.waitForSelector('.komunikat-ekran')
+check('próba: „Pełna edycja" mówi, czemu nie (zamiast martwego przycisku)', (await page.locator('.komunikat-ekran').innerText()).includes('pełna edycja działa w prawdziwym sektorze') &&
+  (await page.locator('.ez3-menu').count()) === 0)
 check('próba: co byłoby dalej', (await page.locator(`${E} .settings-status`).innerText()).includes('test zakryty z zadaniami'))
 await page.click('.sesja-glowa button:has-text("Wróć")')
 await page.waitForTimeout(400)

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Editor } from '@tiptap/react'
 import { adresCzatu, czatWybrany, CZATY, czytajZadania, kopiujPolecenie, otworzCzat, zlozPolecenie, type ZadanieOdCzatu } from '../czat'
@@ -521,7 +522,10 @@ export function EtapZadan({
   const pelnyConcept = useLiveQuery(() => (pelny ? db.concepts.get(pelny) : undefined), [pelny])
   const pelneWersje = useLiveQuery(() => (pelny ? db.versions.where('conceptId').equals(pelny).toArray() : []), [pelny]) ?? []
   const pelnaWersja =
-    pelneWersje.find((v) => v.id === wersjaPelna) ?? pelneWersje.find((v) => v.id === pelnyConcept?.currentVersionId)
+    pelneWersje.find((v) => v.id === wersjaPelna) ??
+    pelneWersje.find((v) => v.id === pelnyConcept?.currentVersionId) ??
+    // bieżąca wersja zgubiona — otwieramy najnowszą, zamiast nie otworzyć nic
+    [...pelneWersje].sort((a, b) => b.version - a.version)[0]
   /** Edytory kafelków — jeden wspólny pasek narzędzi działa na wybranym, jak w Linii. */
   const edytory = useRef(new Map<string, Editor>())
   const [, setIleEdytorow] = useState(0)
@@ -582,8 +586,18 @@ export function EtapZadan({
     przewin(`[data-zadanie-edycja="${id}"]`)
   }
 
-  const otworzPelna = (id: string) => {
+  const komunikat = (t: string) => window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: t }))
+  const otworzPelna = async (id: string) => {
+    if (proba) {
+      komunikat('Próba: te zadania są tylko na niby, w pamięci — pełna edycja działa w prawdziwym sektorze.')
+      return
+    }
     zapis.wypchnij()
+    // nigdy po cichu: jeśli kafelka nie ma, mówimy o tym
+    if (!(await db.concepts.get(id))) {
+      komunikat('Nie znalazłem tego kafelka w bibliotece — nie da się go otworzyć.')
+      return
+    }
     setPodpinam(null)
     setWersjaPelna(null)
     setPelny(id)
@@ -980,7 +994,8 @@ export function EtapZadan({
             setMenu(null)
             f()
           }
-          return (
+          // menu nad całym oknem — żaden panel ani przewijana kolumna go nie przytnie
+          return createPortal(
             <div
               className="tree-menu ez3-menu"
               style={{ left: Math.min(menu.x, window.innerWidth - 270), top: Math.min(menu.y, window.innerHeight - 200) }}
@@ -990,9 +1005,8 @@ export function EtapZadan({
               <button
                 className="tree-menu-item"
                 data-pelna-edycja
-                disabled={!!proba}
-                title={proba ? 'W próbie zadania są tylko w pamięci — pełna edycja działa w prawdziwej nauce' : 'Ten sam edytor co w bibliotece: wersje, strony, źródła, podgląd'}
-                onClick={zrob(() => otworzPelna(z.id))}
+                title={proba ? 'W próbie zadania są tylko w pamięci — pełna edycja działa w prawdziwym sektorze' : 'Ten sam edytor co w bibliotece: wersje, strony, źródła, podgląd'}
+                onClick={zrob(() => void otworzPelna(z.id))}
               >
                 <Icon name="edycja" size={0.95} /> Pełna edycja (jak w bibliotece)
               </button>
@@ -1011,7 +1025,8 @@ export function EtapZadan({
               <button className="tree-menu-item ez3-menu-usun" onClick={zrob(() => void usun(z))}>
                 <Icon name="usun" size={0.95} /> Usuń zadanie
               </button>
-            </div>
+            </div>,
+            document.body,
           )
         })()}
 
