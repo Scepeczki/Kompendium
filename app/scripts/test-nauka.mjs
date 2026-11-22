@@ -348,8 +348,8 @@ check('nieudany test końcowy: zostaje przy zadaniach, do poprawy kafelki i zada
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 await page.waitForSelector('.karta-sektora')
 await page.click('.karta-sektora [data-zadania]')
-await page.waitForSelector('.etap-zadan .ez-zadanie')
-check('zadanie do poprawy zaznaczone na ekranie zadań', (await page.locator('.ez-zadanie.do-poprawy').count()) === 2 &&
+await page.waitForSelector('.etap-zadan .ez2-poz')
+check('zadanie do poprawy zaznaczone na ekranie zadań', (await page.locator('.ez2-poz.do-poprawy').count()) === 2 &&
   (await page.locator('.sesja-uwaga-poprawa').count()) === 1)
 await page.click('.sesja-glowa button:has-text("Wróć")')
 

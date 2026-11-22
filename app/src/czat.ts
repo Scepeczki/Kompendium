@@ -183,7 +183,39 @@ Materiał — sektor „{NAZWA}":
 
 {MATERIAL}`
 
-export const POLECENIE_ZADANIA = `Ułóż {ILE} NOWYCH zadań do materiału podanego na końcu (sektor „{NAZWA}"). Materiał jest jedynym źródłem prawdy.
+export const POLECENIE_ZADANIA = `Bądź moim korepetytorem. Ułóż {ILE} NOWYCH zadań do materiału podanego na końcu (sektor „{NAZWA}") i przerób je ze mną. Materiał jest jedynym źródłem prawdy.
+
+Zadania:
+- Mają sprawdzać zrozumienie i metodę (jak to rozwiązać i dlaczego), a nie długie rachunki.
+- Każde dotyczy tego materiału. Różnicuj je: różne kafelki i różne rodzaje (dowód, przykład i kontrprzykład, zastosowanie, wykrycie błędu).
+- NIE powtarzaj zadań, które już są w tym sektorze — ani tych samych, ani tylko przeformułowanych. Oto wszystkie dotychczasowe zadania sektora:
+{ZADANIA}
+- Pisz po polsku, wzory w LaTeX-u.
+
+Przebieg — tego się trzymaj:
+1. Najpierw podaj SAME TREŚCI zadań, ponumerowane. Bez rozwiązań, bez odpowiedzi i bez wskazówek.
+2. Poczekaj, aż napiszę swoje rozwiązania (po jednym albo kilka naraz).
+3. Każde moje rozwiązanie oceń: poprawne — albo pokaż, gdzie jest błąd lub luka, i pozwól mi poprawić. Gotowego rozwiązania nie podawaj, dopóki nie spróbuję albo nie napiszę „nie wiem".
+4. Dopiero gdy wszystkie zadania są omówione, podaj wszystkie w JEDNYM bloku kodu, każde według wzoru (zadania oddziel linią „---"). ROZWIĄZANIE to rozwiązanie wzorcowe: metoda i kluczowe kroki. Jeśli moje poprawne rozwiązanie szło inną drogą, dopisz je jako ROZWIĄZANIE 2 (krótko, moją metodą).
+\`\`\`
+ZADANIE: krótka nazwa zadania
+TREŚĆ:
+treść zadania
+ROZWIĄZANIE:
+metoda i kluczowe kroki
+ROZWIĄZANIE 2:
+drugie poprawne rozwiązanie (tylko jeśli było)
+---
+ZADANIE: …
+\`\`\`
+
+Materiał — sektor „{NAZWA}":
+
+{MATERIAL}`
+
+/** Poprzednie domyślne polecenie zadań (rozwiązania od razu) — zapisane
+ *  w ustawieniach bez zmian zastępujemy nowym. */
+const POLECENIE_ZADANIA_POPRZEDNIE = `Ułóż {ILE} NOWYCH zadań do materiału podanego na końcu (sektor „{NAZWA}"). Materiał jest jedynym źródłem prawdy.
 
 Zasady:
 - Zadania mają sprawdzać zrozumienie i metodę (jak to rozwiązać i dlaczego), a nie długie rachunki.
@@ -221,7 +253,11 @@ export const DOMYSLNE: Record<RodzajPolecenia, string> = {
   sprawdz: POLECENIE_SPRAWDZ,
   zadania: POLECENIE_ZADANIA,
 }
-export const polecenie = (r: RodzajPolecenia) => localStorage.getItem(KLUCZ_POLECENIA[r]) ?? DOMYSLNE[r]
+export const polecenie = (r: RodzajPolecenia) => {
+  const t = localStorage.getItem(KLUCZ_POLECENIA[r])
+  if (r === 'zadania' && t === POLECENIE_ZADANIA_POPRZEDNIE) return DOMYSLNE[r]
+  return t ?? DOMYSLNE[r]
+}
 export const ustawPolecenie = (r: RodzajPolecenia, t: string) => {
   localStorage.setItem(KLUCZ_POLECENIA[r], t)
   zmiana()
@@ -371,11 +407,13 @@ export async function listaZadanSektora(j: JednostkaNauki): Promise<string> {
 export interface ZadanieOdCzatu {
   nazwa: string
   tresc: string
+  /** Pierwsze (wzorcowe) rozwiązanie — to samo, co rozwiazania[0]. */
   rozwiazanie: string
+  rozwiazania: string[]
 }
 
-/** Odczytuje zadania z odpowiedzi czatu: ZADANIE / TREŚĆ / ROZWIĄZANIE,
- *  zadania oddzielone „---". */
+/** Odczytuje zadania z odpowiedzi czatu: ZADANIE / TREŚĆ / ROZWIĄZANIE
+ *  (/ ROZWIĄZANIE 2 …), zadania oddzielone „---". */
 export function czytajZadania(wklejone: string): ZadanieOdCzatu[] {
   const tekst = wklejone.replace(/^[ \t]*```.*$/gm, '')
   const out: ZadanieOdCzatu[] = []
@@ -383,11 +421,16 @@ export function czytajZadania(wklejone: string): ZadanieOdCzatu[] {
     const bez = cz.replace(/^[ \t]*-{3,}[ \t]*$/gm, '')
     const nazwa = bez.split('\n')[0].replace(/\*/g, '').trim()
     const mT = /^[ \t>#*]*TRE[ŚS][ĆC]\**[ \t]*:[ \t]*/im.exec(bez)
-    const mR = /^[ \t>#*]*ROZWI[ĄA]ZANIE\**[ \t]*:[ \t]*/im.exec(bez)
-    const tresc = mT ? bez.slice(mT.index + mT[0].length, mR && mR.index > mT.index ? mR.index : undefined).trim() : ''
-    const rozwiazanie = mR ? bez.slice(mR.index + mR[0].length).trim() : ''
+    const mR = [...bez.matchAll(/^[ \t>#*]*ROZWI[ĄA]ZANIE(?:[ \t]*\d+)?\**[ \t]*:[ \t]*/gim)]
+    const pierwszy = mR[0]?.index
+    const tresc = mT
+      ? bez.slice(mT.index + mT[0].length, pierwszy !== undefined && pierwszy > mT.index ? pierwszy : undefined).trim()
+      : ''
+    const rozwiazania = mR
+      .map((m, i) => bez.slice(m.index! + m[0].length, mR[i + 1]?.index).trim())
+      .filter((r) => r && !/^\(?drugie poprawne rozwiązanie/i.test(r))
     if (!nazwa && !tresc) continue
-    out.push({ nazwa: nazwa || 'Zadanie', tresc, rozwiazanie })
+    out.push({ nazwa: nazwa || 'Zadanie', tresc, rozwiazanie: rozwiazania[0] ?? '', rozwiazania })
   }
   return out
 }

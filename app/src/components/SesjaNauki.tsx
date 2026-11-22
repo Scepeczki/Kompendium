@@ -6,7 +6,7 @@ import { useBlockTypes } from '../blockTypes'
 import { BlockShell } from './BlockShell'
 import { GroupShell } from './GroupShell'
 import { Icon } from './Icon'
-import { CzatNaProbe, KoniecCzatu, SkutkiCzatu, TestCzatem, przykladyPodsumowan, type CzatWSesji } from './TestCzatem'
+import { CzatNaProbe, Etapy, KoniecCzatu, SkutkiCzatu, TestCzatem, przykladyPodsumowan, type CzatWSesji } from './TestCzatem'
 import { useZadania } from './ZadaniaSektora'
 import { wez } from '../naukaUstawienia'
 import { TrybMapowania } from './TrybMapowania'
@@ -486,20 +486,12 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
             ← Wróć
           </button>
         </header>
-        <div className="sesja-wynik sesja-czat-proba">
-          <p className="hint">
-            Dodaj zadania do sektora — sam (+ Nowe zadanie) albo od czatu. Potem test zakryty: kafelki
-            i zadania (treść widać, rozwiązanie zakryte).
-          </p>
-          {!!j.doPoprawy?.length && j.etap === 'zadania' && (
-            <p className="tc-bramka sesja-uwaga-poprawa">
-              Test zakryty nie wyszedł — popraw zaznaczone ({j.doPoprawy.length}) i zrób go jeszcze raz.
-            </p>
-          )}
+        <div className="sesja-wynik sesja-czat-proba sesja-czat-ekran sesja-zadania-ekran">
           <EtapZadan
             j={j}
             proba={!!cel.proba}
             onTest={() => window.dispatchEvent(new CustomEvent('komp:sesja', { detail: { jednostkaId: j.id } }))}
+            onGotowe={onZamknij}
           />
         </div>
       </section>
@@ -796,8 +788,17 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     )
   }
 
+  const ocenione = pozycje.filter((p) => oceny[p.klucz]).length + (zStruktura && struktura ? 1 : 0)
+  const wszystkich = pozycje.length + (zStruktura ? 1 : 0)
+  const idzDo = (klucz: string) =>
+    document
+      .querySelector(klucz === 'mapa' ? '.sesja-mapa-pamiec' : `.sesja-element[data-klucz="${CSS.escape(klucz)}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const IKONY: Record<Przypomnienie, string> = { tak: '✓', czesciowo: '◐', nie: '✕' }
+  const zPowtorkiZero = !!sektor && (pierwszyTest || zero || koncowy) && !douczanie && !przemapowanie && !cel.klucz
+
   return (
-    <section className="sesja">
+    <section className="sesja tz">
       <header className="sesja-glowa">
         <div>
           <span className="sesja-rodzaj">{rodzajSesji}</span>
@@ -811,10 +812,60 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       </header>
 
       <div className="sesja-tresc">
-        <p className="sesja-zasada">
-          Najpierw napisz, co pamiętasz, potem odsłoń. <strong>Sprawdź</strong> — gdy już sobie
-          przypomniałeś. <strong>Podejrzyj</strong> — gdy nie pamiętasz (liczy się jako „Nie").
-        </p>
+       <div className="tz-uklad">
+        <aside className="tz-lewa" aria-label="Kafelki testu">
+          <span className="tcz-lbl">{fiszka ? 'Fiszka' : 'Kafelki'}</span>
+          <div className="tz-postep" aria-label={`Ocenione ${ocenione} z ${wszystkich}`}>
+            <div className="tz-postep-pasek">
+              <div style={{ width: `${wszystkich ? (100 * ocenione) / wszystkich : 0}%` }} />
+            </div>
+            <span>
+              {ocenione} z {wszystkich}
+            </span>
+          </div>
+          <ol className="tz-lista">
+            {zStruktura && (
+              <li>
+                <button className={`tz-poz ${struktura ? `ocena-${struktura}` : ''}`} onClick={() => idzDo('mapa')}>
+                  <span className="tz-nr">∑</span>
+                  <span className="tz-poz-nazwa">Mapa sektora</span>
+                  {struktura && <span className={`tcz-r tcz-r-${struktura}`}>{IKONY[struktura]}</span>}
+                </button>
+              </li>
+            )}
+            {pozycje.map((p, i) => {
+              const o = oceny[p.klucz]
+              return (
+                <li key={p.klucz}>
+                  <button
+                    className={`tz-poz ${o ? `ocena-${o}` : odkryte.has(p.klucz) ? 'odkryty' : ''}`}
+                    onClick={() => idzDo(p.klucz)}
+                  >
+                    <span className="tz-nr">{i + 1}</span>
+                    <span className="tz-poz-nazwa">
+                      {trudny ? `Kafelek ${i + 1}` : p.nazwa}
+                      {p.zadanie && <span className="tz-poz-zad"> · zadanie</span>}
+                    </span>
+                    {o && <span className={`tcz-r tcz-r-${o}`}>{IKONY[o]}</span>}
+                  </button>
+                </li>
+              )
+            })}
+          </ol>
+        </aside>
+        <div className="tz-glowna">
+        {zPowtorkiZero && (
+          <div className="tcz">
+            <Etapy teraz={koncowy ? 4 : 0} />
+          </div>
+        )}
+        <div className="tz-tytul">
+          <h1 className="tcz-h1">{koncowy ? 'Test zakryty z zadaniami' : douczanie ? 'Test nowych' : 'Test zakryty'}</h1>
+          <p className="sesja-zasada">
+            Najpierw napisz, co pamiętasz, potem odsłoń. <strong>Sprawdź</strong> — gdy już sobie
+            przypomniałeś. <strong>Podejrzyj</strong> — gdy nie pamiętasz (liczy się jako „Nie").
+          </p>
+        </div>
 
         {zStruktura && (
           <div className="sesja-blok sesja-mapa-pamiec">
@@ -1095,6 +1146,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
             </>
           )}
         </div>
+        </div>
+       </div>
       </div>
     </section>
   )

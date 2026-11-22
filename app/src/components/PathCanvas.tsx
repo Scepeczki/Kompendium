@@ -83,7 +83,6 @@ import {
   stylRozdzialu,
   stylTekstu,
 } from './Outline'
-import { KontekstKafelka } from './KontekstKafelka'
 import { PanelNauki } from './PanelNauki'
 import { SpisNauki } from './SpisNauki'
 import { PasekZadan } from './ZadaniaSektora'
@@ -2093,7 +2092,6 @@ function LinearView({
   }
 
   const outline = pozycjeSpisu(ordered, (id) => mapy.klocki.get(id), typy)
-  const wezelBiezacy = ordered.find((n) => n.id === biezacy) ?? null
 
   return (
     <div
@@ -2273,13 +2271,7 @@ function LinearView({
         </div>
       </div>
       </div>
-      <KontekstKafelka
-        wezel={wezelBiezacy}
-        concepts={concepts}
-        versions={versions}
-        onJumpToSource={(r) => onJumpToSource?.(r)}
-        onOpenConcept={(id) => onOpenConcept?.(id)}
-      />
+      {/* panel „Zaznaczony kafelek" zdjęty — zabierał miejsce, a nikt go nie używał */}
 
       {segMenu && trybNauki && (() => {
         const sasiad = ordered[segMenu.index]

@@ -86,7 +86,7 @@ function luk(n: number) {
 const kafelkow = (n: number) => (n === 1 ? 'kafelka' : 'kafelków')
 
 /** Pasek etapów powtórki zero nad testem czatem. */
-function Etapy({ teraz }: { teraz: number }) {
+export function Etapy({ teraz }: { teraz: number }) {
   const etapy = ['Test zakryty', 'Czat', 'Wynik', 'Luki i dogrywka', ...(zadaniaWZero() ? ['Zadania'] : [])]
   return (
     <nav className="tcz-etapy" aria-label="Etapy powtórki zero">

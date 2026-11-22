@@ -144,14 +144,36 @@ const MathRender = Extension.create({
       })
       return decos
     }
+    // Kod wzoru pokazujemy tylko wtedy, gdy naprawdę się w nim pisze. Pole bez
+    // kursora też ma zaznaczenie (na początku treści) — bez tego wzór stojący
+    // na samym początku kafelka wyglądał jak surowy kod.
+    const klucz = new PluginKey<boolean>('mathRender')
     return [
-      new Plugin({
-        key: new PluginKey('mathRender'),
+      new Plugin<boolean>({
+        key: klucz,
+        state: {
+          init: () => false,
+          apply: (tr, bylo) => {
+            const m = tr.getMeta(klucz)
+            return typeof m === 'boolean' ? m : bylo
+          },
+        },
         props: {
+          handleDOMEvents: {
+            focus: (view) => {
+              view.dispatch(view.state.tr.setMeta(klucz, true))
+              return false
+            },
+            blur: (view) => {
+              view.dispatch(view.state.tr.setMeta(klucz, false))
+              return false
+            },
+          },
           decorations(state) {
+            const piszeTu = klucz.getState(state)
             return DecorationSet.create(
               state.doc,
-              build(state.doc, state.selection.from, state.selection.to),
+              piszeTu ? build(state.doc, state.selection.from, state.selection.to) : build(state.doc, -1, -1),
             )
           },
         },

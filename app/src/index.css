@@ -13093,3 +13093,373 @@ html.okno-powiadomienia #root {
   .tcz-co-dalej { position: static; flex-basis: 100%; }
 }
 .tcz .test-czatem-odczyt { border: 0; border-radius: 0; }
+
+/* ===== ekran zadań — lista z lewej, schemat kafelka-zadania pośrodku (jak mapowanie) ===== */
+.sesja-czat-proba.sesja-zadania-ekran { max-width: 1320px; }
+.ez2-ekran { display: flex; flex-direction: column; gap: 14px; }
+.ez2-uwaga { margin: 0; padding: 10px 16px; }
+.ez2 {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.ez2-lewa {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+.ez2-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ez2-poz {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.ez2-poz:hover { background: var(--panel); }
+.ez2-poz.wl {
+  background: var(--panel);
+  border-color: var(--c-uwaga, var(--accent));
+  box-shadow: var(--cien-karta);
+  font-weight: 700;
+}
+.ez2-nr {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1.5px solid var(--line-strong);
+  color: var(--ink-soft);
+}
+.ez2-poz.wl .ez2-nr { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+.ez2-poz-nazwa { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ez2-poz-znak {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--tcz-nie-bg, #f7e0d9);
+  color: var(--tcz-nie, #8f3a24);
+}
+.ez2-brak { padding: 4px 2px; }
+.ez2-doloz {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 14px;
+  border: 2px dashed var(--line-strong);
+  border-radius: 14px;
+}
+.ez2-doloz-btn { justify-content: flex-start; gap: 10px; min-height: 40px; }
+.ez2-czat-znak { color: var(--accent); font-size: 15px; }
+.ez2-typ {
+  flex: none;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  color: var(--typ, var(--accent));
+  background: color-mix(in srgb, var(--typ, var(--accent)) 14%, transparent);
+}
+.ez2-glowna { min-width: 0; }
+
+/* schemat kafelka-zadania */
+.ez2-kafelek {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--cien-karta);
+  display: flex;
+  flex-direction: column;
+}
+.ez2-kafelek-glowa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px 10px;
+}
+.ez2-tytul {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-read);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--ink);
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  background: transparent;
+  padding: 2px 0;
+}
+.ez2-tytul:hover { border-bottom-color: var(--line-strong); }
+.ez2-tytul:focus { outline: none; border-bottom-color: var(--accent); }
+.ez2-zapis { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.ez2-strony {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 22px 0;
+}
+.ez2-strona-wrap { display: inline-flex; align-items: center; }
+.ez2-strona {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.ez2-strona.wl { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+.ez2-strona-wrap.wl .ez2-strona { border-radius: 999px 0 0 999px; padding-right: 10px; }
+.ez2-strona-usun {
+  font: inherit;
+  min-height: 34px;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--ink);
+  border-left: 0;
+  border-radius: 0 999px 999px 0;
+  background: var(--ink);
+  color: var(--panel);
+  opacity: 0.85;
+  cursor: pointer;
+}
+.ez2-strona-usun:hover { opacity: 1; color: #f7a58f; }
+.ez2-strona-plus { border-style: dashed; color: var(--accent); background: transparent; }
+.ez2-strona-opis { margin: 10px 22px 0; font-size: 13px; color: var(--ink-soft); }
+.ez2-edytor {
+  margin: 12px 22px 22px;
+  min-height: 280px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.ez2-edytor .ProseMirror { min-height: 220px; padding: 14px 16px; }
+
+/* pusto: dwa duże plusy */
+.ez2-pusto { display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
+.ez2-pusto-przyciski { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 10px; }
+.ez2-plus-duzy {
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 22px;
+  border: 2px dashed var(--line-strong);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.ez2-plus-duzy:hover { border-color: var(--accent); background: var(--panel); }
+.ez2-plus-duzy b { font-size: 16px; }
+.ez2-plus-znak {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* zadania z czatem: podgląd rozpoznanych kafelków */
+.ez2-h2 { margin: 0; font-family: var(--font-read); font-size: 22px; font-weight: 600; }
+.ez2-rozpoznane { display: flex; flex-direction: column; gap: 12px; }
+.ez2-podglad {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.ez2-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  opacity: 0.6;
+}
+.ez2-mini.wl { opacity: 1; border-color: color-mix(in srgb, var(--typ, var(--accent)) 55%, var(--line)); box-shadow: var(--cien-karta); }
+.ez2-mini-glowa { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 15px; }
+.ez2-mini-glowa input { width: 17px; height: 17px; accent-color: var(--accent); }
+.ez2-mini-strona { display: flex; flex-direction: column; gap: 4px; }
+.ez2-mini-strona .markdown-body {
+  font-size: 13.5px;
+  line-height: 1.5;
+  max-height: 7.5em;
+  overflow: hidden;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--panel-alt);
+}
+.ez2-mini-rozw { display: flex; flex-wrap: wrap; gap: 6px; }
+.ez2-mini-rozw .tcz-r { font-size: 11.5px; }
+
+/* pasek na dole ekranu zadań */
+.tcz-stopka-wrap { position: sticky; bottom: 0; z-index: 5; }
+.ez2-stopka-opis { flex: 1 1 360px; color: var(--ink-soft); }
+.ez-koniec.tcz-stopka { border-top: 1px solid var(--line); margin-top: 0; padding-top: 14px; }
+.ez-koniec .settings-status { margin: 0; }
+
+@media (max-width: 860px) {
+  .ez2 { grid-template-columns: 1fr; }
+  .ez2-lewa { position: static; }
+}
+
+/* ===== test zakryty — lista kafelków z lewej, karty jak w teście czatem ===== */
+.tz .sesja-tresc { max-width: 1440px; padding: 20px 28px 80px; }
+.tz-uklad {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.tz-lewa {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+.tz-postep { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-soft); }
+.tz-postep-pasek { flex: 1; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.tz-postep-pasek > div { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.25s; }
+.tz-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.tz-poz {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.tz-poz:hover { background: var(--panel); }
+.tz-nr {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1.5px solid var(--line-strong);
+  color: var(--ink-soft);
+}
+.tz-poz.odkryty .tz-nr { border-color: var(--ink); color: var(--ink); }
+.tz-poz.ocena-tak .tz-nr { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tz-poz.ocena-czesciowo .tz-nr { background: #c7881d; border-color: #c7881d; color: #fff; }
+.tz-poz.ocena-nie .tz-nr { background: var(--danger); border-color: var(--danger); color: #fff; }
+.tz-poz-nazwa { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tz-poz-zad { color: var(--muted); font-size: 12px; }
+.tz-poz .tcz-r { padding: 1px 7px; font-size: 11.5px; }
+.tz .tcz-r-tak { background: var(--tcz-tak-bg, #e2eee6); color: var(--tcz-tak, #22543f); }
+.tz .tcz-r-czesciowo { background: var(--tcz-cz-bg, #f6ecd2); color: var(--tcz-cz, #6b4f0c); }
+.tz .tcz-r-nie { background: var(--tcz-nie-bg, #f7e0d9); color: var(--tcz-nie, #8f3a24); }
+:root[data-theme='dark'] .tz .tcz-r-tak { background: #233a2e; color: #9fd0b2; }
+:root[data-theme='dark'] .tz .tcz-r-czesciowo { background: #3d321a; color: #e6c47a; }
+:root[data-theme='dark'] .tz .tcz-r-nie { background: #432620; color: #eda48c; }
+.tz-glowna { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.tz-tytul { display: flex; flex-direction: column; gap: 4px; }
+.tz-tytul .sesja-zasada { font-size: 14px; color: var(--ink-soft); }
+.tz .sesja-blok,
+.tz .sesja-element { padding: 14px 18px; gap: 10px; scroll-margin-top: 12px; }
+.tz .sesja-karta-glowa,
+.tz .sesja-element-glowa { margin: -14px -18px 4px; padding: 12px 18px; }
+.tz .sesja-nazwa { font-family: var(--font-read); font-size: 18px; font-weight: 600; }
+.tz .sesja-karta-glowa b { font-family: var(--font-read); font-size: 18px; font-weight: 600; }
+.tz .sesja-znaczek-oceny { font-size: 12.5px; padding: 3px 11px; }
+.tz .sesja-znaczek-oceny.zaznacz-tak { background: var(--tcz-tak-bg, #e2eee6); color: var(--tcz-tak, #22543f); }
+.tz .sesja-znaczek-oceny.zaznacz-czesciowo { background: var(--tcz-cz-bg, #f6ecd2); color: var(--tcz-cz, #6b4f0c); }
+.tz .sesja-znaczek-oceny.zaznacz-nie { background: var(--tcz-nie-bg, #f7e0d9); color: var(--tcz-nie, #8f3a24); }
+:root[data-theme='dark'] .tz .sesja-znaczek-oceny.zaznacz-tak { background: #233a2e; color: #9fd0b2; }
+:root[data-theme='dark'] .tz .sesja-znaczek-oceny.zaznacz-czesciowo { background: #3d321a; color: #e6c47a; }
+:root[data-theme='dark'] .tz .sesja-znaczek-oceny.zaznacz-nie { background: #432620; color: #eda48c; }
+.tz .sesja-znaczek-oceny.zaznacz-tak::before { content: '✓ '; }
+.tz .sesja-znaczek-oceny.zaznacz-czesciowo::before { content: '◐ '; }
+.tz .sesja-znaczek-oceny.zaznacz-nie::before { content: '✕ '; }
+.tz .sesja-zakryte { border-radius: 12px; min-height: 130px; }
+.tz .sesja-pole { border-radius: 12px; font-size: 14px; }
+.tz .sesja-zaznaczenie { gap: 8px; padding-top: 4px; }
+.tz .sesja-zaznaczenie > span { font-weight: 600; color: var(--ink); }
+.tz .sesja-zaznaczenie .btn { border-radius: 999px; min-height: 36px; padding: 0 16px; font-weight: 700; }
+.tz .sesja-zaznaczenie .zaznacz-tak::before { content: '✓ '; }
+.tz .sesja-zaznaczenie .zaznacz-czesciowo::before { content: '◐ '; }
+.tz .sesja-zaznaczenie .zaznacz-nie::before { content: '✕ '; }
+.tz .sesja-zaznaczenie .zaznacz-tak.btn-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tz .sesja-zaznaczenie .zaznacz-czesciowo.btn-active { background: #c7881d; border-color: #c7881d; color: #fff; }
+.tz .sesja-zaznaczenie .zaznacz-nie.btn-active { background: var(--danger); border-color: var(--danger); color: #fff; }
+.tz .sesja-rozdzial { font-family: var(--font-read); }
+.tz .sesja-ocena { padding: 18px 22px; }
+.tz .sesja-ocena h3 { font-family: var(--font-read); font-size: 22px; font-weight: 600; }
+.tz .sesja-ocena-btn { border-radius: 14px; }
+.tz .sesja-zapisz { min-height: 44px; padding: 0 26px; font-size: 14.5px; align-self: flex-start; }
+.sesja:has(.tz-uklad) .sesja-glowa h2,
+.sesja:has(.ez2) .sesja-glowa h2 { font-family: var(--font-read); font-size: 21px; font-weight: 600; }
+
+@media (max-width: 900px) {
+  .tz-uklad { grid-template-columns: 1fr; }
+  .tz-lewa { position: static; max-height: none; }
+}
+.tcz-stopka.ez-koniec { justify-content: flex-end; }
+.tcz-stopka.ez-koniec .btn-primary { margin-top: 0; }
+
+/* schemat zadania: edytor jak kartka w trybie mapowania */
+.ez2 .ez2-strona-opis { margin: 10px 22px 0; font-size: 13px; color: var(--ink-soft); }
+.ez2-edytor .rich-toolbar { border-bottom: 1px solid var(--line); background: var(--panel-alt); }
+.ez2-edytor .rich-content { background: transparent; padding: 16px 20px 20px; overflow: visible; position: relative; }
+.ez2-edytor .rich-content .tiptap {
+  max-width: none;
+  min-height: 220px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  font-size: 16px;
+  line-height: 1.65;
+}
+.ez2-edytor .tiptap p.is-editor-empty:first-child::before { content: none; }
+.ez2-edytor .rich-pusty::before { top: 16px; left: 20px; right: 20px; }
+.ez2-ekran .ez2 { margin-bottom: 6px; }

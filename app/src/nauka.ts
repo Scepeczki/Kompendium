@@ -7,7 +7,7 @@
  *  odtworzyć, a wpisów nigdy się nie zmienia. */
 
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
-import { createConcept, createSubpage, db, deleteConcept } from './db'
+import { createConcept, createSubpage, db, deleteConcept, deleteSubpage } from './db'
 import { topoOrder } from './topo'
 import { czatWZero, wez, zadaniaWZero } from './naukaUstawienia'
 import type {
@@ -681,8 +681,13 @@ export interface NoweZadanie {
   nazwa?: string
   tresc?: string
   rozwiazanie?: string
+  /** Kilka rozwiązań (np. wzorcowe i twoje, inną drogą) — każde na osobnej stronie. */
+  rozwiazania?: string[]
   metoda?: string
 }
+
+/** Nazwa strony z k-tym rozwiązaniem: „Rozwiązanie", „Rozwiązanie 2"… */
+export const nazwaRozwiazania = (k: number) => (k === 0 ? 'Rozwiązanie' : `Rozwiązanie ${k + 1}`)
 
 /** Strony zadania. Treść widać w teście, rozwiązanie jest zakryte (z tokiem
  *  rozumowania — o metodę tu chodzi, nie o rachunki). */
@@ -731,15 +736,19 @@ export async function utworzZadania(sektorId: string, lista: NoweZadanie[]): Pro
     const id = await createConcept(await typZadania(), j.pathId)
     const c = await db.concepts.get(id)
     if (!c) continue
-    await db.concepts.update(id, { name: z.nazwa?.trim() || `Zadanie ${bylo + i + 1}` })
+    // główna strona zadania to polecenie
+    await db.concepts.update(id, { name: z.nazwa?.trim() || `Zadanie ${bylo + i + 1}`, mainPageName: 'Polecenie' })
     await db.versions.update(c.currentVersionId, { content: z.tresc?.trim() ?? '' })
-    // czat mógł jeszcze podać metodę osobno — dopisujemy ją do rozwiązania
-    const tresci = [
-      [z.rozwiazanie?.trim(), z.metoda?.trim() ? `**Metoda:** ${z.metoda.trim()}` : ''].filter(Boolean).join('\n\n'),
-    ]
-    for (const [k, nazwa] of STRONY_ZADANIA.entries()) {
-      const s = await createSubpage(id, c.currentVersionId, nazwa)
-      if (tresci[k]?.trim()) await db.subpages.update(s, { content: tresci[k]!.trim() })
+    // czat mógł jeszcze podać metodę osobno — dopisujemy ją do (pierwszego) rozwiązania
+    const pierwsze = [z.rozwiazania?.[0] ?? z.rozwiazanie, z.metoda?.trim() ? `**Metoda:** ${z.metoda.trim()}` : '']
+      .map((x) => x?.trim())
+      .filter(Boolean)
+      .join('\n\n')
+    const tresci = [pierwsze, ...(z.rozwiazania?.slice(1) ?? [])]
+    for (const [k, t] of tresci.entries()) {
+      if (k > 0 && !t?.trim()) continue
+      const s = await createSubpage(id, c.currentVersionId, nazwaRozwiazania(k))
+      if (t?.trim()) await db.subpages.update(s, { content: t.trim() })
     }
     ids.push(id)
   }
@@ -748,41 +757,67 @@ export async function utworzZadania(sektorId: string, lista: NoweZadanie[]): Pro
   return ids
 }
 
-/** Zadanie do edycji na ekranie zadań: nazwa, treść i rozwiązanie. */
-export interface ZadanieDoEdycji {
+/** Strona z rozwiązaniem zadania (podstrona kafelka). */
+export interface RozwiazanieZadania {
+  /** Id podstrony; w próbie — sztuczne. */
   id: string
   nazwa: string
   tresc: string
-  rozwiazanie: string
 }
 
-/** Zadania sektora z treścią i rozwiązaniem (strona „Rozwiązanie"). */
+/** Zadanie do edycji na ekranie zadań: nazwa, polecenie i rozwiązania. */
+export interface ZadanieDoEdycji {
+  id: string
+  nazwa: string
+  /** Polecenie — główna strona kafelka, widać ją w teście. */
+  tresc: string
+  /** Rozwiązania — podstrony, w teście zakryte. */
+  rozwiazania: RozwiazanieZadania[]
+}
+
+/** Zadania sektora z poleceniem i wszystkimi rozwiązaniami (podstronami). */
 export async function wczytajZadania(ids: string[]): Promise<ZadanieDoEdycji[]> {
   const out: ZadanieDoEdycji[] = []
   for (const id of ids) {
     const c = await db.concepts.get(id)
     if (!c) continue
     const v = await db.versions.get(c.currentVersionId)
-    const strony = await db.subpages.where('[conceptId+versionId]').equals([c.id, c.currentVersionId]).toArray()
-    const r = strony.find((s) => s.name === STRONY_ZADANIA[0]) ?? strony[0]
-    out.push({ id, nazwa: c.name, tresc: v?.content ?? '', rozwiazanie: r?.content ?? '' })
+    const strony = await db.subpages.where('[conceptId+versionId]').equals([c.id, c.currentVersionId]).sortBy('order')
+    out.push({
+      id,
+      nazwa: c.name,
+      tresc: v?.content ?? '',
+      rozwiazania: strony.map((x) => ({ id: x.id, nazwa: x.name, tresc: x.content ?? '' })),
+    })
   }
   return out
 }
 
-/** Zapisuje zmienioną nazwę, treść albo rozwiązanie zadania. */
-export async function zapiszZadanie(id: string, z: Partial<Omit<ZadanieDoEdycji, 'id'>>) {
+/** Zapisuje zmienioną nazwę albo polecenie zadania. */
+export async function zapiszZadanie(id: string, z: { nazwa?: string; tresc?: string }) {
   const c = await db.concepts.get(id)
   if (!c) return
   const iso = teraz().toISOString()
   if (z.nazwa !== undefined) await db.concepts.update(id, { name: z.nazwa, updatedAt: iso })
   if (z.tresc !== undefined) await db.versions.update(c.currentVersionId, { content: z.tresc, updatedAt: iso })
-  if (z.rozwiazanie !== undefined) {
-    const strony = await db.subpages.where('[conceptId+versionId]').equals([c.id, c.currentVersionId]).toArray()
-    const r = strony.find((s) => s.name === STRONY_ZADANIA[0]) ?? strony[0]
-    const sid = r?.id ?? (await createSubpage(id, c.currentVersionId, STRONY_ZADANIA[0]))
-    await db.subpages.update(sid, { content: z.rozwiazanie, updatedAt: iso })
-  }
+}
+
+/** Dokłada zadaniu kolejną stronę z rozwiązaniem; zwraca jej id. */
+export async function dodajRozwiazanie(conceptId: string): Promise<string | undefined> {
+  const c = await db.concepts.get(conceptId)
+  if (!c) return undefined
+  const ile = await db.subpages.where('[conceptId+versionId]').equals([c.id, c.currentVersionId]).count()
+  return createSubpage(conceptId, c.currentVersionId, nazwaRozwiazania(ile))
+}
+
+/** Zapisuje treść jednej strony z rozwiązaniem. */
+export async function zapiszRozwiazanie(stronaId: string, tresc: string) {
+  await db.subpages.update(stronaId, { content: tresc, updatedAt: teraz().toISOString() })
+}
+
+/** Usuwa stronę z rozwiązaniem — wołać tylko po pytaniu. */
+export async function usunRozwiazanie(stronaId: string) {
+  await deleteSubpage(stronaId)
 }
 
 /** Odpina zadanie od sektora. Kafelek zostaje w folderze ścieżki. */

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, mainPageName } from '../db'
 import { renderMarkdown } from '../markdown'
@@ -228,13 +229,7 @@ export function BlockShell({
             </span>
           )}{' '}
           {onRename ? (
-            <input
-              className="inline-title"
-              value={nazwaWlasna ?? concept.name}
-              title="Nazwa kafelka w tej ścieżce — kafelek w bibliotece zostaje bez zmian"
-              onChange={(e) => onRename(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-            />
+            <PoleNazwy wartosc={nazwaWlasna ?? concept.name} onZmien={onRename} />
           ) : ksiazka ? (
             <span className="ks-nazwa">{nazwa}</span>
           ) : (
@@ -318,5 +313,38 @@ export function BlockShell({
         <div className="block-narzedzia" />
       </div>
     </section>
+  )
+}
+
+/** Pole nazwy kafelka. Podczas pisania trzyma dokładnie to, co wpisujesz —
+ *  zapis do ścieżki i (po chwili ciszy) do kafelka idzie w tle, a jego echo
+ *  (nazwa przycięta ze spacji, przez moment jeszcze stara z bazy) nie może
+ *  podmieniać tekstu pod kursorem. Z bazą wyrównuje się po wyjściu z pola. */
+function PoleNazwy({ wartosc, onZmien }: { wartosc: string; onZmien: (t: string) => void }) {
+  const [tekst, setTekst] = useState(wartosc)
+  const [pisze, setPisze] = useState(false)
+  useEffect(() => {
+    if (!pisze) setTekst(wartosc)
+  }, [wartosc, pisze])
+  return (
+    <input
+      className="inline-title"
+      value={pisze ? tekst : wartosc}
+      title="Nazwa kafelka w tej ścieżce — kafelek w bibliotece zostaje bez zmian"
+      onFocus={() => {
+        setTekst(wartosc)
+        setPisze(true)
+      }}
+      onBlur={() => {
+        setPisze(false)
+        // spacja na końcu zostaje tylko na czas pisania
+        if (tekst.trim() && tekst !== tekst.trim()) onZmien(tekst.trim())
+      }}
+      onChange={(e) => {
+        setTekst(e.target.value)
+        onZmien(e.target.value)
+      }}
+      onClick={(e) => e.stopPropagation()}
+    />
   )
 }

@@ -622,6 +622,14 @@ function KartaSektora({
             <button className="btn btn-maly" title="Powtórz teraz, przed terminem" onClick={onTest}>
               Powtórz teraz
             </button>
+            <button
+              className="btn btn-maly"
+              title="Zadania sektora — dołożone teraz trafią do „Doucz nowe”"
+              onClick={onZadania}
+              data-zadania
+            >
+              Zadania{j.zadania?.length ? ` (${j.zadania.length})` : ''}
+            </button>
           </>
         )}
       </div>

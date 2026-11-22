@@ -335,15 +335,8 @@ await page.waitForSelector('.linear-seg')
 await page.waitForTimeout(800)
 check('wybór spisu zostaje po odświeżeniu', await page.isVisible('.outline-szczegolowy'))
 
-// --- prawy panel ---
-check('panel bez wyboru podpowiada, co zrobić', await page.isVisible('.kontekst-pusto'))
-await page.locator('.linear-seg[data-seg="n1"] .script-block-head').click({ position: { x: 420, y: 12 } })
-await page.waitForTimeout(300)
-const panel = await page.textContent('.kontekst')
-check('panel pokazuje kafelek', panel.includes('Alfa') && panel.includes('1 wersja') && panel.includes('1 ścieżka'), panel)
-check('panel pokazuje źródło jako nazwę', panel.includes('Wykład 2, s. 3'))
-check('panel pokazuje powiązanie', panel.includes('mocniejsze niż') && panel.includes('Beta'))
-check('panel nie ma obrazka strony', (await page.locator('.kontekst img').count()) === 0)
+// --- prawy panel „Zaznaczony kafelek” zdjęty (zabierał miejsce, nieużywany) ---
+check('nie ma prawego panelu', (await page.locator('.kontekst').count()) === 0)
 
 // --- pisanie ---
 await page.locator('.linear-seg[data-seg="n1"] .markdown-body, .linear-seg[data-seg="n1"] .tiptap').first().click()

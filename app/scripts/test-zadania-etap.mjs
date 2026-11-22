@@ -89,46 +89,75 @@ await page.click(`${K} [data-zadania]`)
 await page.waitForSelector(`${E} .etap-zadan`)
 check('ekran zadań na całe okno', (await page.locator('.sesja-rodzaj').textContent()) === 'Zadania' &&
   (await page.evaluate(() => !!document.elementFromPoint(60, 300)?.closest('.sesja-ekran'))))
-check('lista: stare zadanie', (await page.locator(`${E} .ez-zadanie`).count()) === 1 && (await page.locator(`${E} .ez-zadanie`).innerText()).includes('Stare zadanie'))
+check('lista z lewej: stare zadanie, pośrodku jego schemat', (await page.locator(`${E} .ez2-poz`).count()) === 1 &&
+  (await page.locator(`${E} .ez2-poz`).innerText()).includes('Stare zadanie') && (await page.locator(`${E} [data-zadanie-edycja="z0"]`).count()) === 1)
+check('„Dołóż": zadanie i z czatem', (await page.locator(`${E} .ez2-doloz [data-nowe-zadanie]`).count()) === 1 && (await page.locator(`${E} .ez2-doloz [data-z-czatem]`).count()) === 1)
 
-// + Nowe zadanie
+// + Zadanie: schemat kafelka — polecenie, rozwiązanie, drugie rozwiązanie
+const pisz = async (tekst) => {
+  await page.click(`${E} .ez2-edytor .ProseMirror`)
+  await page.keyboard.type(tekst)
+}
 await page.click(`${E} [data-nowe-zadanie]`)
-await page.waitForSelector(`${E} .ez-zadanie.otwarta`)
-const nowa = page.locator(`${E} .ez-zadanie.otwarta`)
-await nowa.locator('.ez-nazwa-pole').fill('Moje zadanie')
-await nowa.locator('textarea').nth(0).fill('Udowodnij, że przecięcie dwóch kul zawiera kulę.')
-await nowa.locator('textarea').nth(1).fill('Weź mniejszy promień.')
-check('„+ Nowe zadanie" → kafelek-zadanie z treścią i rozwiązaniem', await czekaj((b) => {
+await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez2-poz').length === 2)
+await page.locator(`${E} .ez2-tytul`).fill('Moje zadanie')
+check('schemat: strony Polecenie i Rozwiązanie, „+ rozwiązanie"', (await page.locator(`${E} .ez2-strony`).innerText()).includes('Polecenie') &&
+  (await page.locator(`${E} [data-strona="rozwiazanie"]`).count()) === 1 && (await page.locator(`${E} [data-dodaj-rozwiazanie]`).count()) === 1)
+await pisz('Udowodnij, że przecięcie dwóch kul zawiera kulę.')
+await page.click(`${E} [data-strona="rozwiazanie"]`)
+await pisz('Weź mniejszy promień.')
+await page.click(`${E} [data-dodaj-rozwiazanie]`)
+await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba [data-strona="rozwiazanie"]').length === 2)
+await pisz('Drugie: z nierówności trójkąta.')
+await page.click(`${E} [data-strona="polecenie"]`)
+check('„+ Zadanie" → kafelek-zadanie: polecenie i dwa rozwiązania', await czekaj((b) => {
   const s = b.nauka.find((j) => j.id === 's1')
   const c = b.concepts.find((x) => x.name === 'Moje zadanie')
   if (!c || !s.zadania.includes(c.id)) return false
   const v = b.versions.find((x) => x.id === c.currentVersionId)
-  const r = b.subpages.find((x) => x.conceptId === c.id && x.name === 'Rozwiązanie')
-  return v?.content.includes('przecięcie') && r?.content === 'Weź mniejszy promień.'
+  const r1 = b.subpages.find((x) => x.conceptId === c.id && x.name === 'Rozwiązanie')
+  const r2 = b.subpages.find((x) => x.conceptId === c.id && x.name === 'Rozwiązanie 2')
+  return c.mainPageName === 'Polecenie' && v?.content.includes('przecięcie') && r1?.content.includes('mniejszy promień') && r2?.content.includes('nierówności')
 }))
 
-// zadania od czatu
-await page.click(`${E} .ez-sekcja button:has-text("Tylko kopiuj")`)
+// zadania z czatem
+await page.click(`${E} [data-z-czatem]`)
+await page.click(`${E} button:has-text("Tylko kopiuj")`)
 await page.waitForTimeout(600)
 const pol = await page.evaluate(() => navigator.clipboard.readText())
 check('polecenie: zna wszystkie dotychczasowe zadania sektora', pol.includes('Stare zadanie: Pokaż, że kula jest otwarta.') && pol.includes('Moje zadanie: Udowodnij'))
-check('polecenie: nie powtarzaj, wzór ZADANIE/TREŚĆ/ROZWIĄZANIE, materiał', pol.includes('NIE powtarzaj') && pol.includes('ZADANIE:') && pol.includes('ROZWIĄZANIE:') && pol.includes('Treść: Kula'))
-await page.fill(`${E} textarea.ez-wklej`, 'Proszę:\n```\nZADANIE: Kula dyskretna\nTREŚĆ:\nOpisz kulę o promieniu 1/2.\nROZWIĄZANIE:\nTylko środek.\n---\nZADANIE: **Otwartość**\nTREŚĆ:\nCzy [0,1) jest otwarty?\nROZWIĄZANIE:\nNie.\n```')
+check('polecenie: nie powtarzaj, wzór ZADANIE/TREŚĆ/ROZWIĄZANIE, materiał', pol.includes('NIE powtarzaj') && pol.includes('ZADANIE:') && pol.includes('ROZWIĄZANIE 2:') && pol.includes('Treść: Kula'))
+check('polecenie: najpierw same zadania, rozwiązania dopiero po mojej próbie', pol.includes('SAME TREŚCI') && pol.includes('Bez rozwiązań') && pol.includes('Poczekaj, aż napiszę'))
+await page.fill(`${E} textarea.ez-wklej`, 'Proszę:\n```\nZADANIE: Kula dyskretna\nTREŚĆ:\nOpisz kulę o promieniu 1/2.\nROZWIĄZANIE:\nTylko środek.\nROZWIĄZANIE 2:\nZ rysunku.\n---\nZADANIE: **Otwartość**\nTREŚĆ:\nCzy [0,1) jest otwarty?\nROZWIĄZANIE:\nNie.\n```')
 await page.waitForSelector(`${E} .ez-od-czatu li`)
-check('odczyt: 2 zadania od czatu do przejrzenia, zaznaczone', (await page.locator(`${E} .ez-od-czatu li`).count()) === 2 &&
+check('odczyt: 2 rozpoznane kafelki-zadania, zaznaczone', (await page.locator(`${E} .ez-od-czatu li`).count()) === 2 &&
   (await page.locator(`${E} .ez-od-czatu input:checked`).count()) === 2 && (await page.locator(`${E} .ez-od-czatu`).innerText()).includes('Otwartość'))
+check('podgląd: polecenie i rozwiązania kafelka', (await page.locator(`${E} .ez-od-czatu li`).first().innerText()).includes('Opisz kulę') &&
+  (await page.locator(`${E} .ez-od-czatu li`).first().innerText()).includes('Rozwiązanie 2'))
 await page.locator(`${E} .ez-od-czatu input`).nth(1).uncheck()
 await page.click(`${E} [data-dodaj-od-czatu]`)
-check('dodane tylko zaznaczone, z rozwiązaniem', await czekaj((b) => {
+check('dodane tylko zaznaczone, z dwoma rozwiązaniami', await czekaj((b) => {
   const s = b.nauka.find((j) => j.id === 's1')
   const c = b.concepts.find((x) => x.name === 'Kula dyskretna')
   return !!c && s.zadania.length === 3 && !b.concepts.some((x) => x.name === 'Otwartość') &&
-    b.subpages.some((x) => x.conceptId === c.id && x.content === 'Tylko środek.')
+    b.subpages.some((x) => x.conceptId === c.id && x.name === 'Rozwiązanie' && x.content === 'Tylko środek.') &&
+    b.subpages.some((x) => x.conceptId === c.id && x.name === 'Rozwiązanie 2' && x.content === 'Z rysunku.')
 }))
-await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez-zadanie').length === 3)
+await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez2-poz').length === 3)
+check('po dodaniu: pośrodku nowe zadanie', (await page.locator(`${E} .ez2-tytul`).inputValue()) === 'Kula dyskretna')
 
-// usunięcie
-await page.locator(`${E} .ez-zadanie:has-text("Stare zadanie") .ez-usun`).click()
+// usunięcie strony z rozwiązaniem (po pytaniu)
+await page.locator(`${E} [data-strona="rozwiazanie"]`).nth(1).click()
+await page.click(`${E} .ez2-strona-usun`)
+await page.click('.ask-dialog .btn-danger-strong')
+check('usunięta strona „Rozwiązanie 2" (po pytaniu), zadanie zostaje', await czekaj((b) => {
+  const c = b.concepts.find((x) => x.name === 'Kula dyskretna')
+  return !!c && !b.subpages.some((x) => x.conceptId === c.id && x.name === 'Rozwiązanie 2') && b.subpages.some((x) => x.conceptId === c.id && x.name === 'Rozwiązanie')
+}))
+
+// usunięcie zadania
+await page.click(`${E} .ez2-poz:has-text("Stare zadanie")`)
+await page.click(`${E} .ez2-kafelek .ez-usun`)
 await page.click('.ask-dialog .btn-danger-strong')
 check('usuwanie zadania (po pytaniu)', await czekaj((b) => !b.nauka.find((j) => j.id === 's1').zadania.includes('z0')))
 
@@ -150,6 +179,19 @@ let d = await baza()
 const s1 = d.nauka.find((j) => j.id === 's1')
 check('sektor w powtórkach, termin bez zmian', s1.etap === 'powtorki' && s1.termin === termin)
 await page.click('.sesja-wynik button:has-text("Gotowe")')
+
+// --- zadanie dołożone po nauce: „Doucz nowe" ---
+await page.waitForSelector(`${K} [data-zadania]`)
+await page.click(`${K} [data-zadania]`)
+await page.waitForSelector(`${E} [data-gotowe-zadania]`)
+check('nauczony sektor: ekran zadań z „Gotowe" i informacją o douczaniu', (await page.locator(`${E} .ez-koniec`).innerText()).includes('Doucz nowe') &&
+  (await page.locator(`${E} [data-test-koncowy]`).count()) === 0)
+await page.click(`${E} [data-nowe-zadanie]`)
+await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez2-poz').length === 3)
+await page.locator(`${E} .ez2-tytul`).fill('Późne zadanie')
+await page.click(`${E} [data-gotowe-zadania]`)
+await page.waitForSelector(`${K} .karta-sektora-nowe`)
+check('po nauce: nowe zadanie → „Doucz nowe (1)" przy sektorze', (await page.locator(`${K} .karta-sektora-nowe`).innerText()).includes('Doucz nowe (1)'))
 
 // --- „Pomiń zadania": test zakryty i tak ---
 const K2 = '.karta-sektora[data-sektor="s2"]'
@@ -175,11 +217,13 @@ await page.click('[data-proba-zadania]')
 await page.waitForSelector(`${E} .etap-zadan`)
 check('próba zadań: plakietka „Próba"', await page.locator('.sesja-proba').isVisible())
 await page.click(`${E} [data-nowe-zadanie]`)
-await page.locator(`${E} .ez-zadanie.otwarta .ez-nazwa-pole`).fill('Zadanie na niby')
+await page.waitForSelector(`${E} .ez2-tytul`)
+await page.locator(`${E} .ez2-tytul`).fill('Zadanie na niby')
+await page.click(`${E} [data-z-czatem]`)
 await page.click(`${E} .test-czatem-przyklady button`)
 await page.click(`${E} [data-dodaj-od-czatu]`)
 await page.waitForTimeout(300)
-check('próba: zadania w pamięci (własne i od czatu)', (await page.locator(`${E} .ez-zadanie`).count()) >= 3)
+check('próba: zadania w pamięci (własne i od czatu)', (await page.locator(`${E} .ez2-poz`).count()) >= 3)
 check('próba: co byłoby dalej', (await page.locator(`${E} .settings-status`).innerText()).includes('test zakryty z zadaniami'))
 await page.click('.sesja-glowa button:has-text("Wróć")')
 await page.waitForTimeout(400)
