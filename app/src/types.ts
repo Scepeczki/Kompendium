@@ -172,6 +172,9 @@ export interface BlockVersion {
   sourceRefs: SourceRef[]
   /** Nazwy grup źródeł (istnieją nawet gdy grupa jest chwilowo pusta). */
   sourceGroups?: string[]
+  /** Czy strona główna jest widoczna w teście zakrytym. Brak = domyślnie:
+   *  w zadaniu (polecenie) widać ją, w innych kafelkach jest zakryta. */
+  glownaWTescie?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -256,6 +259,8 @@ export interface Subpage {
   name: string
   /** Markdown + LaTeX. */
   content: string
+  /** Widać ją w teście zakrytym (podpowiedź); domyślnie strona jest zakryta. */
+  wTescie?: boolean
   /** Kolejność na liście stron kafelka. */
   order: number
   createdAt: string

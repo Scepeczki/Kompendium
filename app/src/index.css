@@ -13494,3 +13494,80 @@ html.okno-powiadomienia #root {
   .ez3-kolumna { overflow: visible; }
   .ez3-pdf { min-height: 70vh; border-left: 0; }
 }
+
+/* ===== oko przy stronie: czy widać ją w teście zakrytym ===== */
+.block-page-z-okiem { display: inline-flex; align-items: center; }
+.oko-testu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 3px;
+  margin-left: -2px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--muted);
+  opacity: 0.35;
+  cursor: pointer;
+  transition: opacity 0.12s, color 0.12s;
+}
+.oko-testu.widoczna { color: var(--accent-ink, var(--accent)); opacity: 0.8; }
+.oko-testu:hover,
+.oko-testu:focus-visible,
+.block-page-z-okiem:hover .oko-testu,
+.subpage-item:hover .oko-testu { opacity: 1; }
+.oko-testu.tylko-stan { cursor: help; }
+.subpage-item .oko-testu { margin-left: auto; }
+
+/* ===== lista zadań na końcu sektora: przeciąganie ===== */
+.zadania-pasek.cel-upuszczenia { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
+.zadania-pasek-upusc { margin-left: auto; font-weight: 400; font-size: var(--fs-2); color: var(--accent-ink, var(--accent)); }
+.zadania-pasek-zadanie { position: relative; display: flex; gap: 4px; align-items: flex-start; }
+.zadania-pasek-kafelek { flex: 1; min-width: 0; }
+.zadania-grip { padding-top: 12px; opacity: 0.45; }
+.zadania-pasek-zadanie:hover .zadania-grip { opacity: 1; }
+.zadania-pasek-zadanie.kreska-przed { box-shadow: 0 -2px 0 0 var(--accent); }
+.zadania-pasek-zadanie.kreska-po { box-shadow: 0 2px 0 0 var(--accent); }
+.zadania-pasek-pusto { margin: 4px 0 6px; font-size: var(--fs-2); color: var(--muted); text-align: center; }
+
+/* ===== ekran zadań: spis sektora z lewej ===== */
+.ez3-spis { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ez3-spis > li, .ez3-lista-konca > li { position: relative; }
+.ez3-spis-kafelek {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 4px 10px 4px 36px;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 0;
+}
+.ez3-spis-typ { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; opacity: 0.8; }
+.ez3-spis-nazwa { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ez3-spis-notatka { font-style: italic; opacity: 0.7; }
+.ez3-spis-rozdzial { display: block; padding: 8px 10px 2px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.ez3-spis-koniec { margin-top: 14px; }
+.ez3-lista-konca { min-height: 38px; padding: 4px; border: 1.5px dashed var(--line-strong); border-radius: 12px; }
+.ez3-lista-konca.cel { border-color: var(--accent); background: var(--accent-soft); }
+.ez3-lista-pusta { padding: 6px 8px; font-size: 12.5px; color: var(--muted); text-align: center; }
+.ez3-spis-rada { font-size: 12px; line-height: 1.45; margin: 6px 2px 0; }
+.ez2-poz .ez3-uchwyt { flex: none; display: inline-flex; color: var(--muted); opacity: 0.45; cursor: grab; margin-left: -4px; }
+.ez2-poz:hover .ez3-uchwyt { opacity: 1; }
+.ez2-poz.w-linii { box-shadow: inset 3px 0 0 var(--c-uwaga, var(--accent)); }
+.ez2-poz.ciagniete { opacity: 0.45; }
+.ez3-spis > li.kreska-przed::before,
+.ez3-lista-konca > li.kreska-przed::before,
+.ez3-spis > li.kreska-po::after,
+.ez3-lista-konca > li.kreska-po::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.ez3-spis > li.kreska-przed::before, .ez3-lista-konca > li.kreska-przed::before { top: -2px; }
+.ez3-spis > li.kreska-po::after, .ez3-lista-konca > li.kreska-po::after { bottom: -2px; }
+.ez3.z-pdf .ez3-uklad.ez2 { grid-template-columns: 240px minmax(0, 1fr) minmax(340px, 42%); }
+.ez3-uklad.ez2 { grid-template-columns: 270px minmax(0, 1fr); }

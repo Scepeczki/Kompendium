@@ -5,6 +5,9 @@ import { renderMarkdown } from '../markdown'
 import { SourceList } from './SourceList'
 import { type BlockVersion, type Concept, type SourceRef, type Subpage } from '../types'
 import { useBlockTypes } from '../blockTypes'
+import { znajdzTypZadania } from '../nauka'
+import { glownaWidoczna, stronaWidoczna } from '../widocznosc'
+import { Icon } from './Icon'
 
 interface Props {
   concept: Concept
@@ -50,6 +53,11 @@ interface Props {
   pochodzenie?: boolean
   /** Przycisk w nagłówku (np. „Wyślij do biblioteki"). */
   dzialanie?: React.ReactNode
+  /** Oko przy stronach: czy widać ją w teście zakrytym. Bez tej funkcji oko
+   *  tylko pokazuje stan (kafelek spoza folderu ścieżki zmienia się w edytorze). */
+  onWidocznosc?: (versionId: string, stronaId: string | null, widoczna: boolean) => void
+  /** Czy w ogóle pokazywać oczy (Linia i Skrypt do pisania). */
+  oczy?: boolean
 }
 
 /** Blok kafelka w jednolitej oprawie — używany i w widoku Linia, i w Skrypcie,
@@ -130,6 +138,8 @@ export function BlockShell({
   numer,
   pochodzenie,
   dzialanie,
+  onWidocznosc,
+  oczy,
 }: Props) {
   // Strony bierzemy z zewnątrz, jeśli ktoś je już ma. W długiej ścieżce
   // sześćdziesiąt bloków to było sześćdziesiąt osobnych zapytań do bazy,
@@ -160,32 +170,45 @@ export function BlockShell({
   const ksiazka = numer !== undefined
   const nazwa = nazwaWlasna ?? concept.name
 
+  const typZad = znajdzTypZadania(typy.all)
+  const oko = (stronaId: string | null, widoczna: boolean) =>
+    oczy && version ? (
+      <OkoTestu
+        widoczna={widoczna}
+        onZmien={onWidocznosc ? (w) => onWidocznosc(version.id, stronaId, w) : undefined}
+      />
+    ) : null
   /** Strony kafelka: w Linii stoją w nagłówku, a w Skrypcie nad treścią.
    *  Nazwy stron tylko wtedy, gdy jest z czego wybierać. */
   const zakladki = subs.length > 0 && (
     <div className="block-pages">
-      <button
-        className={`block-page ${!sub ? 'active' : ''}`}
-        title={pickHint ?? 'Strona kafelka'}
-        onClick={(e) => {
-          trzymajNaMiejscu(e.currentTarget)
-          onSubpageChange?.(null)
-        }}
-      >
-        {mainPageName(concept)}
-      </button>
-      {subs.map((s) => (
+      <span className="block-page-z-okiem">
         <button
-          key={s.id}
-          className={`block-page ${sub?.id === s.id ? 'active' : ''}`}
+          className={`block-page ${!sub ? 'active' : ''}`}
           title={pickHint ?? 'Strona kafelka'}
           onClick={(e) => {
             trzymajNaMiejscu(e.currentTarget)
-            onSubpageChange?.(s.id)
+            onSubpageChange?.(null)
           }}
         >
-          {s.name}
+          {mainPageName(concept)}
         </button>
+        {oko(null, glownaWidoczna(version, concept.type, typZad))}
+      </span>
+      {subs.map((s) => (
+        <span key={s.id} className="block-page-z-okiem">
+          <button
+            className={`block-page ${sub?.id === s.id ? 'active' : ''}`}
+            title={pickHint ?? 'Strona kafelka'}
+            onClick={(e) => {
+              trzymajNaMiejscu(e.currentTarget)
+              onSubpageChange?.(s.id)
+            }}
+          >
+            {s.name}
+          </button>
+          {oko(s.id, stronaWidoczna(s))}
+        </span>
       ))}
     </div>
   )
@@ -346,5 +369,27 @@ function PoleNazwy({ wartosc, onZmien }: { wartosc: string; onZmien: (t: string)
       }}
       onClick={(e) => e.stopPropagation()}
     />
+  )
+}
+
+/** Oko przy stronie kafelka: czy ta strona jest widoczna w teście zakrytym.
+ *  Ciche — wyraźniejsze dopiero po najechaniu. Bez onZmien tylko pokazuje stan. */
+export function OkoTestu({ widoczna, onZmien }: { widoczna: boolean; onZmien?: (w: boolean) => void }) {
+  const opis = widoczna ? 'Widać ją w teście zakrytym (podpowiedź)' : 'W teście zakryta'
+  return (
+    <button
+      type="button"
+      className={`oko-testu ${widoczna ? 'widoczna' : ''} ${onZmien ? '' : 'tylko-stan'}`}
+      data-oko-testu={widoczna ? 'widoczna' : 'zakryta'}
+      title={onZmien ? `${opis} — kliknij, aby ${widoczna ? 'zakryć' : 'pokazać'}` : `${opis}. Zmienisz to w edytorze kafelka (biblioteka)`}
+      aria-label={opis}
+      aria-pressed={widoczna}
+      onClick={(e) => {
+        e.stopPropagation()
+        onZmien?.(!widoczna)
+      }}
+    >
+      <Icon name={widoczna ? 'odkryj' : 'zakryty'} size={0.8} />
+    </button>
   )
 }

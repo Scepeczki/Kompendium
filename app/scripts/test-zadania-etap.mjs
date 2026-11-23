@@ -36,6 +36,7 @@ const baza = () =>
       versions: await wez('versions'),
       subpages: await wez('subpages'),
       historia: await wez('historia'),
+      paths: await wez('paths'),
     }
     db.close()
     return out
@@ -246,18 +247,26 @@ const s1 = d.nauka.find((j) => j.id === 's1')
 check('sektor w powtórkach, termin bez zmian', s1.etap === 'powtorki' && s1.termin === termin)
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 
-// --- zadanie dołożone po nauce: „Doucz nowe" ---
-await page.waitForSelector(`${K} [data-zadania]`)
-await page.click(`${K} [data-zadania]`)
-await page.waitForSelector(`${E} [data-gotowe-zadania]`)
-check('nauczony sektor: ekran zadań z „Gotowe" i informacją o douczaniu', (await page.locator(`${E} .ez-koniec`).innerText()).includes('Doucz nowe') &&
-  (await page.locator(`${E} [data-test-koncowy]`).count()) === 0)
-await page.click(`${E} [data-nowe-zadanie]`)
-await page.waitForFunction(() => document.querySelectorAll('.sesja-czat-proba .ez2-poz').length === 3)
-await page.locator(`${W} .ez2-tytul`).fill('Późne zadanie')
-await page.click(`${E} [data-gotowe-zadania]`)
+// --- zadanie dołożone po nauce — normalnie w Linii, rodzaj „Zadanie" → „Doucz nowe" ---
+check('karta nauczonego sektora: bez zadań (ani przycisku, ani listy)', (await page.locator(`${K} [data-zadania]`).count()) === 0 &&
+  (await page.locator(`${K} .zadania-sektora`).count()) === 0)
+await page.click('.view-switch button:has-text("Linia")')
+await page.waitForSelector('.linear-append')
+await page.hover('.linear-append .dodaj-kafelek-pasek > .btn-dolacz')
+check('w menu „Kafelek" jeden rodzaj „Zadanie"', (await page.locator('.linear-append .dodaj-kafelek-rodzaje .tree-menu-item:has-text("Zadanie")').count()) === 1)
+await page.click('.linear-append .dodaj-kafelek-rodzaje .tree-menu-item:has-text("Zadanie")')
+const zadaniaWSektorze = (b) => {
+  const sk = b.nauka.find((j) => j.id === 's1')
+  const p = b.paths.find((x) => x.id === 'p')
+  return sk.wezly.filter((w) => {
+    const n = p.nodes.find((x) => x.id === w)
+    return n?.kind === 'block' && b.concepts.find((c) => c.id === n.conceptId)?.type === 'zadanie'
+  })
+}
+check('zadanie dołożone zaraz za sektorem należy do sektora', await czekaj((b) => zadaniaWSektorze(b).length === 1))
+await page.click('.view-switch button:has-text("Nauka")')
 await page.waitForSelector(`${K} .karta-sektora-nowe`)
-check('po nauce: nowe zadanie → „Doucz nowe (1)" przy sektorze', (await page.locator(`${K} .karta-sektora-nowe`).innerText()).includes('Doucz nowe (1)'))
+check('po nauce: nowe zadanie w Linii → „Doucz nowe (1)" przy sektorze', (await page.locator(`${K} .karta-sektora-nowe`).innerText()).includes('Doucz nowe (1)'))
 
 // --- „Pomiń zadania": test zakryty i tak ---
 const K2 = '.karta-sektora[data-sektor="s2"]'
@@ -275,7 +284,9 @@ check('po pominięciu i teście: powtórki', await czekaj((b) => b.nauka.find((j
 await page.click('.sesja-wynik button:has-text("Gotowe")')
 
 // --- próba zadań: nic się nie zapisuje ---
-const przed = JSON.stringify(await baza())
+// znacznik zapisu ścieżki dopisuje Linia przy zamykaniu (edytowana chwilę wcześniej) — treść się liczy
+const bezCzasuSciezek = (b) => JSON.stringify({ ...b, paths: b.paths.map(({ updatedAt, ...p }) => p) })
+const przed = bezCzasuSciezek(await baza())
 await page.click('.sidebar-foot-btn[title*="Ustawienia"], .sidebar-foot-btn:has-text("Ustawienia")')
 await page.click('.settings-nav-item:has-text("Próba")')
 await page.waitForSelector('[data-proba-zadania]')
@@ -298,7 +309,7 @@ check('próba: „Pełna edycja" mówi, czemu nie (zamiast martwego przycisku)',
 check('próba: co byłoby dalej', (await page.locator(`${E} .settings-status`).innerText()).includes('test zakryty z zadaniami'))
 await page.click('.sesja-glowa button:has-text("Wróć")')
 await page.waitForTimeout(400)
-check('po próbie baza bez zmian', JSON.stringify(await baza()) === przed)
+check('po próbie baza bez zmian', bezCzasuSciezek(await baza()) === przed)
 
 console.log(errors.length ? `Błędy konsoli:\n${errors.join('\n')}` : '✓ bez błędów konsoli')
 await browser.close()

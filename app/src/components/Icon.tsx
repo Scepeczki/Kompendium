@@ -65,6 +65,7 @@ import {
   MessageSquare,
   Move,
   Eye,
+  EyeOff,
   Contrast,
   Microscope,
   Milestone,
@@ -128,6 +129,7 @@ const ICONS = {
   uwaga: TriangleAlert,
   przerwa: Hourglass,
   odkryj: Eye,
+  zakryty: EyeOff,
   // czynności w menu pod prawym przyciskiem — wcześniej emoji i znaki
   // typograficzne (🗑 ✎ 💬 § ⌂ ⧉ ↺), czyli jarmark w jednym menu
   otworz: ExternalLink,

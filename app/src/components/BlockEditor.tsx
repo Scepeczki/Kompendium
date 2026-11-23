@@ -4,6 +4,9 @@ import { markdown } from '@codemirror/lang-markdown'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { RichEditor } from './RichEditor'
 import { ConceptPicker } from './ConceptPicker'
+import { OkoTestu } from './BlockShell'
+import { znajdzTypZadania } from '../nauka'
+import { glownaWidoczna, stronaWidoczna, ustawWidocznosc } from '../widocznosc'
 import { mdShortcuts, surroundSelection, wrapLines } from '../cmShortcuts'
 import { wikiCompletion } from '../cmWiki'
 import {
@@ -796,6 +799,12 @@ export function BlockEditor({
             onClick={() => setSubId(null)}
           >
             <span className="subpage-name">{mainPageName(concept)}</span>
+            {subs.length > 0 && (
+              <OkoTestu
+                widoczna={glownaWidoczna(version, concept.type, znajdzTypZadania(typy.all))}
+                onZmien={(w) => void ustawWidocznosc(version.id, null, w)}
+              />
+            )}
             {!activeSub && (
               <span className="subpage-actions">
                 <button
@@ -843,6 +852,7 @@ export function BlockEditor({
               }}
             >
               <span className="subpage-name">{s.name}</span>
+              <OkoTestu widoczna={stronaWidoczna(s)} onZmien={(w) => void ustawWidocznosc(version.id, s.id, w)} />
               {activeSub?.id === s.id && (
                 <span className="subpage-actions">
                   <button

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, mainPageName } from '../db'
+import { glownaWidoczna, stronaWidoczna } from '../widocznosc'
 import { renderMarkdown } from '../markdown'
 import { useBlockTypes } from '../blockTypes'
 import { BlockShell } from './BlockShell'
@@ -48,7 +49,6 @@ import {
   type Przypomnienie,
   type RodzajRozszerzonej,
   type SourceRef,
-  type Subpage,
 } from '../types'
 
 /** Co powtarzamy: sektor / fiszkę albo jeden kafelek osobno. */
@@ -248,9 +248,11 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     ...zadaniaSesji.map((c) => c.id),
     ...(cel.klucz && czyZadanie(cel.klucz) ? [idZadania(cel.klucz)] : []),
     ...(cel.klucz && kafelek.get(cel.klucz)?.type === typZadania ? [cel.klucz] : []),
-    ...wezly.flatMap((n) => (n.kind === 'block' && zadanieWLinii(n) ? [n.conceptId] : [])),
+    // strony wszystkich kafelków: każdy może mieć stronę odsłoniętą w teście
+    ...wezly.flatMap((n) => (n.kind === 'block' ? [n.conceptId] : [])),
+    ...(cel.klucz && kafelek.has(cel.klucz) ? [cel.klucz] : []),
   ]
-  const stronyZadan =
+  const stronyKafelkow =
     useLiveQuery(() => db.subpages.where('conceptId').anyOf(idsZadan).toArray(), [idsZadan.join()]) ?? []
   const pozycje: Pozycja[] = useMemo(() => {
     if (sektor && sciezka) {
@@ -752,24 +754,46 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   // ---- sesja ----
   const mapa = sektor?.mapa?.trim()
 
-  /** Zadanie w sesji: nazwa i treść widoczne, pole na rozwiązanie z pamięci,
-   *  zakryte strony z rozwiązaniem. */
-  const elementZadania = (p: Pozycja) => {
-    const c = p.conceptId ? kafelek.get(p.conceptId) : undefined
+  /** Strony kafelka w teście: które widać od początku (odsłonięte okiem przy
+   *  stronie), a które są zakryte. Zadanie ma domyślnie odsłonięte polecenie.
+   *  Tekst pisany w ścieżce ma pierwszeństwo, jak wszędzie. */
+  const stronyWTescie = (p: Pozycja) => {
+    if (!p.conceptId || p.wezel?.kind === 'fusion') return null
+    const c = kafelek.get(p.conceptId)
+    if (!c) return null
     const n = p.wezel?.kind === 'block' ? p.wezel : undefined
     const v =
-      wersje.find((x) => x.id === n?.versionId && x.conceptId === c?.id) ??
-      wersje.find((x) => x.id === c?.currentVersionId)
-    const tresc = (v && n?.wlasneTresci?.[kluczWlasnej(v.id, null)]) ?? v?.content ?? ''
-    const strony = stronyZadan
-      .filter((x) => x.conceptId === c?.id && x.versionId === v?.id)
-      .sort((a, b) => a.order - b.order)
+      wersje.find((x) => x.id === n?.versionId && x.conceptId === c.id) ??
+      wersje.find((x) => x.id === c.currentVersionId)
+    const wlasna = (sid: string | null) => (v ? n?.wlasneTresci?.[kluczWlasnej(v.id, sid)] : undefined)
+    const subs = stronyKafelkow
+      .filter((x) => x.conceptId === c.id && x.versionId === v?.id)
+      .sort((x, y) => x.order - y.order)
+    const wszystkie: StronaTestu[] = [
+      { id: null, nazwa: mainPageName(c), tresc: wlasna(null) ?? v?.content ?? '', widoczna: glownaWidoczna(v, c.type, typZadania) },
+      ...subs.map((x) => ({ id: x.id, nazwa: x.name, tresc: wlasna(x.id) ?? x.content ?? '', widoczna: stronaWidoczna(x) })),
+    ]
+    return { widoczne: wszystkie.filter((x) => x.widoczna), zakryte: wszystkie.filter((x) => !x.widoczna) }
+  }
+  /** Kafelek z odsłoniętymi stronami: one widoczne od początku, pole na
+   *  odpowiedź, zakryte strony dopiero po „Sprawdź". Bez odsłoniętych stron —
+   *  null, czyli zwykły kafelek zakryty w całości. W trudnym teście (bez nazw)
+   *  podpowiedzi zostają tylko przy zadaniach. */
+  const elementOdsloniety = (p: Pozycja, trudnyTest = false) => {
+    const st = stronyWTescie(p)
+    if (!st || !st.widoczne.length) return null
+    if (trudnyTest && !p.zadanie) return null
     return (
       <ElementSesji
         key={p.klucz}
         p={p}
         trudny={false}
         zadanie
+        opisZakrytych={
+          p.zadanie && st.zakryte.every((x) => x.id !== null)
+            ? 'Rozwiązanie zakryte'
+            : `Zakryte: ${st.zakryte.map((x) => x.nazwa).join(', ') || '—'}`
+        }
         wymagania={wymSektora?.wymagania?.[p.wezel?.id ?? p.klucz]}
         zCzatu={wymSektora?.lukiKafelkow?.[p.wezel?.id ?? p.klucz]}
         odpowiedz={odpowiedzi[p.klucz] ?? ''}
@@ -779,14 +803,31 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         ocena={oceny[p.klucz]}
         onOdslon={(pod) => odslon(p.klucz, pod)}
         onOcena={(o) => setOceny((x) => ({ ...x, [p.klucz]: o }))}
-        widoczne={() => (
-          <div className="markdown-body sesja-zadanie-tresc" dangerouslySetInnerHTML={{ __html: renderMarkdown(tresc) }} />
-        )}
-        tresc={() => <RozwiazanieZadania strony={strony} />}
+        widoczne={() => <StronyTestu strony={st.widoczne} klasa="sesja-zadanie-tresc" />}
+        tresc={() => <StronyTestu strony={st.zakryte} zadanie={!!p.zadanie} />}
         typy={typy}
       />
     )
   }
+  /** Zadanie bez stron (np. jeszcze się wczytuje) — jak dawniej: zakryte w całości. */
+  const elementZadania = (p: Pozycja) =>
+    elementOdsloniety(p) ?? (
+      <ElementSesji
+        key={p.klucz}
+        p={p}
+        trudny={false}
+        zadanie
+        odpowiedz={odpowiedzi[p.klucz] ?? ''}
+        onOdpowiedz={(t) => setOdpowiedzi((o) => ({ ...o, [p.klucz]: t }))}
+        odkryty={odkryte.has(p.klucz)}
+        podejrzany={podejrzane.has(p.klucz)}
+        ocena={oceny[p.klucz]}
+        onOdslon={(pod) => odslon(p.klucz, pod)}
+        onOcena={(o) => setOceny((x) => ({ ...x, [p.klucz]: o }))}
+        tresc={() => <StronyTestu strony={[]} zadanie />}
+        typy={typy}
+      />
+    )
 
   const ocenione = pozycje.filter((p) => oceny[p.klucz]).length + (zStruktura && struktura ? 1 : 0)
   const wszystkich = pozycje.length + (zStruktura ? 1 : 0)
@@ -926,6 +967,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
               const p = pozycje.find((x) => x.wezel?.id === n.id)
               if (!p) return null
               if (p.zadanie) return elementZadania(p)
+              const odsl = elementOdsloniety(p, trudny)
+              if (odsl) return odsl
               return (
                 <ElementSesji
                   key={n.id}
@@ -953,7 +996,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                 />
               )
             })
-          : pozycje.map((p) => p.zadanie ? elementZadania(p) : (
+          : pozycje.map((p) => p.zadanie ? elementZadania(p) : (!fiszka && elementOdsloniety(p)) || (
               <ElementSesji
                 key={p.klucz}
                 p={p}
@@ -1209,6 +1252,7 @@ function ElementSesji({
   zadanie,
   wymagania,
   zCzatu,
+  opisZakrytych,
 }: {
   p: Pozycja
   trudny: boolean
@@ -1228,6 +1272,8 @@ function ElementSesji({
   zCzatu?: string[]
   /** Fiszka z zakrytą jedną stroną: to, co widać od początku. */
   widoczne?: () => React.ReactNode
+  /** Napis na zakrytej części, gdy część kafelka widać (np. „Zakryte: Dowód"). */
+  opisZakrytych?: string
   typy: ReturnType<typeof useBlockTypes>
 }) {
   const def = p.typ ? typy.def(p.typ) : undefined
@@ -1257,7 +1303,7 @@ function ElementSesji({
             <div className="sesja-odkryta">{tresc()}</div>
           ) : (
             <div className="sesja-zakryte">
-              <span className="sesja-etykieta">{zadanie ? 'Rozwiązanie zakryte' : 'Kafelek zakryty'}</span>
+              <span className="sesja-etykieta">{opisZakrytych ?? (zadanie ? 'Rozwiązanie zakryte' : 'Kafelek zakryty')}</span>
               <div className="sesja-przyciski">
                 <button className="btn btn-primary" onClick={() => onOdslon(false)}>
                   <Icon name="odkryj" size={1} /> Sprawdź
@@ -1290,7 +1336,7 @@ function ElementSesji({
               className="sesja-pole"
               rows={5}
               placeholder={
-                zadanie
+                p.zadanie
                   ? 'Jak to rozwiązać? Pomysł i kluczowe kroki — z pamięci.'
                   : trudny
                     ? 'Co to za kafelek i co mówi?'
@@ -1378,31 +1424,45 @@ function TrescPozycji({
   )
 }
 
-/** Odsłonięte zadanie: jego strony (najpierw Rozwiązanie). */
-function RozwiazanieZadania({ strony }: { strony: Subpage[] }) {
-  const domyslna = strony.find((s) => /rozwi/i.test(s.name)) ?? strony[0]
-  const [wybrana, setWybrana] = useState<string | undefined>(domyslna?.id)
+/** Strona kafelka w teście zakrytym. */
+interface StronaTestu {
+  id: string | null
+  nazwa: string
+  tresc: string
+  widoczna: boolean
+}
+
+/** Strony kafelka w teście — odsłonięte od początku albo zakryte, po
+ *  „Sprawdź". Kilka stron: zakładki (w zadaniu najpierw rozwiązanie). */
+function StronyTestu({ strony, zadanie, klasa }: { strony: StronaTestu[]; zadanie?: boolean; klasa?: string }) {
+  const domyslna = (zadanie ? strony.find((s) => /rozwi/i.test(s.nazwa)) : undefined) ?? strony[0]
+  const [wybrana, setWybrana] = useState<string | null | undefined>(domyslna?.id)
   const s = strony.find((x) => x.id === wybrana) ?? domyslna
   if (!s) {
-    return <p className="hint">To zadanie nie ma jeszcze stron z rozwiązaniem i metodą — dopisz je w kafelku.</p>
+    return (
+      <p className="hint">
+        {zadanie
+          ? 'To zadanie nie ma jeszcze stron z rozwiązaniem i metodą — dopisz je w kafelku.'
+          : 'Wszystkie strony tego kafelka są odsłonięte — nie ma czego sprawdzać.'}
+      </p>
+    )
   }
   return (
-    <div className="sesja-rozwiazanie">
-      <div className="block-pages">
-        {strony.map((x) => (
-          <button
-            key={x.id}
-            className={`block-page ${x.id === s.id ? 'active' : ''}`}
-            onClick={() => setWybrana(x.id)}
-          >
-            {x.name}
-          </button>
-        ))}
-      </div>
-      <div
-        className="markdown-body"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(s.content || '_(pusto)_') }}
-      />
+    <div className={klasa ?? 'sesja-rozwiazanie'}>
+      {(strony.length > 1 || !klasa) && (
+        <div className="block-pages">
+          {strony.map((x) => (
+            <button
+              key={x.id ?? 'glowna'}
+              className={`block-page ${x.id === s.id ? 'active' : ''}`}
+              onClick={() => setWybrana(x.id)}
+            >
+              {x.nazwa}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(s.tresc || '_(pusto)_') }} />
     </div>
   )
 }

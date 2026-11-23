@@ -15,12 +15,20 @@ import {
   zapiszZadanie,
   zapiszZrodlaZadania,
   znajdzTypZadania,
+  dolozDoSektora,
+  odepnijZadanie,
+  wezlySektora,
+  wstawZadanieNaListe,
+  wyjmijZSektora,
   type ZadanieDoEdycji,
 } from '../nauka'
-import { db, updateVersion } from '../db'
+import { db, deleteConcept, updateVersion } from '../db'
+import { topoOrder } from '../topo'
+import { przesunWezel, wstawKafelek, wyjmijWezel } from '../sciezkaLancuch'
+import { ustawWidocznosc } from '../widocznosc'
 import { useBlockTypes } from '../blockTypes'
 import { renderMarkdown } from '../markdown'
-import { isPdfSource, type Concept, type JednostkaNauki, type PdfSourceRef, type SourceRef } from '../types'
+import { isPdfSource, type Concept, type JednostkaNauki, type PathNode, type PdfSourceRef, type SourceRef } from '../types'
 import { BlockEditor } from './BlockEditor'
 import { ConceptPicker } from './ConceptPicker'
 import { useDialogs } from './Dialogs'
@@ -28,6 +36,7 @@ import { Icon } from './Icon'
 import { PdfPanel, type PdfTarget } from './PdfPanel'
 import { RichEditor, RichToolbar } from './RichEditor'
 import { SourceList } from './SourceList'
+import { OkoTestu } from './BlockShell'
 import { Etapy } from './TestCzatem'
 
 const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new URL(adresCzatu()).host
@@ -103,6 +112,7 @@ function KafelekZadania({
   onOdepnij,
   onEdytor,
   onMenu,
+  onOko,
 }: {
   z: ZadanieDoEdycji
   nr: number
@@ -126,6 +136,8 @@ function KafelekZadania({
   onEdytor: (ed: Editor | null) => void
   /** Prawy przycisk: menu kafelka (pełna edycja jak w bibliotece, źródła, usuwanie). */
   onMenu: (x: number, y: number) => void
+  /** Oko przy stronie: czy widać ją w teście zakrytym (null = polecenie). */
+  onOko: (stronaId: string | null, widoczna: boolean) => void
 }) {
   const typy = useBlockTypes()
   const [strona, setStrona] = useState<string>('polecenie')
@@ -187,6 +199,7 @@ function KafelekZadania({
                 >
                   Polecenie
                 </button>
+                <OkoTestu widoczna={z.glownaWTescie ?? true} onZmien={(w) => onOko(null, w)} />
                 {z.rozwiazania.map((x) => (
                   <span key={x.id} className={`ez3-strona ${strona === x.id ? 'active' : ''}`}>
                     <button
@@ -199,6 +212,7 @@ function KafelekZadania({
                     >
                       {x.nazwa}
                     </button>
+                    <OkoTestu widoczna={!!x.wTescie} onZmien={(w) => onOko(x.id, w)} />
                     {strona === x.id && (
                       <button
                         className="ez2-strona-usun"
@@ -488,7 +502,23 @@ export function EtapZadan({
   const def = typy.all.find((t) => t.id === typZad)
   const znak = def?.short ?? 'ZAD'
   const kolor = def?.color ?? 'var(--accent)'
-  const zBazy = useLiveQuery(() => (proba ? Promise.resolve([]) : wczytajZadania(j.zadania ?? [])), [proba, (j.zadania ?? []).join()])
+  // Spis sektora: jego kafelki w kolejności Linii. Zadaniem jest każdy kafelek
+  // rodzaju „Zadanie" — ten stojący w Linii i ten z listy na końcu sektora.
+  const sciezka = useLiveQuery(() => (j.pathId ? db.paths.get(j.pathId) : undefined), [j.pathId])
+  const ordered = useMemo(() => (sciezka ? topoOrder(sciezka.nodes, sciezka.edges) : []), [sciezka])
+  const spis = useMemo(() => wezlySektora(j, sciezka), [sciezka, j])
+  const idsSpisu = spis.flatMap((n) => (n.kind === 'block' ? [n.conceptId] : []))
+  const kafelkiSpisu = useLiveQuery(() => db.concepts.bulkGet(idsSpisu), [idsSpisu.join()]) ?? []
+  const kafelekSpisu = new Map(kafelkiSpisu.flatMap((c) => (c ? [[c.id, c] as const] : [])))
+  const wLinii = proba
+    ? []
+    : spis.flatMap((n) =>
+        n.kind === 'block' && kafelekSpisu.get(n.conceptId)?.type === typZad ? [{ nodeId: n.id, conceptId: n.conceptId }] : [],
+      )
+  /** Zadanie stojące w Linii → jego węzeł. */
+  const wezelZadania = new Map(wLinii.map((x) => [x.conceptId, x.nodeId]))
+  const idsZadan = [...new Set([...wLinii.map((x) => x.conceptId), ...(j.zadania ?? [])])]
+  const zBazy = useLiveQuery(() => (proba ? Promise.resolve([]) : wczytajZadania(idsZadan)), [proba, idsZadan.join()])
   const [lokalne, setLokalne] = useState<ZadanieDoEdycji[]>([])
   const zadania = proba ? lokalne : (zBazy ?? [])
   const [wybrany, setWybrany] = useState<string | null>(null)
@@ -627,8 +657,83 @@ export function EtapZadan({
     if (!ok) return
     zapis.wypchnij()
     if (proba) setLokalne((l) => l.filter((x) => x.id !== z.id))
-    else await usunZadanie(j.id, z.id)
+    else {
+      const nodeId = wezelZadania.get(z.id)
+      if (nodeId && j.pathId) {
+        // zadanie z Linii: znika z Linii; kafelek z folderu ścieżki znika
+        // całkiem, kafelek z biblioteki zostaje w bibliotece
+        await wyjmijWezel(j.pathId, nodeId)
+        await wyjmijZSektora(j.id, [nodeId])
+        if ((await db.concepts.get(z.id))?.pathId === j.pathId) await deleteConcept(z.id)
+      } else await usunZadanie(j.id, z.id)
+    }
     if (podpinam === z.id) setPodpinam(null)
+  }
+
+  // ---- układanie: przeciąganie zadań w spisie sektora i na listę na końcu ----
+  const [ciagnie, setCiagnie] = useState<{ conceptId: string; nodeId?: string } | null>(null)
+  const [celUpuszczenia, setCelUpuszczenia] = useState<{ gdzie: 'linia' | 'lista'; i: number } | null>(null)
+  const nadPozycja = (e: React.DragEvent, gdzie: 'linia' | 'lista', i: number) => {
+    if (!ciagnie) return
+    e.preventDefault()
+    e.stopPropagation()
+    const r = e.currentTarget.getBoundingClientRect()
+    setCelUpuszczenia({ gdzie, i: e.clientY - r.top < r.height / 2 ? i : i + 1 })
+  }
+  const upusc = async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const c = ciagnie
+    const t = celUpuszczenia
+    setCiagnie(null)
+    setCelUpuszczenia(null)
+    if (!c || !t || proba || !j.pathId) return
+    zapis.wypchnij()
+    if (t.gdzie === 'linia') {
+      // miejsce w Linii: za poprzednim kafelkiem spisu albo przed następnym
+      const bez = ordered.filter((n) => n.id !== c.nodeId)
+      let przed: PathNode | undefined
+      for (let k = t.i - 1; k >= 0 && !przed; k--) if (spis[k].id !== c.nodeId) przed = spis[k]
+      let po: PathNode | undefined
+      for (let k = t.i; k < spis.length && !po; k++) if (spis[k].id !== c.nodeId) po = spis[k]
+      let afterId: string | null
+      let beforeId: string | null
+      if (przed) {
+        afterId = przed.id
+        beforeId = bez[bez.findIndex((n) => n.id === przed!.id) + 1]?.id ?? null
+      } else if (po) {
+        beforeId = po.id
+        afterId = bez[bez.findIndex((n) => n.id === po!.id) - 1]?.id ?? null
+      } else {
+        afterId = bez[bez.length - 1]?.id ?? null
+        beforeId = null
+      }
+      if (c.nodeId) {
+        await przesunWezel(j.pathId, c.nodeId, afterId, beforeId)
+        await dolozDoSektora(j.id, [c.nodeId])
+      } else {
+        const id = await wstawKafelek(j.pathId, c.conceptId, afterId, beforeId)
+        await dolozDoSektora(j.id, [id])
+        await odepnijZadanie(j.id, c.conceptId)
+      }
+      return
+    }
+    const listaIds = j.zadania ?? []
+    const docel = lista[t.i] ? listaIds.indexOf(lista[t.i].id) : listaIds.length
+    if (c.nodeId) {
+      const n = sciezka?.nodes.find((x) => x.id === c.nodeId)
+      const k = kafelekSpisu.get(c.conceptId)
+      if (n?.kind === 'block' && k && k.pathId !== j.pathId && (n.nazwa !== undefined || Object.keys(n.wlasneTresci ?? {}).length > 0)) {
+        komunikat('To zadanie ma tekst napisany tylko w tej ścieżce — na liście by przepadł. Wyślij go najpierw do biblioteki.')
+        return
+      }
+      await wyjmijWezel(j.pathId, c.nodeId)
+      await wyjmijZSektora(j.id, [c.nodeId])
+      await wstawZadanieNaListe(j.id, c.conceptId, docel)
+    } else {
+      const skad = listaIds.indexOf(c.conceptId)
+      await wstawZadanieNaListe(j.id, c.conceptId, skad >= 0 && skad < docel ? docel - 1 : docel)
+    }
   }
 
   const usunStrone = async (z: ZadanieDoEdycji, stronaId: string) => {
@@ -711,6 +816,45 @@ export function EtapZadan({
     return t
   }
 
+  /** Zadania z listy na końcu sektora (te, które nie stoją w Linii). */
+  const lista = zadania.filter((z) => !wezelZadania.has(z.id))
+  const pozycjaZadania = (z: ZadanieDoEdycji, nodeId?: string) => (
+    <button
+      className={`ez2-poz ${wybrany === z.id ? 'wl' : ''} ${poprawki.has(z.id) ? 'do-poprawy' : ''} ${nodeId ? 'w-linii' : ''} ${ciagnie?.conceptId === z.id ? 'ciagniete' : ''}`}
+      data-zadanie={z.id}
+      data-w-linii={nodeId ? '' : undefined}
+      draggable={!proba}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', z.nazwa || 'Zadanie')
+        e.dataTransfer.effectAllowed = 'move'
+        setCiagnie({ conceptId: z.id, nodeId })
+      }}
+      onDragEnd={() => {
+        setCiagnie(null)
+        setCelUpuszczenia(null)
+      }}
+      onClick={() => {
+        zapis.wypchnij()
+        pokaz(z.id)
+      }}
+      title={proba ? undefined : 'Klik — pokaż; przeciągnij — przestaw'}
+    >
+      {!proba && (
+        <span className="ez3-uchwyt" aria-hidden>
+          <Icon name="przesun" size={0.85} />
+        </span>
+      )}
+      <span className="ez2-nr">{zadania.indexOf(z) + 1}</span>
+      <span className="ez2-poz-nazwa">{z.nazwa || 'Zadanie'}</span>
+      {z.zrodla.length > 0 && (
+        <span className="ez3-poz-zrodla" title={`Źródła: ${z.zrodla.length}`}>
+          <Icon name="book-open" size={0.8} />
+        </span>
+      )}
+      {poprawki.has(z.id) && <span className="ez2-poz-znak">do poprawy</span>}
+    </button>
+  )
+
   const wPowtorceZero = j.etap === 'zadania'
   const zadanieDoPodpiecia =
     zadania.find((z) => z.id === podpinam) ??
@@ -730,35 +874,80 @@ export function EtapZadan({
         </div>
       )}
       <div className="ez2 etap-zadan ez3-uklad">
-        <aside className="ez2-lewa ez3-lewa" aria-label="Zadania sektora">
-          <span className="tcz-lbl">Zadania sektora{zadania.length ? ` · ${zadania.length}` : ''}</span>
-          {zadania.length > 0 ? (
-            <ol className="ez2-lista">
-              {zadania.map((z, i) => (
-                <li key={z.id}>
-                  <button
-                    className={`ez2-poz ${wybrany === z.id ? 'wl' : ''} ${poprawki.has(z.id) ? 'do-poprawy' : ''}`}
-                    data-zadanie={z.id}
-                    onClick={() => {
-                      zapis.wypchnij()
-                      pokaz(z.id)
-                    }}
-                  >
-                    <span className="ez2-nr">{i + 1}</span>
-                    <span className="ez2-poz-nazwa">{z.nazwa || 'Zadanie'}</span>
-                    {z.zrodla.length > 0 && (
-                      <span className="ez3-poz-zrodla" title={`Źródła: ${z.zrodla.length}`}>
-                        <Icon name="book-open" size={0.8} />
+        <aside className="ez2-lewa ez3-lewa" aria-label="Spis sektora">
+          <span className="tcz-lbl">Spis sektora{j.nazwa ? ` · ${j.nazwa}` : ''}</span>
+          {spis.length > 0 ? (
+            <ol className="ez3-spis" onDrop={(e) => void upusc(e)} onDragOver={(e) => ciagnie && e.preventDefault()}>
+              {spis.map((n, i) => {
+                const z = n.kind === 'block' && wezelZadania.get(n.conceptId) === n.id ? zadania.find((x) => x.id === n.conceptId) : undefined
+                const kreska =
+                  celUpuszczenia?.gdzie === 'linia' && celUpuszczenia.i === i
+                    ? 'kreska-przed'
+                    : celUpuszczenia?.gdzie === 'linia' && celUpuszczenia.i === i + 1 && i === spis.length - 1
+                      ? 'kreska-po'
+                      : ''
+                return (
+                  <li key={n.id} className={kreska} onDragOver={(e) => nadPozycja(e, 'linia', i)}>
+                    {z ? (
+                      pozycjaZadania(z, n.id)
+                    ) : n.kind === 'heading' ? (
+                      <span className="ez3-spis-rozdzial">{n.text || 'Rozdział'}</span>
+                    ) : n.kind === 'text' ? (
+                      <span className="ez3-spis-kafelek ez3-spis-notatka">notatka</span>
+                    ) : (
+                      <span className="ez3-spis-kafelek">
+                        <span className="ez3-spis-typ">
+                          {n.kind === 'block' ? typy.short(kafelekSpisu.get(n.conceptId)?.type ?? '') : n.kind === 'fusion' ? typy.short(n.type ?? '') : ''}
+                        </span>
+                        <span className="ez3-spis-nazwa">
+                          {n.kind === 'block'
+                            ? (n.nazwa ?? kafelekSpisu.get(n.conceptId)?.name ?? '…')
+                            : n.kind === 'fusion'
+                              ? n.name || 'Grupa'
+                              : ''}
+                        </span>
                       </span>
                     )}
-                    {poprawki.has(z.id) && <span className="ez2-poz-znak">do poprawy</span>}
-                  </button>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ol>
           ) : (
-            <p className="tcz-szary ez2-brak">Jeszcze nie ma zadań w tym sektorze.</p>
+            <p className="tcz-szary ez2-brak">Sektor nie ma jeszcze kafelków w Linii.</p>
           )}
+          <span className="tcz-lbl ez3-spis-koniec">Na końcu sektora{lista.length ? ` · ${lista.length}` : ''}</span>
+          <ol
+            className={`ez2-lista ez3-lista-konca ${celUpuszczenia?.gdzie === 'lista' ? 'cel' : ''}`}
+            onDragOver={(e) => {
+              if (!ciagnie) return
+              e.preventDefault()
+              if (!(e.target as Element).closest('li[data-poz]')) setCelUpuszczenia({ gdzie: 'lista', i: lista.length })
+            }}
+            onDrop={(e) => void upusc(e)}
+          >
+            {lista.map((z, k) => (
+              <li
+                key={z.id}
+                className={
+                  celUpuszczenia?.gdzie === 'lista' && celUpuszczenia.i === k
+                    ? 'kreska-przed'
+                    : celUpuszczenia?.gdzie === 'lista' && celUpuszczenia.i === k + 1 && k === lista.length - 1
+                      ? 'kreska-po'
+                      : ''
+                }
+                data-poz
+                onDragOver={(e) => nadPozycja(e, 'lista', k)}
+              >
+                {pozycjaZadania(z)}
+              </li>
+            ))}
+            {!lista.length && <li className="ez3-lista-pusta">{ciagnie ? 'Upuść tutaj' : 'Nowe zadania lądują tutaj'}</li>}
+          </ol>
+          <p className="tcz-szary ez3-spis-rada">
+            {proba
+              ? 'W próbie układanie jest wyłączone — zadania są tylko na niby.'
+              : 'Przeciągnij zadanie (⠿) w spisie tam, gdzie ma stać w Linii, albo na listę na końcu sektora.'}
+          </p>
           <button
             className={`btn btn-dolacz ez3-pdf-przelacz ${pdf ? 'btn-active' : ''}`}
             data-pdf
@@ -852,6 +1041,13 @@ export function EtapZadan({
                 onOdepnij={(r) => ustawZrodla(z.id, (l) => l.filter((x) => x.id !== r.id))}
                 onEdytor={(ed) => zarejestruj(z.id, ed)}
                 onMenu={(x, y) => setMenu({ x, y, id: z.id })}
+                onOko={(sid, w) => {
+                  if (proba || !z.wersjaId)
+                    zmienLok(z.id, (x) =>
+                      sid ? { ...x, rozwiazania: x.rozwiazania.map((y) => (y.id === sid ? { ...y, wTescie: w } : y)) } : { ...x, glownaWTescie: w },
+                    )
+                  else void ustawWidocznosc(z.wersjaId, sid, w)
+                }}
               />
             ))}
 

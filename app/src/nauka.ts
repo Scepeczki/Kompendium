@@ -764,6 +764,8 @@ export interface RozwiazanieZadania {
   id: string
   nazwa: string
   tresc: string
+  /** Widać ją w teście zakrytym (domyślnie rozwiązanie jest zakryte). */
+  wTescie?: boolean
 }
 
 /** Zadanie do edycji na ekranie zadań: nazwa, polecenie i rozwiązania. */
@@ -776,6 +778,10 @@ export interface ZadanieDoEdycji {
   rozwiazania: RozwiazanieZadania[]
   /** Źródła kafelka (wycinki PDF, inne kafelki) — wspólne dla wszystkich stron. */
   zrodla: SourceRef[]
+  /** Bieżąca wersja kafelka (w próbie brak). */
+  wersjaId?: string
+  /** Czy polecenie widać w teście — brak = tak (zadanie). */
+  glownaWTescie?: boolean
 }
 
 /** Zadania sektora z poleceniem i wszystkimi rozwiązaniami (podstronami). */
@@ -790,8 +796,10 @@ export async function wczytajZadania(ids: string[]): Promise<ZadanieDoEdycji[]> 
       id,
       nazwa: c.name,
       tresc: v?.content ?? '',
-      rozwiazania: strony.map((x) => ({ id: x.id, nazwa: x.name, tresc: x.content ?? '' })),
+      rozwiazania: strony.map((x) => ({ id: x.id, nazwa: x.name, tresc: x.content ?? '', wTescie: x.wTescie })),
       zrodla: v?.sourceRefs ?? [],
+      wersjaId: v?.id,
+      glownaWTescie: v?.glownaWTescie,
     })
   }
   return out
@@ -838,6 +846,70 @@ export async function odepnijZadanie(sektorId: string, conceptId: string) {
   const j = await db.nauka.get(sektorId)
   if (!j) return
   await zmienJednostke(sektorId, { zadania: (j.zadania ?? []).filter((x) => x !== conceptId) })
+}
+
+/** Stawia zadanie na liście na końcu sektora, w miejscu `index` (przeciąganie).
+ *  Zadanie jest na jednej liście naraz — z listy innego sektora znika. */
+export async function wstawZadanieNaListe(sektorId: string, conceptId: string, index: number) {
+  const j = await db.nauka.get(sektorId)
+  if (!j?.pathId) return
+  const inne = await db.nauka.where('pathId').equals(j.pathId).toArray()
+  await db.transaction('rw', db.nauka, async () => {
+    for (const x of inne) {
+      if (x.id === sektorId || !x.zadania?.includes(conceptId)) continue
+      await db.nauka.update(x.id, { zadania: x.zadania.filter((z) => z !== conceptId) })
+    }
+    const lista = (j.zadania ?? []).filter((z) => z !== conceptId)
+    const gdzie = Math.max(0, Math.min(index, lista.length))
+    lista.splice(gdzie, 0, conceptId)
+    await db.nauka.update(sektorId, { zadania: lista, zmieniono: teraz().toISOString() })
+  })
+}
+
+/** Do którego sektora należy miejsce węzła w Linii.
+ *
+ *  Patrzymy na najbliższych sąsiadów, którzy są w jakimś sektorze (notatki
+ *  i rozdziały bez sektora pomijamy — w środku sektora należą do jego pasma).
+ *  Sąsiedzi z tego samego sektora: ten sektor. Na granicy zostaje sektor
+ *  `preferowany` (np. ten, w którym węzeł już jest), jeśli to jeden z sąsiadów;
+ *  inaczej sektor kafelka przed nim, a gdy go nie ma — po nim. Bez sektora
+ *  obok — żaden. */
+export function sektorDlaMiejsca(
+  ordered: PathNode[],
+  sektory: JednostkaNauki[],
+  nodeId: string,
+  preferowany: string | null,
+): string | null {
+  const wSektorze = new Map<string, string>()
+  for (const s of sektory) if (s.rodzaj === 'sektor') for (const w of s.wezly) wSektorze.set(w, s.id)
+  const lista = ordered.filter((n) => n.kind !== 'comment')
+  const i = lista.findIndex((n) => n.id === nodeId)
+  if (i < 0) return null
+  const szukaj = (od: number, krok: number): string | null => {
+    for (let k = od; k >= 0 && k < lista.length; k += krok) {
+      const n = lista[k]
+      const s = wSektorze.get(n.id)
+      if (s) return s
+      // zwykły kafelek bez sektora przerywa — to już poza sektorem
+      if (n.kind !== 'text' && n.kind !== 'heading') return null
+    }
+    return null
+  }
+  const przed = szukaj(i - 1, -1)
+  const po = szukaj(i + 1, 1)
+  if (przed && przed === po) return przed
+  if (preferowany && (przed === preferowany || po === preferowany)) return preferowany
+  // na granicy: zadanie należy do materiału, za którym stoi (a na samym
+  // początku — do sektora, który zaczyna się zaraz po nim)
+  return przed ?? po
+}
+
+/** Przypina albo odpina węzeł tak, by należał do `cel` (null = do żadnego). */
+export async function ustawSektorWezla(nodeId: string, cel: string | null, sektory: JednostkaNauki[]) {
+  const obecny = sektory.find((s) => s.rodzaj === 'sektor' && s.wezly.includes(nodeId))?.id ?? null
+  if (obecny === cel) return
+  if (cel) await dolozDoSektora(cel, [nodeId])
+  else if (obecny) await wyjmijZSektora(obecny, [nodeId])
 }
 
 /** Przypina istniejący kafelek jako zadanie sektora (do paska). */

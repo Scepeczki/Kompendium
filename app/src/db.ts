@@ -225,6 +225,34 @@ async function przejdzNaNowaPalete(): Promise<void> {
   }
 }
 
+/** Dwa rodzaje „Zadanie" w menu (wbudowany i dawny własny o tej samej
+ *  nazwie) — zostaje wbudowany, bo na nim opiera się nauka. Kafelki i grupy
+ *  zbędnego rodzaju NAJPIERW przechodzą na wbudowany, potem rodzaj znika:
+ *  żaden kafelek nie traci rodzaju. */
+async function jedenRodzajZadan(): Promise<void> {
+  const typy = await db.blockTypes.toArray()
+  if (!typy.some((t) => t.id === 'zadanie')) return
+  const zbedne = typy.filter(
+    (t) => t.id !== 'zadanie' && (/^zadani/i.test(t.label.trim()) || /^zad$/i.test(t.short.trim())),
+  )
+  if (!zbedne.length) return
+  const ids = new Set(zbedne.map((t) => t.id))
+  await db.transaction('rw', db.blockTypes, db.concepts, db.paths, async () => {
+    await db.concepts
+      .filter((c) => ids.has(c.type))
+      .modify((c) => {
+        c.type = 'zadanie'
+      })
+    await db.paths.toCollection().modify((p) => {
+      for (const n of p.nodes) {
+        const x = n as { kind: string; type?: string }
+        if (x.kind === 'fusion' && x.type && ids.has(x.type)) x.type = 'zadanie'
+      }
+    })
+    await db.blockTypes.bulkDelete([...ids])
+  })
+}
+
 /** Wsypuje fabryczne typy do pustej tabeli. Świeża baza nie przechodzi przez
  *  `upgrade`, więc bez tego startowałaby bez ani jednego typu. */
 export async function seedBlockTypes(): Promise<void> {
@@ -233,6 +261,7 @@ export async function seedBlockTypes(): Promise<void> {
     return
   }
   await przejdzNaNowaPalete()
+  await jedenRodzajZadan()
   // Jednorazowe dosypanie dla baz założonych, zanim rodzaje umiały mieszkać
   // w ścieżce. Robimy to raz — potem użytkownik jest panem swojej listy
   // i skasowanego „Zadania" nie wskrzeszamy przy każdym uruchomieniu.
@@ -440,7 +469,7 @@ export async function moveConcept(
 
 export async function updateVersion(
   id: string,
-  patch: Partial<Pick<BlockVersion, 'content' | 'label' | 'sourceRefs' | 'sourceGroups'>>,
+  patch: Partial<Pick<BlockVersion, 'content' | 'label' | 'sourceRefs' | 'sourceGroups' | 'glownaWTescie'>>,
 ) {
   await db.versions.update(id, { ...patch, updatedAt: now() })
   const v = await db.versions.get(id)
@@ -468,6 +497,7 @@ export async function saveAsNewVersion(conceptId: string, label?: string): Promi
       content: latest.content,
       sourceRefs: latest.sourceRefs.map((r) => ({ ...r, id: uid() })),
       sourceGroups: latest.sourceGroups ? [...latest.sourceGroups] : undefined,
+      glownaWTescie: latest.glownaWTescie,
       createdAt: t,
       updatedAt: t,
     })

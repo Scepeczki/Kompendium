@@ -85,7 +85,8 @@ import {
 } from './Outline'
 import { PanelNauki } from './PanelNauki'
 import { SpisNauki } from './SpisNauki'
-import { PasekZadan } from './ZadaniaSektora'
+import { PasekZadan, ZADANIE_MIME } from './ZadaniaSektora'
+import { ustawWidocznosc } from '../widocznosc'
 import { MenuNauki } from './MenuNauki'
 import { WidokSektorow } from './WidokSektorow'
 import {
@@ -93,6 +94,9 @@ import {
   odepnijZadanie,
   przelaczWSektorze,
   przypnijZadanie,
+  sektorDlaMiejsca,
+  ustawSektorWezla,
+  wstawZadanieNaListe,
   wyjmijZSektora,
   znajdzTypZadania,
 } from '../nauka'
@@ -788,6 +792,8 @@ interface RamkaProps {
   onMapaSektora?: (id: string) => void
   onOtworzKafelek?: (id: string) => void
   onZadanieDoLinii?: (sektorId: string, conceptId: string) => void
+  /** Kafelek z Linii przeciągnięty na listę zadań na końcu sektora. */
+  onZadanieNaListe?: (sektorId: string, nodeId: string, index: number) => void
   pelny: boolean
   zaznaczony: boolean
   kreska: 'before' | 'after' | null
@@ -824,6 +830,7 @@ const RamkaSegmentu = memo(
     onMapaSektora,
     onOtworzKafelek,
     onZadanieDoLinii,
+    onZadanieNaListe,
   }: RamkaProps) {
     return (
       <div
@@ -918,8 +925,15 @@ const RamkaSegmentu = memo(
             {/* zadania sektora: zwinięty pasek na jego końcu, w środku
                 segmentu — Linia mierzy segmenty, więc nic nie może stać
                 między nimi */}
-            {pasmo?.koniec && pasmo.zadan > 0 && (
-              <PasekZadan sektorId={pasmo.id} onOtworz={onOtworzKafelek} onDoLinii={onZadanieDoLinii} />
+            {/* pasek stoi na końcu każdego sektora; pusty pokazuje się tylko
+                przy przeciąganiu — wtedy można na niego coś upuścić */}
+            {pasmo?.koniec && (
+              <PasekZadan
+                sektorId={pasmo.id}
+                onOtworz={onOtworzKafelek}
+                onDoLinii={onZadanieDoLinii}
+                onZLinii={onZadanieNaListe}
+              />
             )}
           </div>
         )}
@@ -1413,6 +1427,82 @@ function LinearView({
     })()
   }
   const zadanieDoLinii = useCallback((sektorId: string, conceptId: string) => doLiniiRef.current(sektorId, conceptId), [])
+
+  // ---- zadania a sektory: rodzaj „Zadanie" należy do sektora, w którym stoi ----
+  const typZadaniaLinii = znajdzTypZadania(typy.all)
+  /** Zadanie wyjęte z listy sektora: przy granicy zostaje w tamtym sektorze. */
+  const preferowanyRef = useRef(new Map<string, string>())
+  const zListyRef = useRef<(sektorId: string, conceptId: string, afterId: string | null, beforeId: string | null) => void>(() => {})
+  zListyRef.current = (sektorId, conceptId, afterId, beforeId) => {
+    if (!onWstawKafelek) return
+    const id = onWstawKafelek(conceptId, afterId, beforeId)
+    preferowanyRef.current.set(id, sektorId)
+    void odepnijZadanie(sektorId, conceptId)
+  }
+  const naListeRef = useRef<(sektorId: string, nodeId: string, index: number) => void>(() => {})
+  naListeRef.current = (sektorId, nodeId, index) => {
+    const komunikat = (t: string) => window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: t }))
+    const n = ordered.find((x) => x.id === nodeId)
+    const c = n?.kind === 'block' ? conceptById(n.conceptId) : undefined
+    if (!n || n.kind !== 'block' || !c || c.type !== typZadaniaLinii) {
+      komunikat('Na listę zadań wchodzą tylko kafelki-zadania (rodzaj „Zadanie").')
+      return
+    }
+    // tekst napisany w ścieżce (kafelek spoza jej folderu) na liście by przepadł
+    if (c.pathId !== pathId && (n.nazwa !== undefined || Object.keys(n.wlasneTresci ?? {}).length > 0)) {
+      komunikat('To zadanie ma tekst napisany tylko w tej ścieżce — na liście by przepadł. Wyślij go najpierw do biblioteki.')
+      return
+    }
+    if (!onWyjmijZLinii) return
+    onWyjmijZLinii(nodeId)
+    void (async () => {
+      for (const s of sektory ?? []) if (s.wezly.includes(nodeId)) await wyjmijZSektora(s.id, [nodeId])
+      await wstawZadanieNaListe(sektorId, c.id, index)
+    })()
+  }
+  const zadanieNaListe = useCallback((sektorId: string, nodeId: string, index: number) => naListeRef.current(sektorId, nodeId, index), [])
+  /** Sąsiedzi zadań w Linii z poprzedniego układu — po nich poznajemy, że
+   *  zadanie przyszło albo się przesunęło (a nie tylko sąsiad obok niego). */
+  const sasiedziRef = useRef<{ zadania: Map<string, string>; wszystkie: Set<string> } | null>(null)
+  const nieznaneRef = useRef(new Set<string>())
+  useEffect(() => {
+    if (!sektory || trybNauki) return
+    const lista = ordered.filter((n) => n.kind !== 'comment')
+    const zadania = new Map<string, string>()
+    lista.forEach((n, i) => {
+      if (n.kind === 'block' && conceptById(n.conceptId)?.type === typZadaniaLinii) {
+        zadania.set(n.id, `${lista[i - 1]?.id ?? ''}|${lista[i + 1]?.id ?? ''}`)
+      }
+    })
+    const bylo = sasiedziRef.current
+    sasiedziRef.current = { zadania, wszystkie: new Set(ordered.map((n) => n.id)) }
+    if (!bylo) return
+    // nowy węzeł, którego kafelek jeszcze nie doszedł z bazy — rozstrzygniemy,
+    // gdy dojdzie (świeżo dołożony kafelek pojawia się w Linii chwilę wcześniej)
+    for (const n of ordered) {
+      if (n.kind === 'block' && !bylo.wszystkie.has(n.id) && !conceptById(n.conceptId)) nieznaneRef.current.add(n.id)
+    }
+    for (const [id, teraz] of zadania) {
+      const pref = preferowanyRef.current.get(id)
+      const swiezy = nieznaneRef.current.delete(id)
+      if (pref === undefined && !swiezy) {
+        // kafelek był już wcześniej (np. dopiero doszedł jego rodzaj z bazy) — nie ruszamy
+        if (bylo.wszystkie.has(id) && !bylo.zadania.has(id)) continue
+        const stare = bylo.zadania.get(id)
+        if (stare !== undefined) {
+          const [a, b] = stare.split('|')
+          const [c, d] = teraz.split('|')
+          // zmienił się tylko jeden sąsiad — to on się ruszył, nie zadanie
+          if (a === c || b === d) continue
+        }
+      }
+      preferowanyRef.current.delete(id)
+      const obecny = sektory.find((s) => s.rodzaj === 'sektor' && s.wezly.includes(id))?.id ?? null
+      const cel = sektorDlaMiejsca(ordered, sektory, id, pref ?? obecny)
+      if (cel !== obecny) void ustawSektorWezla(id, cel, sektory)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordered, sektory, typZadaniaLinii, trybNauki])
   /** Pasma sektorów: który węzeł do którego sektora należy i gdzie pasmo
    *  się zaczyna i kończy (sektor może być rozcięty innymi kafelkami). */
   const pasma = useMemo(() => {
@@ -1660,7 +1750,9 @@ function LinearView({
   const isOurs = (e: React.DragEvent) =>
     // w widoku Nauka Linia jest tylko do czytania
     !naukaRef.current.tryb &&
-    (e.dataTransfer.types.includes(MIME) || e.dataTransfer.types.includes(SEG_MIME))
+    (e.dataTransfer.types.includes(MIME) ||
+      e.dataTransfer.types.includes(SEG_MIME) ||
+      e.dataTransfer.types.includes(ZADANIE_MIME))
 
   /** Sąsiedzi dla wstawienia względem segmentu o indeksie i. */
   const neighbors = (i: number, pos: 'before' | 'after') => ({
@@ -1673,6 +1765,17 @@ function LinearView({
     e.stopPropagation()
     setSzczelina(null)
     setEndHint(false)
+    // zadanie z listy na końcu sektora staje w tym miejscu Linii
+    const zad = e.dataTransfer.getData(ZADANIE_MIME)
+    if (zad) {
+      try {
+        const p = JSON.parse(zad) as { sektorId: string; conceptId: string }
+        zListyRef.current(p.sektorId, p.conceptId, afterId, beforeId)
+      } catch {
+        /* obce dane */
+      }
+      return
+    }
     const seg = e.dataTransfer.getData(SEG_MIME)
     if (seg) {
       // lista = przeciągnięto zaznaczenie wielu segmentów
@@ -1845,7 +1948,7 @@ function LinearView({
       wersje.find((v) => v.id === c?.currentVersionId)
     const s = n.subpageId ? mapy.strony.get(n.subpageId) : undefined
     const strony = (w ? (mapy.stronyKlocka.get(w.id) ?? []) : [])
-      .map((x) => `${x.id}:${x.name}`)
+      .map((x) => `${x.id}:${x.name}:${x.wTescie ? 1 : 0}`)
       .join(',')
     return [
       // cały węzeł: siedzi w nim własny tekst i własna nazwa kafelka
@@ -1858,6 +1961,7 @@ function LinearView({
       w?.id,
       w?.content,
       w?.label,
+      w?.glownaWTescie,
       w?.sourceRefs?.length ?? 0,
       w?.updatedAt,
       wersje.length,
@@ -1910,6 +2014,10 @@ function LinearView({
           trescWlasna={wlasna}
           bezPaskaWersji
           pochodzenie
+          // oko „widać w teście": przełączane tylko przy kafelku z folderu
+          // ścieżki — inny kafelek należy do biblioteki i ścieżka go nie rusza
+          oczy={!!onEditBlock}
+          onWidocznosc={c.pathId === pathId ? (vid, sid, w) => void ustawWidocznosc(vid, sid, w) : undefined}
           dzialanie={
             wersja && wlasna !== undefined && !c.pathId && onWyslijDoBiblioteki ? (
               <button
@@ -2198,6 +2306,7 @@ function LinearView({
               onMapaSektora={pokazMapeSektora}
               onOtworzKafelek={otworzKafelek}
               onZadanieDoLinii={onWstawKafelek ? zadanieDoLinii : undefined}
+              onZadanieNaListe={onWyjmijZLinii && !trybNauki ? zadanieNaListe : undefined}
               kreska={h}
               wysokosc={zmierz(n.id)}
               mozeScalic={

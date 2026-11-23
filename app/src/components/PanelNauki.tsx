@@ -3,7 +3,6 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
-import { ListaZadan } from './ZadaniaSektora'
 import { TrybMapowania } from './TrybMapowania'
 import {
   dniDo,
@@ -440,7 +439,6 @@ function KartaSektora({
   onNazwa,
   onDoloz,
   onWyjmij,
-  onOtworz,
   wybieranie,
   onWybieranie,
 }: {
@@ -622,14 +620,6 @@ function KartaSektora({
             <button className="btn btn-maly" title="Powtórz teraz, przed terminem" onClick={onTest}>
               Powtórz teraz
             </button>
-            <button
-              className="btn btn-maly"
-              title="Zadania sektora — dołożone teraz trafią do „Doucz nowe”"
-              onClick={onZadania}
-              data-zadania
-            >
-              Zadania{j.zadania?.length ? ` (${j.zadania.length})` : ''}
-            </button>
           </>
         )}
       </div>
@@ -681,7 +671,8 @@ function KartaSektora({
           Przerwij naukę
         </button>
       )}
-      {aktywny && j.etap !== 'zadania' && <ListaZadan j={j} onOtworz={onOtworz} nowe={new Set(nowe.zadania)} />}
+      {/* zadań na karcie już nie ma: dodaje się je w Linii jak każdy kafelek
+          (rodzaj „Zadanie"), a lista na końcu sektora siedzi w Linii */}
       {j.etap === 'powtorki' && j.luki && (
         <div className="karta-sektora-etap karta-sektora-luki">
           <span>Luki z ostatniego czatu</span>

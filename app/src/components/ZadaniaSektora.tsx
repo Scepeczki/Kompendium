@@ -5,7 +5,7 @@ import { db } from '../db'
 import { BlockShell } from './BlockShell'
 import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
-import { naprawTypZadan, odepnijZadanie, przesunZadanie, usunZadanie, utworzZadania } from '../nauka'
+import { naprawTypZadan, odepnijZadanie, przesunZadanie, usunZadanie, utworzZadania, wstawZadanieNaListe } from '../nauka'
 import type { BlockVersion, Concept, JednostkaNauki } from '../types'
 
 /** Zadania sektora, które wciąż istnieją — kafelek mógł zostać usunięty
@@ -106,28 +106,105 @@ export function ListaZadan({
   )
 }
 
-/** Zwinięty pasek „Zadania (N)" na samym końcu sektora w Linii. Zadania nie
- *  są węzłami ścieżki, więc Skrypt i PDF ich nie widzą. */
+/** Przeciągane zadanie z listy na końcu sektora: { sektorId, conceptId }. */
+export const ZADANIE_MIME = 'text/x-komp-zadanie'
+/** Przeciągany segment Linii (ten sam napis co w PathCanvas). */
+const SEG_MIME_LINII = 'text/x-komp-seg'
+
+/** Czy właśnie coś się przeciąga (segment Linii albo zadanie z listy) —
+ *  wtedy pusta lista też się pokazuje, żeby było na co upuścić. */
+function useCiagnie() {
+  const [ciagnie, setCiagnie] = useState(false)
+  useEffect(() => {
+    const start = (e: DragEvent) => {
+      const t = Array.from(e.dataTransfer?.types ?? [])
+      if (t.includes(SEG_MIME_LINII) || t.includes(ZADANIE_MIME)) setCiagnie(true)
+    }
+    const stop = () => setCiagnie(false)
+    document.addEventListener('dragstart', start)
+    document.addEventListener('dragend', stop)
+    document.addEventListener('drop', stop)
+    return () => {
+      document.removeEventListener('dragstart', start)
+      document.removeEventListener('dragend', stop)
+      document.removeEventListener('drop', stop)
+    }
+  }, [])
+  return ciagnie
+}
+
+/** Zwinięty pasek „Zadania (N)" na samym końcu sektora w Linii. Zadania z
+ *  listy nie są węzłami ścieżki, więc Skrypt i PDF ich nie widzą. Przeciąga
+ *  się zwyczajnie: z listy do Linii (staje tam, gdzie upuścisz), z Linii na
+ *  listę i w obrębie listy (kolejność). */
 export function PasekZadan({
   sektorId,
   onOtworz,
   onDoLinii,
+  onZLinii,
 }: {
   sektorId: string
   onOtworz?: (conceptId: string) => void
   /** Zadanie wychodzi z paska i staje w Linii jako zwykły kafelek sektora. */
   onDoLinii?: (sektorId: string, conceptId: string) => void
+  /** Kafelek z Linii upuszczony na listę (w miejscu index). Brak = lista
+   *  tylko do czytania (np. widok Nauka). */
+  onZLinii?: (sektorId: string, nodeId: string, index: number) => void
 }) {
   const j = useLiveQuery(() => db.nauka.get(sektorId), [sektorId])
   const zadania = useZadania(j) ?? []
   const [otwarty, setOtwarty] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; c: Concept } | null>(null)
+  /** Gdzie wpadnie upuszczany kafelek (indeks na liście). */
+  const [szczelina, setSzczelina] = useState<number | null>(null)
+  const ciagnie = useCiagnie()
+  useEffect(() => {
+    if (!ciagnie) setSzczelina(null)
+  }, [ciagnie])
   const ids = zadania.map((c) => c.id)
   const wersje = useLiveQuery(() => db.versions.where('conceptId').anyOf(ids).toArray(), [ids.join()]) ?? []
-  if (!zadania.length) return null
+  const edycja = !!onZLinii
+  if (!zadania.length && !(edycja && ciagnie)) return null
+
+  /** Indeks na liście sektora (lista może mieć id kafelków, których już nie ma). */
+  const naLiscie = (k: number) => {
+    const lista = j?.zadania ?? []
+    const c = zadania[k]
+    return c ? Math.max(0, lista.indexOf(c.id)) : lista.length
+  }
+  const nasze = (e: React.DragEvent) =>
+    edycja && (e.dataTransfer.types.includes(ZADANIE_MIME) || e.dataTransfer.types.includes(SEG_MIME_LINII))
+  const upusc = (e: React.DragEvent, k: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setSzczelina(null)
+    const gdzie = naLiscie(k)
+    const zad = e.dataTransfer.getData(ZADANIE_MIME)
+    if (zad) {
+      try {
+        const p = JSON.parse(zad) as { sektorId: string; conceptId: string }
+        const lista = j?.zadania ?? []
+        const skad = p.sektorId === sektorId ? lista.indexOf(p.conceptId) : -1
+        // w obrębie listy: po wyjęciu elementu wyżej wszystko niżej przesuwa się o jeden
+        void wstawZadanieNaListe(sektorId, p.conceptId, skad >= 0 && skad < gdzie ? gdzie - 1 : gdzie)
+      } catch {
+        /* obce dane */
+      }
+      return
+    }
+    const seg = e.dataTransfer.getData(SEG_MIME_LINII)
+    if (!seg) return
+    if (seg.startsWith('[')) {
+      window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: 'Na listę zadań przeciągaj po jednym zadaniu.' }))
+      return
+    }
+    onZLinii?.(sektorId, seg, gdzie)
+  }
+
   return (
     <div
-      className={`zadania-pasek ${otwarty ? 'otwarty' : ''}`}
+      className={`zadania-pasek ${otwarty ? 'otwarty' : ''} ${szczelina !== null ? 'cel-upuszczenia' : ''}`}
+      data-pasek-zadan={sektorId}
       // pasek siedzi w segmencie Linii — klik nie może zaznaczać kafelka
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => {
@@ -140,6 +217,21 @@ export function PasekZadan({
       onMouseDown={(e) => {
         if ((e.target as Element).closest('button')) e.preventDefault()
       }}
+      // nad paskiem (poza pozycjami) — na koniec listy; zwinięty sam się rozwija
+      onDragOver={(e) => {
+        if (!nasze(e)) return
+        e.preventDefault()
+        e.stopPropagation()
+        if (!otwarty) setOtwarty(true)
+        if (!(e.target as Element).closest('.zadania-pasek-zadanie')) setSzczelina(zadania.length)
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSzczelina(null)
+      }}
+      onDrop={(e) => {
+        if (!nasze(e)) return
+        upusc(e, szczelina ?? zadania.length)
+      }}
     >
       <button className="zadania-pasek-glowa" onClick={() => setOtwarty((o) => !o)} aria-expanded={otwarty}>
         <span className="zadania-pasek-strzalka">
@@ -147,26 +239,58 @@ export function PasekZadan({
         </span>
         Zadania ({zadania.length})
         <span className="zadania-pasek-sektor">{j?.nazwa}</span>
+        {edycja && ciagnie && <span className="zadania-pasek-upusc">upuść tutaj — na listę zadań sektora</span>}
       </button>
       {otwarty && (
         <div className="zadania-pasek-tresc">
-          {zadania.map((c) => (
+          {zadania.map((c, k) => (
             <div
               key={c.id}
-              className="zadania-pasek-zadanie"
+              className={`zadania-pasek-zadanie ${szczelina === k ? 'kreska-przed' : ''} ${szczelina === k + 1 && k === zadania.length - 1 ? 'kreska-po' : ''}`}
               data-zadanie={c.id}
               onContextMenu={(e) => setMenu({ x: e.clientX, y: e.clientY, c })}
+              onDragOver={(e) => {
+                if (!nasze(e)) return
+                e.preventDefault()
+                e.stopPropagation()
+                const r = e.currentTarget.getBoundingClientRect()
+                setSzczelina(e.clientY - r.top < r.height / 2 ? k : k + 1)
+              }}
+              onDrop={(e) => {
+                if (!nasze(e)) return
+                upusc(e, szczelina ?? k)
+              }}
             >
-              <ZadanieWLinii
-                c={c}
-                wersje={wersje.filter((v) => v.conceptId === c.id)}
-                onMenu={(e) => {
-                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                  setMenu({ x: r.left, y: r.bottom + 4, c })
-                }}
-              />
+              {edycja && (
+                <button
+                  draggable
+                  className="linear-grip zadania-grip"
+                  title="Przeciągnij — do Linii albo w inne miejsce listy"
+                  aria-label={`Przeciągnij zadanie ${c.name}`}
+                  onDragStart={(e) => {
+                    e.stopPropagation()
+                    e.dataTransfer.setData(ZADANIE_MIME, JSON.stringify({ sektorId, conceptId: c.id }))
+                    e.dataTransfer.effectAllowed = 'move'
+                    const karta = e.currentTarget.closest('.zadania-pasek-zadanie')
+                    if (karta) e.dataTransfer.setDragImage(karta, 20, 20)
+                  }}
+                >
+                  <Icon name="przesun" size={1.05} />
+                </button>
+              )}
+              <div className="zadania-pasek-kafelek">
+                <ZadanieWLinii
+                  c={c}
+                  wersje={wersje.filter((v) => v.conceptId === c.id)}
+                  onMenu={(e) => {
+                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                    setMenu({ x: r.left, y: r.bottom + 4, c })
+                  }}
+                />
+              </div>
             </div>
           ))}
+          {!zadania.length && <p className="zadania-pasek-pusto">Upuść zadanie tutaj.</p>}
         </div>
       )}
       {menu && (
