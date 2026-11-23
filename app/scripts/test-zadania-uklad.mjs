@@ -242,26 +242,31 @@ check('dolna część ostatniego kafelka (lista rozwinięta): zadanie staje mię
 check('z Linii na listę w wybrane miejsce (pod pierwszym zadaniem)', await czekaj((b) =>
   JSON.stringify(s1(b).zadania) === JSON.stringify(['zt', 'zl']) && JSON.stringify(kolejnosc(b)) === JSON.stringify(['c1', 'c2', 'c3'])), JSON.stringify(kolejnosc(await baza())))
 
-// usuwanie zaznaczonych z listy: dodatkowe zadanie — Dołóż na końcu Linii (poza sektorem), potem na listę
-await page.hover('.linear-append .dodaj-kafelek-pasek > .btn-dolacz')
-await page.click('.linear-append .dodaj-kafelek-rodzaje .tree-menu-item:has-text("Zadanie")')
-let zx
-check('zadanie dołożone za kafelkiem spoza sektora — poza sektorem', await czekaj((b) => {
-  const c = b.concepts.find((x) => x.type === 'zadanie' && !['zt', 'zl', 'zd'].includes(x.id))
-  const n = c && wezelPojecia(b, c.id)
-  if (!n) return false
-  zx = { cid: c.id, nid: n.id }
-  return !b.nauka.some((j) => j.wezly.includes(n.id))
-}))
-await page.hover(`[data-seg="${zx.nid}"]`)
-await ciagnij(`[data-seg="${zx.nid}"] .linear-grip`, `${P} .zadania-pasek-glowa`)
-await page.waitForSelector(`${P} [data-zadanie="${zx.cid}"]`)
-await page.click(`${P} [data-zadanie="${zx.cid}"] .zadania-pasek-kafelek`, { modifiers: ['Control'], position: { x: 8, y: 8 } })
-check('zaznaczone na liście: pasek „Zaznaczone: 1" z „Usuń zaznaczone"', (await page.locator(`${P} [data-zaznaczone-zadania]`).innerText()).includes('Zaznaczone: 1'))
-await page.click(`${P} [data-usun-zaznaczone]`)
+// usuwanie kilku zaznaczonych z listy (pod prawym przyciskiem): dwa dodatkowe
+// zadania — Dołóż na końcu Linii (poza sektorem), razem na listę
+const znane = ['zt', 'zl', 'zd']
+for (let k = 0; k < 2; k++) {
+  await page.hover('.linear-append .dodaj-kafelek-pasek > .btn-dolacz')
+  await page.click('.linear-append .dodaj-kafelek-rodzaje .tree-menu-item:has-text("Zadanie")')
+  await czekaj((b) => b.concepts.filter((x) => x.type === 'zadanie' && !znane.includes(x.id) && wezelPojecia(b, x.id)).length === k + 1)
+}
+const dodatkowe = (b) => b.concepts.filter((x) => x.type === 'zadanie' && !znane.includes(x.id)).map((c) => ({ cid: c.id, nid: wezelPojecia(b, c.id)?.id }))
+let extra = dodatkowe(await baza())
+check('dwa zadania dołożone za kafelkiem spoza sektora — poza sektorem', extra.length === 2 && !(await baza()).nauka.some((j) => extra.some((x) => j.wezly.includes(x.nid))))
+for (const x of extra) await page.click(`[data-seg="${x.nid}"] .script-block-body`, { modifiers: ['Control'], position: { x: 4, y: 4 } })
+await page.hover(`[data-seg="${extra[0].nid}"]`)
+await ciagnij(`[data-seg="${extra[0].nid}"] .linear-grip`, `${P} .zadania-pasek-glowa`)
+check('dwa zaznaczone w Linii — razem na listę', await czekaj((b) => JSON.stringify(s1(b).zadania) === JSON.stringify(['zt', 'zl', ...extra.map((x) => x.cid)])))
+for (const x of extra) await page.click(`${P} [data-zadanie="${x.cid}"] .zadania-pasek-kafelek`, { modifiers: ['Control'], position: { x: 8, y: 8 } })
+check('zaznaczenie na liście widać po obwódce, bez dodatkowego paska', (await page.locator(`${P} .zadania-pasek-zadanie.zaznaczone`).count()) === 2 &&
+  (await page.locator(`${P} [data-zaznaczone-zadania]`).count()) === 0)
+await page.click(`${P} [data-zadanie="${extra[1].cid}"] .zadania-pasek-kafelek`, { button: 'right', position: { x: 8, y: 8 } })
+await page.waitForSelector('.menu-zadania')
+check('prawy przycisk na zaznaczonym: menu dla całej grupy', (await page.locator('.menu-zadania').innerText()).includes('Zaznaczone zadania (2)'))
+await page.click('.menu-zadania [data-usun-zaznaczone]')
 await page.click('.ask-dialog .btn-danger-strong')
-check('„Usuń zaznaczone" (po pytaniu): zadanie znika z listy i z biblioteki, reszta zostaje', await czekaj((b) =>
-  !b.concepts.some((c) => c.id === zx.cid) && !wezelPojecia(b, zx.cid) && JSON.stringify(s1(b).zadania) === JSON.stringify(['zt', 'zl'])))
+check('„Usuń zaznaczone (2)" (po pytaniu): oba znikają z listy i z biblioteki, reszta zostaje', await czekaj((b) =>
+  extra.every((x) => !b.concepts.some((c) => c.id === x.cid)) && JSON.stringify(s1(b).zadania) === JSON.stringify(['zt', 'zl'])))
 
 // z listy do Linii — między „Kulą" a „Otoczeniem"
 await page.hover(`${P} [data-zadanie="zl"]`)

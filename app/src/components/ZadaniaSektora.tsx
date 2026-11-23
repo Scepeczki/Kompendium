@@ -170,7 +170,7 @@ export function PasekZadan({
       else otwarteListy.delete(sektorId)
       return n
     })
-  const [menu, setMenu] = useState<{ x: number; y: number; c: Concept } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; c: Concept; grupa?: Concept[] } | null>(null)
   /** Gdzie wpadnie upuszczany kafelek (indeks na liście). */
   const [szczelina, setSzczelina] = useState<number | null>(null)
   const ciagnie = useCiagnie()
@@ -203,6 +203,12 @@ export function PasekZadan({
     })
     if (!ok) return
     for (const c of wybrane) await usunZadanie(sektorId, c.id)
+    setZazn(new Set())
+  }
+  /** Prawy przycisk na zaznaczonym zadaniu: menu dotyczy całego zaznaczenia (jak w Linii). */
+  const grupaDla = (c: Concept) => (zazn.has(c.id) && zazn.size > 1 ? zadania.filter((x) => zazn.has(x.id)) : undefined)
+  const odepnijZaznaczone = async () => {
+    for (const c of zadania.filter((x) => zazn.has(x.id))) await odepnijZadanie(sektorId, c.id)
     setZazn(new Set())
   }
   const usunRef = useRef(usunZaznaczone)
@@ -307,19 +313,6 @@ export function PasekZadan({
         <span className="zadania-pasek-sektor">{j?.nazwa}</span>
         {edycja && ciagnie && <span className="zadania-pasek-upusc">upuść tutaj — na listę zadań sektora</span>}
       </button>
-      {edycja && zazn.size > 0 && (
-        <div className="zadania-pasek-zaznaczone" data-zaznaczone-zadania>
-          <span>
-            Zaznaczone: <strong>{zazn.size}</strong> — przeciągnij jedno z nich, pójdą razem
-          </span>
-          <button className="btn btn-maly" onClick={() => setZazn(new Set())}>
-            Odznacz
-          </button>
-          <button className="btn btn-maly btn-danger" data-usun-zaznaczone onClick={() => void usunZaznaczone()}>
-            <Icon name="usun" size={0.9} /> Usuń zaznaczone…
-          </button>
-        </div>
-      )}
       {otwarty && (
         <div className="zadania-pasek-tresc">
           {zadania.map((c, k) => (
@@ -327,7 +320,7 @@ export function PasekZadan({
               key={c.id}
               className={`zadania-pasek-zadanie ${zazn.has(c.id) ? 'zaznaczone' : ''} ${szczelina === k ? 'kreska-przed' : ''} ${szczelina === k + 1 && k === zadania.length - 1 ? 'kreska-po' : ''}`}
               data-zadanie={c.id}
-              onContextMenu={(e) => setMenu({ x: e.clientX, y: e.clientY, c })}
+              onContextMenu={(e) => setMenu({ x: e.clientX, y: e.clientY, c, grupa: grupaDla(c) })}
               // Ctrl+klik dokłada do zaznaczenia, Shift+klik — zakres (jak w Linii)
               onClickCapture={(e) => {
                 if (!edycja || !(e.ctrlKey || e.metaKey || e.shiftKey)) return
@@ -385,7 +378,7 @@ export function PasekZadan({
                   wersje={wersje.filter((v) => v.conceptId === c.id)}
                   onMenu={(e) => {
                     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                    setMenu({ x: r.left, y: r.bottom + 4, c })
+                    setMenu({ x: r.left, y: r.bottom + 4, c, grupa: grupaDla(c) })
                   }}
                 />
               </div>
@@ -402,6 +395,9 @@ export function PasekZadan({
           sektorId={sektorId}
           onOtworz={onOtworz}
           onDoLinii={onDoLinii}
+          grupa={menu.grupa}
+          onUsunGrupe={() => void usunZaznaczone()}
+          onOdepnijGrupe={() => void odepnijZaznaczone()}
           onZamknij={() => setMenu(null)}
         />
       )}
@@ -447,6 +443,9 @@ export function MenuZadania({
   sektorId,
   onOtworz,
   onDoLinii,
+  grupa,
+  onUsunGrupe,
+  onOdepnijGrupe,
   onZamknij,
 }: {
   x: number
@@ -455,6 +454,10 @@ export function MenuZadania({
   sektorId: string
   onOtworz?: (conceptId: string) => void
   onDoLinii?: (sektorId: string, conceptId: string) => void
+  /** Kilka zaznaczonych zadań — menu działa na całej grupie. */
+  grupa?: Concept[]
+  onUsunGrupe?: () => void
+  onOdepnijGrupe?: () => void
   onZamknij: () => void
 }) {
   const usun = useUsunZadanie()
@@ -487,6 +490,23 @@ export function MenuZadania({
         if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`
       }}
     >
+      {grupa && grupa.length > 1 ? (
+        <>
+          <div className="tree-menu-where">Zaznaczone zadania ({grupa.length})</div>
+          {onOdepnijGrupe && (
+            <button className="tree-menu-item" onClick={dzialaj(onOdepnijGrupe)}>
+              ✕ Odepnij zaznaczone od sektora ({grupa.length})
+            </button>
+          )}
+          <div className="tree-menu-sep" />
+          {onUsunGrupe && (
+            <button className="tree-menu-item danger" data-usun-zaznaczone onClick={dzialaj(onUsunGrupe)}>
+              <Icon name="usun" size={1} /> Usuń zaznaczone ({grupa.length})…
+            </button>
+          )}
+        </>
+      ) : (
+        <>
       <div className="tree-menu-where">Zadanie „{c.name}"</div>
       {onOtworz && (
         <button className="tree-menu-item" onClick={dzialaj(() => onOtworz(c.id))}>
@@ -505,6 +525,8 @@ export function MenuZadania({
       <button className="tree-menu-item danger" onClick={dzialaj(() => void usun(sektorId, c))}>
         <Icon name="usun" size={1} /> Usuń zadanie…
       </button>
+        </>
+      )}
     </div>,
     document.body,
   )
