@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { BlockShell } from './BlockShell'
 import { useDialogs } from './Dialogs'
 import { Icon } from './Icon'
-import { naprawTypZadan, odepnijZadanie, przesunZadanie, usunZadanie, utworzZadania, wstawZadanieNaListe } from '../nauka'
+import { naprawTypZadan, odepnijZadanie, przesunZadanie, usunZadanie, utworzZadania, wstawZadaniaNaListe } from '../nauka'
 import type { BlockVersion, Concept, JednostkaNauki } from '../types'
 
 /** Zadania sektora, które wciąż istnieją — kafelek mógł zostać usunięty
@@ -149,7 +149,7 @@ export function PasekZadan({
   onDoLinii?: (sektorId: string, conceptId: string) => void
   /** Kafelek z Linii upuszczony na listę (w miejscu index). Brak = lista
    *  tylko do czytania (np. widok Nauka). */
-  onZLinii?: (sektorId: string, nodeId: string, index: number) => void
+  onZLinii?: (sektorId: string, nodeIds: string[], index: number) => void
 }) {
   const j = useLiveQuery(() => db.nauka.get(sektorId), [sektorId])
   const zadania = useZadania(j) ?? []
@@ -158,8 +158,20 @@ export function PasekZadan({
   /** Gdzie wpadnie upuszczany kafelek (indeks na liście). */
   const [szczelina, setSzczelina] = useState<number | null>(null)
   const ciagnie = useCiagnie()
+  /** Zaznaczone zadania (Ctrl+klik, Shift+klik) — przeciąga się je razem. */
+  const [zazn, setZazn] = useState<Set<string>>(new Set())
+  const ostatniKlik = useRef<string | null>(null)
   useEffect(() => {
-    if (!ciagnie) setSzczelina(null)
+    if (!zazn.size) return
+    const h = (e: KeyboardEvent) => e.key === 'Escape' && setZazn(new Set())
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [zazn.size])
+  useEffect(() => {
+    if (ciagnie) return
+    setSzczelina(null)
+    // po każdym przeciągnięciu — także gdy element, z którego ciągnięto, zniknął
+    setZazn(new Set())
   }, [ciagnie])
   const ids = zadania.map((c) => c.id)
   const wersje = useLiveQuery(() => db.versions.where('conceptId').anyOf(ids).toArray(), [ids.join()]) ?? []
@@ -182,11 +194,9 @@ export function PasekZadan({
     const zad = e.dataTransfer.getData(ZADANIE_MIME)
     if (zad) {
       try {
-        const p = JSON.parse(zad) as { sektorId: string; conceptId: string }
-        const lista = j?.zadania ?? []
-        const skad = p.sektorId === sektorId ? lista.indexOf(p.conceptId) : -1
-        // w obrębie listy: po wyjęciu elementu wyżej wszystko niżej przesuwa się o jeden
-        void wstawZadanieNaListe(sektorId, p.conceptId, skad >= 0 && skad < gdzie ? gdzie - 1 : gdzie)
+        const p = JSON.parse(zad) as { sektorId: string; conceptId: string; conceptIds?: string[] }
+        void wstawZadaniaNaListe(sektorId, p.conceptIds ?? [p.conceptId], gdzie)
+        setZazn(new Set())
       } catch {
         /* obce dane */
       }
@@ -194,11 +204,16 @@ export function PasekZadan({
     }
     const seg = e.dataTransfer.getData(SEG_MIME_LINII)
     if (!seg) return
+    // kilka zaznaczonych w Linii przychodzi jako lista
+    let nodeIds: string[] = [seg]
     if (seg.startsWith('[')) {
-      window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: 'Na listę zadań przeciągaj po jednym zadaniu.' }))
-      return
+      try {
+        nodeIds = JSON.parse(seg) as string[]
+      } catch {
+        return
+      }
     }
-    onZLinii?.(sektorId, seg, gdzie)
+    onZLinii?.(sektorId, nodeIds, gdzie)
   }
 
   return (
@@ -215,7 +230,9 @@ export function PasekZadan({
       // narzędzi — układ przesuwa się między wciśnięciem a puszczeniem
       // myszy i kliknięcie trafiało obok. Przyciski paska fokusu nie biorą.
       onMouseDown={(e) => {
-        if ((e.target as Element).closest('button')) e.preventDefault()
+        // …oprócz uchwytu: wstrzymane wciśnięcie nie pozwala zacząć przeciągania
+        const t = e.target as Element
+        if (t.closest('button') && !t.closest('.zadania-grip')) e.preventDefault()
       }}
       // nad paskiem (poza pozycjami) — na koniec listy; zwinięty sam się rozwija
       onDragOver={(e) => {
@@ -246,9 +263,26 @@ export function PasekZadan({
           {zadania.map((c, k) => (
             <div
               key={c.id}
-              className={`zadania-pasek-zadanie ${szczelina === k ? 'kreska-przed' : ''} ${szczelina === k + 1 && k === zadania.length - 1 ? 'kreska-po' : ''}`}
+              className={`zadania-pasek-zadanie ${zazn.has(c.id) ? 'zaznaczone' : ''} ${szczelina === k ? 'kreska-przed' : ''} ${szczelina === k + 1 && k === zadania.length - 1 ? 'kreska-po' : ''}`}
               data-zadanie={c.id}
               onContextMenu={(e) => setMenu({ x: e.clientX, y: e.clientY, c })}
+              // Ctrl+klik dokłada do zaznaczenia, Shift+klik — zakres (jak w Linii)
+              onClickCapture={(e) => {
+                if (!edycja || !(e.ctrlKey || e.metaKey || e.shiftKey)) return
+                e.preventDefault()
+                e.stopPropagation()
+                setZazn((z) => {
+                  const n = new Set(z)
+                  const od = ostatniKlik.current ? ids.indexOf(ostatniKlik.current) : -1
+                  if (e.shiftKey && od >= 0) {
+                    const [a, b] = [Math.min(od, k), Math.max(od, k)]
+                    for (const x of ids.slice(a, b + 1)) n.add(x)
+                  } else if (n.has(c.id)) n.delete(c.id)
+                  else n.add(c.id)
+                  return n
+                })
+                ostatniKlik.current = c.id
+              }}
               onDragOver={(e) => {
                 if (!nasze(e)) return
                 e.preventDefault()
@@ -265,15 +299,20 @@ export function PasekZadan({
                 <button
                   draggable
                   className="linear-grip zadania-grip"
-                  title="Przeciągnij — do Linii albo w inne miejsce listy"
+                  title="Przeciągnij — do Linii albo w inne miejsce listy. Ctrl+klik w zadania zaznacza kilka naraz"
                   aria-label={`Przeciągnij zadanie ${c.name}`}
                   onDragStart={(e) => {
                     e.stopPropagation()
-                    e.dataTransfer.setData(ZADANIE_MIME, JSON.stringify({ sektorId, conceptId: c.id }))
+                    // zaznaczone przeciąga się razem (w kolejności listy)
+                    const grupa = zazn.has(c.id) && zazn.size > 1 ? ids.filter((x) => zazn.has(x)) : [c.id]
+                    e.dataTransfer.setData(ZADANIE_MIME, JSON.stringify({ sektorId, conceptId: grupa[0], conceptIds: grupa }))
                     e.dataTransfer.effectAllowed = 'move'
                     const karta = e.currentTarget.closest('.zadania-pasek-zadanie')
                     if (karta) e.dataTransfer.setDragImage(karta, 20, 20)
                   }}
+                  // po przeciągnięciu zaznaczenie już nic nie znaczy — inaczej następne
+                  // pojedyncze przeciągnięcie zabrałoby całą dawną grupę
+                  onDragEnd={() => setZazn(new Set())}
                 >
                   <Icon name="przesun" size={1.05} />
                 </button>

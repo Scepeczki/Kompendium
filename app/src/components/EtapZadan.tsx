@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Editor } from '@tiptap/react'
@@ -18,7 +18,7 @@ import {
   dolozDoSektora,
   odepnijZadanie,
   wezlySektora,
-  wstawZadanieNaListe,
+  wstawZadaniaNaListe,
   wyjmijZSektora,
   type ZadanieDoEdycji,
 } from '../nauka'
@@ -672,6 +672,9 @@ export function EtapZadan({
 
   // ---- układanie: przeciąganie zadań w spisie sektora i na listę na końcu ----
   const [ciagnie, setCiagnie] = useState<{ conceptId: string; nodeId?: string } | null>(null)
+  /** Próba: gdzie w spisie postawiono zadanie (szczelina przed kafelkiem o tym
+   *  numerze) — tylko w pamięci, Linia się nie zmienia. */
+  const [miejscaProby, setMiejscaProby] = useState<Map<string, number>>(new Map())
   const [celUpuszczenia, setCelUpuszczenia] = useState<{ gdzie: 'linia' | 'lista'; i: number } | null>(null)
   const nadPozycja = (e: React.DragEvent, gdzie: 'linia' | 'lista', i: number) => {
     if (!ciagnie) return
@@ -687,7 +690,29 @@ export function EtapZadan({
     const t = celUpuszczenia
     setCiagnie(null)
     setCelUpuszczenia(null)
-    if (!c || !t || proba || !j.pathId) return
+    if (!c || !t) return
+    if (proba) {
+      // próba: układamy na niby — spis i lista w pamięci
+      if (t.gdzie === 'linia') setMiejscaProby((m) => new Map(m).set(c.conceptId, t.i))
+      else {
+        setMiejscaProby((m) => {
+          const n = new Map(m)
+          n.delete(c.conceptId)
+          return n
+        })
+        setLokalne((l) => {
+          const ja = l.find((x) => x.id === c.conceptId)
+          if (!ja) return l
+          const bez = l.filter((x) => x.id !== c.conceptId)
+          const cel = lista[t.i]
+          const ix = cel ? bez.findIndex((x) => x.id === cel.id) : -1
+          bez.splice(ix < 0 ? bez.length : ix, 0, ja)
+          return bez
+        })
+      }
+      return
+    }
+    if (!j.pathId) return
     zapis.wypchnij()
     if (t.gdzie === 'linia') {
       // miejsce w Linii: za poprzednim kafelkiem spisu albo przed następnym
@@ -729,11 +754,8 @@ export function EtapZadan({
       }
       await wyjmijWezel(j.pathId, c.nodeId)
       await wyjmijZSektora(j.id, [c.nodeId])
-      await wstawZadanieNaListe(j.id, c.conceptId, docel)
-    } else {
-      const skad = listaIds.indexOf(c.conceptId)
-      await wstawZadanieNaListe(j.id, c.conceptId, skad >= 0 && skad < docel ? docel - 1 : docel)
-    }
+      await wstawZadaniaNaListe(j.id, [c.conceptId], docel)
+    } else await wstawZadaniaNaListe(j.id, [c.conceptId], docel)
   }
 
   const usunStrone = async (z: ZadanieDoEdycji, stronaId: string) => {
@@ -817,13 +839,31 @@ export function EtapZadan({
   }
 
   /** Zadania z listy na końcu sektora (te, które nie stoją w Linii). */
-  const lista = zadania.filter((z) => !wezelZadania.has(z.id))
+  const lista = zadania.filter((z) => !wezelZadania.has(z.id) && !miejscaProby.has(z.id))
+  /** Próba: zadania postawione w spisie w szczelinie g. */
+  const proboweW = (g: number) =>
+    zadania
+      .filter((z) => miejscaProby.get(z.id) === g)
+      .map((z) => (
+        <li
+          key={`p-${z.id}`}
+          className={celUpuszczenia?.gdzie === 'linia' && celUpuszczenia.i === g ? 'kreska-przed' : ''}
+          onDragOver={(e) => {
+            if (!ciagnie) return
+            e.preventDefault()
+            e.stopPropagation()
+            setCelUpuszczenia({ gdzie: 'linia', i: g })
+          }}
+        >
+          {pozycjaZadania(z, `proba:${z.id}`)}
+        </li>
+      ))
   const pozycjaZadania = (z: ZadanieDoEdycji, nodeId?: string) => (
     <button
       className={`ez2-poz ${wybrany === z.id ? 'wl' : ''} ${poprawki.has(z.id) ? 'do-poprawy' : ''} ${nodeId ? 'w-linii' : ''} ${ciagnie?.conceptId === z.id ? 'ciagniete' : ''}`}
       data-zadanie={z.id}
       data-w-linii={nodeId ? '' : undefined}
-      draggable={!proba}
+      draggable
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', z.nazwa || 'Zadanie')
         e.dataTransfer.effectAllowed = 'move'
@@ -837,9 +877,9 @@ export function EtapZadan({
         zapis.wypchnij()
         pokaz(z.id)
       }}
-      title={proba ? undefined : 'Klik — pokaż; przeciągnij — przestaw'}
+      title="Klik — pokaż; przeciągnij — przestaw"
     >
-      {!proba && (
+      {(
         <span className="ez3-uchwyt" aria-hidden>
           <Icon name="przesun" size={0.85} />
         </span>
@@ -887,7 +927,9 @@ export function EtapZadan({
                       ? 'kreska-po'
                       : ''
                 return (
-                  <li key={n.id} className={kreska} onDragOver={(e) => nadPozycja(e, 'linia', i)}>
+                  <Fragment key={n.id}>
+                  {proboweW(i)}
+                  <li className={kreska} onDragOver={(e) => nadPozycja(e, 'linia', i)}>
                     {z ? (
                       pozycjaZadania(z, n.id)
                     ) : n.kind === 'heading' ? (
@@ -909,6 +951,8 @@ export function EtapZadan({
                       </span>
                     )}
                   </li>
+                  {i === spis.length - 1 && proboweW(spis.length)}
+                  </Fragment>
                 )
               })}
             </ol>
@@ -945,7 +989,7 @@ export function EtapZadan({
           </ol>
           <p className="tcz-szary ez3-spis-rada">
             {proba
-              ? 'W próbie układanie jest wyłączone — zadania są tylko na niby.'
+              ? 'Próba: przeciągaj zadania w spisie i na listę — na niby, Linia się nie zmienia.'
               : 'Przeciągnij zadanie (⠿) w spisie tam, gdzie ma stać w Linii, albo na listę na końcu sektora.'}
           </p>
           <button

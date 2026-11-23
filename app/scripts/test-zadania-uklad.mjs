@@ -69,7 +69,7 @@ const wezelPojecia = (b, cid) => b.paths.find((x) => x.id === 'p').nodes.find((n
  *  dragend) z jednym DataTransfer — bezgłowa przeglądarka nie zaczyna
  *  natywnego przeciągania z uchwytu. pos: punkt w celu (domyślnie środek). */
 const ciagnij = async (zrodlo, cel, pos) => {
-  await page.locator(cel).first().scrollIntoViewIfNeeded()
+  await page.locator(zrodlo).first().scrollIntoViewIfNeeded()
   await page.evaluate(async ({ zrodlo, cel, pos }) => {
     const czekaj = () => new Promise((r) => setTimeout(r, 80))
     const dt = new DataTransfer()
@@ -77,6 +77,9 @@ const ciagnij = async (zrodlo, cel, pos) => {
     const a = document.querySelector(zrodlo)
     const ra = a.getBoundingClientRect()
     ev(a, 'dragstart', ra.x + ra.width / 2, ra.y + ra.height / 2)
+    await czekaj()
+    // cel bywa widoczny dopiero w trakcie przeciągania (pusta lista zadań)
+    document.querySelector(cel)?.scrollIntoView({ block: 'center' })
     await czekaj()
     const punkt = () => {
       const r = document.querySelector(cel).getBoundingClientRect()
@@ -173,6 +176,35 @@ await page.waitForSelector(`${P} [data-zadanie="zt"]`)
 await page.hover(`${P} [data-zadanie="zt"]`)
 await ciagnij(`${P} [data-zadanie="zt"] .zadania-grip`, `${P} [data-zadanie="zl"]`, { x: 200, y: 6 })
 check('przeciąganie w liście zmienia kolejność', await czekaj((b) => JSON.stringify(s1(b).zadania) === JSON.stringify(['zt', 'zl'])))
+// prawdziwe przeciąganie zaczyna się od wciśnięcia myszy — pasek nie może go wstrzymywać
+check('uchwyt na liście: wciśnięcie myszy nie jest blokowane (da się zacząć przeciąganie)', !(await page.evaluate(() => {
+  const g = document.querySelector('[data-pasek-zadan="s1"] .zadania-grip')
+  const e = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+  g.dispatchEvent(e)
+  return e.defaultPrevented
+})))
+
+// kilka zaznaczonych na liście (Ctrl+klik) — do Linii razem
+await page.click(`${P} [data-zadanie="zt"] .zadania-pasek-kafelek`, { modifiers: ['Control'], position: { x: 8, y: 8 } })
+await page.click(`${P} [data-zadanie="zl"] .zadania-pasek-kafelek`, { modifiers: ['Control'], position: { x: 8, y: 8 } })
+check('Ctrl+klik zaznacza kilka zadań na liście', (await page.locator(`${P} .zadania-pasek-zadanie.zaznaczone`).count()) === 2)
+await ciagnij(`${P} [data-zadanie="zt"] .zadania-grip`, '[data-seg="nc2"]', { x: 200, y: 8 })
+check('zaznaczone zadania z listy przeciągnięte razem do Linii, w kolejności listy', await czekaj((b) =>
+  JSON.stringify(kolejnosc(b)) === JSON.stringify(['c1', 'zt', 'zl', 'c2', 'c3']) && !s1(b).zadania.length &&
+  s1(b).wezly.includes(wezelPojecia(b, 'zt')?.id) && s1(b).wezly.includes(wezelPojecia(b, 'zl')?.id)), JSON.stringify(kolejnosc(await baza())))
+// kilka zaznaczonych w Linii — na listę razem
+{
+  const b = await baza()
+  for (const cid of ['zt', 'zl']) {
+    await page.click(`[data-seg="${wezelPojecia(b, cid).id}"] .script-block-body`, { modifiers: ['Control'], position: { x: 4, y: 4 } })
+  }
+  await page.hover(`[data-seg="${wezelPojecia(b, 'zt').id}"]`)
+  await ciagnij(`[data-seg="${wezelPojecia(b, 'zt').id}"] .linear-grip`, `${P} .zadania-pasek-glowa`)
+}
+check('zaznaczone zadania z Linii przeciągnięte razem na listę', await czekaj((b) =>
+  JSON.stringify(s1(b).zadania) === JSON.stringify(['zt', 'zl']) && JSON.stringify(kolejnosc(b)) === JSON.stringify(['c1', 'c2', 'c3'])), JSON.stringify(kolejnosc(await baza())))
+if (!(await page.locator(`${P}.otwarty`).count())) await page.click(`${P} .zadania-pasek-glowa`)
+await page.waitForSelector(`${P} [data-zadanie="zl"]`)
 
 // z listy do Linii — między „Kulą" a „Otoczeniem"
 await page.hover(`${P} [data-zadanie="zl"]`)
@@ -224,17 +256,41 @@ await page.waitForSelector(`${E} [data-test-koncowy]`)
 await page.click(`${E} [data-test-koncowy]`)
 await page.waitForSelector('.sesja-element')
 await page.waitForTimeout(500)
-if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT, fullPage: true })
+if (process.env.SHOT) { await page.locator('.sesja-element', { has: page.locator('.sesja-nazwa', { hasText: /^Kula$/ }) }).scrollIntoViewIfNeeded(); await page.screenshot({ path: process.env.SHOT }) }
 const kula = page.locator('.sesja-element', { has: page.locator('.sesja-nazwa', { hasText: /^Kula$/ }) })
+check('test: nad treścią wszystkie strony, zakryta podpisana „zakryta"', (await kula.locator('[data-strony-testu]').innerText()).includes('Treść') &&
+  (await kula.locator('[data-strony-testu] [data-zakryta]').innerText()).toLowerCase().includes('dowód'))
 check('test: „Kula" ma odsłoniętą stronę główną, „Dowód" zakryty', (await kula.locator('.sesja-zadanie-tresc').innerText()).includes('zbiór punktów') &&
   (await kula.locator('.sesja-zakryte').innerText()).toLowerCase().includes('zakryte: dowód') && !(await kula.innerText()).includes('nierówności trójkąta'))
 await kula.locator('.sesja-zakryte .btn-primary').click()
-check('test: po „Sprawdź" widać zakryty „Dowód"', (await kula.innerText()).includes('nierówności trójkąta'))
+check('test: po „Sprawdź" widać zakryty „Dowód" (i w pasku stron już nie „zakryta")', (await kula.innerText()).includes('nierówności trójkąta') &&
+  (await kula.locator('[data-strony-testu] [data-zakryta]').count()) === 0)
 const otoczenie = page.locator('.sesja-element', { has: page.locator('.sesja-nazwa', { hasText: /^Otoczenie$/ }) })
 check('test: zwykły kafelek bez odsłoniętych stron — zakryty w całości', (await otoczenie.innerText()).toLowerCase().includes('kafelek zakryty') && !(await otoczenie.innerText()).includes('Otoczenie punktu'))
 const zad = page.locator('.sesja-element', { has: page.locator('.sesja-nazwa', { hasText: /^Zadanie w linii$/ }) })
 check('test: zadanie — polecenie widać, rozwiązanie zakryte', (await zad.innerText()).includes('Polecenie w linii') && (await zad.innerText()).toLowerCase().includes('rozwiązanie zakryte') &&
   !(await zad.innerText()).includes('Rozwiązanie w linii'))
+
+// --- próba zadań: układanie w spisie na niby ---
+await page.click('.sesja-glowa button:has-text("Wróć")').catch(() => {})
+await page.waitForTimeout(300)
+/** Treść ścieżek i sektorów — bez kolejności pól i znacznika zapisu (Linia zapisuje węzły po swojemu). */
+const tresc = (b) => {
+  const norm = (x) => (Array.isArray(x) ? x.map(norm) : x && typeof x === 'object' ? Object.fromEntries(Object.keys(x).sort().filter((k) => k !== 'updatedAt').map((k) => [k, norm(x[k])])) : x)
+  return JSON.stringify(norm({ paths: b.paths, nauka: b.nauka }))
+}
+const przedProba = tresc(await baza())
+await page.click('.sidebar-foot-btn[title*="Ustawienia"], .sidebar-foot-btn:has-text("Ustawienia")')
+await page.click('.settings-nav-item:has-text("Próba")')
+await page.waitForSelector('[data-proba-zadania]')
+await page.click('[data-proba-zadania]')
+await page.waitForSelector(`${E} .ez3-spis`)
+await page.click(`${E} [data-nowe-zadanie]`)
+await page.waitForSelector(`${E} .ez3-lista-konca .ez2-poz`)
+await ciagnij(`${E} .ez3-lista-konca .ez2-poz`, `${E} .ez3-spis > li:first-child`, { x: 60, y: 3 })
+check('próba: zadanie przeciągnięte w spis staje w nim (na niby)', (await page.locator(`${E} .ez3-spis .ez2-poz`).count()) === 1 &&
+  (await page.locator(`${E} .ez3-lista-konca .ez2-poz`).count()) === 0)
+check('próba: Linia i sektor bez zmian', tresc(await baza()) === przedProba)
 
 check('bez błędów konsoli', errors.length === 0, errors.join(' | '))
 console.log(problems.length ? `\n${problems.length} problem(ów)` : '\nWszystko OK')

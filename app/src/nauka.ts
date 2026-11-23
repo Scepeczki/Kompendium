@@ -848,20 +848,25 @@ export async function odepnijZadanie(sektorId: string, conceptId: string) {
   await zmienJednostke(sektorId, { zadania: (j.zadania ?? []).filter((x) => x !== conceptId) })
 }
 
-/** Stawia zadanie na liście na końcu sektora, w miejscu `index` (przeciąganie).
- *  Zadanie jest na jednej liście naraz — z listy innego sektora znika. */
-export async function wstawZadanieNaListe(sektorId: string, conceptId: string, index: number) {
+/** Stawia zadania na liście na końcu sektora, przed pozycją `index` listy
+ *  sprzed zmiany (przeciąganie — jedno albo kilka zaznaczonych naraz, w tej
+ *  kolejności). Zadanie jest na jednej liście naraz — z innych list znika. */
+export async function wstawZadaniaNaListe(sektorId: string, ids: string[], index: number) {
   const j = await db.nauka.get(sektorId)
-  if (!j?.pathId) return
+  if (!j?.pathId || !ids.length) return
+  const brane = new Set(ids)
   const inne = await db.nauka.where('pathId').equals(j.pathId).toArray()
   await db.transaction('rw', db.nauka, async () => {
     for (const x of inne) {
-      if (x.id === sektorId || !x.zadania?.includes(conceptId)) continue
-      await db.nauka.update(x.id, { zadania: x.zadania.filter((z) => z !== conceptId) })
+      if (x.id === sektorId || !x.zadania?.some((z) => brane.has(z))) continue
+      await db.nauka.update(x.id, { zadania: x.zadania.filter((z) => !brane.has(z)) })
     }
-    const lista = (j.zadania ?? []).filter((z) => z !== conceptId)
-    const gdzie = Math.max(0, Math.min(index, lista.length))
-    lista.splice(gdzie, 0, conceptId)
+    const stara = j.zadania ?? []
+    // przenoszone sprzed miejsca upuszczenia przesuwają je o jeden w górę
+    const przed = stara.slice(0, Math.max(0, index)).filter((z) => brane.has(z)).length
+    const lista = stara.filter((z) => !brane.has(z))
+    const gdzie = Math.max(0, Math.min(index - przed, lista.length))
+    lista.splice(gdzie, 0, ...ids)
     await db.nauka.update(sektorId, { zadania: lista, zmieniono: teraz().toISOString() })
   })
 }

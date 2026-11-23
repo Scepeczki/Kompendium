@@ -96,7 +96,7 @@ import {
   przypnijZadanie,
   sektorDlaMiejsca,
   ustawSektorWezla,
-  wstawZadanieNaListe,
+  wstawZadaniaNaListe,
   wyjmijZSektora,
   znajdzTypZadania,
 } from '../nauka'
@@ -793,7 +793,7 @@ interface RamkaProps {
   onOtworzKafelek?: (id: string) => void
   onZadanieDoLinii?: (sektorId: string, conceptId: string) => void
   /** Kafelek z Linii przeciągnięty na listę zadań na końcu sektora. */
-  onZadanieNaListe?: (sektorId: string, nodeId: string, index: number) => void
+  onZadanieNaListe?: (sektorId: string, nodeIds: string[], index: number) => void
   pelny: boolean
   zaznaczony: boolean
   kreska: 'before' | 'after' | null
@@ -1432,39 +1432,59 @@ function LinearView({
   const typZadaniaLinii = znajdzTypZadania(typy.all)
   /** Zadanie wyjęte z listy sektora: przy granicy zostaje w tamtym sektorze. */
   const preferowanyRef = useRef(new Map<string, string>())
-  const zListyRef = useRef<(sektorId: string, conceptId: string, afterId: string | null, beforeId: string | null) => void>(() => {})
-  zListyRef.current = (sektorId, conceptId, afterId, beforeId) => {
+  /** Zadania z listy (jedno albo kilka zaznaczonych) stają w Linii po kolei. */
+  const zListyRef = useRef<(sektorId: string, conceptIds: string[], afterId: string | null, beforeId: string | null) => void>(() => {})
+  zListyRef.current = (sektorId, conceptIds, afterId, beforeId) => {
     if (!onWstawKafelek) return
-    const id = onWstawKafelek(conceptId, afterId, beforeId)
-    preferowanyRef.current.set(id, sektorId)
-    void odepnijZadanie(sektorId, conceptId)
-  }
-  const naListeRef = useRef<(sektorId: string, nodeId: string, index: number) => void>(() => {})
-  naListeRef.current = (sektorId, nodeId, index) => {
-    const komunikat = (t: string) => window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: t }))
-    const n = ordered.find((x) => x.id === nodeId)
-    const c = n?.kind === 'block' ? conceptById(n.conceptId) : undefined
-    if (!n || n.kind !== 'block' || !c || c.type !== typZadaniaLinii) {
-      komunikat('Na listę zadań wchodzą tylko kafelki-zadania (rodzaj „Zadanie").')
-      return
+    let po = afterId
+    for (const cid of conceptIds) {
+      const id = onWstawKafelek(cid, po, beforeId)
+      preferowanyRef.current.set(id, sektorId)
+      po = id
     }
-    // tekst napisany w ścieżce (kafelek spoza jej folderu) na liście by przepadł
-    if (c.pathId !== pathId && (n.nazwa !== undefined || Object.keys(n.wlasneTresci ?? {}).length > 0)) {
-      komunikat('To zadanie ma tekst napisany tylko w tej ścieżce — na liście by przepadł. Wyślij go najpierw do biblioteki.')
-      return
-    }
-    if (!onWyjmijZLinii) return
-    onWyjmijZLinii(nodeId)
     void (async () => {
-      for (const s of sektory ?? []) if (s.wezly.includes(nodeId)) await wyjmijZSektora(s.id, [nodeId])
-      await wstawZadanieNaListe(sektorId, c.id, index)
+      for (const cid of conceptIds) await odepnijZadanie(sektorId, cid)
     })()
   }
-  const zadanieNaListe = useCallback((sektorId: string, nodeId: string, index: number) => naListeRef.current(sektorId, nodeId, index), [])
+  /** Kafelki z Linii (jeden albo kilka zaznaczonych) na listę zadań sektora.
+   *  Wchodzą tylko zadania; reszta zostaje w Linii, z wyjaśnieniem. */
+  const naListeRef = useRef<(sektorId: string, nodeIds: string[], index: number) => void>(() => {})
+  naListeRef.current = (sektorId, nodeIds, index) => {
+    const komunikat = (t: string) => window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: t }))
+    if (!onWyjmijZLinii) return
+    const brane: { nodeId: string; conceptId: string }[] = []
+    let inne = 0
+    let zTekstem = 0
+    for (const nodeId of nodeIds) {
+      const n = ordered.find((x) => x.id === nodeId)
+      const c = n?.kind === 'block' ? conceptById(n.conceptId) : undefined
+      if (!n || n.kind !== 'block' || !c || c.type !== typZadaniaLinii) {
+        inne++
+        continue
+      }
+      // tekst napisany w ścieżce (kafelek spoza jej folderu) na liście by przepadł
+      if (c.pathId !== pathId && (n.nazwa !== undefined || Object.keys(n.wlasneTresci ?? {}).length > 0)) {
+        zTekstem++
+        continue
+      }
+      brane.push({ nodeId, conceptId: c.id })
+    }
+    if (inne) komunikat(brane.length ? `Na listę weszły tylko zadania (${brane.length}) — pozostałe kafelki zostały w Linii.` : 'Na listę zadań wchodzą tylko kafelki-zadania (rodzaj „Zadanie").')
+    else if (zTekstem) komunikat('Zadanie z tekstem napisanym tylko w tej ścieżce zostało w Linii — na liście by przepadł. Wyślij go najpierw do biblioteki.')
+    if (!brane.length) return
+    for (const x of brane) onWyjmijZLinii(x.nodeId)
+    void (async () => {
+      const ids = brane.map((x) => x.nodeId)
+      for (const s of sektory ?? []) if (s.wezly.some((w) => ids.includes(w))) await wyjmijZSektora(s.id, ids)
+      await wstawZadaniaNaListe(sektorId, brane.map((x) => x.conceptId), index)
+    })()
+  }
+  const zadanieNaListe = useCallback((sektorId: string, nodeIds: string[], index: number) => naListeRef.current(sektorId, nodeIds, index), [])
   /** Sąsiedzi zadań w Linii z poprzedniego układu — po nich poznajemy, że
    *  zadanie przyszło albo się przesunęło (a nie tylko sąsiad obok niego). */
   const sasiedziRef = useRef<{ zadania: Map<string, string>; wszystkie: Set<string> } | null>(null)
   const nieznaneRef = useRef(new Set<string>())
+  const kolejkaSektorowRef = useRef<Promise<void>>(Promise.resolve())
   useEffect(() => {
     if (!sektory || trybNauki) return
     const lista = ordered.filter((n) => n.kind !== 'comment')
@@ -1499,7 +1519,8 @@ function LinearView({
       preferowanyRef.current.delete(id)
       const obecny = sektory.find((s) => s.rodzaj === 'sektor' && s.wezly.includes(id))?.id ?? null
       const cel = sektorDlaMiejsca(ordered, sektory, id, pref ?? obecny)
-      if (cel !== obecny) void ustawSektorWezla(id, cel, sektory)
+      // zapisy po kolei — dwa naraz czytałyby ten sam sektor i drugi nadpisałby pierwszy
+      if (cel !== obecny) kolejkaSektorowRef.current = kolejkaSektorowRef.current.then(() => ustawSektorWezla(id, cel, sektory))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordered, sektory, typZadaniaLinii, trybNauki])
@@ -1769,8 +1790,8 @@ function LinearView({
     const zad = e.dataTransfer.getData(ZADANIE_MIME)
     if (zad) {
       try {
-        const p = JSON.parse(zad) as { sektorId: string; conceptId: string }
-        zListyRef.current(p.sektorId, p.conceptId, afterId, beforeId)
+        const p = JSON.parse(zad) as { sektorId: string; conceptId: string; conceptIds?: string[] }
+        zListyRef.current(p.sektorId, p.conceptIds ?? [p.conceptId], afterId, beforeId)
       } catch {
         /* obce dane */
       }

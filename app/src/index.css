@@ -13571,3 +13571,10 @@ html.okno-powiadomienia #root {
 .ez3-spis > li.kreska-po::after, .ez3-lista-konca > li.kreska-po::after { bottom: -2px; }
 .ez3.z-pdf .ez3-uklad.ez2 { grid-template-columns: 240px minmax(0, 1fr) minmax(340px, 42%); }
 .ez3-uklad.ez2 { grid-template-columns: 270px minmax(0, 1fr); }
+
+/* test zakryty: pasek wszystkich stron kafelka — zakryte podpisane */
+.sesja-strony-pasek { margin-bottom: 8px; }
+.sesja-strony-pasek .block-page { display: inline-flex; align-items: center; gap: 5px; }
+.sesja-strony-pasek .block-page.strona-zakryta:disabled { cursor: not-allowed; opacity: 1; color: var(--muted); background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--muted) 10%, transparent) 5px 7px); }
+.strona-zakryta-napis { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.zadania-pasek-zadanie.zaznaczone > .zadania-pasek-kafelek { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent); border-radius: 6px; }

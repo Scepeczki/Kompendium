@@ -773,7 +773,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       { id: null, nazwa: mainPageName(c), tresc: wlasna(null) ?? v?.content ?? '', widoczna: glownaWidoczna(v, c.type, typZadania) },
       ...subs.map((x) => ({ id: x.id, nazwa: x.name, tresc: wlasna(x.id) ?? x.content ?? '', widoczna: stronaWidoczna(x) })),
     ]
-    return { widoczne: wszystkie.filter((x) => x.widoczna), zakryte: wszystkie.filter((x) => !x.widoczna) }
+    return { wszystkie, widoczne: wszystkie.filter((x) => x.widoczna), zakryte: wszystkie.filter((x) => !x.widoczna) }
   }
   /** Kafelek z odsłoniętymi stronami: one widoczne od początku, pole na
    *  odpowiedź, zakryte strony dopiero po „Sprawdź". Bez odsłoniętych stron —
@@ -803,7 +803,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         ocena={oceny[p.klucz]}
         onOdslon={(pod) => odslon(p.klucz, pod)}
         onOcena={(o) => setOceny((x) => ({ ...x, [p.klucz]: o }))}
-        widoczne={() => <StronyTestu strony={st.widoczne} klasa="sesja-zadanie-tresc" />}
+        widoczne={() => <OdslonieteStrony wszystkie={st.wszystkie} odkryty={odkryte.has(p.klucz)} />}
         tresc={() => <StronyTestu strony={st.zakryte} zadanie={!!p.zadanie} />}
         typy={typy}
       />
@@ -1430,6 +1430,41 @@ interface StronaTestu {
   nazwa: string
   tresc: string
   widoczna: boolean
+}
+
+/** Kafelek z odsłoniętymi stronami: nad treścią wszystkie jego strony —
+ *  odsłonięte do czytania, zakryte podpisane „zakryta" (widać, co jest do
+ *  przypomnienia). Po „Sprawdź" zakryte też da się tu otworzyć. */
+function OdslonieteStrony({ wszystkie, odkryty }: { wszystkie: StronaTestu[]; odkryty: boolean }) {
+  const widoczne = wszystkie.filter((x) => x.widoczna)
+  const [wybrana, setWybrana] = useState<string | null | undefined>(widoczne[0]?.id)
+  const s = wszystkie.find((x) => x.id === wybrana && (x.widoczna || odkryty)) ?? widoczne[0]
+  return (
+    <div className="sesja-zadanie-tresc sesja-strony-testu">
+      {wszystkie.length > 1 && (
+        <div className="block-pages sesja-strony-pasek" data-strony-testu>
+          {wszystkie.map((x) => {
+            const zakryta = !x.widoczna && !odkryty
+            return (
+              <button
+                key={x.id ?? 'glowna'}
+                className={`block-page ${x.id === s?.id ? 'active' : ''} ${x.widoczna ? '' : 'strona-zakryta'}`}
+                data-zakryta={zakryta ? '' : undefined}
+                disabled={zakryta}
+                title={zakryta ? 'Zakryta — zobaczysz ją po „Sprawdź"' : undefined}
+                onClick={() => setWybrana(x.id)}
+              >
+                {!x.widoczna && <Icon name={odkryty ? 'odkryj' : 'zakryty'} size={0.8} />}
+                {x.nazwa}
+                {zakryta && <span className="strona-zakryta-napis">zakryta</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(s?.tresc || '_(pusto)_') }} />
+    </div>
+  )
 }
 
 /** Strony kafelka w teście — odsłonięte od początku albo zakryte, po
