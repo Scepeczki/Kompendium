@@ -4832,15 +4832,12 @@ body.ciagne-szerokosc * {
   opacity: 1;
 }
 
-/* Kafelki poza ekranem: przeglądarka pomija ich układanie i rysowanie.
-   Przy ścieżce na kilkaset kafelków to różnica między płynnym przewijaniem
-   a szarpaniem — wysokość zastępcza trzyma pasek przewijania w ryzach.
-   Komentarze boczne wystają poza swój segment na margines, a pomijanie
-   rysowania niesie ze sobą przycinanie — dlatego ich to nie dotyczy. */
-.linear-seg:not(.linear-seg-sidenote) {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 220px;
-}
+/* Kafelki poza ekranem były tu dawniej pomijane przez przeglądarkę
+   (content-visibility) z wysokością zastępczą 220 px. To było DRUGIE
+   zgadywanie wysokości obok pustych miejsc Linii — kafelek blisko ekranu
+   zmieniał wysokość, gdy przeglądarka go wreszcie układała, i spychał
+   treść. Linia i tak rysuje tylko okolicę ekranu, więc zostaje jedno
+   źródło wysokości: zmierzona albo zapamiętana. */
 
 /* kafelek dopiero co dołożony, jeszcze bez danych z bazy — pusta ramka
    zamiast mrugnięcia napisem o usuniętym pojęciu */
@@ -8107,6 +8104,13 @@ body.ciagne-szerokosc * {
 .menu-poziomy button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* zdjęcie z zapisanymi wymiarami: miejsce zarezerwowane od pierwszej klatki,
+   a wysokość idzie za szerokością (proporcje z atrybutów) — wszędzie, także
+   w polu do pisania */
+img[data-obraz][width][height] {
+  height: auto;
 }
 
 /* zdjęcia w treści */
@@ -13611,3 +13615,12 @@ html.okno-powiadomienia #root {
 .zadania-pasek-zaznaczone > span { flex: 1; min-width: 12em; }
 .sesja-zakryte-strony { justify-content: center; margin: 6px 0 10px; flex-wrap: wrap; }
 .sesja-zakryte-strony .block-page.strona-zakryta { display: inline-flex; align-items: center; gap: 5px; cursor: default; color: var(--muted); }
+
+/* Wbudowane kotwiczenie przewijania przeglądarki: domyślnie wyłączone —
+   punkt stały Linii pilnuje sam, a dwa kotwiczenia naraz działały wbrew sobie
+   (np. widok przesuwał się między wciśnięciem a puszczeniem myszy i
+   kliknięcie trafiało obok). Włącza je Linia tylko na czas przewijania
+   ręką: nie przerywa ono płynnego i bezwładnego przewijania. */
+.linear-view {
+  overflow-anchor: none;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { BlockTypes } from '../blockTypes'
 import { Icon } from './Icon'
+import { przewijaUzytkownik } from '../przewijanie'
 import { POZIOM_MAX, type Concept, type PathNode, type PoziomRozdzialu } from '../types'
 
 export interface OutlineItem {
@@ -153,7 +154,9 @@ interface Props {
 interface PamiecSpisu {
   otwarte?: string[]
   zwiniete?: string[]
-  /** Otwarte przez samo czytanie (zamkną się, gdy czytanie pójdzie dalej). */
+  /** Bieżący rozdział (podświetlony) — po powrocie ten sam, bez liczenia od nowa. */
+  aktywny?: string | null
+  /** Rozdziały otwarte przez samo czytanie (zwiną się, gdy czytanie pójdzie dalej). */
   samOtwarte?: string[]
   przewiniecie?: number
 }
@@ -256,7 +259,12 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
     null,
   )
 
-  const [active, setActive] = useState<string | null>(null)
+  const [active, setActive] = useState<string | null>(() => zapamietany.aktywny ?? null)
+  const activeRef = useRef(active)
+  activeRef.current = active
+  useEffect(() => {
+    zapiszSpis(pamiec, { aktywny: active })
+  }, [pamiec, active])
 
   /** Rozwinięte rozdziały spisu szczegółowego. Reszta to rząd kuleczek. */
   const [otwarte, setOtwarte] = useState<Set<string>>(() => new Set(zapamietany.otwarte ?? []))
@@ -266,48 +274,45 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
   useEffect(() => {
     zapiszSpis(pamiec, { otwarte: [...otwarte], zwiniete: [...zwinieteOgolne], samOtwarte: samOtwarte.current })
   }, [pamiec, otwarte, zwinieteOgolne])
-  /** Przewinięcie spisu: odtwarzamy, gdy spis ma już swoje wiersze, i
-   *  zapamiętujemy każde następne. */
+  /** Przewinięcie spisu: ustawiane raz, gdy spis ma już wiersze, a potem
+   *  trzymane, gdy wiersze jeszcze się układają (rzędy kuleczek) — przez
+   *  obserwatora wysokości, bez odpytywania. Kończy się, gdy użytkownik sam
+   *  dotknie spisu (kółko, dotyk, klik). */
   const przewinietyRef = useRef(false)
-  const odtwarzaRef = useRef(false)
+  const trzymajRef = useRef<(() => void) | null>(null)
   useLayoutEffect(() => {
     const el = lista.current
-    if (!el || przewinietyRef.current || odtwarzaRef.current || !items.length) return
+    if (!el || przewinietyRef.current || !items.length) return
+    przewinietyRef.current = true
     const cel = zapamietany.przewiniecie
-    if (!cel) {
-      przewinietyRef.current = true
-      return
-    }
-    // wiersze (rzędy kuleczek) układają się jeszcze chwilę po narysowaniu —
-    // trzymamy przewinięcie, aż się ułożą albo ktoś sam przewinie spis
-    odtwarzaRef.current = true
-    const koniec = performance.now() + 1500
-    let t = 0
-    const stop = () => {
-      window.clearTimeout(t)
-      el.removeEventListener('wheel', stop)
-      el.removeEventListener('touchstart', stop)
-      odtwarzaRef.current = false
-      przewinietyRef.current = true
-    }
-    el.addEventListener('wheel', stop, { passive: true })
-    el.addEventListener('touchstart', stop, { passive: true })
-    const krok = () => {
+    if (!cel) return
+    el.scrollTop = cel
+    const ro = new ResizeObserver(() => {
       if (Math.abs(el.scrollTop - cel) > 1) el.scrollTop = cel
-      if (performance.now() > koniec) stop()
-      else t = window.setTimeout(krok, 80)
+    })
+    for (const li of el.children) ro.observe(li)
+    const pusc = () => {
+      ro.disconnect()
+      el.removeEventListener('wheel', pusc)
+      el.removeEventListener('touchstart', pusc)
+      el.removeEventListener('pointerdown', pusc)
+      trzymajRef.current = null
     }
-    krok()
+    trzymajRef.current = pusc
+    el.addEventListener('wheel', pusc, { passive: true })
+    el.addEventListener('touchstart', pusc, { passive: true })
+    el.addEventListener('pointerdown', pusc, { passive: true })
   })
+  useEffect(() => () => trzymajRef.current?.(), [])
   useEffect(() => {
     const el = lista.current
     if (!el) return
     let t = 0
     const h = () => {
+      // przewinięcie spisu zapisujemy tylko, gdy przewija je użytkownik
+      if (trzymajRef.current) return
       window.clearTimeout(t)
-      t = window.setTimeout(() => {
-        if (przewinietyRef.current) zapiszSpis(pamiec, { przewiniecie: el.scrollTop })
-      }, 200)
+      t = window.setTimeout(() => zapiszSpis(pamiec, { przewiniecie: el.scrollTop }), 200)
     }
     el.addEventListener('scroll', h, { passive: true })
     return () => {
@@ -356,13 +361,15 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
   const biezaceItems = useRef(items)
   biezaceItems.current = items
 
-  /** Rozdziały otwarte przez samo czytanie: bieżący i wszystkie nad nim.
-   *  Zamykają się, gdy czytanie pójdzie dalej; otwarte ręcznie zostają. */
+  /** Spis sam rozwija rozdział, w którym się czyta (i te nad nim). Gdy czytanie
+   *  pójdzie dalej, zwija TYLKO te, które sam otworzył — rozdziały otwarte
+   *  ręcznie zostają (kontrola jest po stronie użytkownika). Bez tego po
+   *  przeczytaniu dwudziestu rozdziałów wszystkie stałyby otworem. Migania nie
+   *  ma: bieżący rozdział zmienia się tylko przy przewijaniu ręką i z zapasem. */
   const samOtwarte = useRef<string[]>(zapamietany.samOtwarte ?? [])
   useEffect(() => {
     if (!active?.startsWith(outlineId(''))) return
     const id = active.slice(outlineId('').length)
-    if (samOtwarte.current[0] === id) return
     const lista = biezaceItems.current
     const i = lista.findIndex((x) => x.nodeId === id)
     if (i < 0) return
@@ -375,8 +382,14 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
         poziomTu = p
       }
     }
-    const stare = samOtwarte.current
-    samOtwarte.current = lancuch
+    const stare = samOtwarte.current.filter((x) => !lancuch.includes(x))
+    // nowo otwarte przez czytanie: te z łańcucha, których jeszcze nie było
+    const nowe = lancuch.filter((x) => !otwarteRef.current.has(x) || samOtwarte.current.includes(x))
+    samOtwarte.current = nowe
+    if (!stare.length && lancuch.every((x) => otwarteRef.current.has(x))) {
+      zapiszSpis(pamiec, { samOtwarte: nowe })
+      return
+    }
     zapamietajMiejsca()
     setOtwarte((s) => {
       const n = new Set(s)
@@ -385,8 +398,11 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
       return n
     })
   }, [active])
+  const otwarteRef = useRef(otwarte)
+  otwarteRef.current = otwarte
 
   const przelacz = (id: string) => {
+    // ruszony ręcznie — od teraz to wybór użytkownika, czytanie go nie zwinie
     samOtwarte.current = samOtwarte.current.filter((x) => x !== id)
     zapamietajMiejsca()
     ;(szczegolowy ? setOtwarte : setZwinieteOgolne)((s) => {
@@ -396,45 +412,73 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
     })
   }
 
-  // Podświetlenie bieżącego rozdziału: ten, W KTÓRYM się czyta — ostatni
-  // nagłówek nad linią czytania (górna jedna trzecia widoku). Dawniej brany
-  // był pierwszy WIDOCZNY nagłówek, więc gdy nagłówek rozdziału uciekł nad
-  // ekran, świecił się już następny rozdział, choć czytało się poprzedni.
+  /** Bieżący rozdział — ten, W KTÓRYM się czyta: ostatni nagłówek nad linią
+   *  czytania. Trzy stany:
+   *  - ODTWARZANIE (wejście): spis pokazuje zapamiętany rozdział i nic sam nie
+   *    rusza — Linia ustawia się wtedy na swoim miejscu;
+   *  - USTAWIONE: przesunięcia programu (kafelek urósł, poprawka położenia)
+   *    niczego w spisie nie zmieniają;
+   *  - PRZEWIJA UŻYTKOWNIK: dopiero wtedy liczymy rozdział od nowa.
+   *  Z zapasem (histereza): nowy rozdział wygrywa dopiero, gdy linia czytania
+   *  wejdzie w niego na 40 px — na granicy dwóch rozdziałów nic nie skacze. */
+  // Nasłuchiwanie zakładamy raz (na widok), a rozdziały czytamy na bieżąco z
+  // referencji. Dawniej efekt zależał od listy pozycji, która przy długiej
+  // ścieżce zmienia się przy każdym przerysowaniu Linii — efekt zakładał się
+  // od nowa, anulował zaplanowane przeliczenie i bieżący rozdział stał w
+  // miejscu (świecił się np. pierwszy).
+  const saPozycje = items.length > 0
   useEffect(() => {
-    if (!open || items.length === 0) return
-    const pierwszy = items.map((it) => znajdz(it.domId)).find(Boolean)
+    if (!open || !saPozycje) return
+    const rozdzialyTeraz = () => biezaceItems.current.filter((it) => it.level !== 'kafelek')
+    const pierwszy = rozdzialyTeraz().map((it) => znajdz(it.domId)).find(Boolean)
     const scroller = pierwszy ? przewijanyRodzic(pierwszy) : null
     const cel: HTMLElement | Window = scroller ?? window
+    const ZAPAS_HISTEREZY = 40
     let raf = 0
     const licz = () => {
       raf = 0
+      const rozdzialy = rozdzialyTeraz()
+      if (!rozdzialy.length) return
       const r = scroller?.getBoundingClientRect()
       const gora = r ? r.top : 0
       const wys = r ? r.height : window.innerHeight
-      const linia = gora + wys * 0.35
-      let wybrany: string | null = null
-      for (const it of items) {
-        // kafelek poza oknem rysowania to puste miejsce z tym samym znacznikiem
-        const el = document.getElementById(it.domId) ?? (document.querySelector(`[data-seg="${it.nodeId}"]`) as HTMLElement | null)
-        if (!el) continue
-        if (el.getBoundingClientRect().top > linia) break
-        if (it.level !== 'kafelek') wybrany = it.domId
+      // ta sama linia czytania co punkt stały Linii — inaczej na granicy dwóch
+      // rozdziałów spis i Linia mówiłyby o dwóch różnych miejscach
+      const linia = gora + Math.min(120, wys / 3)
+      /** Ostatni rozdział, którego nagłówek jest nad y. */
+      const ostatniNad = (y: number) => {
+        let k = -1
+        for (let i = 0; i < rozdzialy.length; i++) {
+          const el = document.getElementById(rozdzialy[i].domId)
+          if (!el) continue
+          if (el.getBoundingClientRect().top > y) break
+          k = i
+        }
+        return k
       }
-      const pierwszyRozdzial = items.find((it) => it.level !== 'kafelek')
-      setActive(wybrany ?? pierwszyRozdzial?.domId ?? null)
+      const naprzod = ostatniNad(linia - ZAPAS_HISTEREZY)
+      const wstecz = ostatniNad(linia + ZAPAS_HISTEREZY)
+      const teraz = rozdzialy.findIndex((it) => it.domId === activeRef.current)
+      let nowy = teraz
+      if (teraz < 0) nowy = Math.max(0, ostatniNad(linia))
+      else if (teraz < naprzod) nowy = naprzod
+      else if (teraz > wstecz) nowy = Math.max(0, wstecz)
+      const id = rozdzialy[nowy]?.domId ?? null
+      if (id !== activeRef.current) setActive(id)
     }
     const naPrzewiniecie = () => {
+      // przesunięcia programu (poprawki położenia, kafelek urósł) nie ruszają spisu
+      if (!przewijaUzytkownik(scroller)) return
       if (!raf) raf = requestAnimationFrame(licz)
     }
-    licz()
+    // ODTWARZANIE: zapamiętany rozdział zostaje; liczymy tylko, gdy żadnego nie ma
+    if (!rozdzialyTeraz().some((it) => it.domId === activeRef.current)) licz()
     cel.addEventListener('scroll', naPrzewiniecie, { passive: true })
-    window.addEventListener('resize', naPrzewiniecie)
     return () => {
       cancelAnimationFrame(raf)
       cel.removeEventListener('scroll', naPrzewiniecie)
-      window.removeEventListener('resize', naPrzewiniecie)
     }
-  }, [open, items])
+  }, [open, saPozycje])
 
   /** Zatrzymanie trwającego skoku — w danej chwili może być tylko jeden. */
   const przerwijSkok = useRef<(() => void) | null>(null)

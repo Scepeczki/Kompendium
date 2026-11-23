@@ -1,7 +1,7 @@
 import { marked } from 'marked'
 import katex from 'katex'
 import DOMPurify from 'dompurify'
-import { adresObrazu, czytajUklad } from './obrazy'
+import { adresObrazu, czytajUklad, wymiaryObrazu } from './obrazy'
 
 marked.setOptions({ gfm: true, breaks: false })
 
@@ -107,7 +107,12 @@ function renderMarkdownUncached(src: string, opts: RenderOptions): string {
   let html = marked.parse(text) as string
   html = html.replace(/%%STASH(\d+)%%/g, (_, i: string) => stashed[Number(i)])
   // odnośnik do zdjęcia zamieniamy przed czyszczeniem: nieznany adres by wyleciał
-  html = html.replace(/src="(obraz:[^"]+)"/g, (_, src: string) => `src="${adresObrazu(src)}"`)
+  // Wymiary rezerwują miejsce, zanim zdjęcie się narysuje (CSS: height auto
+  // trzyma proporcje); data-obraz pozwala uzupełnić wymiary starszym zdjęciom.
+  html = html.replace(/src="(obraz:[^"]+)"/g, (_, src: string) => {
+    const w = wymiaryObrazu(src)
+    return `src="${adresObrazu(src)}" data-obraz="${src}"${w ? ` width="${w.w}" height="${w.h}"` : ''}`
+  })
   // `semantics`/`annotation` MUSZĄ przetrwać czyszczenie.
   //
   // KaTeX chowa w nich ŹRÓDŁOWY TeX wzoru — to jedyne miejsce, z którego da

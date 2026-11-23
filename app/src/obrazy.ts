@@ -1,4 +1,5 @@
 import { db } from './db'
+import { oznaczBezCofania } from './cofanie'
 
 /** Dłuższy bok po zmniejszeniu. Tyle wystarcza na pełną szerokość strony,
  *  a zdjęcie z telefonu nie waży wtedy kilku megabajtów. */
@@ -38,16 +39,51 @@ export function zapiszUklad({ szerokosc, polozenie }: UkladZdjecia): string | nu
 
 /** Treść renderuje się synchronicznie, więc zdjęcia trzymamy też w pamięci. */
 const pamiec = new Map<string, string>()
+/** Wymiary zdjęć (szerokość, wysokość) — do zarezerwowania miejsca. */
+const wymiary = new Map<string, { w: number; h: number }>()
 
 export async function wczytajObrazy(): Promise<void> {
-  for (const o of await db.obrazy.toArray()) pamiec.set(o.id, o.dane)
+  for (const o of await db.obrazy.toArray()) {
+    pamiec.set(o.id, o.dane)
+    if (o.w && o.h) wymiary.set(o.id, { w: o.w, h: o.h })
+  }
+}
+
+/** Wymiary zdjęcia z treści (`obraz:id`), jeśli są znane. */
+export const wymiaryObrazu = (src: string) =>
+  src.startsWith(PRZEDROSTEK) ? wymiary.get(src.slice(PRZEDROSTEK.length)) : undefined
+
+/** Starsze zdjęcia nie mają zapisanych wymiarów — dostają je przy pierwszym
+ *  wyświetleniu (gdziekolwiek). Następnym razem miejsce jest już zarezerwowane. */
+if (typeof document !== 'undefined') {
+  document.addEventListener(
+    'load',
+    (e) => {
+      const img = e.target as HTMLImageElement | null
+      if (!(img instanceof HTMLImageElement)) return
+      const src = img.dataset.obraz
+      if (!src?.startsWith(PRZEDROSTEK) || !img.naturalWidth || !img.naturalHeight) return
+      const id = src.slice(PRZEDROSTEK.length)
+      if (wymiary.has(id)) return
+      const w = { w: img.naturalWidth, h: img.naturalHeight }
+      wymiary.set(id, w)
+      void db
+        .transaction('rw', db.obrazy, async () => {
+          // uzupełnienie wymiarów to nie działanie użytkownika — poza cofaniem
+          oznaczBezCofania()
+          await db.obrazy.update(id, w)
+        })
+        .catch(() => {})
+    },
+    true,
+  )
 }
 
 /** Adres do wyświetlenia dla `src` z treści. Inne adresy zostają bez zmian. */
 export const adresObrazu = (src: string): string =>
   src.startsWith(PRZEDROSTEK) ? (pamiec.get(src.slice(PRZEDROSTEK.length)) ?? '') : src
 
-async function zmniejsz(plik: Blob): Promise<string> {
+async function zmniejsz(plik: Blob): Promise<{ dane: string; w: number; h: number }> {
   const obraz = await createImageBitmap(plik)
   const skala = Math.min(1, MAKS_BOK / Math.max(obraz.width, obraz.height))
   const plotno = document.createElement('canvas')
@@ -55,13 +91,14 @@ async function zmniejsz(plik: Blob): Promise<string> {
   plotno.height = Math.round(obraz.height * skala)
   plotno.getContext('2d')?.drawImage(obraz, 0, 0, plotno.width, plotno.height)
   obraz.close()
-  return plotno.toDataURL('image/webp', JAKOSC)
+  return { dane: plotno.toDataURL('image/webp', JAKOSC), w: plotno.width, h: plotno.height }
 }
 
 /** Zapisuje zdjęcie i zwraca to, co ma trafić do `src` w treści. */
 export async function dodajObraz(plik: Blob): Promise<string> {
-  const o = { id: crypto.randomUUID(), dane: await zmniejsz(plik), dodano: new Date().toISOString() }
+  const o = { id: crypto.randomUUID(), ...(await zmniejsz(plik)), dodano: new Date().toISOString() }
   await db.obrazy.add(o)
   pamiec.set(o.id, o.dane)
+  wymiary.set(o.id, { w: o.w, h: o.h })
   return PRZEDROSTEK + o.id
 }

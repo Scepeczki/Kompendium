@@ -9,7 +9,7 @@ import { Markdown } from 'tiptap-markdown'
 import katex from 'katex'
 import { OBEJMUJACE } from '../cmShortcuts'
 import { poprawWzor, zachowajPusteLinie } from '../markdown'
-import { adresObrazu, czytajUklad, dodajObraz } from '../obrazy'
+import { adresObrazu, czytajUklad, dodajObraz, wymiaryObrazu } from '../obrazy'
 import { Icon } from './Icon'
 import { PasekZdjecia } from './PasekZdjecia'
 import { PageRuler } from './PageRuler'
@@ -510,6 +510,15 @@ const Zdjecie = Node.create({
         const src = String(n.attrs.src ?? '')
         if (dom.getAttribute('data-obraz') !== src) {
           dom.setAttribute('data-obraz', src)
+          // wymiary przed adresem — miejsce zarezerwowane od pierwszej klatki
+          const w = wymiaryObrazu(src)
+          if (w) {
+            dom.width = w.w
+            dom.height = w.h
+          } else {
+            dom.removeAttribute('width')
+            dom.removeAttribute('height')
+          }
           dom.src = adresObrazu(src)
         }
         dom.alt = n.attrs.alt ?? ''

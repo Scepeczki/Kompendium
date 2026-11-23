@@ -478,6 +478,11 @@ export interface Obraz {
   /** Pełny adres data:image/… */
   dane: string
   dodano: string
+  /** Wymiary w pikselach — miejsce na zdjęcie jest zarezerwowane, zanim się
+   *  narysuje (inaczej kafelek rósł po chwili i spychał treść). Starsze
+   *  zdjęcia dostają je przy pierwszym wyświetleniu. */
+  w?: number
+  h?: number
 }
 
 export interface PdfDoc {

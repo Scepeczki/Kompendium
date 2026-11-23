@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -32,7 +33,8 @@ import {
   type NodeChange,
   type NodeProps,
 } from '@xyflow/react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
+import { przewijaUzytkownik, zauwazPrzewiniecie } from '../przewijanie'
 import '@xyflow/react/dist/style.css'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
@@ -1231,9 +1233,10 @@ function LinearView({
       ? null
       : new IntersectionObserver(
           (wpisy) => {
-            // widok drgnął — wstrzymuje stawianie pól, żeby przewijanie
-            // miało pierwszeństwo przed budowaniem edytorów
-            ruchWidoku()
+            // Dawniej każde wejście kafelka w pole widzenia ogłaszało „ruch
+            // widoku" i wstrzymywało stawianie pól. Ale kafelek wjeżdża też
+            // wtedy, gdy wyżej coś urosło (wyższa strona) — i pod nim robiła się
+            // pustka. Ruch widoku ogłasza teraz tylko przewijanie ręką.
             for (const w of wpisy) {
               const el = w.target as HTMLElement
               const i = Number(el.dataset.idx)
@@ -1268,118 +1271,319 @@ function LinearView({
     },
     [obserwator],
   )
-  /** Ścieżka pamięta, gdzie się skończyło czytanie.
+  /** PUNKT STAŁY LINII.
    *
-   *  Wracasz do niej (po dniu albo z biblioteki, nauki, innej ścieżki) i
-   *  jesteś dokładnie tam, gdzie byłeś. Zapamiętujemy KAFELEK u góry ekranu i
-   *  to, ile z niego było już przewinięte — nie same piksele: kafelki poza
-   *  oknem mają po powrocie dopiero zgadywaną wysokość, więc ta sama liczba
-   *  pikseli wypadała gdzie indziej (często na samej górze). Zapis w pamięci
-   *  przeglądarki — to sprawa tego komputera, a nie treści ścieżki. */
+   *  Zawsze jest jakiś kafelek, który stoi w miejscu (kotwica): ostatnio
+   *  dotknięty (klik, kursor), jeśli jest na ekranie, a poza tym ten pod linią
+   *  czytania. Gdy coś nad nim urośnie albo się skurczy (wyższa strona, wzór,
+   *  obrazek, pole tekstowe), przewinięcie zmienia się o tyle samo w TEJ SAMEJ
+   *  klatce — ResizeObserver odzywa się po ułożeniu strony, a przed jej
+   *  narysowaniem — więc na ekranie nic nie drgnie.
+   *
+   *  Przewijanie ręką (kółko, dotyk, klawisze, pasek, skok ze spisu) wybiera
+   *  nowy punkt stały. W jego trakcie nie poprawiamy: przeglądarka sama trzyma
+   *  treść (jej wbudowane kotwiczenie), a nasze wpisywanie przewinięcia
+   *  przerywałoby płynne i bezwładne przewijanie.
+   *
+   *  Ten sam punkt jest zapamiętanym miejscem w ścieżce: po powrocie Linia
+   *  rysuje go i ustawia przed pierwszym narysowaniem ekranu. Bez gonienia. */
   const kluczMiejsca = `ui.miejsceWSciezce.${pathId}`
   const widokRef = useRef<HTMLDivElement | null>(null)
+  const punktStalyRef = useRef<{ seg: string; dy: number } | null>(null)
+  const dotknietyRef = useRef<string | null>(null)
   const przywroconoRef = useRef(false)
-  useEffect(() => {
-    przywroconoRef.current = false
-  }, [kluczMiejsca])
-  useEffect(() => {
+  /** scrollTop wpisany przez nas — zdarzenie scroll z tą wartością to nie ręka. */
+  const naszeRef = useRef<number | null>(null)
+  const orderedRef = useRef(ordered)
+  orderedRef.current = ordered
+  // podgląd dla testów płynności
+  ;(window as unknown as { __punktStaly?: () => unknown }).__punktStaly = () => ({ ...punktStalyRef.current, dotkniety: dotknietyRef.current, przywrocono: przywroconoRef.current })
+
+  /** Linia czytania: stała odległość od górnej krawędzi widoku (zmiana
+   *  wysokości okna nie przesuwa wtedy treści). */
+  const linia = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    return r.top + Math.min(120, r.height / 3)
+  }
+  /** Segmenty w kolejności (bez komentarzy bocznych — stoją obok, nie w kolumnie). */
+  const segiRef = useRef<HTMLElement[] | null>(null)
+  const segi = () => {
+    if (!segiRef.current) {
+      segiRef.current = widokRef.current
+        ? [...widokRef.current.querySelectorAll<HTMLElement>('.linear-seg[data-idx]:not(.linear-seg-sidenote)')]
+        : []
+    }
+    return segiRef.current
+  }
+  useLayoutEffect(() => {
+    segiRef.current = null
+  }, [ordered])
+  /** Pierwszy segment, który sięga poniżej y (wyszukiwanie połówkowe). */
+  const pierwszyPonizej = (lista: HTMLElement[], y: number) => {
+    let lo = 0
+    let hi = lista.length - 1
+    let wynik = lista.length - 1
+    while (lo <= hi) {
+      const m = (lo + hi) >> 1
+      if (lista[m].getBoundingClientRect().bottom > y) {
+        wynik = m
+        hi = m - 1
+      } else lo = m + 1
+    }
+    return wynik
+  }
+  const segPoId = (el: HTMLElement, id: string) =>
+    el.querySelector<HTMLElement>(`.linear-seg[data-seg="${CSS.escape(id)}"]`)
+
+  const wyznaczKotwice = () => {
     const el = widokRef.current
-    if (!el || przywroconoRef.current) return
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const l = linia(el)
+    const d = dotknietyRef.current ? segPoId(el, dotknietyRef.current) : null
+    if (d) {
+      const dr = d.getBoundingClientRect()
+      if (dr.bottom > r.top && dr.top < r.bottom) {
+        punktStalyRef.current = { seg: d.dataset.seg as string, dy: l - dr.top }
+        return
+      }
+    }
+    const lista = segi()
+    if (!lista.length) return
+    const s = lista[pierwszyPonizej(lista, l)]
+    punktStalyRef.current = { seg: s.dataset.seg as string, dy: l - s.getBoundingClientRect().top }
+  }
+
+  /** Okno rysowania liczone od razu z położenia segmentów — bez czekania na
+   *  obserwatora (on odzywa się dopiero w następnej klatce, a przez nią
+   *  kafelek, który wjechał, byłby pustym miejscem). */
+  const policzOkno = (natychmiast: boolean) => {
+    const el = widokRef.current
+    const lista = segi()
+    if (!el || !lista.length) return false
+    const r = el.getBoundingClientRect()
+    const a = Number(lista[pierwszyPonizej(lista, r.top - 600)].dataset.idx)
+    const z = Number(lista[pierwszyPonizej(lista, r.bottom + 600)].dataset.idx)
+    const od = Math.max(0, a - ZAPAS)
+    const doo = z + ZAPAS
+    const o = oknoRef.current
+    // to, co potrzebne, już jest narysowane, a okno nie jest dużo za szerokie
+    if (od >= o.od && doo <= o.do && o.do - o.od <= doo - od + 4 * ZAPAS) return false
+    oknoRef.current = { od, do: doo }
+    if (natychmiast) flushSync(() => setOkno(oknoRef.current))
+    else setOkno(oknoRef.current)
+    return true
+  }
+
+  /** Kotwiczenie przeglądarki tylko na czas przewijania ręką — poza nim
+   *  punkt stały pilnuje Linia, a dwa kotwiczenia naraz działały wbrew sobie. */
+  const kotwiczenieTimerRef = useRef(0)
+  const ustawKotwiczenie = () => {
+    const el = widokRef.current
+    if (!el) return
+    const reka = przewijaUzytkownik(el)
+    el.style.overflowAnchor = reka ? 'auto' : 'none'
+    window.clearTimeout(kotwiczenieTimerRef.current)
+    // koniec przewijania ręką — sprawdzamy co chwilę, aż się skończy
+    if (reka) kotwiczenieTimerRef.current = window.setTimeout(ustawKotwiczenie, 250)
+  }
+
+  /** Pilnowanie punktu stałego — wołane po każdej zmianie wysokości. */
+  const korekta = () => {
+    const el = widokRef.current
+    const k = punktStalyRef.current
+    if (!el || !k || !przywroconoRef.current || przewijaUzytkownik(el)) return
+    el.style.overflowAnchor = 'none'
+    const s = segPoId(el, k.seg)
+    if (!s) {
+      // punktu stałego już nie ma (usunięty) — nowy z tego, co teraz widać
+      wyznaczKotwice()
+      return
+    }
+    const delta = s.getBoundingClientRect().top - (linia(el) - k.dy)
+    if (Math.abs(delta) < 0.5) return
+    el.scrollTop += delta
+    naszeRef.current = el.scrollTop
+  }
+
+  // Zapis miejsca: kotwica + sąsiedzi (gdyby kafelek kotwicy zniknął).
+  // Treść zapisu powstaje od razu, przy każdej zmianie punktu stałego, z
+  // kluczem TEJ ścieżki — a do pamięci trafia chwilę później albo przy
+  // wyjściu. Dawniej zapis przy wyjściu liczył się już z danych następnej
+  // ścieżki i ostatnie ćwierć sekundy przewijania przepadało.
+  const zapisTimerRef = useRef(0)
+  const doZapisuRef = useRef<{ klucz: string; tresc: string } | null>(null)
+  const zapiszMiejsce = () => {
+    window.clearTimeout(zapisTimerRef.current)
+    const z = doZapisuRef.current
+    if (!z) return
+    try {
+      localStorage.setItem(z.klucz, z.tresc)
+    } catch {
+      /* pełna pamięć przeglądarki */
+    }
+  }
+  const zapiszPozniej = () => {
+    const k = punktStalyRef.current
+    if (!k || !przywroconoRef.current) return
+    const lista = orderedRef.current
+    const i = lista.findIndex((n) => n.id === k.seg)
+    if (i < 0) return
+    doZapisuRef.current = {
+      klucz: kluczMiejsca,
+      tresc: JSON.stringify({
+        w: 2,
+        seg: k.seg,
+        dy: Math.round(k.dy * 10) / 10,
+        przed: lista.slice(Math.max(0, i - 4), i).map((n) => n.id).reverse(),
+        po: lista.slice(i + 1, i + 5).map((n) => n.id),
+      }),
+    }
+    window.clearTimeout(zapisTimerRef.current)
+    zapisTimerRef.current = window.setTimeout(zapiszMiejsce, 250)
+  }
+  // wyjście ze ścieżki (albo zamknięcie Linii): zapis od razu, bez czekania —
+  // w sprzątaniu efektu układu, zanim cokolwiek zacznie się od nowa
+  useLayoutEffect(
+    () => () => {
+      zapiszMiejsce()
+      doZapisuRef.current = null
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [kluczMiejsca],
+  )
+
+  // nowa ścieżka — wszystko od początku
+  useLayoutEffect(() => {
+    przywroconoRef.current = false
+    punktStalyRef.current = null
+    dotknietyRef.current = null
+  }, [kluczMiejsca])
+
+  /** Odtworzenie miejsca — przed pierwszym narysowaniem ekranu. Zmiana stanu
+   *  w efekcie układu przerysowuje Linię od razu, zanim cokolwiek zobaczysz:
+   *  najpierw dorysowujemy okolicę zapamiętanego kafelka, potem stawiamy go
+   *  na miejscu, a resztę trzyma już punkt stały. */
+  useLayoutEffect(() => {
+    const el = widokRef.current
+    if (!el || przywroconoRef.current || !ordered.length) return
     if (celKlocek) {
       // skok do wskazanego kafelka wygrywa z zapamiętanym miejscem
       przywroconoRef.current = true
       return
     }
-    // ścieżka jeszcze się wczytuje — czekamy na kafelki, nie uznajemy porażki
-    if (!ordered.length) return
-    let zap: { seg?: string; dy?: number; px?: number } = {}
+    let zap: { w?: number; seg?: string; dy?: number; px?: number; przed?: string[]; po?: string[] } = {}
     try {
       const surowe = localStorage.getItem(kluczMiejsca)
       if (surowe) zap = surowe.startsWith('{') ? JSON.parse(surowe) : { px: Number(surowe) }
     } catch {
       zap = {}
     }
-    const i = zap.seg ? ordered.findIndex((n) => n.id === zap.seg) : -1
-    if (i < 0 && !zap.px) {
+    const idx = (id?: string) => (id ? ordered.findIndex((n) => n.id === id) : -1)
+    let i = idx(zap.seg)
+    // dawny zapis liczył od górnej krawędzi, nowy od linii czytania
+    let dy = zap.w === 2 ? (zap.dy ?? 0) : (zap.dy ?? 0) + Math.min(120, el.clientHeight / 3)
+    if (i < 0) {
+      // kafelka już nie ma — najbliższy z jego sąsiadów (najpierw ten tuż przed)
+      for (const id of [...(zap.przed ?? []), ...(zap.po ?? [])]) {
+        i = idx(id)
+        if (i >= 0) {
+          dy = 0
+          break
+        }
+      }
+    }
+    if (i < 0) {
+      if (zap.px) {
+        el.scrollTop = zap.px
+        naszeRef.current = el.scrollTop
+      }
       przywroconoRef.current = true
+      wyznaczKotwice()
       return
     }
-    if (i >= 0) {
-      // rysujemy zapamiętany kafelek, choćby był daleko — dopiero wtedy wiadomo, gdzie stoi
+    if (i < okno.od || i > okno.do) {
       oknoRef.current = { od: Math.max(0, i - ZAPAS), do: i + ZAPAS }
       setOkno(oknoRef.current)
+      return // wrócimy tu po przerysowaniu — wciąż przed pierwszym narysowaniem
     }
-    // Treść nad celem dorasta jeszcze chwilę (wzory, obrazki, mierzenie
-    // kafelków) — poprawiamy, aż przestanie się ruszać. Ale tylko dopóki nikt
-    // inny nie przewija: klik w spisie treści albo kółko myszy wygrywa.
-    let t = 0
-    let spokoj = 0
-    const do_ = performance.now() + 3000
-    const sprzataj = () => {
-      window.clearTimeout(t)
-      el.removeEventListener('wheel', poddaj)
-      el.removeEventListener('touchstart', poddaj)
-      el.removeEventListener('keydown', poddaj)
-    }
-    function poddaj() {
-      sprzataj()
-      przywroconoRef.current = true
-    }
-    el.addEventListener('wheel', poddaj, { passive: true })
-    el.addEventListener('touchstart', poddaj, { passive: true })
-    el.addEventListener('keydown', poddaj)
-    const ustaw = () => {
-      if (el.dataset.skok === '1') return poddaj()
-      let delta: number
-      const seg = i >= 0 ? el.querySelector<HTMLElement>(`[data-seg="${zap.seg}"]`) : null
-      if (seg) delta = seg.getBoundingClientRect().top - el.getBoundingClientRect().top + (zap.dy ?? 0)
-      else delta = (zap.px ?? 0) - el.scrollTop
-      if (Math.abs(delta) > 1) {
-        el.scrollTop += delta
-        spokoj = 0
-      } else spokoj++
-      // pola tekstowe nad kafelkiem dostawiają się jedno po drugim — kończymy
-      // dopiero, gdy przez dobrą chwilę nic się nie przesuwa
-      if (spokoj >= 15 || performance.now() > do_) poddaj()
-      else t = window.setTimeout(ustaw, 80)
-    }
-    t = window.setTimeout(ustaw, 30)
-    return sprzataj
+    const s = segPoId(el, ordered[i].id)
+    if (!s) return
+    el.scrollTop += s.getBoundingClientRect().top - (linia(el) - dy)
+    naszeRef.current = el.scrollTop
+    punktStalyRef.current = { seg: ordered[i].id, dy }
+    przywroconoRef.current = true
+    policzOkno(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kluczMiejsca, celKlocek, ordered.length > 0])
+  }, [kluczMiejsca, ordered.length > 0, okno, celKlocek])
+
+  // przewijanie: ręka wybiera nowy punkt stały, a okno rysowania liczy się od razu
   useEffect(() => {
     const el = widokRef.current
     if (!el) return
-    let t = 0
-    const zapamietaj = () => {
-      window.clearTimeout(t)
-      t = window.setTimeout(() => {
-        if (!przywroconoRef.current) return
-        // pierwszy kafelek, który sięga poniżej górnej krawędzi widoku
-        const gora = el.getBoundingClientRect().top
-        let seg: HTMLElement | null = null
-        for (const x of el.querySelectorAll<HTMLElement>('.linear-seg[data-seg]')) {
-          if (x.getBoundingClientRect().bottom > gora + 1) {
-            seg = x
-            break
-          }
-        }
-        // widok bez kafelków (np. w trakcie zamykania) — nie nadpisujemy miejsca
-        if (!seg) return
-        const dy = Math.round(gora - seg.getBoundingClientRect().top)
-        try {
-          localStorage.setItem(kluczMiejsca, JSON.stringify({ seg: seg.dataset.seg, dy, px: Math.round(el.scrollTop) }))
-        } catch {
-          /* pełna pamięć przeglądarki */
-        }
-      }, 250)
+    const naPrzewiniecie = () => {
+      zauwazPrzewiniecie()
+      const nasze = naszeRef.current !== null && Math.abs(el.scrollTop - naszeRef.current) < 1
+      naszeRef.current = null
+      ustawKotwiczenie()
+      if (!nasze && przewijaUzytkownik(el) && przywroconoRef.current) {
+        ruchWidoku()
+        wyznaczKotwice()
+        zapiszPozniej()
+      }
+      // dorysowane kafelki zmieniają wysokości od razu — poprawka w tej samej
+      // klatce (obserwator wysokości zobaczyłby je dopiero w następnej)
+      if (policzOkno(true)) korekta()
     }
-    el.addEventListener('scroll', zapamietaj, { passive: true })
+    // dotknięcie kafelka (klik w zakładkę strony, kursor) — on stoi w miejscu
+    const dotkniecie = (e: Event) => {
+      const seg = (e.target as Element | null)?.closest?.('.linear-seg[data-seg]') as HTMLElement | null
+      if (!seg || !el.contains(seg)) return
+      dotknietyRef.current = seg.dataset.seg ?? null
+      // klik w treść kończy przewijanie ręką — od razu nasz punkt stały
+      ustawKotwiczenie()
+      if (przywroconoRef.current) {
+        wyznaczKotwice()
+        zapiszPozniej()
+      }
+    }
+    el.addEventListener('scroll', naPrzewiniecie, { passive: true })
+    el.addEventListener('pointerdown', dotkniecie, { capture: true, passive: true })
+    el.addEventListener('focusin', dotkniecie)
     return () => {
-      el.removeEventListener('scroll', zapamietaj)
-      window.clearTimeout(t)
+      el.removeEventListener('scroll', naPrzewiniecie)
+      el.removeEventListener('pointerdown', dotkniecie, { capture: true })
+      el.removeEventListener('focusin', dotkniecie)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kluczMiejsca])
+
+  /** Obserwator wysokości: każda zmiana (kafelek narysowany, wyższa strona,
+   *  wzór, obrazek, pole tekstowe) — poprawka punktu stałego i dorysowanie
+   *  tego, co wjechało na ekran. */
+  const korektaRef = useRef(korekta)
+  korektaRef.current = korekta
+  const policzOknoRef = useRef(policzOkno)
+  policzOknoRef.current = policzOkno
+  const [wysokosciObs] = useState(() =>
+    typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver((wpisy) => {
+          // Prawdziwa wysokość każdego narysowanego kafelka — od razu. Puste
+          // miejsce po nim ma wtedy dokładnie tę wysokość; zgadywana (średnia)
+          // zmieniała się przy każdym przesunięciu okna i widok oscylował.
+          for (const w of wpisy) {
+            const el = w.target as HTMLElement
+            if (el.dataset.pelny !== '1' || !el.dataset.seg) continue
+            const h = w.borderBoxSize?.[0]?.blockSize ?? el.getBoundingClientRect().height
+            if (h > 4) wysokosci.current.set(el.dataset.seg, h)
+          }
+          korektaRef.current()
+          // jak wyżej: to, co właśnie dorysowane, poprawiamy jeszcze w tej klatce
+          if (policzOknoRef.current(true)) korektaRef.current()
+        }),
+  )
+  useEffect(() => () => wysokosciObs?.disconnect(), [wysokosciObs])
 
   /** Skok do wskazanego kafelka: rysujemy go (choćby był daleko poza oknem),
    *  przewijamy na środek i na moment podświetlamy, żeby dało się go znaleźć
@@ -1397,15 +1601,25 @@ function LinearView({
     oknoRef.current = { od: Math.max(0, i - ZAPAS), do: i + ZAPAS }
     setOkno(oknoRef.current)
     setPodswietlony(seg.id)
+    const widok = widokRef.current
+    // skok wybrany przez użytkownika — w jego trakcie punkt stały idzie za nim
+    if (widok) widok.dataset.skok = '1'
     const t = window.setTimeout(() => {
       document
         .querySelector(`[data-seg="${seg.id}"]`)
         ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     }, 120)
+    const koniecSkoku = window.setTimeout(() => {
+      if (widok?.dataset.skok === '1') delete widok.dataset.skok
+      wyznaczKotwice()
+      zapiszPozniej()
+    }, 1300)
     const gasnie = window.setTimeout(() => setPodswietlony(null), 2600)
     return () => {
       window.clearTimeout(t)
+      window.clearTimeout(koniecSkoku)
       window.clearTimeout(gasnie)
+      if (widok?.dataset.skok === '1') delete widok.dataset.skok
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [celKlocek, ordered.length])
@@ -1413,11 +1627,15 @@ function LinearView({
   /** React 19 sprząta po ref-callbacku sam, jeśli oddamy mu funkcję. */
   const pilnuj = useCallback(
     (el: HTMLDivElement | null) => {
-      if (!el || !obserwator) return
-      obserwator.observe(el)
-      return () => obserwator.unobserve(el)
+      if (!el) return
+      obserwator?.observe(el)
+      wysokosciObs?.observe(el)
+      return () => {
+        obserwator?.unobserve(el)
+        wysokosciObs?.unobserve(el)
+      }
     },
-    [obserwator],
+    [obserwator, wysokosciObs],
   )
 
   /** Który segment ma kursor + wszystkie żywe pola, żeby pasek mógł się
