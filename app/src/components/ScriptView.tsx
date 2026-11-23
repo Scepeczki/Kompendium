@@ -85,7 +85,7 @@ export function ScriptBody({ pathId, onOpenConcept, onJumpToSource }: Props) {
 
   return (
     <div className="script-embed">
-      <Outline items={outline} />
+      <Outline key={path.id} pamiec={path.id} items={outline} />
       <article className="script-body">
         <h1 className="script-heading">{path.name}</h1>
         {ordered.length === 0 && (

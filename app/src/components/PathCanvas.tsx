@@ -1270,53 +1270,83 @@ function LinearView({
   )
   /** Ścieżka pamięta, gdzie się skończyło czytanie.
    *
-   *  Wracasz do niej po dniu i jesteś tam, gdzie byłeś — a nie na początku,
-   *  z setką kafelków do przewinięcia. Zapisujemy w pamięci przeglądarki, bo
-   *  to sprawa tego komputera, a nie treści ścieżki. */
+   *  Wracasz do niej (po dniu albo z biblioteki, nauki, innej ścieżki) i
+   *  jesteś dokładnie tam, gdzie byłeś. Zapamiętujemy KAFELEK u góry ekranu i
+   *  to, ile z niego było już przewinięte — nie same piksele: kafelki poza
+   *  oknem mają po powrocie dopiero zgadywaną wysokość, więc ta sama liczba
+   *  pikseli wypadała gdzie indziej (często na samej górze). Zapis w pamięci
+   *  przeglądarki — to sprawa tego komputera, a nie treści ścieżki. */
   const kluczMiejsca = `ui.miejsceWSciezce.${pathId}`
   const widokRef = useRef<HTMLDivElement | null>(null)
   const przywroconoRef = useRef(false)
   useEffect(() => {
+    przywroconoRef.current = false
+  }, [kluczMiejsca])
+  useEffect(() => {
     const el = widokRef.current
-    if (!el || przywroconoRef.current || celKlocek) return
-    const zapisane = Number(localStorage.getItem(kluczMiejsca) ?? '0')
-    if (!zapisane) {
+    if (!el || przywroconoRef.current) return
+    if (celKlocek) {
+      // skok do wskazanego kafelka wygrywa z zapamiętanym miejscem
       przywroconoRef.current = true
       return
     }
-    // Kafelki poza oknem mają dopiero zgadywaną wysokość, więc pierwszy skok
-    // bywa niecelny — poprawiamy go jeszcze przez chwilę, aż treść się ułoży.
-    //
-    // Ale tylko dopóki nikt inny nie przewija: klik w spisie treści też
-    // dociąga swój cel przez ponad sekundę, a dwa przewijania naraz szarpały
-    // widokiem w górę i w dół, aż jedno się skończyło. Kto przewija celowo
-    // (spis albo sam użytkownik), ten wygrywa — my odpuszczamy.
-    let n = 0
+    // ścieżka jeszcze się wczytuje — czekamy na kafelki, nie uznajemy porażki
+    if (!ordered.length) return
+    let zap: { seg?: string; dy?: number; px?: number } = {}
+    try {
+      const surowe = localStorage.getItem(kluczMiejsca)
+      if (surowe) zap = surowe.startsWith('{') ? JSON.parse(surowe) : { px: Number(surowe) }
+    } catch {
+      zap = {}
+    }
+    const i = zap.seg ? ordered.findIndex((n) => n.id === zap.seg) : -1
+    if (i < 0 && !zap.px) {
+      przywroconoRef.current = true
+      return
+    }
+    if (i >= 0) {
+      // rysujemy zapamiętany kafelek, choćby był daleko — dopiero wtedy wiadomo, gdzie stoi
+      oknoRef.current = { od: Math.max(0, i - ZAPAS), do: i + ZAPAS }
+      setOkno(oknoRef.current)
+    }
+    // Treść nad celem dorasta jeszcze chwilę (wzory, obrazki, mierzenie
+    // kafelków) — poprawiamy, aż przestanie się ruszać. Ale tylko dopóki nikt
+    // inny nie przewija: klik w spisie treści albo kółko myszy wygrywa.
     let t = 0
-    /** Samo posprzątanie — bez ogłaszania, że odtwarzanie się udało.
-     *  Efekt uruchamia się ponownie, gdy doczytają się kafelki, i wtedy
-     *  odtwarzanie ma zacząć się od nowa, a nie zostać uznane za zrobione. */
+    let spokoj = 0
+    const do_ = performance.now() + 3000
     const sprzataj = () => {
       window.clearTimeout(t)
       el.removeEventListener('wheel', poddaj)
       el.removeEventListener('touchstart', poddaj)
+      el.removeEventListener('keydown', poddaj)
     }
-    /** Koniec na dobre: albo dojechaliśmy, albo ktoś przewija po swojemu. */
     function poddaj() {
       sprzataj()
       przywroconoRef.current = true
     }
     el.addEventListener('wheel', poddaj, { passive: true })
     el.addEventListener('touchstart', poddaj, { passive: true })
-    const skocz = () => {
+    el.addEventListener('keydown', poddaj)
+    const ustaw = () => {
       if (el.dataset.skok === '1') return poddaj()
-      el.scrollTop = zapisane
-      if (++n < 12) t = window.setTimeout(skocz, 90)
-      else poddaj()
+      let delta: number
+      const seg = i >= 0 ? el.querySelector<HTMLElement>(`[data-seg="${zap.seg}"]`) : null
+      if (seg) delta = seg.getBoundingClientRect().top - el.getBoundingClientRect().top + (zap.dy ?? 0)
+      else delta = (zap.px ?? 0) - el.scrollTop
+      if (Math.abs(delta) > 1) {
+        el.scrollTop += delta
+        spokoj = 0
+      } else spokoj++
+      // pola tekstowe nad kafelkiem dostawiają się jedno po drugim — kończymy
+      // dopiero, gdy przez dobrą chwilę nic się nie przesuwa
+      if (spokoj >= 15 || performance.now() > do_) poddaj()
+      else t = window.setTimeout(ustaw, 80)
     }
-    skocz()
+    t = window.setTimeout(ustaw, 30)
     return sprzataj
-  }, [kluczMiejsca, celKlocek, ordered.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kluczMiejsca, celKlocek, ordered.length > 0])
   useEffect(() => {
     const el = widokRef.current
     if (!el) return
@@ -1324,8 +1354,25 @@ function LinearView({
     const zapamietaj = () => {
       window.clearTimeout(t)
       t = window.setTimeout(() => {
-        if (przywroconoRef.current) localStorage.setItem(kluczMiejsca, String(el.scrollTop))
-      }, 300)
+        if (!przywroconoRef.current) return
+        // pierwszy kafelek, który sięga poniżej górnej krawędzi widoku
+        const gora = el.getBoundingClientRect().top
+        let seg: HTMLElement | null = null
+        for (const x of el.querySelectorAll<HTMLElement>('.linear-seg[data-seg]')) {
+          if (x.getBoundingClientRect().bottom > gora + 1) {
+            seg = x
+            break
+          }
+        }
+        // widok bez kafelków (np. w trakcie zamykania) — nie nadpisujemy miejsca
+        if (!seg) return
+        const dy = Math.round(gora - seg.getBoundingClientRect().top)
+        try {
+          localStorage.setItem(kluczMiejsca, JSON.stringify({ seg: seg.dataset.seg, dy, px: Math.round(el.scrollTop) }))
+        } catch {
+          /* pełna pamięć przeglądarki */
+        }
+      }, 250)
     }
     el.addEventListener('scroll', zapamietaj, { passive: true })
     return () => {
@@ -2288,6 +2335,8 @@ function LinearView({
       }}
     >
       <Outline
+        key={pathId}
+        pamiec={pathId}
         items={outline}
         onMove={trybNauki ? () => {} : onMoveSegment}
         onMoveSekcja={trybNauki ? () => {} : onMoveSegments}

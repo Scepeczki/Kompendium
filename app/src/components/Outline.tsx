@@ -113,6 +113,16 @@ const znajdz = (domId: string): HTMLElement | null =>
   document.getElementById(domId) ??
   (document.querySelector(`[data-seg="${domId}"]`) as HTMLElement | null)
 
+/** Najbliższy rodzic, który przewija się w pionie — także gdy treść jeszcze
+ *  się w nim mieści (doczytuje się). */
+function przewijanyRodzic(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY
+    if (oy === 'auto' || oy === 'scroll') return p
+  }
+  return null
+}
+
 /** Najbliższy przewijany rodzic elementu (widok Skryptu albo Linii). */
 function scrollParent(el: HTMLElement): HTMLElement | null {
   for (let p = el.parentElement; p; p = p.parentElement) {
@@ -135,6 +145,34 @@ interface Props {
   onPoziom?: (nodeId: string, level: PoziomRozdzialu) => void
   /** Prawy przycisk na rozdziale: dokładny poziom i własna wielkość. */
   onMenu?: (e: React.MouseEvent, nodeId: string) => void
+  /** Ścieżka spisu: pod tym kluczem spis pamięta, które rozdziały są
+   *  rozwinięte i dokąd był przewinięty — po powrocie do ścieżki jest tak samo. */
+  pamiec?: string
+}
+
+interface PamiecSpisu {
+  otwarte?: string[]
+  zwiniete?: string[]
+  /** Otwarte przez samo czytanie (zamkną się, gdy czytanie pójdzie dalej). */
+  samOtwarte?: string[]
+  przewiniecie?: number
+}
+const kluczSpisu = (p: string) => `ui.spis.${p}`
+function wczytajSpis(p?: string): PamiecSpisu {
+  if (!p) return {}
+  try {
+    return (JSON.parse(localStorage.getItem(kluczSpisu(p)) ?? '{}') as PamiecSpisu) ?? {}
+  } catch {
+    return {}
+  }
+}
+function zapiszSpis(p: string | undefined, zmiana: PamiecSpisu) {
+  if (!p) return
+  try {
+    localStorage.setItem(kluczSpisu(p), JSON.stringify({ ...wczytajSpis(p), ...zmiana }))
+  } catch {
+    /* pełna pamięć przeglądarki — spis po prostu nie zapamięta */
+  }
 }
 
 /** Kafelki przed pierwszym rozdziałem zwijają się jak rozdział o tym id. */
@@ -148,7 +186,8 @@ const MAX_SZER = 560
 /** Spis treści ścieżki (jak konspekt w Google Docs): lista rozdziałów po
  *  lewej, klik przewija do miejsca, bieżący rozdział jest podświetlony.
  *  Panel można schować — wybór jest zapamiętywany. */
-export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu }: Props) {
+export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu, pamiec }: Props) {
+  const [zapamietany] = useState(() => wczytajSpis(pamiec))
   /** Dwa spisy w jednym miejscu. Ogólny to same rozdziały i podrozdziały,
    *  szczegółowy dokłada skrótowo każdy kafelek z jego rodzajem. */
   const [rodzaj, setRodzaj] = useState<'ogolny' | 'szczegolowy'>(() =>
@@ -218,13 +257,64 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
   )
 
   const [active, setActive] = useState<string | null>(null)
-  const visible = useRef(new Set<string>())
 
   /** Rozwinięte rozdziały spisu szczegółowego. Reszta to rząd kuleczek. */
-  const [otwarte, setOtwarte] = useState<Set<string>>(() => new Set())
+  const [otwarte, setOtwarte] = useState<Set<string>>(() => new Set(zapamietany.otwarte ?? []))
   /** W spisie ogólnym odwrotnie: wszystko widać, dopóki się czegoś nie zwinie. */
-  const [zwinieteOgolne, setZwinieteOgolne] = useState<Set<string>>(() => new Set())
+  const [zwinieteOgolne, setZwinieteOgolne] = useState<Set<string>>(() => new Set(zapamietany.zwiniete ?? []))
   const lista = useRef<HTMLUListElement>(null)
+  useEffect(() => {
+    zapiszSpis(pamiec, { otwarte: [...otwarte], zwiniete: [...zwinieteOgolne], samOtwarte: samOtwarte.current })
+  }, [pamiec, otwarte, zwinieteOgolne])
+  /** Przewinięcie spisu: odtwarzamy, gdy spis ma już swoje wiersze, i
+   *  zapamiętujemy każde następne. */
+  const przewinietyRef = useRef(false)
+  const odtwarzaRef = useRef(false)
+  useLayoutEffect(() => {
+    const el = lista.current
+    if (!el || przewinietyRef.current || odtwarzaRef.current || !items.length) return
+    const cel = zapamietany.przewiniecie
+    if (!cel) {
+      przewinietyRef.current = true
+      return
+    }
+    // wiersze (rzędy kuleczek) układają się jeszcze chwilę po narysowaniu —
+    // trzymamy przewinięcie, aż się ułożą albo ktoś sam przewinie spis
+    odtwarzaRef.current = true
+    const koniec = performance.now() + 1500
+    let t = 0
+    const stop = () => {
+      window.clearTimeout(t)
+      el.removeEventListener('wheel', stop)
+      el.removeEventListener('touchstart', stop)
+      odtwarzaRef.current = false
+      przewinietyRef.current = true
+    }
+    el.addEventListener('wheel', stop, { passive: true })
+    el.addEventListener('touchstart', stop, { passive: true })
+    const krok = () => {
+      if (Math.abs(el.scrollTop - cel) > 1) el.scrollTop = cel
+      if (performance.now() > koniec) stop()
+      else t = window.setTimeout(krok, 80)
+    }
+    krok()
+  })
+  useEffect(() => {
+    const el = lista.current
+    if (!el) return
+    let t = 0
+    const h = () => {
+      window.clearTimeout(t)
+      t = window.setTimeout(() => {
+        if (przewinietyRef.current) zapiszSpis(pamiec, { przewiniecie: el.scrollTop })
+      }, 200)
+    }
+    el.addEventListener('scroll', h, { passive: true })
+    return () => {
+      el.removeEventListener('scroll', h)
+      window.clearTimeout(t)
+    }
+  })
   /** Gdzie stały kuleczki i wiersze przed rozwinięciem: stąd ruszają. */
   const miejsca = useRef<Map<string, DOMRect> | null>(null)
   const zapamietajMiejsca = () => {
@@ -268,7 +358,7 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
 
   /** Rozdziały otwarte przez samo czytanie: bieżący i wszystkie nad nim.
    *  Zamykają się, gdy czytanie pójdzie dalej; otwarte ręcznie zostają. */
-  const samOtwarte = useRef<string[]>([])
+  const samOtwarte = useRef<string[]>(zapamietany.samOtwarte ?? [])
   useEffect(() => {
     if (!active?.startsWith(outlineId(''))) return
     const id = active.slice(outlineId('').length)
@@ -306,36 +396,44 @@ export function Outline({ items, onMove, onMoveSekcja, biezacy, onPoziom, onMenu
     })
   }
 
-  // Podświetlenie bieżącego rozdziału: śledzimy, które nagłówki są w oknie,
-  // i bierzemy pierwszy z nich w kolejności dokumentu.
+  // Podświetlenie bieżącego rozdziału: ten, W KTÓRYM się czyta — ostatni
+  // nagłówek nad linią czytania (górna jedna trzecia widoku). Dawniej brany
+  // był pierwszy WIDOCZNY nagłówek, więc gdy nagłówek rozdziału uciekł nad
+  // ekran, świecił się już następny rozdział, choć czytało się poprzedni.
   useEffect(() => {
     if (!open || items.length === 0) return
-    visible.current.clear()
-    const anchor = znajdz(items[0].domId)
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) visible.current.add(e.target.id)
-          else visible.current.delete(e.target.id)
-        }
-        const first = items.find((i) => visible.current.has(i.domId))
-        if (first) setActive(first.domId)
-      },
-      {
-        // liczy się górna część widoku — tam, gdzie właśnie czytamy
-        root: anchor ? scrollParent(anchor) : null,
-        rootMargin: '0px 0px -65% 0px',
-        threshold: 0,
-      },
-    )
-    // podświetlamy tylko rozdziały — obserwowanie każdego kafelka w długiej
-    // ścieżce byłoby setkami obserwacji bez pożytku
-    for (const it of items) {
-      if (it.level === 'kafelek') continue
-      const el = znajdz(it.domId)
-      if (el) io.observe(el)
+    const pierwszy = items.map((it) => znajdz(it.domId)).find(Boolean)
+    const scroller = pierwszy ? przewijanyRodzic(pierwszy) : null
+    const cel: HTMLElement | Window = scroller ?? window
+    let raf = 0
+    const licz = () => {
+      raf = 0
+      const r = scroller?.getBoundingClientRect()
+      const gora = r ? r.top : 0
+      const wys = r ? r.height : window.innerHeight
+      const linia = gora + wys * 0.35
+      let wybrany: string | null = null
+      for (const it of items) {
+        // kafelek poza oknem rysowania to puste miejsce z tym samym znacznikiem
+        const el = document.getElementById(it.domId) ?? (document.querySelector(`[data-seg="${it.nodeId}"]`) as HTMLElement | null)
+        if (!el) continue
+        if (el.getBoundingClientRect().top > linia) break
+        if (it.level !== 'kafelek') wybrany = it.domId
+      }
+      const pierwszyRozdzial = items.find((it) => it.level !== 'kafelek')
+      setActive(wybrany ?? pierwszyRozdzial?.domId ?? null)
     }
-    return () => io.disconnect()
+    const naPrzewiniecie = () => {
+      if (!raf) raf = requestAnimationFrame(licz)
+    }
+    licz()
+    cel.addEventListener('scroll', naPrzewiniecie, { passive: true })
+    window.addEventListener('resize', naPrzewiniecie)
+    return () => {
+      cancelAnimationFrame(raf)
+      cel.removeEventListener('scroll', naPrzewiniecie)
+      window.removeEventListener('resize', naPrzewiniecie)
+    }
   }, [open, items])
 
   /** Zatrzymanie trwającego skoku — w danej chwili może być tylko jeden. */
