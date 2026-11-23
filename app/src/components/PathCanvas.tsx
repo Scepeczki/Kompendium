@@ -127,6 +127,7 @@ import {
 } from '../types'
 import { useBlockTypes } from '../blockTypes'
 import { useDialogs } from './Dialogs'
+import { dopiszPlotno, zglosPlotno, type StanPlotna } from '../cofanie'
 
 const MIME = 'text/x-kompendium'
 /** Przeciąganie segmentów w trybie liniowym. */
@@ -253,6 +254,21 @@ const fromRfNode = (n: Node): PathNode => {
     zrodla: n.data.zrodla as SourceRef[] | undefined,
     paskiStron: n.data.paskiStron as PasekStron[] | undefined,
   }
+}
+
+/** Czy dwa stany Linii zapisują się tak samo (różnią się tylko zaznaczeniem, pomiarem…). */
+const tozsamaSciezka = (a: { nodes: Node[]; edges: Edge[] }, b: { nodes: Node[]; edges: Edge[] }) =>
+  a.nodes.length === b.nodes.length &&
+  a.edges.length === b.edges.length &&
+  JSON.stringify(a.nodes.map(fromRfNode)) === JSON.stringify(b.nodes.map(fromRfNode)) &&
+  JSON.stringify(a.edges.map(fromRfEdge)) === JSON.stringify(b.edges.map(fromRfEdge))
+
+/** Cofanie stanu Linii, której nie ma już na ekranie — prosto do bazy. */
+const plotnoDoBazy = (pathId: string) => async (s: StanPlotna) => {
+  await updatePath(pathId, {
+    nodes: (s.nodes as Node[]).map(fromRfNode),
+    edges: (s.edges as Edge[]).map(fromRfEdge),
+  })
 }
 
 const toRfEdge = (e: PathEdge): Edge => ({
@@ -3143,69 +3159,63 @@ function CanvasInner({
     }
   }, [mode, name])
 
-  /** Cofanie i ponawianie w obrębie ścieżki (Ctrl+Z / Ctrl+Shift+Z, Ctrl+Y).
-   *
-   *  Zapamiętujemy kolejne stany układu — kafelki i strzałki. Obejmuje to
-   *  wszystko, co ścieżka ma własnego: usunięcie kafelka, scalenie i
-   *  rozdzielenie, przeniesienie, dołożenie rozdziału czy notatki, a od
-   *  kiedy tekst mieszka w ścieżce — także pisanie. NIE obejmuje zmian w
-   *  bibliotece; tam kafelki żyją własnym życiem.
+  /** Cofanie (Ctrl+Z / Ctrl+Shift+Z, Ctrl+Y) — wspólne dla całego programu
+   *  (cofanie.ts). Linia trzyma kafelki i strzałki u siebie w pamięci, więc
+   *  sama robi zdjęcia swoich stanów i dokłada je do wspólnej historii; zmiany
+   *  w bazie z tego samego działania (sektor, lista zadań, usunięty kafelek)
+   *  są tym samym krokiem.
    *
    *  Zdjęcia robimy z opóźnieniem, żeby całe zdanie było jednym krokiem, a
    *  nie trzydziestoma. */
-  const historiaRef = useRef<{ nodes: Node[]; edges: Edge[] }[]>([])
-  const przyszloscRef = useRef<{ nodes: Node[]; edges: Edge[] }[]>([])
+  const stanRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null)
   /** Ustawione, gdy zmiana pochodzi z cofania — wtedy nie zapisujemy jej. */
   const cofamyRef = useRef(false)
   const zdjecieRef = useRef<number | undefined>(undefined)
+  /** Kiedy zaczęła się bieżąca seria zmian (do niej należy zdjęcie). */
+  const odRef = useRef<number | null>(null)
   useEffect(() => {
     if (!loadedRef.current) return
     if (cofamyRef.current) {
       cofamyRef.current = false
+      stanRef.current = { nodes: rfNodes, edges: rfEdges }
       return
     }
+    if (!stanRef.current) {
+      stanRef.current = { nodes: rfNodes, edges: rfEdges }
+      return
+    }
+    if (odRef.current === null) odRef.current = Date.now()
+    const koniec = Date.now()
     window.clearTimeout(zdjecieRef.current)
     zdjecieRef.current = window.setTimeout(() => {
-      const ost = historiaRef.current[historiaRef.current.length - 1]
-      if (ost && ost.nodes === rfNodes && ost.edges === rfEdges) return
-      historiaRef.current.push({ nodes: rfNodes, edges: rfEdges })
-      // pamiętamy sto kroków wstecz — dalej i tak nikt nie sięga
-      if (historiaRef.current.length > 100) historiaRef.current.shift()
-      przyszloscRef.current = []
+      const przed = stanRef.current
+      const od = odRef.current ?? Date.now()
+      odRef.current = null
+      if (!przed || (przed.nodes === rfNodes && przed.edges === rfEdges)) return
+      const po = { nodes: rfNodes, edges: rfEdges }
+      stanRef.current = po
+      // samo zaznaczenie czy pomiar kafelka to nie zmiana ścieżki — taki
+      // „krok" Ctrl+Z cofałby niewidocznie i wyglądało, że cofanie nie działa
+      if (tozsamaSciezka(przed, po)) return
+      dopiszPlotno({ pathId, przed, po, doBazy: plotnoDoBazy(pathId) }, od, koniec)
     }, 400)
     return () => window.clearTimeout(zdjecieRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfNodes, rfEdges])
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      const z = e.key === 'z' || e.key === 'Z'
-      if (!(e.ctrlKey || e.metaKey) || (!z && e.key !== 'y')) return
-      // w polu tekstowym cofanie należy do edytora — on wie o literach
-      const cel = e.target as Element | null
-      if (cel?.closest('.tiptap, .cm-content, input, textarea')) return
-      const wPrzod = e.key === 'y' || (z && e.shiftKey)
-      const skad = wPrzod ? przyszloscRef.current : historiaRef.current
-      // ostatni wpis historii to stan bieżący — cofamy do przedostatniego
-      if (!wPrzod && skad.length < 2) return
-      if (wPrzod && skad.length < 1) return
-      e.preventDefault()
-      window.clearTimeout(zdjecieRef.current)
-      cofamyRef.current = true
-      if (wPrzod) {
-        const stan = przyszloscRef.current.pop()!
-        historiaRef.current.push(stan)
-        setRfNodes(stan.nodes)
-        setRfEdges(stan.edges)
-      } else {
-        przyszloscRef.current.push(historiaRef.current.pop()!)
-        const stan = historiaRef.current[historiaRef.current.length - 1]
-        setRfNodes(stan.nodes)
-        setRfEdges(stan.edges)
-      }
-    }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [])
+  useEffect(
+    () =>
+      zglosPlotno(pathId, (s) => {
+        window.clearTimeout(zdjecieRef.current)
+        odRef.current = null
+        cofamyRef.current = true
+        stanRef.current = s as { nodes: Node[]; edges: Edge[] }
+        setRfNodes(s.nodes as Node[])
+        setRfEdges(s.edges as Edge[])
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pathId],
+  )
 
   // Escape zamyka okno notatki i menu kontekstowe
   useEffect(() => {
@@ -3222,6 +3232,7 @@ function CanvasInner({
   // wczytaj ścieżkę
   useEffect(() => {
     loadedRef.current = false
+    stanRef.current = null
     ;(async () => {
       const p = await db.paths.get(pathId)
       if (!p) return

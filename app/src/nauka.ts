@@ -8,6 +8,7 @@
 
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 import { createConcept, createSubpage, db, deleteConcept, deleteSubpage } from './db'
+import { oznaczSkutek } from './cofanie'
 import { topoOrder } from './topo'
 import { czatWZero, wez, zadaniaWZero } from './naukaUstawienia'
 import type {
@@ -913,8 +914,12 @@ export function sektorDlaMiejsca(
 export async function ustawSektorWezla(nodeId: string, cel: string | null, sektory: JednostkaNauki[]) {
   const obecny = sektory.find((s) => s.rodzaj === 'sektor' && s.wezly.includes(nodeId))?.id ?? null
   if (obecny === cel) return
-  if (cel) await dolozDoSektora(cel, [nodeId])
-  else if (obecny) await wyjmijZSektora(obecny, [nodeId])
+  await db.transaction('rw', db.tables, async () => {
+    // skutek przestawienia kafelka w Linii — cofa się razem z nim (jeden Ctrl+Z)
+    oznaczSkutek()
+    if (cel) await dolozDoSektora(cel, [nodeId])
+    else if (obecny) await wyjmijZSektora(obecny, [nodeId])
+  })
 }
 
 /** Przypina istniejący kafelek jako zadanie sektora (do paska). */

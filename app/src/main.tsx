@@ -11,6 +11,7 @@ import './index.css'
 import App from './App.tsx'
 import { initUiSettings } from './uiSettings'
 import { seedBlockTypes } from './db'
+import { podlaczCofanie, wlaczCofanie, wlaczSkrotyCofania } from './cofanie'
 import { wlaczKopiowanieZrodla } from './kopiowanie'
 import { wczytajObrazy } from './obrazy'
 import { naPulpicie, wlaczPulpit } from './pulpit'
@@ -42,7 +43,19 @@ initUiSettings()
 
 // typy kafelków są danymi — świeża baza musi dostać fabryczne, zanim
 // ktokolwiek o nie zapyta (widoki i tak czekają na dane z Dexie)
-seedBlockTypes()
+// Cofanie (Ctrl+Z) obejmuje zmiany w bazie od pierwszego działania
+// użytkownika — porządki przy starcie programu to nie jego działania.
+podlaczCofanie()
+wlaczSkrotyCofania()
+void seedBlockTypes().finally(() => {
+  const start = () => {
+    wlaczCofanie()
+    window.removeEventListener('pointerdown', start, true)
+    window.removeEventListener('keydown', start, true)
+  }
+  window.addEventListener('pointerdown', start, true)
+  window.addEventListener('keydown', start, true)
+})
 
 // Tryb offline i samoaktualizacja — tylko w wersji zbudowanej. W trybie pracy
 // pracownik serwisowy podawałby zapamiętane pliki zamiast świeżych i zmiany

@@ -242,6 +242,9 @@ export function PasekZadan({
     e.preventDefault()
     e.stopPropagation()
     setSzczelina(null)
+    // po upuszczeniu lista się rozwija — widać, gdzie zadanie trafiło
+    // (w trakcie przeciągania sama się nie rozwija: przesuwałaby Linię)
+    setOtwarty(() => true)
     const gdzie = naLiscie(k)
     const zad = e.dataTransfer.getData(ZADANIE_MIME)
     if (zad) {

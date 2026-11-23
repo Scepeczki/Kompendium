@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
 import { db } from './db'
+import { oznaczBezCofania } from './cofanie'
 import { wczytajObrazy } from './obrazy'
 import { pobierzPlik } from './pulpit'
 import type {
@@ -133,6 +134,8 @@ export async function wczytajDane(
       db.historia,
     ],
     async () => {
+      // wczytanie kopii to nie działanie do cofania (i byłoby ogromne)
+      oznaczBezCofania()
       await db.concepts.bulkPut(data.concepts)
       await db.versions.bulkPut(data.versions)
       await db.folders.bulkPut(data.folders)
