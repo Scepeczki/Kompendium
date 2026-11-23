@@ -110,15 +110,18 @@ export function ListaZadan({
 export const ZADANIE_MIME = 'text/x-komp-zadanie'
 /** Przeciągany segment Linii (ten sam napis co w PathCanvas). */
 const SEG_MIME_LINII = 'text/x-komp-seg'
+/** Znacznik przy przeciąganiu z Linii: ciągnie się samo zadanie (albo same zadania). */
+export const ZNACZNIK_ZADANIA = 'text/x-komp-jest-zadanie'
 
-/** Czy właśnie coś się przeciąga (segment Linii albo zadanie z listy) —
- *  wtedy pusta lista też się pokazuje, żeby było na co upuścić. */
+/** Czy właśnie przeciąga się ZADANIE (z listy albo z Linii) — wtedy pusta
+ *  lista też się pokazuje, żeby było na co upuścić. Przy zwykłych kafelkach
+ *  nie: wyskakujące listy przesuwały treść pod kursorem. */
 function useCiagnie() {
   const [ciagnie, setCiagnie] = useState(false)
   useEffect(() => {
     const start = (e: DragEvent) => {
       const t = Array.from(e.dataTransfer?.types ?? [])
-      if (t.includes(SEG_MIME_LINII) || t.includes(ZADANIE_MIME)) setCiagnie(true)
+      if (t.includes(ZNACZNIK_ZADANIA) || t.includes(ZADANIE_MIME)) setCiagnie(true)
     }
     const stop = () => setCiagnie(false)
     document.addEventListener('dragstart', start)
@@ -132,6 +135,9 @@ function useCiagnie() {
   }, [])
   return ciagnie
 }
+
+/** Sektory, których lista zadań jest rozwinięta (na czas działania programu). */
+const otwarteListy = new Set<string>()
 
 /** Zwinięty pasek „Zadania (N)" na samym końcu sektora w Linii. Zadania z
  *  listy nie są węzłami ścieżki, więc Skrypt i PDF ich nie widzą. Przeciąga
@@ -153,7 +159,17 @@ export function PasekZadan({
 }) {
   const j = useLiveQuery(() => db.nauka.get(sektorId), [sektorId])
   const zadania = useZadania(j) ?? []
-  const [otwarty, setOtwarty] = useState(false)
+  // Lista stoi pod OSTATNIM kafelkiem sektora — gdy on się zmienia (zadanie
+  // wstawione na koniec, wyjęte), lista przeskakuje i rysuje się od nowa.
+  // Rozwinięcie pamiętamy więc dla sektora, a nie dla tego jednego miejsca.
+  const [otwarty, ustawOtwarty] = useState(() => otwarteListy.has(sektorId))
+  const setOtwarty = (f: (o: boolean) => boolean) =>
+    ustawOtwarty((o) => {
+      const n = f(o)
+      if (n) otwarteListy.add(sektorId)
+      else otwarteListy.delete(sektorId)
+      return n
+    })
   const [menu, setMenu] = useState<{ x: number; y: number; c: Concept } | null>(null)
   /** Gdzie wpadnie upuszczany kafelek (indeks na liście). */
   const [szczelina, setSzczelina] = useState<number | null>(null)
@@ -174,6 +190,36 @@ export function PasekZadan({
     setZazn(new Set())
   }, [ciagnie])
   const ids = zadania.map((c) => c.id)
+  const dlg = useDialogs()
+  /** Usuwa zaznaczone zadania na dobre — po jednym pytaniu o wszystkie. */
+  const usunZaznaczone = async () => {
+    const wybrane = zadania.filter((c) => zazn.has(c.id))
+    if (!wybrane.length) return
+    const ok = await dlg.confirm({
+      title: wybrane.length === 1 ? `Usunąć zadanie „${wybrane[0].name}" na dobre?` : `Usunąć zaznaczone zadania (${wybrane.length}) na dobre?`,
+      message: `${wybrane.map((c) => `„${c.name}"`).join(', ')} — kafelki znikną razem z treścią i rozwiązaniami.`,
+      confirmLabel: wybrane.length === 1 ? 'Usuń zadanie' : `Usuń ${wybrane.length} zadania`,
+      danger: true,
+    })
+    if (!ok) return
+    for (const c of wybrane) await usunZadanie(sektorId, c.id)
+    setZazn(new Set())
+  }
+  const usunRef = useRef(usunZaznaczone)
+  usunRef.current = usunZaznaczone
+  useEffect(() => {
+    if (!zazn.size) return
+    const h = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (e.key !== 'Delete' || t?.closest('input, textarea, [contenteditable="true"]')) return
+      e.preventDefault()
+      e.stopPropagation()
+      void usunRef.current()
+    }
+    // przed Linią (ona też usuwa zaznaczone klawiszem Delete)
+    window.addEventListener('keydown', h, true)
+    return () => window.removeEventListener('keydown', h, true)
+  }, [zazn.size])
   const wersje = useLiveQuery(() => db.versions.where('conceptId').anyOf(ids).toArray(), [ids.join()]) ?? []
   const edycja = !!onZLinii
   if (!zadania.length && !(edycja && ciagnie)) return null
@@ -234,12 +280,15 @@ export function PasekZadan({
         const t = e.target as Element
         if (t.closest('button') && !t.closest('.zadania-grip')) e.preventDefault()
       }}
-      // nad paskiem (poza pozycjami) — na koniec listy; zwinięty sam się rozwija
+      // nad paskiem (poza pozycjami) — na koniec listy. Sam się nie rozwija:
+      // rozwinięcie pod kursorem przesuwało całą Linię w trakcie przeciągania.
+      // Bez zatrzymywania zdarzenia — Linia ma się dowiedzieć, że jesteśmy
+      // nad listą, i zgasić swoją kreskę.
       onDragOver={(e) => {
         if (!nasze(e)) return
         e.preventDefault()
-        e.stopPropagation()
-        if (!otwarty) setOtwarty(true)
+        // z wciśniętym Ctrl (po zaznaczaniu) przeglądarka chce „kopiować"
+        e.dataTransfer.dropEffect = 'move'
         if (!(e.target as Element).closest('.zadania-pasek-zadanie')) setSzczelina(zadania.length)
       }}
       onDragLeave={(e) => {
@@ -258,6 +307,19 @@ export function PasekZadan({
         <span className="zadania-pasek-sektor">{j?.nazwa}</span>
         {edycja && ciagnie && <span className="zadania-pasek-upusc">upuść tutaj — na listę zadań sektora</span>}
       </button>
+      {edycja && zazn.size > 0 && (
+        <div className="zadania-pasek-zaznaczone" data-zaznaczone-zadania>
+          <span>
+            Zaznaczone: <strong>{zazn.size}</strong> — przeciągnij jedno z nich, pójdą razem
+          </span>
+          <button className="btn btn-maly" onClick={() => setZazn(new Set())}>
+            Odznacz
+          </button>
+          <button className="btn btn-maly btn-danger" data-usun-zaznaczone onClick={() => void usunZaznaczone()}>
+            <Icon name="usun" size={0.9} /> Usuń zaznaczone…
+          </button>
+        </div>
+      )}
       {otwarty && (
         <div className="zadania-pasek-tresc">
           {zadania.map((c, k) => (
@@ -286,7 +348,7 @@ export function PasekZadan({
               onDragOver={(e) => {
                 if (!nasze(e)) return
                 e.preventDefault()
-                e.stopPropagation()
+                e.dataTransfer.dropEffect = 'move'
                 const r = e.currentTarget.getBoundingClientRect()
                 setSzczelina(e.clientY - r.top < r.height / 2 ? k : k + 1)
               }}
@@ -306,7 +368,7 @@ export function PasekZadan({
                     // zaznaczone przeciąga się razem (w kolejności listy)
                     const grupa = zazn.has(c.id) && zazn.size > 1 ? ids.filter((x) => zazn.has(x)) : [c.id]
                     e.dataTransfer.setData(ZADANIE_MIME, JSON.stringify({ sektorId, conceptId: grupa[0], conceptIds: grupa }))
-                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.effectAllowed = 'copyMove'
                     const karta = e.currentTarget.closest('.zadania-pasek-zadanie')
                     if (karta) e.dataTransfer.setDragImage(karta, 20, 20)
                   }}

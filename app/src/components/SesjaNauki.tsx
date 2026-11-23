@@ -791,9 +791,14 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         zadanie
         opisZakrytych={
           p.zadanie && st.zakryte.every((x) => x.id !== null)
-            ? 'Rozwiązanie zakryte'
-            : `Zakryte: ${st.zakryte.map((x) => x.nazwa).join(', ') || '—'}`
+            ? st.zakryte.length > 1
+              ? 'Rozwiązania zakryte'
+              : 'Rozwiązanie zakryte'
+            : st.zakryte.length > 1
+              ? 'Zakryte strony'
+              : 'Zakryta strona'
         }
+        zakryteStrony={st.zakryte.map((x) => x.nazwa)}
         wymagania={wymSektora?.wymagania?.[p.wezel?.id ?? p.klucz]}
         zCzatu={wymSektora?.lukiKafelkow?.[p.wezel?.id ?? p.klucz]}
         odpowiedz={odpowiedzi[p.klucz] ?? ''}
@@ -803,7 +808,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
         ocena={oceny[p.klucz]}
         onOdslon={(pod) => odslon(p.klucz, pod)}
         onOcena={(o) => setOceny((x) => ({ ...x, [p.klucz]: o }))}
-        widoczne={() => <OdslonieteStrony wszystkie={st.wszystkie} odkryty={odkryte.has(p.klucz)} />}
+        widoczne={() => <OdslonieteStrony wszystkie={st.wszystkie} />}
         tresc={() => <StronyTestu strony={st.zakryte} zadanie={!!p.zadanie} />}
         typy={typy}
       />
@@ -1253,6 +1258,7 @@ function ElementSesji({
   wymagania,
   zCzatu,
   opisZakrytych,
+  zakryteStrony,
 }: {
   p: Pozycja
   trudny: boolean
@@ -1274,6 +1280,8 @@ function ElementSesji({
   widoczne?: () => React.ReactNode
   /** Napis na zakrytej części, gdy część kafelka widać (np. „Zakryte: Dowód"). */
   opisZakrytych?: string
+  /** Nazwy zakrytych stron — wypisane na zakrytym polu, żeby było widać, co jest do przypomnienia. */
+  zakryteStrony?: string[]
   typy: ReturnType<typeof useBlockTypes>
 }) {
   const def = p.typ ? typy.def(p.typ) : undefined
@@ -1304,6 +1312,16 @@ function ElementSesji({
           ) : (
             <div className="sesja-zakryte">
               <span className="sesja-etykieta">{opisZakrytych ?? (zadanie ? 'Rozwiązanie zakryte' : 'Kafelek zakryty')}</span>
+              {!!zakryteStrony?.length && (
+                <div className="block-pages sesja-zakryte-strony" data-zakryte-strony>
+                  {zakryteStrony.map((n, i) => (
+                    <span key={i} className="block-page strona-zakryta" data-zakryta>
+                      <Icon name="zakryty" size={0.8} />
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="sesja-przyciski">
                 <button className="btn btn-primary" onClick={() => onOdslon(false)}>
                   <Icon name="odkryj" size={1} /> Sprawdź
@@ -1432,34 +1450,25 @@ interface StronaTestu {
   widoczna: boolean
 }
 
-/** Kafelek z odsłoniętymi stronami: nad treścią wszystkie jego strony —
- *  odsłonięte do czytania, zakryte podpisane „zakryta" (widać, co jest do
- *  przypomnienia). Po „Sprawdź" zakryte też da się tu otworzyć. */
-function OdslonieteStrony({ wszystkie, odkryty }: { wszystkie: StronaTestu[]; odkryty: boolean }) {
+/** Odsłonięte strony kafelka w teście — u góry (zakryte są na dole, na
+ *  zakrytym polu, wypisane z nazwy; po „Sprawdź" otwierają się tam). */
+function OdslonieteStrony({ wszystkie }: { wszystkie: StronaTestu[] }) {
   const widoczne = wszystkie.filter((x) => x.widoczna)
   const [wybrana, setWybrana] = useState<string | null | undefined>(widoczne[0]?.id)
-  const s = wszystkie.find((x) => x.id === wybrana && (x.widoczna || odkryty)) ?? widoczne[0]
+  const s = widoczne.find((x) => x.id === wybrana) ?? widoczne[0]
   return (
     <div className="sesja-zadanie-tresc sesja-strony-testu">
-      {wszystkie.length > 1 && (
+      {widoczne.length > 1 && (
         <div className="block-pages sesja-strony-pasek" data-strony-testu>
-          {wszystkie.map((x) => {
-            const zakryta = !x.widoczna && !odkryty
-            return (
-              <button
-                key={x.id ?? 'glowna'}
-                className={`block-page ${x.id === s?.id ? 'active' : ''} ${x.widoczna ? '' : 'strona-zakryta'}`}
-                data-zakryta={zakryta ? '' : undefined}
-                disabled={zakryta}
-                title={zakryta ? 'Zakryta — zobaczysz ją po „Sprawdź"' : undefined}
-                onClick={() => setWybrana(x.id)}
-              >
-                {!x.widoczna && <Icon name={odkryty ? 'odkryj' : 'zakryty'} size={0.8} />}
-                {x.nazwa}
-                {zakryta && <span className="strona-zakryta-napis">zakryta</span>}
-              </button>
-            )
-          })}
+          {widoczne.map((x) => (
+            <button
+              key={x.id ?? 'glowna'}
+              className={`block-page ${x.id === s?.id ? 'active' : ''}`}
+              onClick={() => setWybrana(x.id)}
+            >
+              {x.nazwa}
+            </button>
+          ))}
         </div>
       )}
       <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(s?.tresc || '_(pusto)_') }} />

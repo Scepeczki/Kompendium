@@ -85,7 +85,7 @@ import {
 } from './Outline'
 import { PanelNauki } from './PanelNauki'
 import { SpisNauki } from './SpisNauki'
-import { PasekZadan, ZADANIE_MIME } from './ZadaniaSektora'
+import { PasekZadan, ZADANIE_MIME, ZNACZNIK_ZADANIA } from './ZadaniaSektora'
 import { ustawWidocznosc } from '../widocznosc'
 import { MenuNauki } from './MenuNauki'
 import { WidokSektorow } from './WidokSektorow'
@@ -1830,6 +1830,7 @@ function LinearView({
    *  Gdyby wywołania były zwykłymi domknięciami, każda ramka dostawałaby nowe
    *  propsy przy każdym przerysowaniu i cała oszczędność by przepadła. */
   const biezaceRef = useRef({
+    czyZadanie: (_id: string) => false as boolean,
     ordered,
     zazSeg,
     szczelina,
@@ -1840,6 +1841,10 @@ function LinearView({
     handleDrop,
   })
   biezaceRef.current = {
+    czyZadanie: (id: string) => {
+      const n = ordered.find((x) => x.id === id)
+      return n?.kind === 'block' && conceptById(n.conceptId)?.type === typZadaniaLinii
+    },
     ordered,
     zazSeg,
     szczelina,
@@ -1875,9 +1880,22 @@ function LinearView({
       },
       nadCiagniete: (e, i) => {
         if (!isOurs(e)) return
+        // nad listą zadań na końcu sektora rządzi lista — w Linii żadnej kreski
+        if ((e.target as Element).closest('.zadania-pasek')) {
+          setSzczelina(null)
+          return
+        }
         e.preventDefault()
         e.stopPropagation()
-        const r = e.currentTarget.getBoundingClientRect()
+        // z wciśniętym Ctrl (po zaznaczaniu) przeglądarka chce „kopiować" —
+        // to zawsze jest przenoszenie, inaczej upuszczenie po cichu przepada
+        e.dataTransfer.dropEffect = 'move'
+        // Połowa liczona z samego kafelka, bez doklejonej pod nim listy zadań:
+        // przy rozwiniętej liście dolna połowa kafelka wypadała w „górnej
+        // połowie" całości i zadanie lądowało przed kafelkiem zamiast za nim.
+        const lista = e.currentTarget.querySelector('.zadania-pasek')
+        const kafelek = lista ? (e.currentTarget.querySelector('.linear-content')?.firstElementChild ?? null) : null
+        const r = (kafelek && kafelek !== lista ? kafelek : e.currentTarget).getBoundingClientRect()
         setSzczelina(e.clientY - r.top < r.height / 2 ? i : i + 1)
         setEndHint(false)
       },
@@ -1910,7 +1928,9 @@ function LinearView({
                   .map((x) => x.id)
               : null
         e.dataTransfer.setData(SEG_MIME, grupa ? JSON.stringify(grupa) : id)
-        e.dataTransfer.effectAllowed = 'move'
+        // same zadania — wtedy puste listy zadań sektorów pokazują się jako cel
+        if ((grupa ?? [id]).every((x) => biezaceRef.current.czyZadanie(x))) e.dataTransfer.setData(ZNACZNIK_ZADANIA, '1')
+        e.dataTransfer.effectAllowed = 'copyMove'
       },
       scal: (id) => biezaceRef.current.onGroupWithNext(id),
       rozdziel: (id) => biezaceRef.current.onUnfuse(id),
@@ -2366,6 +2386,7 @@ function LinearView({
           onDragOver={(e) => {
             if (!isOurs(e)) return
             e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
             setEndHint(true)
             setSzczelina(null)
           }}

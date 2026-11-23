@@ -206,6 +206,63 @@ check('zaznaczone zadania z Linii przeciągnięte razem na listę', await czekaj
 if (!(await page.locator(`${P}.otwarty`).count())) await page.click(`${P} .zadania-pasek-glowa`)
 await page.waitForSelector(`${P} [data-zadanie="zl"]`)
 
+// z wciśniętym Ctrl przeglądarka chce „kopiować" — Linia i lista mają brać to jako przenoszenie
+check('upuszczanie przyjmuje przeciąganie z wciśniętym Ctrl (zawsze „przenieś")', await page.evaluate(() => {
+  const nad = (el) => {
+    const dt = new DataTransfer()
+    dt.setData('text/x-komp-zadanie', '{}')
+    // poza prawdziwym przeciąganiem przeglądarka nie zmienia dropEffect — podglądamy, co ustawia program
+    let efekt = 'copy'
+    Object.defineProperty(dt, 'dropEffect', { get: () => efekt, set: (v) => (efekt = v) })
+    const r = el.getBoundingClientRect()
+    el.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, ctrlKey: true, clientX: r.x + 20, clientY: r.y + 10, dataTransfer: dt }))
+    return dt.dropEffect
+  }
+  return nad(document.querySelector('[data-seg="nc1"]')) === 'move' && nad(document.querySelector('[data-pasek-zadan="s1"] .zadania-pasek-glowa')) === 'move'
+}))
+
+// między ostatnim kafelkiem sektora a ROZWINIĘTĄ listą: dolna część samego kafelka
+{
+  const kafelek = '[data-seg="nc2"] .linear-content > .script-block'
+  const h = (await page.locator(kafelek).boundingBox()).height
+  await ciagnij(`${P} [data-zadanie="zl"] .zadania-grip`, kafelek, { x: 200, y: h - 8 })
+}
+check('dolna część ostatniego kafelka (lista rozwinięta): zadanie staje między kafelkiem a listą, w sektorze', await czekaj((b) =>
+  JSON.stringify(kolejnosc(b)) === JSON.stringify(['c1', 'c2', 'zl', 'c3']) && s1(b).wezly.includes(wezelPojecia(b, 'zl')?.id)), JSON.stringify(kolejnosc(await baza())))
+// i z powrotem na listę (za „Zadanie w linii")
+{
+  const idx = wezelPojecia(await baza(), 'zl').id
+  await page.hover(`[data-seg="${idx}"]`)
+  const P2 = '[data-pasek-zadan="s1"]'
+  await page.waitForSelector(`${P2} [data-zadanie="zt"]`).catch(() => {})
+  if (!(await page.locator(`${P2}.otwarty`).count())) await page.click(`${P2} .zadania-pasek-glowa`)
+  const h = (await page.locator(`${P2} [data-zadanie="zt"]`).boundingBox()).height
+  await ciagnij(`[data-seg="${idx}"] .linear-grip`, `${P2} [data-zadanie="zt"]`, { x: 200, y: h - 4 })
+}
+check('z Linii na listę w wybrane miejsce (pod pierwszym zadaniem)', await czekaj((b) =>
+  JSON.stringify(s1(b).zadania) === JSON.stringify(['zt', 'zl']) && JSON.stringify(kolejnosc(b)) === JSON.stringify(['c1', 'c2', 'c3'])), JSON.stringify(kolejnosc(await baza())))
+
+// usuwanie zaznaczonych z listy: dodatkowe zadanie — Dołóż na końcu Linii (poza sektorem), potem na listę
+await page.hover('.linear-append .dodaj-kafelek-pasek > .btn-dolacz')
+await page.click('.linear-append .dodaj-kafelek-rodzaje .tree-menu-item:has-text("Zadanie")')
+let zx
+check('zadanie dołożone za kafelkiem spoza sektora — poza sektorem', await czekaj((b) => {
+  const c = b.concepts.find((x) => x.type === 'zadanie' && !['zt', 'zl', 'zd'].includes(x.id))
+  const n = c && wezelPojecia(b, c.id)
+  if (!n) return false
+  zx = { cid: c.id, nid: n.id }
+  return !b.nauka.some((j) => j.wezly.includes(n.id))
+}))
+await page.hover(`[data-seg="${zx.nid}"]`)
+await ciagnij(`[data-seg="${zx.nid}"] .linear-grip`, `${P} .zadania-pasek-glowa`)
+await page.waitForSelector(`${P} [data-zadanie="${zx.cid}"]`)
+await page.click(`${P} [data-zadanie="${zx.cid}"] .zadania-pasek-kafelek`, { modifiers: ['Control'], position: { x: 8, y: 8 } })
+check('zaznaczone na liście: pasek „Zaznaczone: 1" z „Usuń zaznaczone"', (await page.locator(`${P} [data-zaznaczone-zadania]`).innerText()).includes('Zaznaczone: 1'))
+await page.click(`${P} [data-usun-zaznaczone]`)
+await page.click('.ask-dialog .btn-danger-strong')
+check('„Usuń zaznaczone" (po pytaniu): zadanie znika z listy i z biblioteki, reszta zostaje', await czekaj((b) =>
+  !b.concepts.some((c) => c.id === zx.cid) && !wezelPojecia(b, zx.cid) && JSON.stringify(s1(b).zadania) === JSON.stringify(['zt', 'zl'])))
+
 // z listy do Linii — między „Kulą" a „Otoczeniem"
 await page.hover(`${P} [data-zadanie="zl"]`)
 await ciagnij(`${P} [data-zadanie="zl"] .zadania-grip`, '[data-seg="nc2"]', { x: 200, y: 8 })
@@ -258,13 +315,12 @@ await page.waitForSelector('.sesja-element')
 await page.waitForTimeout(500)
 if (process.env.SHOT) { await page.locator('.sesja-element', { has: page.locator('.sesja-nazwa', { hasText: /^Kula$/ }) }).scrollIntoViewIfNeeded(); await page.screenshot({ path: process.env.SHOT }) }
 const kula = page.locator('.sesja-element', { has: page.locator('.sesja-nazwa', { hasText: /^Kula$/ }) })
-check('test: nad treścią wszystkie strony, zakryta podpisana „zakryta"', (await kula.locator('[data-strony-testu]').innerText()).includes('Treść') &&
-  (await kula.locator('[data-strony-testu] [data-zakryta]').innerText()).toLowerCase().includes('dowód'))
-check('test: „Kula" ma odsłoniętą stronę główną, „Dowód" zakryty', (await kula.locator('.sesja-zadanie-tresc').innerText()).includes('zbiór punktów') &&
-  (await kula.locator('.sesja-zakryte').innerText()).toLowerCase().includes('zakryte: dowód') && !(await kula.innerText()).includes('nierówności trójkąta'))
+check('test: u góry odsłonięta treść, na dole wypisane zakryte strony („Dowód")', (await kula.locator('.sesja-zadanie-tresc').innerText()).includes('zbiór punktów') &&
+  (await kula.locator('.sesja-zakryte [data-zakryte-strony]').innerText()).includes('Dowód') &&
+  !(await kula.locator('.sesja-zadanie-tresc').innerText()).includes('Dowód') && !(await kula.innerText()).includes('nierówności trójkąta'))
 await kula.locator('.sesja-zakryte .btn-primary').click()
-check('test: po „Sprawdź" widać zakryty „Dowód" (i w pasku stron już nie „zakryta")', (await kula.innerText()).includes('nierówności trójkąta') &&
-  (await kula.locator('[data-strony-testu] [data-zakryta]').count()) === 0)
+check('test: po „Sprawdź" na dole otwiera się zakryty „Dowód"', (await kula.locator('.sesja-odkryta').innerText()).includes('nierówności trójkąta') &&
+  (await kula.locator('[data-zakryte-strony]').count()) === 0)
 const otoczenie = page.locator('.sesja-element', { has: page.locator('.sesja-nazwa', { hasText: /^Otoczenie$/ }) })
 check('test: zwykły kafelek bez odsłoniętych stron — zakryty w całości', (await otoczenie.innerText()).toLowerCase().includes('kafelek zakryty') && !(await otoczenie.innerText()).includes('Otoczenie punktu'))
 const zad = page.locator('.sesja-element', { has: page.locator('.sesja-nazwa', { hasText: /^Zadanie w linii$/ }) })
