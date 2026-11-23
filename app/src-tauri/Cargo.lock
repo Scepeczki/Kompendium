@@ -2097,7 +2097,7 @@ dependencies = [
 
 [[package]]
 name = "kompendium"
-version = "1.0.19"
+version = "1.0.20"
 dependencies = [
  "percent-encoding",
  "serde",
