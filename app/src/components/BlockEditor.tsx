@@ -799,12 +799,11 @@ export function BlockEditor({
             onClick={() => setSubId(null)}
           >
             <span className="subpage-name">{mainPageName(concept)}</span>
-            {subs.length > 0 && (
-              <OkoTestu
-                widoczna={glownaWidoczna(version, concept.type, znajdzTypZadania(typy.all))}
-                onZmien={(w) => void ustawWidocznosc(version.id, null, w)}
-              />
-            )}
+            {/* widoczność w teście zakrytym — także gdy to jedyna strona */}
+            <OkoTestu
+              widoczna={glownaWidoczna(version, concept.type, znajdzTypZadania(typy.all))}
+              onZmien={(w) => void ustawWidocznosc(version.id, null, w)}
+            />
             {!activeSub && (
               <span className="subpage-actions">
                 <button

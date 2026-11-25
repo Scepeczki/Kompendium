@@ -139,9 +139,21 @@ const klawisz = async (k) => {
 /** Odstęp między działaniami (jak u człowieka) — osobne kroki cofania. */
 const przerwa = () => page.waitForTimeout(900)
 
-await page.click('.path-item:has-text("Topologia")')
-await page.click('.view-switch button:has-text("Linia")')
-await page.waitForSelector('[data-seg="nc1"] .oko-testu')
+/** Edytor kafelka z Linii: prawy przycisk → „Otwórz kafelek w edytorze". */
+const otworzEdytor = async (seg) => {
+  await page.locator(`[data-seg="${seg}"] .script-block`).first().click({ button: 'right', position: { x: 240, y: 30 } })
+  await page.waitForSelector('.tree-menu')
+  await page.click('.tree-menu-item:has-text("Otwórz kafelek w edytorze")')
+  await page.waitForSelector('.subpage-rail')
+  await page.waitForTimeout(400)
+}
+const okoStrony = (nazwa) => page.locator('.subpage-item', { hasText: nazwa }).locator('.oko-testu').getAttribute('data-oko-testu')
+const doLinii = async () => {
+  await page.click('.path-item:has-text("Topologia")')
+  await page.click('.view-switch button:has-text("Linia")')
+  await page.waitForSelector('[data-seg="nc1"]')
+}
+await doLinii()
 await przerwa()
 
 // --- z Linii na listę: Linia i sektor razem w jednym kroku ---
@@ -197,13 +209,14 @@ check('Ctrl+Z: zadanie wraca na listę i znika z Linii', await czekaj((b) =>
   JSON.stringify(kolejnosc(await baza())))
 await przerwa()
 
-// --- oko widoczności w teście ---
-await page.locator('[data-seg="nc1"] .oko-testu').first().click()
+// --- oko widoczności w teście (w edytorze kafelka) ---
+await otworzEdytor('nc1')
+await page.locator('.subpage-item').first().locator('.oko-testu').click()
 check('oko: strona główna widoczna w teście', await czekaj((b) => b.versions.find((v) => v.id === 'vc1')?.glownaWTescie === true))
 await przerwa()
 await klawisz('Control+z')
 check('Ctrl+Z: oko wraca na „zakryta"', await czekaj((b) => !b.versions.find((v) => v.id === 'vc1')?.glownaWTescie) &&
-  (await page.locator('[data-seg="nc1"] .oko-testu').first().getAttribute('data-oko-testu')) === 'zakryta')
+  (await page.locator('.subpage-item').first().locator('.oko-testu').getAttribute('data-oko-testu')) === 'zakryta')
 
 check('bez błędów konsoli', errors.length === 0, errors.join(' | '))
 await browser.close()

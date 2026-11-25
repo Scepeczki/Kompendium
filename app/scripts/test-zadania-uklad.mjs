@@ -140,18 +140,37 @@ await page.waitForTimeout(500)
 check('jeden rodzaj „Zadanie": dawny własny scalony z wbudowanym, kafelek nie stracił rodzaju', await czekaj((b) =>
   !b.blockTypes.some((t) => t.id === 'moje-zad') && b.blockTypes.some((t) => t.id === 'zadanie') && b.concepts.find((c) => c.id === 'zd')?.type === 'zadanie'))
 
-await page.click('.path-item:has-text("Topologia")')
-await page.click('.view-switch button:has-text("Linia")')
-await page.waitForSelector('[data-seg="nc1"] .oko-testu')
+/** Edytor kafelka z Linii: prawy przycisk → „Otwórz kafelek w edytorze". */
+const otworzEdytor = async (seg) => {
+  await page.locator(`[data-seg="${seg}"] .script-block`).first().click({ button: 'right', position: { x: 240, y: 30 } })
+  await page.waitForSelector('.tree-menu')
+  await page.click('.tree-menu-item:has-text("Otwórz kafelek w edytorze")')
+  await page.waitForSelector('.subpage-rail')
+  await page.waitForTimeout(400)
+}
+const okoStrony = (nazwa) => page.locator('.subpage-item', { hasText: nazwa }).locator('.oko-testu').getAttribute('data-oko-testu')
+const doLinii = async () => {
+  await page.click('.path-item:has-text("Topologia")')
+  await page.click('.view-switch button:has-text("Linia")')
+  await page.waitForSelector('[data-seg="nc1"]')
+}
+await doLinii()
 
-// --- oko przy stronie ---
-check('oko: zadanie ma polecenie odsłonięte, rozwiązanie zakryte; zwykły kafelek zakryty',
-  (await page.locator('[data-seg="nzt"] .oko-testu').first().getAttribute('data-oko-testu')) === 'widoczna' &&
-  (await page.locator('[data-seg="nzt"] .oko-testu').nth(1).getAttribute('data-oko-testu')) === 'zakryta' &&
-  (await page.locator('[data-seg="nc1"] .oko-testu').first().getAttribute('data-oko-testu')) === 'zakryta')
-await page.locator('[data-seg="nc1"] .oko-testu').first().click()
+// --- oko widoczności: tylko w edytorze kafelka ---
+check('Linia: bez oczu widoczności w teście (ustawia się w edytorze kafelka)', (await page.locator('.linear-view .oko-testu').count()) === 0)
+await otworzEdytor('nzt')
+check('edytor zadania: polecenie odsłonięte, rozwiązanie zakryte', (await okoStrony('Polecenie')) === 'widoczna' && (await okoStrony('Rozwiązanie')) === 'zakryta')
+await doLinii()
+await otworzEdytor('nc2')
+check('edytor kafelka z JEDNĄ stroną: też ma oko (zakryta)', (await page.locator('.subpage-item .oko-testu').count()) === 1 &&
+  (await page.locator('.subpage-item .oko-testu').first().getAttribute('data-oko-testu')) === 'zakryta')
+check('kolumna stron szersza (nazwa i oko obok siebie)', (await page.locator('.subpage-rail').boundingBox()).width >= 160)
+await doLinii()
+await otworzEdytor('nc1')
+await page.locator('.subpage-item').first().locator('.oko-testu').click()
 check('klik w oko: strona główna „Kuli" widoczna w teście (zapisane w wersji)', await czekaj((b) => b.versions.find((v) => v.id === 'vc1')?.glownaWTescie === true) &&
-  (await page.locator('[data-seg="nc1"] .oko-testu').first().getAttribute('data-oko-testu')) === 'widoczna')
+  (await page.locator('.subpage-item').first().locator('.oko-testu').getAttribute('data-oko-testu')) === 'widoczna')
+await doLinii()
 
 if (process.env.SHOT_LINIA) { await page.click(`[data-pasek-zadan="s1"] .zadania-pasek-glowa`); await page.waitForTimeout(400); await page.screenshot({ path: process.env.SHOT_LINIA }); await page.click(`[data-pasek-zadan="s1"] .zadania-pasek-glowa`) }
 // --- lista na końcu sektora: z Linii na listę ---

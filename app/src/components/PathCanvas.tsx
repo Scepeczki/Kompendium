@@ -88,7 +88,6 @@ import {
 import { PanelNauki } from './PanelNauki'
 import { SpisNauki } from './SpisNauki'
 import { PasekZadan, ZADANIE_MIME, ZNACZNIK_ZADANIA } from './ZadaniaSektora'
-import { ustawWidocznosc } from '../widocznosc'
 import { MenuNauki } from './MenuNauki'
 import { WidokSektorow } from './WidokSektorow'
 import {
@@ -2336,10 +2335,6 @@ function LinearView({
           trescWlasna={wlasna}
           bezPaskaWersji
           pochodzenie
-          // oko „widać w teście": przełączane tylko przy kafelku z folderu
-          // ścieżki — inny kafelek należy do biblioteki i ścieżka go nie rusza
-          oczy={!!onEditBlock}
-          onWidocznosc={c.pathId === pathId ? (vid, sid, w) => void ustawWidocznosc(vid, sid, w) : undefined}
           dzialanie={
             wersja && wlasna !== undefined && !c.pathId && onWyslijDoBiblioteki ? (
               <button

@@ -25,7 +25,6 @@ import {
 import { db, deleteConcept, updateVersion } from '../db'
 import { topoOrder } from '../topo'
 import { przesunWezel, wstawKafelek, wyjmijWezel } from '../sciezkaLancuch'
-import { ustawWidocznosc } from '../widocznosc'
 import { useBlockTypes } from '../blockTypes'
 import { renderMarkdown } from '../markdown'
 import { isPdfSource, type Concept, type JednostkaNauki, type PathNode, type PdfSourceRef, type SourceRef } from '../types'
@@ -36,7 +35,6 @@ import { Icon } from './Icon'
 import { PdfPanel, type PdfTarget } from './PdfPanel'
 import { RichEditor, RichToolbar } from './RichEditor'
 import { SourceList } from './SourceList'
-import { OkoTestu } from './BlockShell'
 import { Etapy } from './TestCzatem'
 
 const nazwaCzatu = () => CZATY.find((c) => c.id === czatWybrany())?.nazwa ?? new URL(adresCzatu()).host
@@ -112,7 +110,6 @@ function KafelekZadania({
   onOdepnij,
   onEdytor,
   onMenu,
-  onOko,
 }: {
   z: ZadanieDoEdycji
   nr: number
@@ -136,8 +133,6 @@ function KafelekZadania({
   onEdytor: (ed: Editor | null) => void
   /** Prawy przycisk: menu kafelka (pełna edycja jak w bibliotece, źródła, usuwanie). */
   onMenu: (x: number, y: number) => void
-  /** Oko przy stronie: czy widać ją w teście zakrytym (null = polecenie). */
-  onOko: (stronaId: string | null, widoczna: boolean) => void
 }) {
   const typy = useBlockTypes()
   const [strona, setStrona] = useState<string>('polecenie')
@@ -199,7 +194,6 @@ function KafelekZadania({
                 >
                   Polecenie
                 </button>
-                <OkoTestu widoczna={z.glownaWTescie ?? true} onZmien={(w) => onOko(null, w)} />
                 {z.rozwiazania.map((x) => (
                   <span key={x.id} className={`ez3-strona ${strona === x.id ? 'active' : ''}`}>
                     <button
@@ -212,7 +206,6 @@ function KafelekZadania({
                     >
                       {x.nazwa}
                     </button>
-                    <OkoTestu widoczna={!!x.wTescie} onZmien={(w) => onOko(x.id, w)} />
                     {strona === x.id && (
                       <button
                         className="ez2-strona-usun"
@@ -1085,13 +1078,6 @@ export function EtapZadan({
                 onOdepnij={(r) => ustawZrodla(z.id, (l) => l.filter((x) => x.id !== r.id))}
                 onEdytor={(ed) => zarejestruj(z.id, ed)}
                 onMenu={(x, y) => setMenu({ x, y, id: z.id })}
-                onOko={(sid, w) => {
-                  if (proba || !z.wersjaId)
-                    zmienLok(z.id, (x) =>
-                      sid ? { ...x, rozwiazania: x.rozwiazania.map((y) => (y.id === sid ? { ...y, wTescie: w } : y)) } : { ...x, glownaWTescie: w },
-                    )
-                  else void ustawWidocznosc(z.wersjaId, sid, w)
-                }}
               />
             ))}
 

@@ -4,6 +4,10 @@ import { createRoot } from 'react-dom/client'
 // tak samo na każdym komputerze (Inter = interfejs, Source Serif = treść)
 import '@fontsource-variable/figtree'
 import '@fontsource-variable/source-serif-4'
+// kursywa: osobne pliki czcionek. Bez nich tekst pochyły wyglądał jak zwykły
+// (style mają font-synthesis: none — przeglądarka nie udaje kursywy sama)
+import '@fontsource-variable/figtree/wght-italic.css'
+import '@fontsource-variable/source-serif-4/wght-italic.css'
 // katex przed naszymi stylami — inaczej jego `.katex { font: 1.21em }`
 // wygrywa z naszym ustawieniem wielkości wzorów (ta sama specyficzność)
 import 'katex/dist/katex.min.css'
