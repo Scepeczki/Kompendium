@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Kompendium",
   "mainBinaryName": "Kompendium",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "identifier": "pl.kompendium.app",
   "build": {
     "frontendDist": "../dist",
