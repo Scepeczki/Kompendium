@@ -457,6 +457,7 @@ const poz = page.locator('.powtorki-pozycja[data-rodzaj="sektor"]:has-text("Pods
 check('zaległy sektor z napisem „rozszerzona"', (await poz.innerText()).includes('rozszerzona') && (await poz.innerText()).includes('zaległe'))
 await poz.locator('button:has-text("Zacznij")').click()
 await page.waitForSelector('.sesja')
+await page.waitForSelector('.sesja-nazwa:has-text("Co tu stoi?")')
 check('trudny tryb: nazwy kafelków zakryte, bez zadań', (await page.locator('.sesja-rodzaj').textContent()).includes('trudny') &&
   (await page.locator('.sesja-nazwa:has-text("Co tu stoi?")').count()) === 2 && (await page.locator('.sesja-element-zadanie').count()) === 0)
 await page.click('.sesja .btn:has-text("Wróć")')

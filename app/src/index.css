@@ -13626,3 +13626,12 @@ html.okno-powiadomienia #root {
 .linear-view {
   overflow-anchor: none;
 }
+
+/* kafelki osobno: co z każdym po teście (dalej słaby albo z sektorem) */
+.sesja-osobno {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+}

@@ -17,6 +17,7 @@ import {
   NAZWY_OCEN,
   czyRozszerzona,
   dniDo,
+  kafelekOsobno,
   kluczWezla,
   czyZadanie,
   idZadania,
@@ -60,6 +61,8 @@ export interface CelSesji {
   przemapowanie?: boolean
   /** Kafelek osobno (słaby albo nowy w nauczonym sektorze). */
   klucz?: string
+  /** Kilka słabych kafelków jednego sektora w jednym teście. */
+  klucze?: string[]
   /** Kafelek osobno: jego sektor (dla nowych kafelków jeszcze bez pamięci). */
   sektorId?: string
   /** Próba samego testu czatem na cały ekran (bez testu zakrytego przed nim —
@@ -173,10 +176,18 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     () => (jBaza && cel.proba ? ({ ...jBaza, ...cel.proba } as JednostkaNauki) : jBaza),
     [jBaza, cel.proba],
   )
-  const pamiecK = useLiveQuery(
-    async () => (cel.klucz ? await db.pamiec.get(cel.klucz) : undefined),
-    [cel.klucz],
+  /** Kafelki osobno: jeden (`klucz`) albo kilka słabych z jednego sektora (`klucze`). */
+  const klucze = useMemo(
+    () => cel.klucze ?? (cel.klucz ? [cel.klucz] : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cel.klucze?.join(), cel.klucz],
   )
+  const osobno = klucze.length > 0
+  const pamiecKs = useLiveQuery(
+    async () => (klucze.length ? await db.pamiec.bulkGet(klucze) : []),
+    [klucze],
+  )
+  const pamiecK = pamiecKs?.[0]
   const sektorK = useLiveQuery(
     async () => {
       const id = cel.sektorId ?? pamiecK?.jednostkaId
@@ -246,11 +257,11 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
   const zadanieWLinii = (n: PathNode) => n.kind === 'block' && kafelek.get(n.conceptId)?.type === typZadania
   const idsZadan = [
     ...zadaniaSesji.map((c) => c.id),
-    ...(cel.klucz && czyZadanie(cel.klucz) ? [idZadania(cel.klucz)] : []),
-    ...(cel.klucz && kafelek.get(cel.klucz)?.type === typZadania ? [cel.klucz] : []),
+    ...klucze.filter(czyZadanie).map(idZadania),
+    ...klucze.filter((k) => kafelek.get(k)?.type === typZadania),
     // strony wszystkich kafelków: każdy może mieć stronę odsłoniętą w teście
     ...wezly.flatMap((n) => (n.kind === 'block' ? [n.conceptId] : [])),
-    ...(cel.klucz && kafelek.has(cel.klucz) ? [cel.klucz] : []),
+    ...klucze.filter((k) => kafelek.has(k)),
   ]
   const stronyKafelkow =
     useLiveQuery(() => db.subpages.where('conceptId').anyOf(idsZadan).toArray(), [idsZadan.join()]) ?? []
@@ -279,16 +290,15 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       })), ...zad]
     }
     // fiszka albo kafelek osobno: szukamy go w ścieżce, żeby wyglądał jak tam
-    const klucz = fiszka?.conceptId ?? cel.klucz
-    if (!klucz) return []
-    const nodeId = fiszka?.nodeId ?? pamiecK?.nodeId
-    const wezel =
-      sciezka?.nodes.find((n) => n.id === nodeId) ??
-      sciezka?.nodes.find((n) => sciezka && kluczWezla(n, sciezka.id) === klucz)
-    const conceptId = klucz.startsWith('grupa:') ? undefined : czyZadanie(klucz) ? idZadania(klucz) : klucz
-    const c = conceptId ? kafelek.get(conceptId) : undefined
-    return [
-      {
+    const lista = fiszka?.conceptId ? [fiszka.conceptId] : klucze
+    return lista.map((klucz, i) => {
+      const nodeId = fiszka?.nodeId ?? pamiecKs?.[i]?.nodeId
+      const wezel =
+        sciezka?.nodes.find((n) => n.id === nodeId) ??
+        sciezka?.nodes.find((n) => sciezka && kluczWezla(n, sciezka.id) === klucz)
+      const conceptId = klucz.startsWith('grupa:') ? undefined : czyZadanie(klucz) ? idZadania(klucz) : klucz
+      const c = conceptId ? kafelek.get(conceptId) : undefined
+      return {
         klucz,
         wezel,
         conceptId,
@@ -300,10 +310,10 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
           c?.name ??
           '?',
         typ: c?.type ?? (wezel?.kind === 'fusion' ? wezel.type : undefined),
-      },
-    ]
+      }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, cel.klucz, pamiecK?.nodeId, zadaniaSesji, typZadania, czesc])
+  }, [sektor?.id, sektor?.wezly.join(), sciezka, kafelek, fiszka?.id, klucze, pamiecKs, zadaniaSesji, typZadania, czesc])
 
   // ---- stan sesji ----
   const [odpowiedzi, setOdpowiedzi] = useState<Record<string, string>>({})
@@ -353,8 +363,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     return { ocenyRazem: razem, slabeZCzatu: slabe }
   }, [oceny, czat, pozycje])
   const zZaznaczen: Ocena | null = gotowe
-    ? cel.klucz || fiszka
-      ? ({ tak: 3, czesciowo: 2, nie: 1 } as const)[ocenyRazem[pozycje[0].klucz]]
+    ? osobno || fiszka
+      ? (Math.min(...pozycje.map((p) => ({ tak: 3, czesciowo: 2, nie: 1 } as const)[ocenyRazem[p.klucz]])) as Ocena)
       : podpowiedz(
           pozycje.map((p) => ocenyRazem[p.klucz]),
           struktura,
@@ -380,7 +390,8 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     const dane: Parameters<typeof zapiszSesje>[0] = {
       jednostkaId: j?.id,
       klucz: cel.klucz,
-      sektorId: cel.klucz ? (cel.sektorId ?? pamiecK?.jednostkaId) : undefined,
+      klucze: cel.klucze,
+      sektorId: osobno ? (cel.sektorId ?? pamiecK?.jednostkaId) : undefined,
       ocena,
       kafelki: ocenyRazem,
       wezlyKafelkow,
@@ -427,9 +438,13 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
     ? sektor.nazwa
     : fiszka
       ? fiszka.nazwa
-      : (pozycje[0]?.nazwa ?? 'Kafelek')
-  const rodzajSesji = cel.klucz
-    ? 'Kafelek osobno'
+      : klucze.length > 1
+        ? (sektorK?.nazwa ?? 'Słabe kafelki')
+        : (pozycje[0]?.nazwa ?? 'Kafelek')
+  const rodzajSesji = osobno
+    ? klucze.length > 1
+      ? 'Słabe kafelki sektora'
+      : 'Kafelek osobno'
     : przemapowanie
       ? 'Krótki test po przemapowaniu'
     : douczanie
@@ -702,6 +717,17 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                 {new Date(wynik.termin!).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}).
               </p>
             )
+          ) : wynik.osobno ? (
+            <ul className="sesja-wynik-glowny sesja-osobno">
+              {wynik.osobno.map((x) => (
+                <li key={x.klucz}>
+                  <strong>{pozycje.find((p) => p.klucz === x.klucz)?.nazwa ?? 'Kafelek'}</strong>:{' '}
+                  {x.slaby
+                    ? `dalej słaby, wraca ${opisDni(dniDo(x.termin))} (${new Date(x.termin).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })})`
+                    : `dogonił sektor — idzie z nim (${opisDni(dniDo(x.termin))})`}
+                </li>
+              ))}
+            </ul>
           ) : wynik.termin ? (
             <p className="sesja-wynik-glowny">
               Zapisano: <strong>{NAZWY_OCEN[wynik.ocena]}</strong>. Następna powtórka{' '}
@@ -729,7 +755,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
             podejrzane={podejrzane}
             struktura={zStruktura ? struktura : undefined}
           />
-          {wynik.slabe > 0 && (
+          {wynik.slabe > 0 && !wynik.osobno && (
             <p>
               Słabe kafelki: <strong>{wynik.slabe}</strong> — wrócą osobno, wcześniej niż sektor, aż go
               dogonią.
@@ -841,7 +867,7 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
       .querySelector(klucz === 'mapa' ? '.sesja-mapa-pamiec' : `.sesja-element[data-klucz="${CSS.escape(klucz)}"]`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const IKONY: Record<Przypomnienie, string> = { tak: '✓', czesciowo: '◐', nie: '✕' }
-  const zPowtorkiZero = !!sektor && (pierwszyTest || zero || koncowy) && !douczanie && !przemapowanie && !cel.klucz
+  const zPowtorkiZero = !!sektor && (pierwszyTest || zero || koncowy) && !douczanie && !przemapowanie && !osobno
 
   return (
     <section className="sesja tz">
@@ -1125,8 +1151,30 @@ export function SesjaNauki({ cel, onZamknij, onJumpToSource }: Props) {
                   ? zStruktura
                     ? 'Sprawdź wszystkie kafelki i porównaj mapę — wtedy podpowiem ocenę.'
                     : 'Sprawdź wszystkie kafelki — wtedy podpowiem ocenę.'
+                  : osobno
+                  ? 'Sprawdź każdy kafelek — każdy dostanie własny termin.'
                   : 'Sprawdź kafelek — wtedy podpowiem ocenę.'}
             </p>
+          ) : osobno ? (
+            <>
+              <ul className="sesja-osobno">
+                {pozycje.map((p, i) => {
+                  const o = ({ tak: 3, czesciowo: 2, nie: 1 } as const)[ocenyRazem[p.klucz]]
+                  const r = kafelekOsobno(pamiecKs?.[i] ?? undefined, o, sektorK)
+                  return (
+                    <li key={p.klucz}>
+                      <strong>{p.nazwa}</strong>: {NAZWY_OCEN[o]} →{' '}
+                      {r.slaby
+                        ? `wraca ${opisDni(dniDo(r.termin))}, dalej słaby`
+                        : `dogonił sektor — idzie z nim (${opisDni(dniDo(r.termin))})`}
+                    </li>
+                  )
+                })}
+              </ul>
+              <button className="btn btn-primary sesja-zapisz" disabled={zapisuje} onClick={() => zapisz(zZaznaczen ?? 3)}>
+                Zapisz
+              </button>
+            </>
           ) : przemapowanie ? (
             <button className="btn btn-primary sesja-zapisz" disabled={zapisuje} onClick={() => zapisz(3)}>
               Zapisz — terminy bez zmian, potem dogrywka

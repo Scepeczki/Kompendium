@@ -46,7 +46,9 @@ export function Powtorki({ onStart, onOpenPath, onClose }: Props) {
   const start = (p: Pozycja) =>
     onStart(
       p.rodzaj === 'kafelek'
-        ? { klucz: p.klucz, sektorId: p.jednostka?.id }
+        ? p.klucze
+          ? { klucze: p.klucze, sektorId: p.jednostka?.id }
+          : { klucz: p.klucz, sektorId: p.jednostka?.id }
         : { jednostkaId: p.jednostka!.id },
     )
 
@@ -109,7 +111,7 @@ export function Powtorki({ onStart, onOpenPath, onClose }: Props) {
           <ul className="powtorki-lista">
             {plan.dzis.map((p) => (
               <li key={p.id} className="powtorki-pozycja" data-rodzaj={p.rodzaj}>
-                <span className={`powtorki-rodzaj rodzaj-${p.rodzaj}`}>{RODZAJ[p.rodzaj]}</span>
+                <span className={`powtorki-rodzaj rodzaj-${p.rodzaj}`}>{p.klucze ? `Słabe kafelki (${p.klucze.length})` : RODZAJ[p.rodzaj]}</span>
                 <span className="powtorki-nazwa">
                   {p.nazwa}
                   {p.gdzie && <span className="powtorki-gdzie"> · {p.gdzie}</span>}
@@ -141,7 +143,7 @@ export function Powtorki({ onStart, onOpenPath, onClose }: Props) {
             <ul className="powtorki-lista">
               {plan.jutro.map((p) => (
                 <li key={p.id} className="powtorki-pozycja">
-                  <span className={`powtorki-rodzaj rodzaj-${p.rodzaj}`}>{RODZAJ[p.rodzaj]}</span>
+                  <span className={`powtorki-rodzaj rodzaj-${p.rodzaj}`}>{p.klucze ? `Słabe kafelki (${p.klucze.length})` : RODZAJ[p.rodzaj]}</span>
                   <span className="powtorki-nazwa">
                     {p.nazwa}
                     {p.gdzie && <span className="powtorki-gdzie"> · {p.gdzie}</span>}

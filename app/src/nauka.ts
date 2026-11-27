@@ -130,16 +130,49 @@ export function terminSlabego(termin: string, cel: string, ostatnio: string): st
   return dzien(termin) > dzien(d) ? d.toISOString() : termin
 }
 
-/** Przycina terminy wszystkich słabych kafelków do `terminSlabego` (tylko
- *  w dół — wcześniejszych nie odsuwa). Po każdym zapisie nauki i przy starcie. */
+/** Odstęp sektora w dniach: od jego ostatniej powtórki do terminu. Miara,
+ *  którą kafelek osobno musi dogonić. Brak = sektor nie jest w powtórkach. */
+export function odstepSektora(s: JednostkaNauki | undefined): number | undefined {
+  if (!s || s.etap !== 'powtorki' || !s.termin || !s.karta?.last_review) return undefined
+  return dniDo(s.termin, new Date(s.karta.last_review))
+}
+
+/** Wynik kafelka powtarzanego osobno (słaby albo nowy) — bez ruszania sektora.
+ *  Kafelek idzie własną osią zapominania (FSRS), dopóki jego odstęp jest
+ *  krótszy niż odstęp sektora. Gdy na „Tak" odstęp sięga sektora — dogonił:
+ *  przestaje być słaby i dostaje termin sektora (nie wyprzedza go). Dopóki nie
+ *  dogonił, jego termin może wypaść nawet po terminie sektora — wtedy po prostu
+ *  wejdzie w powtórkę sektora. */
+export function kafelekOsobno(
+  stara: PamiecKafelka | undefined,
+  o: Ocena,
+  sektor: JednostkaNauki | undefined,
+  kiedy = teraz(),
+): { karta: KartaFsrs; slaby: boolean; termin: string } {
+  const karta = nastepna(stara?.karta, o, kiedy)
+  const odstep = odstepSektora(sektor)
+  if (odstep === undefined) return { karta, slaby: o < 3, termin: karta.due }
+  if (o >= 3 && dniDo(karta.due, kiedy) >= odstep) return { karta, slaby: false, termin: sektor!.termin! }
+  return { karta, slaby: true, termin: karta.due }
+}
+
+/** Porządek terminów kafelków sektorów w powtórkach (tylko w dół, bez ruszania
+ *  kart FSRS). Po każdym zapisie nauki, przy starcie i po zmianie ustawień.
+ *  - kafelek niesłaby idzie z sektorem: jego termin = termin sektora;
+ *  - słaby z sesji sektora (ta sama chwila powtórki co sektor, też po obniżce
+ *    czatem): termin najpóźniej `terminSlabego`, żeby wrócił przed sektorem.
+ *  Słabego powtarzanego osobno nie rusza — idzie własną osią (`kafelekOsobno`). */
 export async function dociagnijSlabe(): Promise<void> {
   const [pam, jedn] = await Promise.all([db.pamiec.toArray(), db.nauka.toArray()])
   const sektor = new Map(jedn.map((j) => [j.id, j]))
   for (const p of pam) {
-    if (!p.slaby || !p.jednostkaId) continue
+    if (!p.jednostkaId) continue
     const j = sektor.get(p.jednostkaId)
-    if (!j || j.etap !== 'powtorki' || !j.termin) continue
-    const t = terminSlabego(p.termin, j.termin, p.karta.last_review ?? p.zmieniono)
+    if (!j || j.rodzaj !== 'sektor' || j.etap !== 'powtorki' || !j.termin) continue
+    let t = p.termin
+    if (!p.slaby) t = j.termin
+    else if (j.karta?.last_review && p.karta.last_review === j.karta.last_review)
+      t = terminSlabego(p.termin, j.termin, p.karta.last_review)
     if (t !== p.termin) await db.pamiec.update(p.klucz, { termin: t })
   }
 }
@@ -377,6 +410,8 @@ export interface WynikSesji {
   jednostkaId?: string
   /** Albo jeden kafelek powtarzany osobno (słaby, nowy w sektorze). */
   klucz?: string
+  /** Albo kilka słabych kafelków jednego sektora w jednym teście. */
+  klucze?: string[]
   ocena: Ocena
   /** Klucz pamięci → jak poszło. */
   kafelki: Record<string, Przypomnienie>
@@ -409,6 +444,8 @@ export interface PoSesji {
   /** Termin następnej powtórki (brak = wraca do mapowania). */
   termin?: string
   slabe: number
+  /** Kafelki osobno: co z każdym (dalej słaby z własnym terminem albo z sektorem). */
+  osobno?: { klucz: string; slaby: boolean; termin: string }[]
   doPoprawy?: string[]
   uparte: string[]
   /** Powtórka zero idzie dalej: test czatem. */
@@ -606,31 +643,41 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
 
     // pamięć kafelków (test końcowy jej nie rusza — kafelki oceniłeś dziś w pierwszym teście)
     if (!nieudanyStart && !koncowy && !w.przemapowanie) {
+      // kafelki bez sektora: słabe albo nowe, jeden albo kilka z jednego sektora
+      const osobno = !!w.klucz || !!w.klucze?.length || !!w.douczanie
       for (const [klucz, p] of Object.entries(w.kafelki)) {
         const stara = await db.pamiec.get(klucz)
-        // kafelek powtarzany osobno dostaje ocenę z całej sesji, w sektorze —
-        // z własnego zaznaczenia
-        const o: Ocena = w.klucz ? w.ocena : ocenaKafelka(p)
-        const karta = nastepna(stara?.karta, o, kiedy)
+        // każdy kafelek dostaje ocenę z własnego zaznaczenia
+        const o: Ocena = ocenaKafelka(p)
         const wpadki = (stara?.wpadki ?? 0) + (o === 1 && !zero && stara ? 1 : 0)
-        // termin sektora, do którego kafelek ma dogonić
         const sektorId = j?.id ?? w.sektorId ?? stara?.jednostkaId
-        let cel = terminJednostki ?? (w.douczanie ? j?.termin : undefined)
-        if (!cel && w.klucz && sektorId) cel = (await db.nauka.get(sektorId))?.termin
-        // nowy kafelek uczony osobno startuje jako słaby: ma dogonić sektor
-        const bylSlaby = stara ? stara.slaby : !!w.klucz || !!w.douczanie
-        const slaby =
-          j?.rodzaj === 'fiszka'
-            ? false
-            : o === 1 || !!w.slabeZCzatu?.includes(klucz)
-              ? true
-              : !cel
-                ? o < 3
-                : (bylSlaby || o < 3) && dzien(karta.due) < dzien(cel)
+        let karta: KartaFsrs
+        let slaby: boolean
+        let termin: string
+        if (osobno) {
+          // sektora nie powtarzasz: kafelek goni go własną osią zapominania
+          const s = j ?? (sektorId ? await db.nauka.get(sektorId) : undefined)
+          ;({ karta, slaby, termin } = kafelekOsobno(stara, o, s, kiedy))
+        } else {
+          karta = nastepna(stara?.karta, o, kiedy)
+          termin = karta.due
+          // sesja sektora: kafelek z terminem przed nowym terminem sektora
+          // jeszcze go nie dogonił
+          const cel = terminJednostki
+          const bylSlaby = !!stara?.slaby
+          slaby =
+            j?.rodzaj === 'fiszka'
+              ? false
+              : o === 1 || !!w.slabeZCzatu?.includes(klucz)
+                ? true
+                : !cel
+                  ? o < 3
+                  : (bylSlaby || o < 3) && dzien(karta.due) < dzien(cel)
+        }
         await db.pamiec.put({
           klucz,
           karta,
-          termin: karta.due,
+          termin,
           slaby,
           wpadki,
           // żeby czat mógł tę ocenę jeszcze obniżyć (ocena łączna z tego dnia)
@@ -641,6 +688,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
           zmieniono: iso,
         })
         if (slaby) wynik.slabe++
+        if (osobno) (wynik.osobno ??= []).push({ klucz, slaby, termin })
         if (wpadki >= progUpartego && o === 1) wynik.uparte.push(klucz)
       }
     }
@@ -669,7 +717,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
       sprzeciwy: sprzeciwy(w.czat?.kafelki),
       przemapowanie: w.przemapowanie || undefined,
       klucz: w.klucz,
-      typ: w.klucz ? 'kafelek' : w.douczanie ? 'douczanie' : koncowy ? 'koncowy' : zero ? 'test' : 'powtorka',
+      typ: w.klucz || w.klucze?.length ? 'kafelek' : w.douczanie ? 'douczanie' : koncowy ? 'koncowy' : zero ? 'test' : 'powtorka',
       trudny: w.trudny || undefined,
       rozszerzona: w.rozszerzona,
       czat: w.czat ? (w.czat.zaliczone ? 'zaliczone' : 'luki') : undefined,
@@ -1336,6 +1384,8 @@ export interface Pozycja {
   jednostka?: JednostkaNauki
   /** Kafelek osobno: jego klucz pamięci. */
   klucz?: string
+  /** Kilka słabych kafelków jednego sektora — jeden test zakryty. */
+  klucze?: string[]
   pamiec?: PamiecKafelka
   nazwa: string
   /** Gdzie (ścieżka / sektor) — do podpisu. */
@@ -1360,6 +1410,36 @@ export interface Plan {
   uparte: { pamiec: PamiecKafelka; nazwa: string }[]
   minutyDzis: number
   minutyJutro: number
+}
+
+/** Słabe kafelki jednego sektora w jednej pozycji (jeden test zakryty);
+ *  kafelek bez sektora albo sam w sektorze zostaje osobno. */
+function razemZSektora(l: Pozycja[]): Pozycja[] {
+  const grupy = new Map<string, Pozycja[]>()
+  const out: Pozycja[] = []
+  for (const x of l) {
+    if (!x.jednostka) out.push(x)
+    else grupy.set(x.jednostka.id, [...(grupy.get(x.jednostka.id) ?? []), x])
+  }
+  for (const g of grupy.values()) {
+    if (g.length === 1) {
+      out.push(g[0])
+      continue
+    }
+    const j = g[0].jednostka!
+    out.push({
+      id: `slabe:${j.id}`,
+      rodzaj: 'kafelek',
+      klucze: g.map((x) => x.klucz!),
+      nazwa: g.map((x) => x.nazwa).join(', '),
+      gdzie: j.nazwa,
+      minuty: g.reduce((a, x) => a + x.minuty, 0),
+      dni: Math.min(...g.map((x) => x.dni)),
+      pamiec01: Math.min(...g.map((x) => x.pamiec01)),
+      jednostka: j,
+    })
+  }
+  return out
 }
 
 export async function planNauki(kiedy = teraz()): Promise<Plan> {
@@ -1477,6 +1557,8 @@ export async function planNauki(kiedy = teraz()): Promise<Plan> {
   // słabe kafelki osobno — chyba że ich sektor i tak jest dziś
   const uparte: Plan['uparte'] = []
   const progUpartego = wez('uparty')
+  const slabeDzis: Pozycja[] = []
+  const slabeJutro: Pozycja[] = []
   for (const pk of pamiecWszystko) {
     const p = pk.pathId ? sciezka.get(pk.pathId) : undefined
     // kafelek (albo grupa) już nie istnieje — nie ma czego powtarzać
@@ -1501,9 +1583,11 @@ export async function planNauki(kiedy = teraz()): Promise<Plan> {
     }
     if (dzien(pk.termin) <= dzis) {
       if (j && sektoryDzis.has(j.id)) continue
-      dzisL.push(poz)
-    } else if (dzien(pk.termin) === jutroD) jutroL.push(poz)
+      slabeDzis.push(poz)
+    } else if (dzien(pk.termin) === jutroD) slabeJutro.push(poz)
   }
+  dzisL.push(...razemZSektora(slabeDzis))
+  jutroL.push(...razemZSektora(slabeJutro))
 
   dzisL.sort((a, b) => a.pamiec01 - b.pamiec01)
   const suma = (l: Pozycja[]) => l.reduce((a, x) => a + x.minuty, 0)
