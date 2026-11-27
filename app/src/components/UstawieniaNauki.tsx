@@ -104,6 +104,7 @@ export function UstawieniaNauki() {
       <h3 className="settings-grupa">Ocena sektora</h3>
       {wiersz('progDobrze')}
       {wiersz('progNie')}
+      {wiersz('slabyPrzed')}
       {wiersz('uparty')}
       {wiersz('limitDogrywek')}
 

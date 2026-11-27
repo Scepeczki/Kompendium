@@ -48,6 +48,12 @@ export const NAUKA = {
   rozszCoDaleko: u('rozszCoDaleko', 'Rozszerzona przy dalekich', '…rozszerzona wypada co tyle powtórek.', 2, 1, 20, 'powtórki'),
   zadanWPowtorce: u('zadanWPowtorce', 'Zadań w powtórce', 'Ile zadań sektora wchodzi do powtórki rozszerzonej z zadaniami (za każdym razem następne).', 2, 1, 20, 'zadań'),
   uparty: u('uparty', 'Uparty kafelek po', 'Po tylu wpadkach kafelek dostaje radę „przemapuj go".', 4, 2, 30, 'wpadkach'),
+  slabyPrzed: u(
+    'slabyPrzed',
+    'Słaby kafelek wcześniej o',
+    'Słaby kafelek wraca przed sektorem: o taką część czasu do terminu sektora wcześniej (co najmniej dzień, ale nie wcześniej niż dzień po ostatniej powtórce). Gdy sektor jest już nazajutrz, kafelek wchodzi w jego powtórkę.',
+    50, 0, 90, '%',
+  ),
   progDobrze: u('progDobrze', '„Dobrze" do', 'Jaki odsetek kafelków może nie pójść (Częściowo albo Nie), a sektor wciąż jest „Dobrze".', 20, 0, 100, '%'),
   limitDogrywek: u('limitDogrywek', 'Dogrywek najwięcej', 'Po tylu nieudanych dogrywkach z rzędu: mapowanie samych kafelków z NIE, przerwa, krótki test z nich i znowu dogrywka.', 2, 1, 10, 'nieudanych'),
   progNie: u('progNie', '„Nie pamiętam" od', 'Powyżej takiego odsetka sektor jest „Nie pamiętam" i wraca do mapowania tych miejsc.', 50, 0, 100, '%'),

@@ -14,7 +14,7 @@ import { Icon } from './components/Icon'
 import { Powtorki } from './components/Powtorki'
 import { KomunikatNaEkranie } from './components/KomunikatNaEkranie'
 import { SesjaNauki, type CelSesji } from './components/SesjaNauki'
-import { minutyDouczania, minutyPrzemapowania, minutyPrzerwy, planNauki } from './nauka'
+import { dociagnijSlabe, minutyDouczania, minutyPrzemapowania, minutyPrzerwy, planNauki } from './nauka'
 import { wez } from './naukaUstawienia'
 import { powiadom } from './pulpit'
 
@@ -99,6 +99,13 @@ function Widok() {
   /** Ile na dziś — licznik przy przycisku Powtórek. */
   const planDzis = useLiveQuery(() => planNauki(), [])
   const doPowtorki = planDzis?.dzis.length ?? 0
+  // słabe kafelki przed sektorem: przy starcie i po zmianie ustawień
+  useEffect(() => {
+    const h = () => void dociagnijSlabe()
+    h()
+    window.addEventListener('komp:ui', h)
+    return () => window.removeEventListener('komp:ui', h)
+  }, [])
 
   // Klik w powiadomienie programu: otwiera to, o czym było.
   useEffect(() => {

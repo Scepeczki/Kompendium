@@ -115,6 +115,35 @@ export function podglad(karta: KartaFsrs | undefined, kiedy = teraz()): Record<O
   return out
 }
 
+/** Termin słabego kafelka: nie później niż przed terminem sektora — o część
+ *  czasu z ustawienia `slabyPrzed`, co najmniej dzień, ale nie wcześniej niż
+ *  dzień po ostatniej powtórce kafelka. FSRS czasem daje słabemu ten sam
+ *  dzień co sektorowi; wtedy nie miałby kiedy się doćwiczyć. */
+export function terminSlabego(termin: string, cel: string, ostatnio: string): string {
+  const dni = dniDo(cel, new Date(ostatnio))
+  const przed = Math.max(1, Math.round((dni * wez('slabyPrzed')) / 100))
+  const po = Math.max(1, dni - przed)
+  // sektor już nazajutrz po powtórce — wcześniej się nie da, kafelek wejdzie w sektor
+  if (po >= dni) return termin
+  const d = new Date(ostatnio)
+  d.setDate(d.getDate() + po)
+  return dzien(termin) > dzien(d) ? d.toISOString() : termin
+}
+
+/** Przycina terminy wszystkich słabych kafelków do `terminSlabego` (tylko
+ *  w dół — wcześniejszych nie odsuwa). Po każdym zapisie nauki i przy starcie. */
+export async function dociagnijSlabe(): Promise<void> {
+  const [pam, jedn] = await Promise.all([db.pamiec.toArray(), db.nauka.toArray()])
+  const sektor = new Map(jedn.map((j) => [j.id, j]))
+  for (const p of pam) {
+    if (!p.slaby || !p.jednostkaId) continue
+    const j = sektor.get(p.jednostkaId)
+    if (!j || j.etap !== 'powtorki' || !j.termin) continue
+    const t = terminSlabego(p.termin, j.termin, p.karta.last_review ?? p.zmieniono)
+    if (t !== p.termin) await db.pamiec.update(p.klucz, { termin: t })
+  }
+}
+
 /** Szansa, że jeszcze pamiętasz (0–1). */
 export function pamietasz(karta: KartaFsrs | undefined, kiedy = teraz()): number {
   if (!karta || !karta.last_review) return 0
@@ -653,6 +682,7 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
       cel: wez('cel'),
     }
     await db.historia.add(wpis)
+    await dociagnijSlabe()
   })
   return wynik
 }
@@ -1216,6 +1246,7 @@ export async function wynikCzatu(
       limit,
       przemapowanie: przem,
     }
+    await dociagnijSlabe()
   })
   return wynik
 }
