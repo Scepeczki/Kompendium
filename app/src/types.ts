@@ -611,6 +611,8 @@ export interface JednostkaNauki {
   douczanie?: {
     wezly: string[]
     zadania: string[]
+    /** Węzły kafelków ze zmienioną treścią — uczone od zera, jak nowe. */
+    zmienione?: string[]
     etap: 'mapowanie' | 'przerwa'
     od: string
   }
@@ -651,6 +653,9 @@ export interface PamiecKafelka {
   jednostkaId?: string
   pathId?: string
   nodeId?: string
+  /** Kiedy potwierdziłeś, że zmiana kafelka nie dotyczy treści — wcześniejsze
+   *  zmiany nie każą się go uczyć od nowa. */
+  trescOk?: string
   zmieniono: string
 }
 

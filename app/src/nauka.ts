@@ -646,7 +646,10 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
       // kafelki bez sektora: słabe albo nowe, jeden albo kilka z jednego sektora
       const osobno = !!w.klucz || !!w.klucze?.length || !!w.douczanie
       for (const [klucz, p] of Object.entries(w.kafelki)) {
-        const stara = await db.pamiec.get(klucz)
+        const zapisana = await db.pamiec.get(klucz)
+        // kafelek ze zmienioną treścią douczany jak nowy: karta od zera
+        const odZera = !!w.douczanie && !!j?.douczanie?.zmienione?.includes(w.wezlyKafelkow[klucz] ?? zapisana?.nodeId ?? '')
+        const stara = odZera ? undefined : zapisana
         // każdy kafelek dostaje ocenę z własnego zaznaczenia
         const o: Ocena = ocenaKafelka(p)
         const wpadki = (stara?.wpadki ?? 0) + (o === 1 && !zero && stara ? 1 : 0)
@@ -683,8 +686,9 @@ export async function zapiszSesje(w: WynikSesji): Promise<PoSesji> {
           // żeby czat mógł tę ocenę jeszcze obniżyć (ocena łączna z tego dnia)
           przed: { karta: stara?.karta, slaby: stara?.slaby ?? false, ocena: o, kiedy: iso },
           jednostkaId: sektorId,
-          pathId: w.pathId ?? stara?.pathId,
-          nodeId: w.wezlyKafelkow[klucz] ?? stara?.nodeId,
+          pathId: w.pathId ?? zapisana?.pathId,
+          nodeId: w.wezlyKafelkow[klucz] ?? zapisana?.nodeId,
+          trescOk: odZera ? iso : zapisana?.trescOk,
           zmieniono: iso,
         })
         if (slaby) wynik.slabe++
@@ -1027,8 +1031,13 @@ export async function przesunZadanie(sektorId: string, conceptId: string, o: -1 
 }
 
 /** „Doucz nowe": zaczyna mapowanie samych nowych elementów sektora. */
-export async function zacznijDouczanie(id: string, nowe: { wezly: string[]; zadania: string[] }) {
+export async function zacznijDouczanie(id: string, nowe: { wezly: string[]; zadania: string[]; zmienione?: string[] }) {
   await zmienJednostke(id, { douczanie: { ...nowe, etap: 'mapowanie', od: teraz().toISOString() } })
+}
+
+/** „Treść bez zmian": zmiana kafelka nie dotyczy tego, czego się uczysz. */
+export async function trescBezZmian(klucz: string) {
+  await db.pamiec.update(klucz, { trescOk: teraz().toISOString() })
 }
 
 export async function skonczMapowanieDouczania(id: string) {

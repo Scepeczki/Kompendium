@@ -1,6 +1,6 @@
 # Jak działa system powtórek w Kompendium
 
-Opis stanu z wersji 1.0.25 (27.11.2026). Spisany z kodu (`app/src/nauka.ts`,
+Opis stanu z wersji 1.0.26 (28.11.2026). Spisany z kodu (`app/src/nauka.ts`,
 `app/src/naukaUstawienia.ts`, `app/src/components/SesjaNauki.tsx`), nie z planów.
 
 ## 1. Pojęcia
@@ -194,6 +194,21 @@ mu 5 dni. 5 < 20, czyli nie dogonił, więc zostaje słaby z terminem za 5 dni. 
 wejdzie w powtórkę sektora i tam dostanie nową ocenę.
 
 Ta sama zasada dotyczy **nowych kafelków** dołożonych do nauczonego sektora („Doucz nowe").
+
+### Zmieniona treść kafelka
+
+Program sprawdza każdy kafelek nauczonego sektora z osobna. Kafelek uznaje za zmieniony,
+jeśli jego treść (wersja albo strony) zmieniła się po jego ostatnim teście. Sama zmiana
+nazwy albo folderu się nie liczy. Zmienione kafelki są wypisane na karcie sektora, a do
+wyboru są trzy rzeczy:
+
+- **„Treść bez zmian"** przy kafelku: potwierdzasz, że zmiana nie dotyczy tego, czego się
+  uczysz (np. poprawiona literówka). Kafelek znika z listy, a jego karta i termin zostają.
+- **„Doucz zmienione (N)"**: to samo co „Doucz nowe", tylko dla zmienionych kafelków, czyli
+  mapowanie samych ich, przerwa i test tylko z nich. Karta FSRS takiego kafelka **zaczyna
+  się od zera**, jak u nowego kafelka. Potem goni sektor według zasad wyżej. Termin sektora
+  i pozostałe kafelki zostają bez zmian. Historia starych powtórek zostaje.
+- **„Cały sektor od nowa"**: cały sektor wraca do powtórki zero (tak jak wcześniej).
 
 ### Kiedy to się przelicza
 

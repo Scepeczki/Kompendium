@@ -21,6 +21,7 @@ import {
   przerwijDouczanie,
   przerwijNauke,
   skonczMapowanieDouczania,
+  trescBezZmian,
   zacznijDouczanie,
   znaneKlucze,
   prognoza,
@@ -271,10 +272,19 @@ export function PanelNauki({
     window.dispatchEvent(new CustomEvent('komp:komunikat', { detail: 'Dodano do powtórek jako fiszkę' }))
   }
 
-  /** Czy treść kafelków zmieniła się od ostatniej powtórki. */
-  const zmieniony = (j: JednostkaNauki, wezly: PathNode[]) =>
-    !!j.ostatnia &&
-    wezly.some((n) => n.kind === 'block' && (zmianaTresci.get(n.conceptId) ?? '') > (j.ostatnia ?? ''))
+  /** Kafelki, których treść zmieniła się po ich ostatnim teście (i nie
+   *  potwierdziłeś, że zmiana nie dotyczy treści). */
+  const zmienioneW = (j: JednostkaNauki, wezly: PathNode[]) => {
+    if (j.etap !== 'powtorki') return []
+    return wezly.flatMap((n) => {
+      if (n.kind !== 'block') return []
+      const k = kluczWezla(n, pathId)
+      const p = k ? pamiec.find((x) => x.klucz === k) : undefined
+      if (!k || !p) return []
+      const od = [j.ostatnia ?? '', p.karta.last_review ? new Date(p.karta.last_review).toISOString() : '', p.trescOk ?? ''].sort().pop()!
+      return (zmianaTresci.get(n.conceptId) ?? '') > od ? [{ id: n.id, klucz: k, nazwa: nazwaWezla(n) }] : []
+    })
+  }
 
   /** Co w nauczonym sektorze jest nowe: kafelki bez pamięci i zadania,
    *  których nie było jeszcze w żadnym teście. */
@@ -344,7 +354,14 @@ export function PanelNauki({
                 aktywny={wybranySektor?.j.id === s.j.id}
                 zaznaczone={zazOcenialne}
                 slabe={slabeW(s.wezly)}
-                zmieniony={zmieniony(s.j, s.wezly)}
+                zmienione={zmienioneW(s.j, s.wezly)}
+                onDouczZmienione={async () => {
+                  const ids = zmienioneW(s.j, s.wezly).map((z) => z.id)
+                  await zacznijDouczanie(s.j.id, { wezly: ids, zadania: [], zmienione: ids })
+                  onWybierz(s.j.id)
+                  setMapowany(s.j.id)
+                }}
+                onBezZmian={(klucz) => trescBezZmian(klucz)}
                 onWybierz={() => {
                   onWybierz(s.j.id)
                   pokazWLinii(s.wezly[0]?.id)
@@ -421,7 +438,9 @@ function KartaSektora({
   aktywny,
   zaznaczone,
   slabe,
-  zmieniony,
+  zmienione,
+  onDouczZmienione,
+  onBezZmian,
   onWybierz,
   onMapuj,
   onZacznij,
@@ -446,7 +465,9 @@ function KartaSektora({
   aktywny: boolean
   zaznaczone: string[]
   slabe: number
-  zmieniony: boolean
+  zmienione: { id: string; klucz: string; nazwa: string }[]
+  onDouczZmienione: () => void
+  onBezZmian: (klucz: string) => void
   onWybierz: () => void
   /** Otwiera tryb mapowania (okno na cały ekran) — tam jest mapa sektora. */
   onMapuj: () => void
@@ -681,13 +702,28 @@ function KartaSektora({
           </button>
         </div>
       )}
-      {zmieniony && j.etap === 'powtorki' && (
-        <p className="karta-sektora-uwaga">
-          Treść zmieniła się od ostatniej powtórki.{' '}
-          <button className="btn btn-link" onClick={onOdNowa}>
-            Naucz od nowa
-          </button>
-        </p>
+      {zmienione.length > 0 && j.etap === 'powtorki' && !j.douczanie && (
+        <div className="karta-sektora-zmienione">
+          <span>Zmieniona treść:</span>
+          <ul>
+            {zmienione.map((z) => (
+              <li key={z.id}>
+                <span>{z.nazwa}</span>
+                <button className="btn btn-link" title="Zmiana nie dotyczy treści — nie trzeba uczyć się go od nowa" onClick={() => onBezZmian(z.klucz)}>
+                  Treść bez zmian
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="karta-sektora-zmienione-przyciski">
+            <button className="btn btn-primary btn-maly" onClick={onDouczZmienione}>
+              Doucz zmienione ({zmienione.length})
+            </button>
+            <button className="btn btn-link" onClick={onOdNowa}>
+              Cały sektor od nowa
+            </button>
+          </div>
+        </div>
       )}
     </li>
   )
