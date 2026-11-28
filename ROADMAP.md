@@ -68,6 +68,21 @@ Poniżej to, co działa, pogrupowane tak, jak się z tego korzysta.
 
 ## Kolejka — co dalej
 
+**Teraz (od 28.11.2026):** użytkownik testuje cały program. Jeśli nie znajdzie błędów,
+na jego znak wydajemy wersję stabilną: pierwsze „1.0” na GitHubie, w której
+Kompendium wreszcie działa w całości.
+
+**Kierunki po wersji stabilnej** (słowa użytkownika, lista będzie rosła):
+
+1. **Telefon z synchronizacją:** Kompendium także na telefonie, dane wspólne z komputerem.
+2. **AI i automatyzacja:** połączenie z AI i zautomatyzowanie żmudnych czynności.
+3. **Poprawki graficzne i funkcjonalne.**
+4. **Doskonalenie systemu nauki.**
+5. **Przegląd skryptu i mapy.**
+
+Dalej dawny plan (nauka zrobiona etapami 1–4):
+
+
 **Najpierw: system nauki** ([VISION.md](VISION.md) §5), etapami, każdy
 od razu do użytku:
 
